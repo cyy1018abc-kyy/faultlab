@@ -1,0 +1,105 @@
+{
+  "gate": "G2 四件套",
+  "ok": true,
+  "failed_count": 0,
+  "results": [
+    {
+      "id": "① verify_golden fl001（独立 oracle → golden 容差比对）",
+      "cmd": "python scripts/verify_golden.py",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "① verify_golden fc001（P1-06 / G2b-lite）",
+      "cmd": "python scripts/verify_golden.py fc001",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "① engine.test.js（FL-001 601 点对 golden + PHY/SA）",
+      "cmd": "node tests/engine.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "① engine-fc.test.js（FC-001 601 点对 golden，P1-06）",
+      "cmd": "node tests/engine-fc.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "② e2e.mjs（浏览器 E2E，PHY-08/SA-22）",
+      "cmd": "node tools/e2e.mjs",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "③ registry.test.js（RunRegistry/规范哈希/不可变）",
+      "cmd": "node tests/registry.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "④ schema.test.js（Schema/单位字典/exposure/投影）",
+      "cmd": "node tests/schema.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "④ bundle.test.js（EvidenceBundle v1 + N-1…N-10 负例）",
+      "cmd": "node tests/bundle.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "+ event-phase.test.js（事件相位 G0-DEC-05）",
+      "cmd": "node tests/event-phase.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "G4 scope-guard.test.js（SA-24 范围守卫）",
+      "cmd": "node tests/scope-guard.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "G4 compare.test.js（对比白名单 T-15）",
+      "cmd": "node tests/compare.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "G4 causal-rules.test.js（因果规则/证据链/教学卡）",
+      "cmd": "node tests/causal-rules.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "G4 copy-guard.mjs（禁止词扫描 §6.3）",
+      "cmd": "node tools/copy-guard.mjs",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "P1 report.test.js（HTML 报告验收）",
+      "cmd": "node tests/report.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "+ core.test.js（既有回归，适配新语义）",
+      "cmd": "node tests/core.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "+ arena.test.js（既有回归）",
+      "cmd": "node tests/arena.test.js",
+      "status": "pass",
+      "exit_code": 0
+    }
+  ],
+  "node": "v26.5.1",
+  "generated_at": "2026-10-27T18:44:21.711Z"
+}
