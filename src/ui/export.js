@@ -220,7 +220,7 @@
     if (!trial) throw new Error('htmlReport: 缺少试验运行');
     const now = o.generatedAt ? new Date(o.generatedAt) : new Date();
     const failed = !!(comp && comp.valid === false) || (trial.quality || []).some((q) => q.status === 'fail');
-    const statusLabel = failed ? '验证未通过（仅排障用途）' : '演示级数值校验通过';
+    const statusLabel = failed ? '内部一致性检查未通过（FAIL · 仅排障用途）' : '内部一致性检查通过（演示级）';
 
     const css = `
       :root { color-scheme: light; }
@@ -286,11 +286,11 @@
       `<li><strong>${esc(f.title)}</strong>：${esc(f.text)}</li>`).join('');
 
     const assumptions = ((system && system.model && system.model.assumptions) || []).map((a) =>
-      `<li>${esc(a.text || a.id)}</li>`).join('');
+      `<li>${esc(a.id ? a.id + '：' : '')}${esc(a.text || a.id)}</li>`).join('');
     const limitations = ((system && system.model && system.model.limitations) || []).map((l) => `<li>${esc(l)}</li>`).join('');
 
     const validityNote = comp && comp.valid === false
-      ? '<div class="notice fail">本对比未通过一致性检查：不得表述为“因故障导致”的因果结论，请先核对差异项。</div>'
+      ? '<div class="notice fail">本对比不可比（incomparable）：不得表述为“因故障导致”的因果结论，请先核对白名单差异项。</div>'
       : '<div class="notice">对比一致性检查通过（模型、参数、时钟）。</div>';
 
     return `<!DOCTYPE html>
@@ -336,8 +336,9 @@
   <ul>${limitations || ''}</ul>
 
   <div class="foot">
-    数据性质：解析/行为级（L0）演示数据，非 Simulink 运行结果、非现场数据、非实测结论。所有结论可回溯到上面记录的运行、模型哈希与配置哈希。<br>
+    数据性质：解析/行为级（L0）演示数据（synthetic）；非 Simulink、非现场数据、非实测。所有结论可回溯到上面记录的运行、模型哈希与配置哈希。<br>
     来源分类：CONFIG / MODEL_STATE / OBSERVATION / CONTROLLER / FAULT_EVENT / DERIVED / MODEL_ASSUMPTION。说明文本不作为计算数据源。
+    <div class="mono" data-testid="export-footer" style="margin-top:8px;word-break:break-all;">${esc(evidenceFooter(trial))}</div>
   </div>
 </div></body></html>`;
   }
@@ -386,6 +387,31 @@
       }
       return FL.bundle.importBundle(files);
     });
+  }
+
+  /* ===================================================================
+     证据等级页脚（UI_COPY_GUARDRAILS §1.5 固定串；导出必带，逐字锁定）
+     =================================================================== */
+  function evidenceFooter(run) {
+    const mf = (run && run.manifest) || {};
+    const quality = (run && run.quality) || [];
+    const failedChecks = quality.some((q) => q.status === 'fail');
+    const checksStatus = (mf.verification && mf.verification.consistency_checks) || (failedChecks ? 'fail' : 'pass');
+    const runHash = (mf.integrity && mf.integrity.run_hash) || (run && run.runHash) || '';
+    const parts = [
+      'model_provenance=analytical_demo',
+      'data=synthetic',
+      'verification.consistency_checks=' + checksStatus,
+      'verification.model_validation=' + ((mf.verification && mf.verification.model_validation) || 'not_performed'),
+      'verification.hardware_verification=' + ((mf.verification && mf.verification.hardware_verification) || 'not_performed'),
+      'integrity.checks_status=' + ((mf.integrity && mf.integrity.checks_status) || checksStatus),
+      'integrity.run_hash=sha256:' + runHash,
+      'hash=content_integrity_only(not_a_signature)',
+      'rounding=round-half-up',
+      '内容校验和：不代表签名/来源/第三方认证'
+    ];
+    const prefix = failedChecks ? 'FAIL · 内部一致性检查未通过 | ' : '';
+    return prefix + parts.join(' | ');
   }
 
   /* ===================================================================
@@ -454,6 +480,7 @@
     reportFilename,
     downloadBundle,
     importBundleFromFileList,
+    evidenceFooter,
     bundleFilePrefix,
     _helpers: { esc, num, csvCell, stamp }
   };

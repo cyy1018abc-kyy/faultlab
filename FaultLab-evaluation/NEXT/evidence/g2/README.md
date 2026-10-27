@@ -19,9 +19,9 @@ node tools/run-g2.mjs                               # 四件套聚合（任一�
 | 文件 | 内容 | 通过判据 |
 |---|---|---|
 | `run-g2-report.json` | 四件套聚合结果（9 步全 PASS，含命令与退出码） | `ok=true` |
-| `verify_golden.log.json` | oracle 重算 vs golden 逐项比对（V-01…V-09） | 全部 pass |
+| `verify_golden.log.json` | oracle 重算 vs golden 逐项比对（V-01…V-09 + V-03b 批准摘要） | 全部 pass |
 | `e2e-report.json` | 浏览器 E2E fl001-min（40 断言） | `ok=true` |
-| `golden-sha256.txt` | golden 文件 SHA-256（内容校验和，非签名） | `ea84ef61…22e2b3` |
+| `golden-sha256.txt` | golden 文件 SHA-256（内容校验和，非签名；**2026-10-28 approval 字段已回填**，CHG-20261028-01） | `6a0c751f…c31ede2` |
 | `deviations.md` | 实现相对规格文本的偏差登记 | 逐条可追溯 |
 
 ## 对应关系（BACKLOG_APPROVED §2.1）

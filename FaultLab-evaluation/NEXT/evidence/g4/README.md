@@ -34,3 +34,14 @@ node tools/copy-guard.mjs      # 禁止词扫描（UI_COPY_GUARDRAILS §6.3；�
 | D-10 | copy-guard 允许列表新增整串：`本页不做检测/定位/诊断，无检出率与延迟指标` | 该串为 UI_COPY_GUARDRAILS §3.1 逐字锁定的因果页横幅，本身含"检出率"否定语境（§6.1 否定句允许的原则性延伸） |
 | D-11 | sealed 扫描剥离含 `sealed` 的标识符 token（truthSealed/truth_sealed/assertSealed 等）后再匹配 | 这些是 DECISIONS G0-DEC-11 与 docs/AGENT_PROTOCOL.md 命名的代码标识符/状态键，非用户可见表述；用户可见的 sealed 类宣称仍由禁止词规则约束 |
 | D-12 | `verifyRunHash` 未纳入本聚合（属 registry.test.js 覆盖）；`qa.mjs` 旧 UX 断言未迁移 | BACKLOG P0b-05 允许"计划迁移，不沿用旧实现断言"；旧 qa 断言不得作为验收证据，故不纳入聚合门禁 |
+
+## P1 增补（CHG-20261028-04，2026-10-28）
+
+| 项 | 交付物 | 证据 |
+|---|---|---|
+| P1-02 | HTML 报告正式验收：§1.5 固定证据页脚（data-testid=export-footer）、ST-06 失败态措辞、假设 id+text 可追溯、转义/自包含/不可用断言 | `tests/report.test.js` 32 断言 |
+| P1-06 | FC-001 修复清单闭环：A-valve-linear/A-ideal-limiter 假设、`tools/oracle/fc001_oracle.py`（SC-1…7）、`data/golden/fc001_v1.json`（已批准）、`scripts/verify_golden.py fc001`、`tests/engine-fc.test.js` 109 断言、UI 标注、W-10 正号 | `fc001-g2b-lite.md` + `verify_golden_fc001.log.json` + `fc001-golden-sha256.txt` |
+| 走查 | P0b-01/02 自动化走查（qa ux 14/14、misc 9/9）+ 截图人工复核（委托） | `walkthrough-p0b01-02.md` |
+
+聚合回归：`run-g2.mjs` **16/16 PASS**（含 E2E 40 断言、双 golden verify）。
+FC-001 仍为 `scope='extension_preview'`（G2b-lite 口径，不进入 P0 验收）。

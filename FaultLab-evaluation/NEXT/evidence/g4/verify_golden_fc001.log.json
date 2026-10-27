@@ -1,0 +1,109 @@
+{
+  "python_version": "3.9.6",
+  "model": "fc001",
+  "golden": "E:\\Users\\amdir\\Desktop\\FaultLab — Virtual Energy Lab\\data\\golden\\fc001_v1.json",
+  "checks": [
+    {
+      "check_id": "V-01-golden-exists",
+      "status": "pass",
+      "detail": "已加载（531624 字节）"
+    },
+    {
+      "check_id": "V-02-golden-sha256",
+      "status": "pass",
+      "detail": "sidecar=f518c7bcddce1a47 actual=f518c7bcddce1a47"
+    },
+    {
+      "check_id": "V-03-oracle-source-hash",
+      "status": "pass",
+      "detail": "golden 记录=d5e7347dec10e235 当前=d5e7347dec10e235"
+    },
+    {
+      "check_id": "V-03b-approval-digest",
+      "status": "pass",
+      "detail": "记录=ef88f1fb5537 重算=ef88f1fb5537（approved_by=user（2026-10-28 CHG-20261028-04：批准 P1-06 FC-001 修复清单与 G2b-lite））"
+    },
+    {
+      "check_id": "V-04-oracle-self-check",
+      "status": "pass",
+      "detail": "SC-1-simpson-intI=pass; SC-2-rk4-ode=pass; SC-3-identity=pass; SC-4-fine-trapz-E=pass; SC-5-event-phase=pass; SC-6-grid-finite=pass; SC-7-approved-soc=pass"
+    },
+    {
+      "check_id": "V-05-keypoints-healthy",
+      "status": "pass",
+      "detail": "19.9/21.5/26.0/60.0 s 的 I_fc_true_A/I_fc_meas_A 逐点"
+    },
+    {
+      "check_id": "V-06-scalars-healthy",
+      "status": "pass",
+      "detail": "E/SOC 标量（gate ±1e-6 kWh / ±1e-5 pp）"
+    },
+    {
+      "check_id": "V-07-series-healthy",
+      "status": "pass",
+      "detail": "601 点全精度序列（rtol 1e-12）"
+    },
+    {
+      "check_id": "V-08-metrics-healthy",
+      "status": "pass",
+      "detail": "指标集（10 项）"
+    },
+    {
+      "check_id": "V-09-events-healthy",
+      "status": "pass",
+      "detail": "无故障运行无事件（预期）"
+    },
+    {
+      "check_id": "V-05-keypoints-closed_loop_fault",
+      "status": "pass",
+      "detail": "19.9/21.5/26.0/60.0 s 的 I_fc_true_A/I_fc_meas_A 逐点"
+    },
+    {
+      "check_id": "V-06-scalars-closed_loop_fault",
+      "status": "pass",
+      "detail": "E/SOC 标量（gate ±1e-6 kWh / ±1e-5 pp）"
+    },
+    {
+      "check_id": "V-07-series-closed_loop_fault",
+      "status": "pass",
+      "detail": "601 点全精度序列（rtol 1e-12）"
+    },
+    {
+      "check_id": "V-08-metrics-closed_loop_fault",
+      "status": "pass",
+      "detail": "指标集（10 项）"
+    },
+    {
+      "check_id": "V-09-events-closed_loop_fault",
+      "status": "pass",
+      "detail": "pre/post t_s=事件时刻、derivation、I_fc_meas_A 相位值"
+    },
+    {
+      "check_id": "V-05-keypoints-monitor_only",
+      "status": "pass",
+      "detail": "19.9/21.5/26.0/60.0 s 的 I_fc_true_A/I_fc_meas_A 逐点"
+    },
+    {
+      "check_id": "V-06-scalars-monitor_only",
+      "status": "pass",
+      "detail": "E/SOC 标量（gate ±1e-6 kWh / ±1e-5 pp）"
+    },
+    {
+      "check_id": "V-07-series-monitor_only",
+      "status": "pass",
+      "detail": "601 点全精度序列（rtol 1e-12）"
+    },
+    {
+      "check_id": "V-08-metrics-monitor_only",
+      "status": "pass",
+      "detail": "指标集（10 项）"
+    },
+    {
+      "check_id": "V-09-events-monitor_only",
+      "status": "pass",
+      "detail": "pre/post t_s=事件时刻、derivation、I_fc_meas_A 相位值"
+    }
+  ],
+  "problems": [],
+  "ok": true
+}

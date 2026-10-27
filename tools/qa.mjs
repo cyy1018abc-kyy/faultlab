@@ -227,7 +227,8 @@ async function ux(cdp) {
       const It = (t) => FL.protocol.sampleAt(run, 'I_bat_true_A', t).value;
       const rM = (t) => FL.protocol.sampleAt(run, 'r_meas_kW', t).value;
       const rT = (t) => FL.protocol.sampleAt(run, 'r_true_kW', t).value;
-      const m = (id) => FL.core.getMetric(run, id);
+      const ALIAS = { E_bat_kWh: 'E_bat_true_60s', E_source_kWh: 'E_gen_true_60s', E_load_served_kWh: 'E_load_served_60s', SOC_err_pp: 'SOC_err_end_pp', focal_change: 'focal_change_A' };
+      const m = (id) => FL.core.getMetric(run, id) || FL.core.getMetric(run, ALIAS[id] || '');
       const near = (a, b, tol) => Math.abs(a - b) <= (tol || 1e-6);
       const problems = [];
       if (!near(I(19.9), 25)) problems.push('Imeas19.9=' + I(19.9));
@@ -243,7 +244,7 @@ async function ux(cdp) {
       if (!near(m('E_source_kWh').value, 0.3761111111, 1e-6)) problems.push('Egen=' + m('E_source_kWh').value);
       if (!near(m('SOC_true_end_pct').value, 59.6902777778, 1e-6)) problems.push('SOCtrue=' + m('SOC_true_end_pct').value);
       if (!near(m('SOC_est_end_pct').value, 59.5791666667, 1e-6)) problems.push('SOCest=' + m('SOC_est_end_pct').value);
-      if (!near(m('SOC_err_pp').value, -0.1111111111, 1e-6)) problems.push('SOCerr=' + m('SOC_err_pp').value);
+      if (!near(m('SOC_err_end_pp').value, -0.1111111111, 1e-6)) problems.push('SOCerr=' + m('SOC_err_end_pp').value);
       if (!near(m('max_abs_r_meas_kW').value, 4, 1e-6)) problems.push('maxRmeas=' + m('max_abs_r_meas_kW').value);
       if (!near(m('max_abs_r_true_kW').value, 0, 1e-6)) problems.push('maxRtrue=' + m('max_abs_r_true_kW').value);
       return { ok: problems.length === 0, detail: problems.join('; ') || 'all analytic values match' };
@@ -317,7 +318,9 @@ async function ux(cdp) {
       const s = FL.store.getState();
       FL.store.actions.ensureBaseline({ explicit: true });
       const b = FL.store.getState().baselineRun;
-      const m = (id) => FL.core.getMetric(b, id).value;
+      const ALIAS = { E_bat_kWh: 'E_bat_true_60s', E_source_kWh: 'E_gen_true_60s', E_load_served_kWh: 'E_load_served_60s', SOC_err_pp: 'SOC_err_end_pp' };
+      const mv = (id) => { const x = FL.core.getMetric(b, id) || FL.core.getMetric(b, ALIAS[id] || ''); return x ? x.value : null; };
+      const m = (id) => mv(id);
       return { ok: Math.abs(m('E_load_kWh') - 0.5) < 1e-6 && Math.abs(m('E_source_kWh') + m('E_bat_kWh') - 0.5) < 1e-3
         && Math.abs(m('E_bat_kWh') - 0.1666666667) < 1e-6 && Math.abs(m('SOC_true_end_pct') - 59.5833333333) < 1e-6,
         detail: 'Ebat=' + m('E_bat_kWh') + ' Egen=' + m('E_source_kWh') + ' SOctrue=' + m('SOC_true_end_pct') };

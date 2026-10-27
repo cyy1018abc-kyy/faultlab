@@ -21,8 +21,10 @@ const args = process.argv.slice(2);
 const skipE2e = args.indexOf('--skip-e2e') !== -1;
 
 const STEPS = [
-  { id: '① verify_golden（独立 oracle → golden 容差比对）', cmd: 'python', args: ['scripts/verify_golden.py'] },
-  { id: '① engine.test.js（引擎 601 点对 golden + PHY/SA）', cmd: 'node', args: ['tests/engine.test.js'] },
+  { id: '① verify_golden fl001（独立 oracle → golden 容差比对）', cmd: 'python', args: ['scripts/verify_golden.py'] },
+  { id: '① verify_golden fc001（P1-06 / G2b-lite）', cmd: 'python', args: ['scripts/verify_golden.py', 'fc001'] },
+  { id: '① engine.test.js（FL-001 601 点对 golden + PHY/SA）', cmd: 'node', args: ['tests/engine.test.js'] },
+  { id: '① engine-fc.test.js（FC-001 601 点对 golden，P1-06）', cmd: 'node', args: ['tests/engine-fc.test.js'] },
   { id: '② e2e.mjs（浏览器 E2E，PHY-08/SA-22）', cmd: 'node', args: ['tools/e2e.mjs'], skip: skipE2e },
   { id: '③ registry.test.js（RunRegistry/规范哈希/不可变）', cmd: 'node', args: ['tests/registry.test.js'] },
   { id: '④ schema.test.js（Schema/单位字典/exposure/投影）', cmd: 'node', args: ['tests/schema.test.js'] },
@@ -32,6 +34,7 @@ const STEPS = [
   { id: 'G4 compare.test.js（对比白名单 T-15）', cmd: 'node', args: ['tests/compare.test.js'] },
   { id: 'G4 causal-rules.test.js（因果规则/证据链/教学卡）', cmd: 'node', args: ['tests/causal-rules.test.js'] },
   { id: 'G4 copy-guard.mjs（禁止词扫描 §6.3）', cmd: 'node', args: ['tools/copy-guard.mjs'] },
+  { id: 'P1 report.test.js（HTML 报告验收）', cmd: 'node', args: ['tests/report.test.js'] },
   { id: '+ core.test.js（既有回归，适配新语义）', cmd: 'node', args: ['tests/core.test.js'] },
   { id: '+ arena.test.js（既有回归）', cmd: 'node', args: ['tests/arena.test.js'] }
 ];

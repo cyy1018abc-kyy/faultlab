@@ -23949,11 +23949,11 @@
     "python_version": "3.9.6",
     "command": "python tools/oracle/emit_golden.py",
     "oracle_source_sha256": "134ad1465e9e1eaba74d334ebac59731492d9ab777ef6882ea58bb2d33bef668",
-    "generated_at": "2026-10-27T17:25:43Z"
+    "generated_at": "2026-10-27T18:25:45Z"
   },
   "approval": {
-    "approved_by": null,
-    "approved_at": null,
-    "approved_golden_sha256": null
+    "approved_by": "user（2026-10-28 指令：批准 G2 关闭与 golden v1）",
+    "approved_at": "2026-10-27T18:25:45Z",
+    "approved_golden_sha256": "06747cf93a9efdb24b71991f09946d1016bd3c6f807d509f3fa9d4501000cde4"
   }
 }

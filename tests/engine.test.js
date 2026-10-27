@@ -197,7 +197,9 @@ ok(golden.method_id === 'analytic_flux' && golden.method_version === 'analytic_f
   'SA-26：golden method_id=analytic_flux');
 ok(typeof golden.generated_by.oracle_source_sha256 === 'string' && golden.generated_by.oracle_source_sha256.length === 64,
   'SA-26：golden 记录 oracle 源码 SHA-256');
-ok(golden.approval.approved_by === null, 'golden approval 未预填虚构批准值');
+ok(typeof golden.approval.approved_by === 'string' && golden.approval.approved_by.length > 0
+  && typeof golden.approval.approved_golden_sha256 === 'string' && golden.approval.approved_golden_sha256.length === 64,
+  'golden approval 已回填（approved_by=' + String(golden.approval.approved_by).slice(0, 20) + '…，摘要 64 hex）');
 
 /* ------------------------------------------------------------------ */
 console.log('\n================================================');

@@ -323,7 +323,7 @@
     shortTitle: '燃料电池',
     experimentCode: 'FC-001',
     experimentName: '电堆电流传感器偏置',
-    tagline: '在 20 秒注入 +10 A 电堆电流测量偏置，看电堆与电池的功率分配如何偏移。',
+    tagline: '在 20 秒注入 +10 A 电堆电流测量偏置，看电堆与电池的功率分配如何偏移。燃料电池 L0 行为演示，不含电化学/效率/健康模型。',
     level: 'L0 · 行为级演示模型',
     summary: '20 kW 燃料电池电堆经 DC/DC 接入 400 V 直流母线，与 10 kW 电池缓冲共同为 30 kW 负载供电；控制器按测量电堆电流闭环调节功率分配。',
     questions: [
@@ -503,6 +503,8 @@
         { id: 'A-const-v', text: '电堆与电池均按 0.4 kV 等效恒压处理：P_kW = 0.4 × I_A。' },
         { id: 'A-ideal-balance', text: '电池缓冲为理想平衡源：P_bat = P_load − P_fc，无功率爬坡限制。' },
         { id: 'A-soc-linear', text: 'SOC 由电池功率积分线性折算，不含温度、OCV-SOC 非线性与效率损耗。' },
+        { id: 'A-valve-linear', text: '阀开度与电堆电流按线性映射处理；阀卡涩场景实现为电堆电流上限比例（I_fc,cap = I_fc_ref × magnitude%），不含阀门机械动态。' },
+        { id: 'A-ideal-limiter', text: '电池缓冲与 DC/DC 变换器的限幅为理想上限建模，无恢复动态、无保护动作。' },
         { id: 'A-fc-soc-est', text: '电池 SOC 估计由功率管理器按 P_load − P_fc,meas 平衡估算（EMS 级），非电池电流库仑积分；测量偏差会进入 SOC 估计。' },
         { id: 'A-fc-first-order', text: '电堆电流按一阶响应（τ_fc = 1.2 s）跟随目标，不含热管理、水管理与气体传输动态。' },
         { id: 'A-l0', text: '功率控制器为行为级闭环，不是经过验证的设备控制器。' }

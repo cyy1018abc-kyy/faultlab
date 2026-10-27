@@ -4,14 +4,26 @@
   "failed_count": 0,
   "results": [
     {
-      "id": "① verify_golden（独立 oracle → golden 容差比对）",
+      "id": "① verify_golden fl001（独立 oracle → golden 容差比对）",
       "cmd": "python scripts/verify_golden.py",
       "status": "pass",
       "exit_code": 0
     },
     {
-      "id": "① engine.test.js（引擎 601 点对 golden + PHY/SA）",
+      "id": "① verify_golden fc001（P1-06 / G2b-lite）",
+      "cmd": "python scripts/verify_golden.py fc001",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "① engine.test.js（FL-001 601 点对 golden + PHY/SA）",
       "cmd": "node tests/engine.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "① engine-fc.test.js（FC-001 601 点对 golden，P1-06）",
+      "cmd": "node tests/engine-fc.test.js",
       "status": "pass",
       "exit_code": 0
     },
@@ -70,6 +82,12 @@
       "exit_code": 0
     },
     {
+      "id": "P1 report.test.js（HTML 报告验收）",
+      "cmd": "node tests/report.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
       "id": "+ core.test.js（既有回归，适配新语义）",
       "cmd": "node tests/core.test.js",
       "status": "pass",
@@ -83,5 +101,5 @@
     }
   ],
   "node": "v26.5.1",
-  "generated_at": "2026-10-27T18:17:28.316Z"
+  "generated_at": "2026-10-27T18:39:46.811Z"
 }
