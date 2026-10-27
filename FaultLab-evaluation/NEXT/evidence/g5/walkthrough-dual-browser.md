@@ -11,12 +11,17 @@
 | 浏览器 | 版本（ProductVersion） | E2E fl001-min | 证据文件 |
 |---|---|---:|---|
 | Google Chrome | **156.0.8078.48** | **PASS 40 / FAIL 0** | `e2e-report-chrome.json` + `e2e-chrome.png` |
-| Microsoft Edge | **156.0.4314.42** | **PASS 40 / FAIL 0** | `e2e-report-edge.json` + `e2e-edge.png` |
+| Microsoft Edge | **156.0.4314.42** | **PASS 40 / FAIL 0** | `e2e-report-edge.json`（`environment.chrome`=msedge 路径、`base`=:4322，归档前已逐字段核实）+ `e2e-edge.png` + 原始日志 `edge-e2e.log` |
 
 两份报告均含：五视图深链与跨页 Run 共享、pre/post 事件契约（pre.t_s=20.0 left_limit、
 post I_meas=35）、单时钟跨页保持、回放前后 Run 数据与 run_hash 不变（PHY-08 冒烟）、
 指标对解析 golden 关键值、因果 rule_id、证据包浏览器内构建→导入→run_hash 一致、
 全程无 console error、无外部网络请求（纯浏览器离线）。
+
+> **证据归档核实说明**：首轮 Edge 归档曾误将 Chrome 的报告（端口 4321）存为
+> `e2e-report-edge.json`（Edge 重跑输出被管道截断，未写出报告即退出）。已用**独立输出目录
+> `--out artifacts-edge` + 端口 4322 + cdp-port 9355 重跑**，报告内 `environment.chrome` /
+> `environment.base` 双字段核实浏览器与端口归属后覆盖归档，完整退出码 0。
 
 ## 过程中发现并修复的工具缺陷（不影响产品，仅影响测试工具）
 

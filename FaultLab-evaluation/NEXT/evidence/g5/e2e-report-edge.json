@@ -5,9 +5,9 @@
   "fail": 0,
   "failures": [],
   "environment": {
-    "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-    "base": "http://127.0.0.1:4321",
+    "chrome": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "base": "http://127.0.0.1:4322",
     "node": "v26.5.1"
   },
-  "generated_at": "2026-10-27T19:16:23.640Z"
+  "generated_at": "2026-10-27T19:36:03.856Z"
 }
