@@ -7,22 +7,24 @@
   const FL = window.FL = window.FL || {};
   const pages = FL.pages = FL.pages || {};
 
-  /* 指标卡分组（对应规格 §7.3 的六类 + focal_change） */
+  /* 指标卡分组（对应规格 §7.3 的六类 + focal_change）。
+     FL-001 使用 DATA_CONTRACT_SPEC §2.6 的 P0 契约指标 ID（*_60s/*_end_pp/focal_change_A）；
+     FC/GT 冻结预览沿用旧 ID——两组 ID 并列，由 metricLoose 兼容匹配。 */
   const METRIC_GROUPS = [
     {
       id: 'energy-load', title: '负载需求电能 / 实际服务电能',
       desc: '负载需求与母线实际服务电能的积分，用于核对需求是否被满足。',
-      metrics: ['E_load_kWh', 'E_load_served_kWh']
+      metrics: ['E_load_kWh', 'E_load_served_kWh', 'E_load_served_60s']
     },
     {
       id: 'energy-source', title: '电源电能 / 电池电能积分',
       desc: '电源真实电能与电池真实电能（带符号）的积分；二者之和应与实际供电电能一致。',
-      metrics: ['E_source_kWh', 'E_bat_kWh']
+      metrics: ['E_source_kWh', 'E_bat_kWh', 'E_gen_true_60s', 'E_bat_true_60s']
     },
     {
       id: 'soc', title: 'SOC 真值 / 估计 / 误差',
       desc: '真实 SOC、由测量积分的估计 SOC 及两者差值（单位：百分点 pp）。',
-      metrics: ['SOC_true_end_pct', 'SOC_est_end_pct', 'SOC_err_pp']
+      metrics: ['SOC_true_end_pct', 'SOC_est_end_pct', 'SOC_err_pp', 'SOC_err_end_pp']
     },
     {
       id: 'residual', title: '最大功率平衡残差',
@@ -37,7 +39,7 @@
     {
       id: 'focal', title: '焦点信号变化量（从故障时刻起）',
       desc: '规格要求的实际焦点信号变化量，而不是"诊断延迟"——V0.1 没有诊断算法，不统计检出率与误报率。',
-      metrics: ['focal_change'], accent: true
+      metrics: ['focal_change', 'focal_change_A'], accent: true
     }
   ];
 
@@ -1191,13 +1193,35 @@
       });
     }, { disabled: !trial || !exporter, title: trial ? '复制一段纯文本对比摘要（含一致性检查结果）' : '需要试验运行' }));
 
-    buttons.push(make('下载证据包 JSON', 'shield', () => {
-      if (!exporter || !exporter.evidenceBundle) throw new Error('导出模块 FL.exporter 未就绪');
-      const bundle = exporter.evidenceBundle({ baseline: baseline, trial: trial, comparison: comp });
-      const name = exporter.jsonFilename(trial, failed ? 'evidence_validation_failed' : 'evidence');
-      exporter.download(name, JSON.stringify(bundle, null, 2), 'application/json;charset=utf-8');
-      act('toast', failed ? '已导出证据包（validation_failed：内容已标注验证未通过）' : '已导出证据包：' + name, failed ? 'warn' : 'ok');
-    }, { disabled: !trial || !exporter, title: trial ? '导出数据/配置/事件/校验与哈希；验证未通过时文件名与内容都会标注' : '需要试验运行' }));
+    buttons.push(make('导出证据包 v1（8 文件）', 'shield', () => {
+      if (!exporter || !exporter.downloadBundle) throw new Error('EvidenceBundle v1 导出模块未就绪');
+      const res = exporter.downloadBundle(trial);
+      act('toast', failed
+        ? '已开始下载证据包（含 FAIL 标注）' + res.count + ' 个文件；验证未通过的内容已标记'
+        : '已开始下载证据包 v1：' + res.count + ' 个文件（' + res.prefix + '*）', failed ? 'warn' : 'ok');
+    }, { disabled: !trial || !exporter, title: 'EvidenceBundle v1：manifest/config/model_manifest/timeseries/events/metrics/checks + SHA256SUMS；导入方将重算指标并比对 run_hash' }));
+
+    buttons.push(make('导入证据包', 'download', () => {
+      if (!exporter || !exporter.importBundleFromFileList) throw new Error('EvidenceBundle v1 导入模块未就绪');
+      return new Promise((resolve, reject) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.accept = '.json,.csv,.txt';
+        input.onchange = () => {
+          if (!input.files || !input.files.length) { resolve(); return; }
+          exporter.importBundleFromFileList(input.files).then((run) => {
+            act('addImportedRun', run);
+            resolve();
+          }).catch((e) => {
+            act('toast', '导入被拒绝：' + (e && e.message ? e.message : String(e)) +
+              (e && e.next ? '。下一步：' + e.next : ''), 'danger');
+            reject(e);
+          });
+        };
+        input.click();
+      });
+    }, { disabled: !exporter, title: '导入 EvidenceBundle v1：哈希→Schema→重算→run_hash 比对；角色=imported，不覆盖现有运行' }));
 
     return buttons;
   }

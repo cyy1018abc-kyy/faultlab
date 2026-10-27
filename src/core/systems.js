@@ -13,6 +13,13 @@
   var STYLES = { solid: 1, dashed: 1, dashdot: 1, dotted: 1 };
   var TOKENS = { acc: 1, obs: 1, warm: 1, fault: 1, ink: 1, ok: 1 };
   var SOURCE_KINDS = { CONFIG: 1, MODEL_STATE: 1, OBSERVATION: 1, CONTROLLER: 1, FAULT_EVENT: 1, DERIVED: 1, MODEL_ASSUMPTION: 1 };
+  /* exposure 默认映射（DATA_CONTRACT_SPEC §1.6 / G0-DEC-11）；
+     blindVisible 为派生兼容字段（= exposure 是否 blind_observable），禁止独立设置。 */
+  var EXPOSURE_BY_SOURCE = {
+    CONFIG: 'public_demo', MODEL_STATE: 'public_demo', OBSERVATION: 'blind_observable',
+    CONTROLLER: 'public_demo', FAULT_EVENT: 'public_demo', DERIVED: 'public_demo',
+    MODEL_ASSUMPTION: 'public_demo'
+  };
 
   function chart(o) {
     var c = {
@@ -29,6 +36,8 @@
 
   function sig(o) {
     if (!SOURCE_KINDS[o.sourceKind]) throw new Error('systems: 非法 sourceKind ' + o.sourceKind);
+    /* exposure：显式声明优先；否则由 blindVisible（历史标记）或 source_kind 默认映射派生 */
+    var exposure = o.exposure || (o.blindVisible === true ? 'blind_observable' : EXPOSURE_BY_SOURCE[o.sourceKind]);
     var s = {
       id: o.id,
       label: o.label,
@@ -36,11 +45,12 @@
       unit: o.unit || '',
       category: o.category,
       sourceKind: o.sourceKind,
+      exposure: exposure,
       definition: o.definition || '',
       formula: o.formula || '',
       precision: o.precision == null ? 2 : o.precision,
       chart: chart(o.chart || {}),
-      blindVisible: o.blindVisible === true,
+      blindVisible: exposure === 'blind_observable',
       tableOnly: o.tableOnly === true
     };
     /* 观测噪声尺度（仅噪声开启时作用于 primary 传感器通道；0 = 不直接加噪声） */
@@ -268,8 +278,9 @@
       })
     ],
     model: {
-      model_id: 'fl.bess.l0',
-      model_version: '1.0.0',
+      /* 模型身份按批准契约（DATA_CONTRACT_SPEC §1.1/§2.1）：FL-001 = fl001 / fl001.1 */
+      model_id: 'fl001',
+      model_version: 'fl001.1',
       assumptions: [
         { id: 'A-ideal-bus', text: '直流母线 400 V 理想，无母线动态与压降。' },
         { id: 'A-ideal-gen', text: '发电机视为理想平衡源，瞬时补偿剩余负载功率；初始 20 kW 仅用于展示。' },

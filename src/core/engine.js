@@ -134,6 +134,27 @@
     return null;
   }
 
+  /* FL-001 契约指标 ID（DATA_CONTRACT_SPEC §2.6 P0 指标集）与旧实现 ID 的别名解析。
+     FL-001 的 metrics 已改用契约 ID；FC/GT 冻结预览沿用旧 ID，页面/检查经此兼容。 */
+  var METRIC_ALIAS = {
+    E_bat_kWh: ['E_bat_true_60s'],
+    E_source_kWh: ['E_gen_true_60s'],
+    E_load_served_kWh: ['E_load_served_60s'],
+    SOC_err_pp: ['SOC_err_end_pp'],
+    focal_change: ['focal_change_A']
+  };
+
+  function findMetricAny(metrics, metricId) {
+    var m = findMetric(metrics, metricId);
+    if (m) return m;
+    var alts = METRIC_ALIAS[metricId] || [];
+    for (var i = 0; i < alts.length; i++) {
+      m = findMetric(metrics, alts[i]);
+      if (m) return m;
+    }
+    return null;
+  }
+
   /* ================================================================== */
   /* 配置：default / create / normalize / validate                       */
   /* ================================================================== */
@@ -362,7 +383,16 @@
       assumptions: deepClone(system.model.assumptions || []),
       limitations: deepClone(system.model.limitations || []),
       equations: deepClone(system.model.equations || []),
-      units: units
+      units: units,
+      /* 契约 §2.2 扩展字段：证据三级、单位制、方程清单、默认 exposure 映射 */
+      claims: {
+        model_provenance: 'analytical_demo',
+        model_validation: 'not_performed',
+        hardware_verification: 'not_performed'
+      },
+      unit_system: 'SI-derived: A,kW,kWh,V,s,%,pp',
+      equation_ids: (system.model.equations || []).map(function (e) { return e.id; }),
+      default_exposure: deepClone(FL.contract ? FL.contract.DEFAULT_EXPOSURE : {})
     };
     body.model_hash = core.hashObject({
       model_id: body.model_id,
@@ -370,7 +400,10 @@
       assumptions: body.assumptions,
       limitations: body.limitations,
       equations: body.equations,
-      units: body.units
+      units: body.units,
+      claims: body.claims,
+      unit_system: body.unit_system,
+      equation_ids: body.equation_ids
     });
     _manifestCache[systemId] = body;
     return deepClone(body);
@@ -390,9 +423,11 @@
   }
 
   function buildTimeGrid(cfg) {
+    /* t[i] = i·dt（MODEL_VALIDATION_SPEC §1.4 / DATA_CONTRACT_SPEC §1.4）：
+       直接取 IEEE-754 乘积（如 t[199]=19.900000000000002），禁止累加、禁止舍入到 1e-6。 */
     var n = Math.round(cfg.duration_s / cfg.dt_s);
     var t = new Array(n + 1);
-    for (var k = 0; k <= n; k++) t[k] = roundTime(k * cfg.dt_s);
+    for (var k = 0; k <= n; k++) t[k] = k * cfg.dt_s;
     return t;
   }
 
@@ -787,21 +822,53 @@
     }];
   }
 
+  /* 事件快照（DATA_CONTRACT_SPEC §2.5 / G0-DEC-05 / B01）：
+     pre = 事件时刻 t_f 的左极限（t_s 恒为 t_f=20.0，derivation='left_limit'），
+     post = t_f 的右极限/采样行（derivation='post_sample'）。19.9 只是上一常规采样点，
+     其值不得写入 pre.t_s。对 FL-001 三个故障族，事件前区间 [t_f−dt, t_f) 内信号恒定，
+     左极限值等于上一采样行值，故 pre.variables 取自 iPre 行、t_s 仍为 t_f。 */
   function buildSnapshots(system, cfg, t, series, events) {
     if (!events.length) return [];
     var ev = events[0];
     var dt = cfg.dt_s;
-    var iPre = clamp(Math.round((ev.trigger_s - dt) / dt), 0, t.length - 1);
-    var iPost = clamp(Math.round(ev.trigger_s / dt), 0, t.length - 1);
+    var tF = ev.trigger_s;
+    var iPre = clamp(Math.round((tF - dt) / dt), 0, t.length - 1);
+    var iPost = clamp(Math.round(tF / dt), 0, t.length - 1);
+    var units = {};
+    system.signals.forEach(function (sg) { units[sg.id] = sg.unit || ''; });
     function varsAt(idx) {
       var out = {};
       system.signals.forEach(function (sg) { out[sg.id] = series[sg.id] ? series[sg.id][idx] : null; });
       return out;
     }
-    return [
-      { snapshotId: ev.preSnapshotId, event_id: ev.event_id, t_s: t[iPre], phase: 'pre', variables: varsAt(iPre) },
-      { snapshotId: ev.postSnapshotId, event_id: ev.event_id, t_s: t[iPost], phase: 'post', variables: varsAt(iPost) }
-    ];
+    function preSnapshot() {
+      var snap = {
+        snapshot_id: ev.preSnapshotId,
+        snapshotId: ev.preSnapshotId,
+        event_id: ev.event_id,
+        phase: 'pre',
+        t_s: tF,
+        derivation: 'left_limit',
+        variables: varsAt(iPre),
+        units: deepClone(units),
+        fault_id: cfg.fault.faultId || null
+      };
+      return snap;
+    }
+    function postSnapshot() {
+      return {
+        snapshot_id: ev.postSnapshotId,
+        snapshotId: ev.postSnapshotId,
+        event_id: ev.event_id,
+        phase: 'post',
+        t_s: tF,
+        derivation: 'post_sample',
+        variables: varsAt(iPost),
+        units: deepClone(units),
+        fault_id: cfg.fault.faultId || null
+      };
+    }
+    return [preSnapshot(), postSnapshot()];
   }
 
   function buildTruth(system, cfg) {
@@ -828,7 +895,10 @@
 
   /* ================================================================== */
   /* 因果链生成（模板来自 systems.js，数值证据来自 run）                    */
+  /* 每条因果断言绑定 rule_id + 证据（D-06 / DATA_CONTRACT_SPEC §2.8）。    */
   /* ================================================================== */
+  var CAUSAL_RULE_VERSION = 'cr.fl001.v1';
+
   function interpolate(template, facts) {
     if (typeof template !== 'string') return '';
     return template.replace(/\{([A-Za-z0-9_]+)\}/g, function (m, key) {
@@ -875,7 +945,7 @@
       return { min: min, max: max };
     }
     function metricVal(id) {
-      var m = findMetric(metrics, id);
+      var m = findMetricAny(metrics, id);
       if (!m || m.unavailable || m.value === null || m.value === undefined) return null;
       return m.value;
     }
@@ -1011,6 +1081,7 @@
     var limitationsAll = (system.model.limitations || []).slice();
     if (family === 'none') {
       return {
+        rule_version: CAUSAL_RULE_VERSION,
         focusEventId: null,
         headline: '本次运行未注入故障（健康基准）',
         mechanismSummary: '健康运行没有故障事件，因此不存在可推导的故障因果链；此处只列出适用假设与限制。',
@@ -1025,6 +1096,7 @@
     var tpl = system.causalTemplates && system.causalTemplates[family];
     if (!tpl) {
       return {
+        rule_version: CAUSAL_RULE_VERSION,
         focusEventId: ctx.events.length ? ctx.events[0].event_id : null,
         headline: 't=' + Number(cfg.fault.t_start_s).toFixed(1) + ' s，' + (findFaultDef(system, family) || {}).label,
         mechanismSummary: '该故障家族尚未定义模型因果模板，本模型无法推导该现象。',
@@ -1043,6 +1115,7 @@
     function idxAt(time) { return clamp(Math.round(time / dt), 0, ctx.t.length - 1); }
 
     var nodes = nodeSpecs.map(function (spec) {
+      var ruleId = 'CR-' + system.id.replace(/-/g, '') + '-' + family + '-' + (tpl.id || 'rule') + '-' + spec.id;
       var evidence = (spec.evidence || []).map(function (ev) {
         var meta = signalMeta(system, ev.varId);
         var precision = meta ? meta.precision : 3;
@@ -1056,16 +1129,23 @@
         note += '（实测 ' + fmtVal(v0, precision) + ' → ' + fmtVal(v1, precision) + (unit ? ' ' + unit : '') + '）';
         return {
           runId: ctx.runId,
+          run_id: ctx.runId,
           varId: ev.varId,
+          signal_id: ev.varId,
           t0: roundTime(t0),
           t1: roundTime(t1),
+          time_window_s: [roundTime(t0), roundTime(t1)],
+          rule_id: ruleId,
+          layer: spec.layer === 'config' ? 'CONFIG_FACT' : (spec.layer === 'mechanism' ? 'MODEL_MECHANISM' : 'OBSERVED_NUMERIC'),
           note: note,
           values: { t0: v0, t1: v1 }
         };
       });
       return {
         id: spec.id,
+        node_id: spec.id,
         order: spec.order,
+        rule_id: ruleId,
         title: interpolate(spec.title, facts),
         short: interpolate(spec.short, facts),
         detail: interpolate(spec.detail, facts),
@@ -1085,6 +1165,7 @@
     });
 
     return {
+      rule_version: CAUSAL_RULE_VERSION,
       focusEventId: ctx.events.length ? ctx.events[0].event_id : null,
       headline: interpolate(tpl.headline, facts),
       mechanismSummary: interpolate(tpl.mechanismSummary, facts),
@@ -1113,7 +1194,10 @@
     var validation = validateConfig(cfg);
     if (!validation.ok) throw makeConfigError(validation.errors);
 
-    var configHash = core.hashObject(cfg);
+    /* config_hash 按契约 §2.1 的 ScenarioConfig 投影计算（键排序、默认值填充、最短往返） */
+    var configHash = (FL.contract && FL.contract.scenarioView)
+      ? core.hashObject(FL.contract.scenarioView(cfg))
+      : core.hashObject(cfg);
     var manifest = modelManifest(system.id);
     var modelHash = manifest.model_hash;
 
@@ -1351,7 +1435,7 @@
     /* 指标配对 */
     var pairs = [];
     (trialRun.metrics || []).forEach(function (tm) {
-      var bm = findMetric(baselineRun.metrics, tm.metric_id);
+      var bm = findMetricAny(baselineRun.metrics, tm.metric_id);
       if (!bm) return;
       var delta = null;
       if (bm.value !== null && bm.value !== undefined && tm.value !== null && tm.value !== undefined &&
@@ -1367,7 +1451,8 @@
     if (!diffAllowed) warnings.push('单位/时间基准不兼容，已禁用差值视图。');
 
     function pairOf(id) {
-      for (var i = 0; i < pairs.length; i++) if (pairs[i].metric_id === id) return pairs[i];
+      var ids = [id].concat(METRIC_ALIAS[id] || []);
+      for (var i = 0; i < pairs.length; i++) if (ids.indexOf(pairs[i].metric_id) !== -1) return pairs[i];
       return null;
     }
     function signed(v, precision) {
@@ -1383,7 +1468,7 @@
         title: '电池真实电能变化',
         text: '试验组电池真实电能（带符号）相对基准变化 ' + signed(pBat.delta, 5) + ' kWh' +
           (pBat.delta < 0 ? '：电池真实放电减少，这部分需求由电源侧补足，不是能量损失。' : '。'),
-        metric_ids: ['E_bat_kWh'],
+        metric_ids: [pBat.metric_id],
         severity: 'info'
       });
     }
@@ -1393,7 +1478,7 @@
         id: 'F2',
         title: '电源真实电能变化',
         text: '试验组电源真实电能相对基准变化 ' + signed(pSrc.delta, 5) + ' kWh，用于补偿电池侧的变化；总负载需求仍由两侧共同满足。',
-        metric_ids: ['E_source_kWh'],
+        metric_ids: [pSrc.metric_id],
         severity: 'info'
       });
     }
@@ -1404,7 +1489,7 @@
         title: '焦点信号实际变化量',
         text: '从故障时刻起，' + (pFocal.trial.signal_label || pFocal.trial.signal_id || '焦点信号') +
           ' 的实际变化量为 ' + signed(pFocal.trial.value, 2) + ' ' + pFocal.deltaUnit + '（focal_change，可用于替代"诊断延迟"表述）。',
-        metric_ids: ['focal_change'],
+        metric_ids: [pFocal.trial.metric_id],
         severity: 'info'
       });
     }
@@ -1414,7 +1499,7 @@
         id: 'F4',
         title: 'SOC 估计误差',
         text: '试验组 SOC 估计误差（估计−真实）为 ' + signed(pSocErr.trial.value, 5) + ' pp，来自测量/估计口径偏差，不代表真实能量差异。',
-        metric_ids: ['SOC_err_pp'],
+        metric_ids: [pSocErr.trial.metric_id],
         severity: 'info'
       });
     }
@@ -1425,7 +1510,7 @@
         title: '测量一致性残差峰值',
         text: '试验组最大测量一致性残差为 ' + fmtVal(pRmeas.trial.value, 2) + ' kW，而真实守恒残差为 ' +
           fmtVal((findMetric(trialRun.metrics, 'max_abs_r_true_kW') || {}).value, 6) + ' kW；前者是测量偏差，不是实际能量损失。',
-        metric_ids: ['max_abs_r_meas_kW', 'max_abs_r_true_kW'],
+        metric_ids: [pRmeas.trial.metric_id, (findMetric(trialRun.metrics, 'max_abs_r_true_kW') || findMetric(trialRun.metrics, 'max_abs_r_true_kW') || {}).metric_id].filter(Boolean),
         severity: 'info'
       });
     }

@@ -77,8 +77,26 @@ function makeRun(systemId, overrides, opts) {
 }
 
 function at(run, signalId, t) { return core.sampleAt(run, signalId, t).value; }
+/* FL-001 指标已改用 DATA_CONTRACT_SPEC §2.6 契约 ID；本表兼容旧 ID 断言 */
+const METRIC_ALIAS = {
+  E_bat_kWh: ['E_bat_true_60s'],
+  E_source_kWh: ['E_gen_true_60s'],
+  E_load_served_kWh: ['E_load_served_60s'],
+  SOC_err_pp: ['SOC_err_end_pp'],
+  focal_change: ['focal_change_A']
+};
+function metricOf(run, metricId) {
+  let m = core.getMetric(run, metricId);
+  if (m) return m;
+  const alts = METRIC_ALIAS[metricId] || [];
+  for (let i = 0; i < alts.length; i++) {
+    m = core.getMetric(run, alts[i]);
+    if (m) return m;
+  }
+  return null;
+}
 function mval(run, metricId) {
-  const m = core.getMetric(run, metricId);
+  const m = metricOf(run, metricId);
   return m ? m.value : undefined;
 }
 function qfail(run) { return run.quality.filter((q) => q.status === 'fail'); }
@@ -148,10 +166,15 @@ function assertRunShape(run, label, systemId) {
       .indexOf(sg.sourceKind) !== -1, label + '：sourceKind 合法（' + sg.id + '）', show(sg.sourceKind));
   });
 
-  /* metrics 必含项 */
-  const requiredMetrics = ['E_load_kWh', 'E_load_served_kWh', 'E_source_kWh', 'E_bat_kWh',
-    'SOC_true_end_pct', 'SOC_est_end_pct', 'SOC_err_pp', 'max_abs_r_true_kW', 'max_abs_r_meas_kW',
-    'fault_active_s', 'fault_duration_s', 'fault_peak_magnitude', 'effective_mode', 'focal_change'];
+  /* metrics 必含项（FL-001 用契约 §2.6 P0 指标集 ID；FC/GT 沿用旧 ID） */
+  const requiredMetrics = run.systemId === 'FL-001'
+    ? ['E_load_kWh', 'E_load_served_60s', 'E_gen_true_60s', 'E_bat_true_60s',
+      'SOC_true_end_pct', 'SOC_est_end_pct', 'SOC_err_end_pp', 'max_abs_r_true_kW', 'max_abs_r_meas_kW',
+      'fault_active_s', 'fault_duration_s', 'fault_peak_magnitude', 'effective_mode', 'focal_change_A',
+      'I_true_26s_A', 'I_meas_20post_A']
+    : ['E_load_kWh', 'E_load_served_kWh', 'E_source_kWh', 'E_bat_kWh',
+      'SOC_true_end_pct', 'SOC_est_end_pct', 'SOC_err_pp', 'max_abs_r_true_kW', 'max_abs_r_meas_kW',
+      'fault_active_s', 'fault_duration_s', 'fault_peak_magnitude', 'effective_mode', 'focal_change'];
   const metricIds = run.metrics.map((m) => m.metric_id);
   requiredMetrics.forEach((id) => {
     ok(metricIds.indexOf(id) !== -1, label + '：metrics 含 ' + id);
@@ -164,7 +187,7 @@ function assertRunShape(run, label, systemId) {
     if (m.unavailable) ok(m.value === null, label + '：unavailable 指标 value 必须为 null（' + m.metric_id + '）');
     if (!m.unavailable && typeof m.value === 'number') ok(isFinite(m.value), label + '：metric 数值有限（' + m.metric_id + '）');
   });
-  const focal = core.getMetric(run, 'focal_change');
+  const focal = metricOf(run, 'focal_change');
   ok(!!focal && typeof focal.signal_id === 'string', label + '：focal_change 附 signal_id');
   ok(!!focal && typeof focal.unit === 'string', label + '：focal_change 附 unit');
 
@@ -349,10 +372,15 @@ eq(ev.phase, 'onset', 'event phase=onset');
 eq(ev.preSnapshotId, 'EV-001-pre', 'event preSnapshotId');
 eq(ev.postSnapshotId, 'EV-001-post', 'event postSnapshotId');
 eq(flDefault.snapshots[0].snapshotId, 'EV-001-pre', 'snapshot pre id');
+eq(flDefault.snapshots[0].snapshot_id, 'EV-001-pre', 'snapshot_id（契约字段）存在');
 eq(flDefault.snapshots[0].phase, 'pre', 'snapshot pre phase');
-close(flDefault.snapshots[0].t_s, 19.9, 1e-9, 'snapshot pre t=19.9');
+close(flDefault.snapshots[0].t_s, 20, 1e-9, 'snapshot pre t_s=20.0（左极限，G0-DEC-05）');
+eq(flDefault.snapshots[0].derivation, 'left_limit', 'snapshot pre derivation=left_limit');
 eq(flDefault.snapshots[1].phase, 'post', 'snapshot post phase');
-close(flDefault.snapshots[1].t_s, 20, 1e-9, 'snapshot post t=20');
+close(flDefault.snapshots[1].t_s, 20, 1e-9, 'snapshot post t_s=20.0');
+eq(flDefault.snapshots[1].derivation, 'post_sample', 'snapshot post derivation=post_sample');
+ok(!!flDefault.snapshots[0].units && flDefault.snapshots[0].units.I_bat_meas_A === 'A', '快照携带 units 映射');
+eq(flDefault.snapshots[0].fault_id, 'I_bat_sensor_bias', '快照 fault_id 引用 config.fault.faultId');
 
 close(at(flDefault, 'I_bat_meas_A', 19.9), 25, 1e-6, '19.9 s I_meas=25 A');
 close(at(flDefault, 'I_bat_meas_A', 20.0), 35, 1e-6, '20.0 s I_meas=35 A');
@@ -387,8 +415,8 @@ close(mval(flDefault, 'fault_duration_s'), 40, 0, 'fault_duration_s=40');
 close(mval(flDefault, 'fault_peak_magnitude'), 10, 0, 'fault_peak_magnitude=10');
 eq(mval(flDefault, 'effective_mode'), 'closed_loop', 'effective_mode=closed_loop');
 close(mval(flDefault, 'focal_change'), -10, 1e-6, 'focal_change=-10 A');
-eq(core.getMetric(flDefault, 'focal_change').signal_id, 'I_bat_true_A', 'focal_change.signal_id=I_bat_true_A');
-eq(core.getMetric(flDefault, 'focal_change').unit, 'A', 'focal_change.unit=A');
+eq(metricOf(flDefault, 'focal_change').signal_id, 'I_bat_true_A', 'focal_change.signal_id=I_bat_true_A');
+eq(metricOf(flDefault, 'focal_change').unit, 'A', 'focal_change.unit=A');
 close(at(flDefault, 'r_meas_kW', 30), 4, 1e-9, '故障期 r_meas(30)=4 kW');
 close(at(flDefault, 'r_true_kW', 30), 0, 1e-9, '故障期 r_true(30)=0');
 close(at(flDefault, 'P_bat_meas_kW', 20.0), 14, 1e-9, '故障瞬间 P_bat,meas(20.0)=14 kW');
@@ -458,7 +486,7 @@ close(mval(flHealthy, 'E_source_kWh'), 0.3333333333, 1e-6, '基准 E_gen=0.33333
 close(mval(flHealthy, 'SOC_true_end_pct'), 59.5833333, 1e-6, '基准 SOC_true=59.5833333');
 close(mval(flHealthy, 'SOC_err_pp'), 0, 1e-9, '基准 SOC_err=0');
 close(mval(flHealthy, 'max_abs_r_meas_kW'), 0, 1e-9, '基准 max|r_meas|=0');
-eq(core.getMetric(flHealthy, 'focal_change').unavailable, true, '基准 focal_change 不可用（无故障）');
+eq(metricOf(flHealthy, 'focal_change').unavailable, true, '基准 focal_change 不可用（无故障）');
 eq(core.getMetric(flHealthy, 'fault_active_s').unavailable, true, '基准 fault_active_s 不可用');
 eq(core.getMetric(flHealthy, 'effective_mode').value, 'healthy', '基准 effective_mode=healthy');
 
@@ -876,13 +904,13 @@ eq(cmp.checks.length, 6, 'compareRuns 6 条检查');
 eq(cmp.checks.map((c) => c.id).join(','),
   'model-hash,engine-version,duration-dt,initial-conditions,load-profile,observations', 'compareRuns checks id 顺序');
 ok(cmp.checks.every((c) => c.status === 'pass'), 'compareRuns 同系统检查全部 pass');
-const pairEbat = cmp.pairs.filter((p) => p.metric_id === 'E_bat_kWh')[0];
-notNull(pairEbat, 'pairs 含 E_bat_kWh');
+const pairEbat = cmp.pairs.filter((p) => p.metric_id === 'E_bat_kWh' || p.metric_id === 'E_bat_true_60s')[0];
+notNull(pairEbat, 'pairs 含 E_bat_kWh（或契约 ID E_bat_true_60s）');
 close(pairEbat.delta, 446 / 3600 - 600 / 3600, 1e-5, 'E_bat delta = -0.0427778 kWh（446−600 kW·s）');
 eq(pairEbat.deltaUnit, 'kWh', 'pair.deltaUnit');
 ok(cmp.findings.length >= 3, 'compareRuns findings ≥3');
-ok(cmp.findings.some((f) => f.metric_ids.indexOf('E_bat_kWh') !== -1), 'findings 引用 E_bat_kWh');
-ok(cmp.findings.some((f) => f.metric_ids.indexOf('focal_change') !== -1), 'findings 引用 focal_change');
+ok(cmp.findings.some((f) => f.metric_ids.indexOf('E_bat_kWh') !== -1 || f.metric_ids.indexOf('E_bat_true_60s') !== -1), 'findings 引用 E_bat 口径');
+ok(cmp.findings.some((f) => f.metric_ids.indexOf('focal_change') !== -1 || f.metric_ids.indexOf('focal_change_A') !== -1), 'findings 引用 focal_change');
 ok(cmp.findings.some((f) => f.metric_ids.indexOf('max_abs_r_meas_kW') !== -1), 'findings 引用 r_meas 并说明不是能量损失');
 eq(cmp.warnings.length, 0, '有效对比无警告');
 

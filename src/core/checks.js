@@ -43,19 +43,46 @@
     return null;
   }
 
-  function metricValue(metrics, id) {
+  /* FL-001 契约指标 ID（DATA_CONTRACT_SPEC §2.6）与旧 ID 的别名解析（与 engine.js 一致） */
+  var METRIC_ALIAS = {
+    E_bat_kWh: ['E_bat_true_60s'],
+    E_source_kWh: ['E_gen_true_60s'],
+    E_load_served_kWh: ['E_load_served_60s'],
+    SOC_err_pp: ['SOC_err_end_pp'],
+    focal_change: ['focal_change_A']
+  };
+
+  function findMetricAny(metrics, id) {
     var m = findMetric(metrics, id);
+    if (m) return m;
+    var alts = METRIC_ALIAS[id] || [];
+    for (var i = 0; i < alts.length; i++) {
+      m = findMetric(metrics, alts[i]);
+      if (m) return m;
+    }
+    return null;
+  }
+
+  function metricValue(metrics, id) {
+    var m = findMetricAny(metrics, id);
     return (m && !m.unavailable && isNum(m.value)) ? m.value : null;
   }
 
-  function check(id, label, status, tolerance, computedValue, message) {
+  /* QualityChecks（契约 §2.7）：observed/expected/tolerance/reason/owner 为契约字段；
+     label/computed_value/message 为 UI 兼容别名（导出时由 FL.contract.toContractCheck 投影）。 */
+  function check(id, label, status, tolerance, computedValue, message, expected, owner) {
+    var observed = (computedValue === null || computedValue === undefined) ? null : computedValue;
     return {
       check_id: id,
       label: label,
       status: status,
+      observed: observed,
+      computed_value: observed,
+      expected: expected === undefined ? null : expected,
       tolerance: tolerance,
-      computed_value: (computedValue === null || computedValue === undefined) ? null : computedValue,
-      message: message
+      reason: message,
+      message: message,
+      owner: owner || 'numeric'
     };
   }
 
@@ -113,19 +140,23 @@
           '，网格' + (gridOk ? '正确' : '错误') + '，非法数值 ' + nanCount + ' 个')
     ));
 
-    /* ---- conservation-true ---- */
-    var tolTrue = system.id === 'GT-001' ? 1e-3 : 1e-6;
+    /* ---- conservation-true（PHY-01 定义自洽：G0-DEC-12 冻结 FL-001 容差 ≤1e-12 kW）----
+       注意：这是定义恒等式的代数一致性回归（P_gen := P_load − P_bat），
+       不是"物理守恒验证"，更不能表述为模型验证（MODEL_VALIDATION_SPEC §4.3）。 */
+    var tolTrue = system.id === 'GT-001' ? 1e-3 : (system.id === 'FC-001' ? 1e-6 : 1e-12);
     var maxRt = maxAbs(series.r_true_kW);
     var trueOk = maxRt !== null && maxRt <= tolTrue;
     quality.push(check(
-      'conservation-true', '真实功率守恒',
+      'conservation-true', '定义自洽（代数一致性）',
       trueOk ? 'pass' : 'fail',
       '≤ ' + tolTrue + ' kW' + (system.id === 'GT-001' ? '（含 P_rotor 项）' : ''),
       maxRt,
       trueOk
-        ? ('真实功率平衡残差最大值 ' + maxRt.toExponential(2) + ' kW，在容差内' +
-          (system.id === 'GT-001' ? '（含转子惯量项 P_rotor）' : ''))
-        : ('真实功率守恒超差：max|r_true| = ' + maxRt + ' kW > ' + tolTrue + ' kW')
+        ? ('定义自洽检查通过：max|r_true| = ' + maxRt.toExponential(2) + ' kW，在容差内' +
+          '（定义恒等式回归，不是物理守恒验证）' +
+          (system.id === 'GT-001' ? '；含转子惯量项 P_rotor' : ''))
+        : ('定义自洽检查未通过：P_gen ≠ P_load − P_bat，max|r_true| = ' + maxRt + ' kW > ' + tolTrue + ' kW'),
+      0, 'numeric'
     ));
 
     /* ---- conservation-meas ---- */
@@ -198,7 +229,7 @@
         : ('SOC 越界，最大越界量 ' + socViolation.toFixed(6) + ' pp')
     ));
 
-    /* ---- event-window ---- */
+    /* ---- event-window（G0-DEC-05：pre = t_f 左极限，t_s 恒为 t_f；19.9 不是 pre）---- */
     var eventOk;
     var eventMsg;
     if (!faulted) {
@@ -206,25 +237,29 @@
       eventMsg = '健康基准运行无故障事件（events 为空属预期）';
     } else {
       var tStart = cfg.fault.t_start_s;
-      var gridAligned = Math.abs(tStart * 10 - Math.round(tStart * 10)) < 1e-9;
+      var gridAligned = Math.abs(tStart / dt - Math.round(tStart / dt)) < 1e-9;
       var ev = events[0];
       var evAligned = !!ev && Math.abs(ev.trigger_s - tStart) < 1e-9;
-      var preOk = snapshots.length >= 2 && Math.abs(snapshots[0].t_s - (tStart - dt)) < 1e-9 && snapshots[0].phase === 'pre';
-      var postOk = snapshots.length >= 2 && Math.abs(snapshots[1].t_s - tStart) < 1e-9 && snapshots[1].phase === 'post';
-      var varsOk = !!(snapshots[0] && snapshots[0].variables && Object.keys(snapshots[0].variables).length);
+      var pre = snapshots.length >= 2 ? snapshots.filter(function (s) { return s.phase === 'pre'; })[0] : null;
+      var post = snapshots.length >= 2 ? snapshots.filter(function (s) { return s.phase === 'post'; })[0] : null;
+      var preOk = !!pre && Math.abs(pre.t_s - tStart) < 1e-9 && pre.derivation === 'left_limit';
+      var postOk = !!post && Math.abs(post.t_s - tStart) < 1e-9 && post.derivation === 'post_sample';
+      var varsOk = !!(pre && pre.variables && Object.keys(pre.variables).length);
       eventOk = gridAligned && evAligned && preOk && postOk && varsOk;
       eventMsg = eventOk
-        ? ('事件 t=' + tStart.toFixed(1) + ' s 对齐 0.1 s 网格；pre@' + snapshots[0].t_s.toFixed(1) +
-          ' s / post@' + snapshots[1].t_s.toFixed(1) + ' s 快照含 ' + Object.keys(snapshots[0].variables).length + ' 个变量')
+        ? ('事件 t=' + tStart.toFixed(1) + ' s 对齐 0.1 s 网格；pre/post 快照 t_s 均为 ' + tStart.toFixed(1) +
+          ' s（pre=左极限 left_limit，post=右采样行 post_sample），含 ' + Object.keys(pre.variables).length + ' 个变量；19.9 s 只是上一常规采样点')
         : ('事件窗口检查失败：网格' + (gridAligned ? 'OK' : '异常') + '，事件' + (evAligned ? 'OK' : '异常') +
-          '，pre 快照' + (preOk ? 'OK' : '异常') + '，post 快照' + (postOk ? 'OK' : '异常'));
+          '，pre 快照' + (preOk ? 'OK' : '异常') + '（t_s 必须为 ' + tStart.toFixed(1) + ' 且 derivation=left_limit）' +
+          '，post 快照' + (postOk ? 'OK' : '异常'));
     }
     quality.push(check(
-      'event-window', '事件与快照窗口',
+      'event-window', '事件与快照相位',
       eventOk ? 'pass' : 'fail',
-      '故障时刻在 0.1 s 网格；pre = t_start−0.1 s，post = t_start',
+      'pre.t_s = post.t_s = t_f（20.0），derivation = left_limit / post_sample',
       faulted ? cfg.fault.t_start_s : 0,
-      eventMsg
+      eventMsg,
+      faulted ? cfg.fault.t_start_s : null, 'numeric'
     ));
 
     /* ---- energy-balance ---- */

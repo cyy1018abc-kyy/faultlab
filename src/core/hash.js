@@ -172,12 +172,63 @@
     return sha256(canonicalize(obj));
   }
 
+  /* Canonicalization v1 严格模式（DATA_CONTRACT_SPEC §3.1）：
+     与 canonicalize 相同规则，但 NaN/±Infinity 直接抛错（契约禁止出现），
+     供 run_hash / 证据包等公共数据面使用；旧 canonicalize 保持宽容（UI 内部状态）。 */
+  function canonicalizeStrict(value) {
+    var stack = [];
+
+    function walk(v, path) {
+      if (v === null || v === undefined) return 'null';
+      var t = typeof v;
+      if (t === 'number') {
+        if (!isFiniteNumber(v)) throw new Error('canonicalizeStrict: NaN/Infinity 不允许 at ' + path);
+        return numberToString(v);
+      }
+      if (t === 'string') return JSON.stringify(v);
+      if (t === 'boolean') return v ? 'true' : 'false';
+
+      if (Array.isArray(v)) {
+        if (stack.indexOf(v) !== -1) throw new Error('canonicalizeStrict: 循环引用 at ' + path);
+        stack.push(v);
+        var parts = new Array(v.length);
+        for (var i = 0; i < v.length; i++) parts[i] = walk(v[i], path + '[' + i + ']');
+        stack.pop();
+        return '[' + parts.join(',') + ']';
+      }
+      if (t === 'object') {
+        if (stack.indexOf(v) !== -1) throw new Error('canonicalizeStrict: 循环引用 at ' + path);
+        stack.push(v);
+        var keys = Object.keys(v).filter(function (k) {
+          var vt = typeof v[k];
+          return vt !== 'undefined' && vt !== 'function' && vt !== 'symbol';
+        }).sort();
+        var out = new Array(keys.length);
+        for (var j = 0; j < keys.length; j++) {
+          var k = keys[j];
+          out[j] = JSON.stringify(k) + ':' + walk(v[k], path + '.' + k);
+        }
+        stack.pop();
+        return '{' + out.join(',') + '}';
+      }
+      throw new Error('canonicalizeStrict: 不支持的类型 ' + t + ' at ' + path);
+    }
+
+    return walk(value, '$');
+  }
+
+  function hashObjectStrict(obj) {
+    return sha256(canonicalizeStrict(obj));
+  }
+
   function hashString(str) {
     return sha256(String(str));
   }
 
   core.canonicalize = canonicalize;
+  core.canonicalizeStrict = canonicalizeStrict;
   core.sha256 = sha256;
   core.hashString = hashString;
   core.hashObject = hashObject;
+  core.hashObjectStrict = hashObjectStrict;
 })();

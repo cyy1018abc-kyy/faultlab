@@ -198,15 +198,19 @@
     } catch (e) { cfg = null; }
     if (!cfg) return null;
     let run;
-    try { run = FL.core.simulate(cfg); } catch (e) {
+    try {
+      run = FL.registry.createRun({
+        config: cfg,
+        role: 'baseline',
+        label: makeLabel(cfg),
+        runId: 'Run-' + String(runSeq() + 1).padStart(3, '0'),
+        createdAt: new Date().toISOString()
+      });
+    } catch (e) {
       console.error('[store] baseline simulation failed', e);
       state.lastError = String(e && e.message ? e.message : e);
       return null;
     }
-    run.runId = 'Run-' + String(runSeq() + 1).padStart(3, '0');
-    run.role = 'baseline';
-    run.label = makeLabel(cfg);
-    run.createdAt = new Date().toISOString();
     state.runs[run.runId] = run;
     state.baselineRun = run;
     pruneRuns();
@@ -268,7 +272,18 @@
       const raw = localStorage.getItem(LS_RUNS);
       if (raw) {
         const parsed = JSON.parse(raw);
-        (parsed.runs || []).forEach((r) => { if (r && r.runId) runs[r.runId] = r; });
+        (parsed.runs || []).forEach((r) => {
+          if (!r || !r.runId) return;
+          /* 刷新恢复：校验 run_hash；不通过则丢弃，不得伪造历史 Run（契约 §4.2） */
+          if (FL.registry && typeof FL.registry.validateRestored === 'function') {
+            const verdict = FL.registry.validateRestored(r);
+            if (!verdict.ok) {
+              console.warn('[store] 拒绝恢复运行', r.runId, verdict.reason);
+              return;
+            }
+          }
+          runs[r.runId] = r;
+        });
       }
     } catch (e) { console.warn('[store] load runs failed', e); }
     try {
@@ -363,7 +378,12 @@
       notify('run');
       let run;
       try {
-        run = FL.core.simulate(clone(draft));
+        run = FL.registry.createRun({
+          config: clone(draft),
+          role: o.role || (draft.fault && draft.fault.family === 'none' ? 'baseline' : 'fault'),
+          runId: 'Run-' + String(runSeq()).padStart(3, '0'),
+          createdAt: new Date().toISOString()
+        });
       } catch (e) {
         console.error('[store] simulate failed', e);
         state.computeState = 'failed';
@@ -373,10 +393,6 @@
         notify('run');
         return { ok: false, error: state.lastError };
       }
-      run.runId = 'Run-' + String(runSeq()).padStart(3, '0');
-      run.role = o.role || (draft.fault && draft.fault.family === 'none' ? 'baseline' : 'fault');
-      run.label = run.label || makeLabel(run.config);
-      run.createdAt = new Date().toISOString();
       state.runs[run.runId] = run;
       state.draftBaseHash = hashOf(draft);
       state.draftDirty = false;
@@ -404,13 +420,17 @@
       const val = validateDraft(cfg);
       if (!val.ok) { actions.toast('无法创建仅监测对照：' + val.errors[0].message, 'danger'); return { ok: false }; }
       let run;
-      try { run = FL.core.simulate(cfg); } catch (e) {
+      try {
+        run = FL.registry.createRun({
+          config: cfg,
+          role: 'contrast',
+          label: makeLabel(cfg) + '（对照）',
+          runId: 'Run-' + String(runSeq()).padStart(3, '0'),
+          createdAt: new Date().toISOString()
+        });
+      } catch (e) {
         actions.toast('对照运行计算失败', 'danger'); return { ok: false };
       }
-      run.runId = 'Run-' + String(runSeq()).padStart(3, '0');
-      run.role = 'contrast';
-      run.label = makeLabel(cfg) + '（对照）';
-      run.createdAt = new Date().toISOString();
       state.runs[run.runId] = run;
       state.monitorRun = run;
       state.activeRun = run;
@@ -456,6 +476,34 @@
       persist();
       notify('run');
       return true;
+    },
+
+    /* EvidenceBundle v1 导入入库（校验在 FL.bundle.importBundle 内完成）：
+       role=imported、不覆盖现有 Run；同 run_id 冲突时追加后缀。 */
+    addImportedRun(run) {
+      if (!run || run.role !== 'imported') {
+        actions.toast('只能导入通过校验的 imported 运行', 'danger');
+        return { ok: false };
+      }
+      let id = run.runId || 'RUN-IMPORTED';
+      while (state.runs[id]) {
+        id = id + '-A' + String(Object.keys(state.runs).length + 1);
+      }
+      if (id !== run.runId) {
+        const m = Object.assign({}, run.manifest, { run_id: id });
+        const patched = JSON.parse(JSON.stringify(run));
+        patched.runId = id;
+        patched.manifest = m;
+        run = FL.registry.deepFreeze(patched);
+      }
+      state.runs[id] = run;
+      state.systemId = run.systemId || state.systemId;
+      setActiveRun(run, { keepTime: false });
+      pruneRuns();
+      persist();
+      actions.toast('已导入（角色=imported）' + id + '：现有运行未被覆盖', 'ok');
+      notify('run');
+      return { ok: true, run };
     },
 
     navigate(pageId) {

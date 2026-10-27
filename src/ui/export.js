@@ -343,6 +343,52 @@
   }
 
   /* ===================================================================
+     EvidenceBundle v1（G0-DEC-10）：7 数据文件 + SHA256SUMS.txt 的浏览器导出/导入
+     =================================================================== */
+  function bundleFilePrefix(run) {
+    return 'FaultLab_Bundle_' + (run ? run.runId : 'run') + '_';
+  }
+
+  function downloadBundle(run) {
+    if (!FL.bundle || !FL.bundle.buildBundleFiles) throw new Error('FL.bundle 未就绪');
+    const files = FL.bundle.buildBundleFiles(run);
+    const prefix = bundleFilePrefix(run);
+    const names = Object.keys(files);
+    names.forEach((name, i) => {
+      const text = files[name];
+      const mime = /\.csv$/.test(name) ? 'text/csv;charset=utf-8'
+        : /\.json$/.test(name) ? 'application/json;charset=utf-8' : 'text/plain;charset=utf-8';
+      setTimeout(() => download(prefix + name, text, mime), i * 220);
+    });
+    return { count: names.length, prefix };
+  }
+
+  function importBundleFromFileList(fileList) {
+    const known = (FL.bundle && FL.bundle.ALL_FILES) || [];
+    const files = {};
+    const readers = [];
+    for (let i = 0; i < fileList.length; i++) {
+      const f = fileList[i];
+      const base = String(f.name || '').replace(/^FaultLab_Bundle_[^_]+_/, '');
+      if (known.indexOf(base) === -1) continue;
+      readers.push(new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => { files[base] = String(reader.result); resolve(); };
+        reader.onerror = () => reject(new Error('读取文件失败：' + base));
+        reader.readAsText(f, 'utf-8');
+      }));
+    }
+    return Promise.all(readers).then(() => {
+      if (!files['manifest.json']) {
+        const err = new Error('[CN-E01] 未选择有效证据包文件（需要 manifest.json 等 8 个文件）');
+        err.code = 'CN-E01';
+        throw err;
+      }
+      return FL.bundle.importBundle(files);
+    });
+  }
+
+  /* ===================================================================
      download / copy
      =================================================================== */
   function download(filename, text, mime) {
@@ -406,6 +452,9 @@
     csvFilename,
     jsonFilename,
     reportFilename,
+    downloadBundle,
+    importBundleFromFileList,
+    bundleFilePrefix,
     _helpers: { esc, num, csvCell, stamp }
   };
 })();

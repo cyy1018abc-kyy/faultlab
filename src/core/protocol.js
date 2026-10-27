@@ -177,12 +177,39 @@
     return run.events[0] || null;
   }
 
+  /* Run 结构校验（DATA_CONTRACT_SPEC §9）：
+     点数由 duration_s/dt_s 派生（禁止硬编码 601）；时间网格 t[i]=i·dt；
+     信号目录经 FL.contract 校验（唯一 id、单位字典、exposure）；
+     事件快照相位（pre/post 成对、t_s=事件时刻）；
+     委托 FL.contract 的中文错误码（CN-E01…CN-E05）。 */
   function validateRun(run) {
     const problems = [];
     if (!run || typeof run !== 'object') return { ok: false, problems: ['run 为空'] };
-    if (!run.timeseries || !Array.isArray(run.timeseries.t)) problems.push('缺少 timeseries.t');
-    else if (run.timeseries.t.length !== 601) problems.push('采样点不是 601');
+    const contract = FL.contract;
+    if (!run.timeseries || !Array.isArray(run.timeseries.t)) {
+      problems.push('缺少 timeseries.t');
+    } else {
+      const cfg = run.config || {};
+      if (typeof cfg.duration_s === 'number' && typeof cfg.dt_s === 'number' && contract) {
+        const n = contract.deriveNSamples(cfg.duration_s, cfg.dt_s);
+        if (run.timeseries.t.length !== n) problems.push('采样点应为 ' + n + '（duration/dt+1），实际 ' + run.timeseries.t.length);
+        const dt = cfg.dt_s;
+        for (let i = 0; i < run.timeseries.t.length; i++) {
+          if (Math.abs(run.timeseries.t[i] - i * dt) > 1e-9) { problems.push('时间网格必须 t[i]=i·dt（第 ' + i + ' 点）'); break; }
+        }
+      } else {
+        problems.push('缺少 duration_s/dt_s，无法派生采样点数');
+      }
+    }
     if (!run.signals || !run.signals.length) problems.push('缺少 signals 元数据');
+    else if (contract) {
+      contract.validateSignalCatalog(run.signals).forEach((e) => problems.push(e.message));
+    }
+    if (contract && run.config) {
+      const sc = contract.scenarioView(run.config);
+      contract.validateScenarioConfig(sc, { p0frozen: false }).forEach((e) => problems.push(e.message));
+      contract.validateEventSnapshots(run.events || [], run.snapshots || [], sc).forEach((e) => problems.push(e.message));
+    }
     return { ok: problems.length === 0, problems };
   }
 
