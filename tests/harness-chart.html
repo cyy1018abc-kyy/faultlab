@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FaultLab · chart.js 自测台</title>
+<!--
+  仅用于 chart-signals 自测：独立于 shell/store，直接加载 src/ui/chart.js 并造数据。
+  打开：http://127.0.0.1:4318/tests/harness-chart.html
+-->
+<style>
+  :root {
+    --bg-0: #06080b;
+    --bg-1: #0b0f14;
+    --bg-2: #11161d;
+    --bg-3: #171e27;
+    --line-1: #232b35;
+    --line-2: #2f3945;
+    --ink-0: #eef3f2;
+    --ink-1: #c2ccd0;
+    --ink-2: #8b98a5;
+    --ink-3: #5a6673;
+    --acc: #c8f45a;
+    --obs: #5ad8ff;
+    --warm: #ffb257;
+    --fault: #ff5f6d;
+    --ok: #5fe3a1;
+    --warn: #ffd166;
+    --font-display: "Bahnschrift", "DIN Alternate", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+    --font-body: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+    --font-mono: "Cascadia Mono", "Cascadia Code", "Consolas", "Microsoft YaHei UI", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg-0);
+    color: var(--ink-1);
+    font: 13px/1.5 var(--font-body);
+    padding: 24px;
+    background-image:
+      linear-gradient(to right, rgba(35, 43, 53, 0.28) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(35, 43, 53, 0.22) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  h1 {
+    font: 600 20px/1.2 var(--font-display);
+    color: var(--ink-0);
+    margin: 0 0 4px;
+    letter-spacing: 0.02em;
+  }
+  h2 { font: 600 13px/1.3 var(--font-display); color: var(--ink-1); margin: 0 0 2px; }
+  .sub { color: var(--ink-3); font: 10px/1.4 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .full { grid-column: 1 / -1; }
+  .panel {
+    background: var(--bg-1);
+    border: 1px solid var(--line-1);
+    padding: 12px 14px 14px;
+  }
+  .panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+  .hint { color: var(--ink-3); font: 10px/1.4 var(--font-mono); }
+  .badge-warn {
+    display: inline-block; border: 1px solid var(--warm); color: var(--warm);
+    font: 10px/1 var(--font-mono); letter-spacing: 0.08em; padding: 4px 6px;
+  }
+  .badge-ok { border-color: var(--ok); color: var(--ok); }
+  .badge-bad { border-color: var(--fault); color: var(--fault); }
+  .chartbox { width: 100%; min-width: 0; }
+  .quad { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .checks { list-style: none; margin: 8px 0 0; padding: 0; font: 11px/1.7 var(--font-mono); }
+  .checks li::before { content: '· '; color: var(--ink-3); }
+  .checks .pass { color: var(--ok); }
+  .checks .fail { color: var(--fault); }
+  .checks .note { color: var(--ink-2); }
+  .readout { margin-top: 8px; font: 11px/1.6 var(--font-mono); color: var(--ink-2); }
+  .readout b { color: var(--ink-0); font-weight: 400; }
+</style>
+</head>
+<body>
+  <h1>FaultLab · chart.js 自测台</h1>
+  <div class="sub">Canvas 2d · HiDPI · 双轴 · 线型 / step · 事件三角 · 游标 · 选中点 · 回调</div>
+
+  <div class="grid">
+    <section class="panel full">
+      <div class="panel-head">
+        <div>
+          <h2>① 电流：真实 solid(acc) / 测量 dashed(obs, step) / 目标 dashdot(warm) / 偏置 dashed(fault, 右轴)</h2>
+          <div class="hint">0–60 s，主刻度 10 s；事件 20.0 s 三角 + 斜纹；游标 26.0 s；选中采样点 20.0 s；轴标题应为 A / A</div>
+        </div>
+        <span class="badge-warn">cursor = 26.0 s</span>
+      </div>
+      <div class="chartbox" id="box-main"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>② SOC 纵轴放大（页面显式 setDomain y）</h2>
+          <div class="hint">纵轴 59.45–60.05 %，务必看清 −0.111 pp 差值而不是“大幅跌落”</div>
+        </div>
+        <span class="badge-warn">量程已放大</span>
+      </div>
+      <div class="chartbox" id="box-soc"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>③ step 不连续（窗口 18–22 s）</h2>
+          <div class="hint">I_meas 在 20.0 s 垂直跳变，不得平滑插值</div>
+        </div>
+        <span class="badge-warn">窗口 18–22 s</span>
+      </div>
+      <div class="chartbox" id="box-step"></div>
+    </section>
+
+    <section class="panel full">
+      <div class="panel-head">
+        <div>
+          <h2>④ 边界：空数据 / 单点 / y 全 0 / 双序列 y 极值相等</h2>
+          <div class="hint">不得抛错；空数据给友好提示；单点画点；全 0 有零线；仅右轴时不得出现假左轴</div>
+        </div>
+      </div>
+      <div class="quad">
+        <div class="chartbox" id="box-empty"></div>
+        <div class="chartbox" id="box-single"></div>
+        <div class="chartbox" id="box-zero"></div>
+        <div class="chartbox" id="box-rightonly"></div>
+      </div>
+    </section>
+
+    <section class="panel full">
+      <div class="panel-head">
+        <div>
+          <h2>⑤ 交互 / 生命周期自检（合成 PointerEvent + API 冒烟）</h2>
+          <div class="hint">onHover / onCursorDrag / onClick 均需回调；destroy 后不得再抛错</div>
+        </div>
+      </div>
+      <ul class="checks" id="checks"></ul>
+      <div class="readout" id="readout"></div>
+    </section>
+  </div>
+
+  <script src="../src/ui/chart.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    var FL = window.FL;
+    var checks = document.getElementById('checks');
+    var readout = document.getElementById('readout');
+
+    function addCheck(ok, label, detail) {
+      var li = document.createElement('li');
+      li.className = ok ? 'pass' : 'fail';
+      li.textContent = (ok ? 'PASS · ' : 'FAIL · ') + label + (detail ? ' — ' + detail : '');
+      checks.appendChild(li);
+      return ok;
+    }
+
+    function makeData() {
+      var t = [], iTrue = [], iMeas = [], iRef = [], bias = [], socT = [], socE = [];
+      var k;
+      for (k = 0; k <= 600; k++) {
+        var ts = Math.round(k * 0.1 * 10) / 10;
+        var tv = ts < 20 ? 25 : 15 + 10 * Math.exp(-(ts - 20) / 1.5);
+        var b = ts < 20 ? 0 : 10;
+        t.push(ts);
+        iTrue.push(tv);
+        iMeas.push(tv + b);
+        iRef.push(25);
+        bias.push(b);
+      }
+      // SOC：60 - ∫P_bat dt / (40 kWh)
+      var accT = 0, accE = 0;
+      for (k = 0; k <= 600; k++) {
+        if (k > 0) {
+          var pf = 0.4 * iTrue[k - 1];
+          var pm = 0.4 * iMeas[k - 1];
+          accT += pf * 0.1;
+          accE += pm * 0.1;
+        }
+        socT.push(60 - accT / 3600 / 40 * 100);
+        socE.push(60 - accE / 3600 / 40 * 100);
+      }
+      return { t: t, iTrue: iTrue, iMeas: iMeas, iRef: iRef, bias: bias, socT: socT, socE: socE };
+    }
+
+    function pairs(t, arr) {
+      var out = new Array(t.length);
+      for (var i = 0; i < t.length; i++) out[i] = [t[i], arr[i]];
+      return out;
+    }
+
+    var data = makeData();
+    var events = [{ t: 20, label: '故障 20.0 s · 传感器偏置 +10 A', style: 'fault' }];
+
+    function makeCanvas(box) {
+      var cv = document.createElement('canvas');
+      box.appendChild(cv);
+      return cv;
+    }
+
+    // ① 主图
+    var mainEvents = [];
+    var mainChart = FL.chart.create(makeCanvas(document.getElementById('box-main')), {
+      height: 340,
+      xDomain: [0, 60],
+      ariaLabel: '电流曲线自测：真实电流、测量电流、控制器目标与故障偏置',
+      onHover: function (info) { if (info) mainEvents.push('hover'); },
+      onClick: function (info) { mainEvents.push('click:' + info.t); },
+      onCursorDrag: function (t) { mainEvents.push('drag:' + t); }
+    });
+    mainChart.setSeries([
+      { id: 'I_bat_true_A', label: '电池真实电流', unit: 'A', axis: 'left', color: 'acc', style: 'solid', points: pairs(data.t, data.iTrue) },
+      { id: 'I_bat_meas_A', label: '电池测量电流', unit: 'A', axis: 'left', color: 'obs', style: 'dashed', step: true, points: pairs(data.t, data.iMeas) },
+      { id: 'I_ref_A', label: '控制器电流目标', unit: 'A', axis: 'left', color: 'warm', style: 'dashdot', points: pairs(data.t, data.iRef) },
+      { id: 'bias_A', label: '传感器偏置', unit: 'A', axis: 'right', color: 'fault', style: 'dashed', step: true, points: pairs(data.t, data.bias) }
+    ]);
+    mainChart.setEvents(events);
+    mainChart.setCursor(26.0);
+    mainChart.setSelectedPoint(20.0);
+    mainChart.render();
+
+    // ② SOC 放大
+    var socChart = FL.chart.create(makeCanvas(document.getElementById('box-soc')), {
+      height: 340,
+      xDomain: [0, 60],
+      yDomain: [59.45, 60.05],
+      ariaLabel: 'SOC 曲线：纵轴已放大到 59.45 至 60.05 百分比'
+    });
+    socChart.setSeries([
+      { id: 'SOC_true_pct', label: '真实 SOC', unit: '%', color: 'acc', style: 'solid', points: pairs(data.t, data.socT) },
+      { id: 'SOC_est_pct', label: '估计 SOC', unit: '%', color: 'obs', style: 'dashed', points: pairs(data.t, data.socE) }
+    ]);
+    socChart.setCursor(60.0);
+    socChart.setSelectedPoint(60.0);
+    socChart.render();
+
+    // ③ step 不连续窗口
+    var stepChart = FL.chart.create(makeCanvas(document.getElementById('box-step')), {
+      height: 340,
+      xDomain: [18, 22],
+      ariaLabel: '20 秒测量电流阶跃，窗口 18 至 22 秒'
+    });
+    stepChart.setSeries([
+      { id: 'I_bat_meas_A', label: '电池测量电流', unit: 'A', color: 'obs', style: 'dashed', step: true, points: pairs(data.t, data.iMeas) },
+      { id: 'I_bat_true_A', label: '电池真实电流', unit: 'A', color: 'acc', style: 'solid', points: pairs(data.t, data.iTrue) }
+    ]);
+    stepChart.setEvents([{ t: 20, label: '阶跃 20.0 s', style: 'fault' }]);
+    stepChart.setCursor(20.4);
+    stepChart.setSelectedPoint(20.0);
+    stepChart.render();
+
+    // ④ 边界
+    var emptyChart = FL.chart.create(makeCanvas(document.getElementById('box-empty')), {
+      height: 220, xDomain: [0, 60], ariaLabel: '空数据图表'
+    });
+    emptyChart.setSeries([]);
+    emptyChart.setEvents([]);
+    emptyChart.setCursor(12);
+    emptyChart.render();
+
+    var singleChart = FL.chart.create(makeCanvas(document.getElementById('box-single')), {
+      height: 220, xDomain: [0, 60], ariaLabel: '单点图表'
+    });
+    singleChart.setSeries([{ id: 'single', label: '单点', unit: 'A', color: 'warm', style: 'solid', points: [[30, 5]] }]);
+    singleChart.setCursor(30);
+    singleChart.render();
+
+    var zeroChart = FL.chart.create(makeCanvas(document.getElementById('box-zero')), {
+      height: 220, xDomain: [0, 60], ariaLabel: '全零残差图表'
+    });
+    var zeros = [];
+    for (var zi = 0; zi <= 600; zi++) zeros.push([zi * 0.1, 0]);
+    zeroChart.setSeries([
+      { id: 'r_true_kW', label: '真实残差', unit: 'kW', color: 'ok', style: 'solid', points: zeros },
+      { id: 'r_true_2', label: '真实残差 2', unit: 'kW', color: 'acc', style: 'dotted', points: zeros }
+    ]);
+    zeroChart.setCursor(42);
+    zeroChart.render();
+
+    var rightOnlyChart = FL.chart.create(makeCanvas(document.getElementById('box-rightonly')), {
+      height: 220, xDomain: [0, 60], ariaLabel: '仅右轴序列图表'
+    });
+    rightOnlyChart.setSeries([
+      { id: 'bias_A', label: '传感器偏置', unit: 'A', axis: 'right', color: 'fault', style: 'dashed', step: true, points: pairs(data.t, data.bias) }
+    ]);
+    rightOnlyChart.setEvents([{ t: 20, label: '故障 20.0 s', style: 'fault' }]);
+    rightOnlyChart.setCursor(30);
+    rightOnlyChart.render();
+
+    // 双轴 / 空 y 等边界冒烟
+    try {
+      var smoke = FL.chart.create(document.createElement('canvas'), { height: 120 });
+      smoke.setSeries([
+        { id: 'a', label: 'a', unit: 'kW', color: 'acc', style: 'solid', points: [[0, 0.5], [1, 0.5]] },
+        { id: 'b', label: 'b', unit: 'kW', axis: 'right', color: 'warn', style: 'dotted', points: [[0, 7], [1, 7]] }
+      ]);
+      smoke.setDomain({ x: [0, 1], y: null, yRight: [6, 8] });
+      smoke.setDomain(null);
+      smoke.setDomain({});
+      smoke.setCursor(null);
+      smoke.setSelectedPoint(0.5);
+      smoke.setTheme({ colors: { acc: '#c8f45a' } });
+      smoke.setHeight(150);
+      smoke.resize();
+      smoke.render();
+      smoke.destroy();
+      smoke.setSeries([]); // destroy 后调用必须安全
+      smoke.setDomain({ x: [0, 1] });
+      smoke.render();
+      addCheck(true, '生命周期冒烟（create/setDomain null/destroy 后调用不抛错）');
+    } catch (err) {
+      addCheck(false, '生命周期冒烟', String(err && err.message || err));
+    }
+
+    // 渲染完成后再做交互自检
+    setTimeout(function () {
+      var canvas = mainChart.el;
+      var rect = canvas.getBoundingClientRect();
+      var dpr = window.devicePixelRatio || 1;
+      addCheck(
+        canvas.width === Math.round(rect.width * Math.min(dpr, 3)),
+        'HiDPI 后备缓冲宽 = CSS 宽 × DPR',
+        'canvas.width=' + canvas.width + ' cssW=' + Math.round(rect.width) + ' dpr=' + dpr
+      );
+      addCheck(rect.height > 300, '逻辑高度来自 opts.height', 'h=' + Math.round(rect.height));
+      addCheck(!!canvas.getAttribute('aria-label'), 'canvas 有 aria-label', canvas.getAttribute('aria-label'));
+      addCheck(canvas.getAttribute('role') === 'img', 'canvas role=img');
+
+      function fire(type, x, y) {
+        var ev = new PointerEvent(type, {
+          bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse',
+          clientX: rect.left + x, clientY: rect.top + y, button: 0, buttons: type === 'pointerup' ? 0 : 1
+        });
+        canvas.dispatchEvent(ev);
+      }
+
+      var x = Math.max(80, rect.width * 0.42);
+      var y = rect.height * 0.5;
+      // 拖动（移动 30px）应触发 onCursorDrag，而不触发 onClick
+      fire('pointermove', x, y);
+      fire('pointerdown', x, y);
+      fire('pointermove', x + 30, y);
+      fire('pointerup', x + 30, y);
+      // 原地点击（无位移）应触发 onClick
+      fire('pointerdown', x + 60, y);
+      fire('pointerup', x + 60, y);
+      fire('pointermove', x + 80, y);
+      fire('pointerleave', x + 80, y);
+
+      addCheck(mainEvents.filter(function (e) { return e.indexOf('drag:') === 0; }).length >= 2, 'onCursorDrag 回调（拖动游标）');
+      addCheck(mainEvents.filter(function (e) { return e.indexOf('click:') === 0; }).length >= 1, 'onClick 回调（点击取点）');
+      addCheck(mainEvents.indexOf('hover') >= 0, 'onHover 回调（最近采样）');
+
+      readout.innerHTML = '事件序列：<b>' + (mainEvents.join(' · ') || '(空)') + '</b><br>'
+        + '主图 plot 尺寸由 chart 自适应；若上方两条轴线数值与预期不符，说明 nice ticks / 双轴解析有误。';
+    }, 500);
+
+    // 也把异常暴露到页面（Headless 截图可读）
+    window.addEventListener('error', function (e) {
+      addCheck(false, '运行期异常', e.message);
+    });
+  })();
+  </script>
+</body>
+</html>
+
+

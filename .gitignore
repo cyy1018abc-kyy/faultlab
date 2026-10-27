@@ -1,0 +1,6 @@
+# FaultLab — local build artifacts and external evaluation inputs
+artifacts/
+FaultLab-evaluation/
+node_modules/
+*.tmp
+*.log
