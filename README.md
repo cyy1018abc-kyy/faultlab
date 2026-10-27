@@ -195,3 +195,7 @@ node tools/qa.mjs misc                # UX-04/05/08、键盘、刷新恢复、�
 - 产品规格：`FaultLab_V0.1_页面原型与交互规格.md`（FL-001，2026-10-27）
 - 团队工程契约：`docs/CONTRACT.md`
 - 外部 Agent 协议：`docs/AGENT_PROTOCOL.md`
+- 范围裁定：`docs/SCOPE.md`
+- QA 与验收报告：`artifacts/QA_REPORT.md`
+- **V0.2 G0 评审证据包**：`FaultLab-evaluation/README.md` —— 双路独立评审（工程视角 / 物理视角）+ 独立数值预言机 + 决策建议稿（D-01…D-08、B01–B15、O-01…O-06），对应 V0.2 §13/§14。该目录是评审证据，不是已批准规格；其中结论针对其 INPUT 快照哈希，不追认本仓库的并行实现为已批准规格。
+

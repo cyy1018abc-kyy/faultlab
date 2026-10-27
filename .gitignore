@@ -1,7 +1,9 @@
-# FaultLab — local build artifacts and external evaluation inputs
-artifacts/
-FaultLab-evaluation/
+# FaultLab — transient/local files only.
+# Project source, QA screenshots (artifacts/), and the V0.2 G0 evaluation
+# evidence package (FaultLab-evaluation/) are intentionally tracked.
 node_modules/
 *.tmp
 *.log
-!artifacts/QA_REPORT.md
+__pycache__/
+.DS_Store
+Thumbs.db

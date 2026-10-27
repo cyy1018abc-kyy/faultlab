@@ -1,8 +1,22 @@
 # FaultLab V0.1 — 工程契约（Team Contract）
 
-> 本文件是并行开发的**唯一接口事实源**。所有 teammate 在写代码前必须完整阅读本文件与
-> `F:\FaultLab_V0.1_页面原型与交互规格.md`。接口冲突时以本文件为准；本文件未覆盖处，
-> 先向 Lead 提问，不要自行改公共接口。
+> **G0 裁决基线（2026-10-27T20:35 起生效）**
+>
+> - **权威顺序**：`FaultLab-evaluation/DECISIONS/DECISIONS.md`（决策）→
+>   `FaultLab-evaluation/NEXT/*.md`（DATA_CONTRACT_SPEC / MODEL_VALIDATION_SPEC /
+>   UI_COPY_GUARDRAILS / BACKLOG_APPROVED / SCOPE_SPLIT_MEMO，规格）→ 本文件（实现契约）→ 既有实现。
+>   **本文件与 DECISIONS 冲突时以 DECISIONS 为准。**
+> - **P0 基线**：仅 **FL-001 × 3 组固定 Run（baseline / closed_loop_fault / monitor_only）×
+>   5 逻辑视图 × 单一时钟 × 事件 pre/post × 证据导出/重载**。三系统/三类故障族/Agent Arena 为
+>   **扩展预览（P1/P2）**，不属于 V0.1 基准验收路径（见 §1、§5.3、§11）。
+> - **本次对齐的强制偏离**（逐条见文末「附录 G0 对齐记录」）：
+>   事件 `pre` 改为 `t_s=20.0` 左极限（§4.6/§5.1/§6）；SOC 公式补 ×100（§5.1）；
+>   积分/舍入口径冻结（§5.0/§5.1）；FL-001 `load_step` **暂停实现**（§5.1）；
+>   FC-001 SOC 末值修正（§5.2）；**GT-001 当前形态 NO-GO**（§5.3）；Arena 降为 P2 扩展预览（§11）。
+> - 本文件仍是并行开发的接口事实源；本文件未覆盖处，先向 Lead 提问，不要自行改公共接口。
+>
+> 原始说明：所有 teammate 在写代码前必须完整阅读本文件与
+> `F:\FaultLab_V0.1_页面原型与交互规格.md`。接口冲突时以本文件为准。
 
 ---
 
@@ -27,27 +41,35 @@
 
 ## 1. 产品范围
 
-**V0.1 必须交付**（规格 §12 P0 全量 + 用户明确要求的扩展）：
+**P0 基线（G0 批准；验收只认这一条）**：
 
 1. 规格五个页面：**首页 / 系统交互图 / 实时曲线 / 因果解释 / 结果对比**。
 2. **FL-001 基准实验**逐字符合规格 §1 数值、§11 UX-01..UX-12、§5.3 线型语义、§6.3 文案约束。
-3. **三个系统**可切换（同一套五页面驱动）：
-   - `FL-001` 电池储能（规格基准，默认场景 = 20s +10A 电流传感器偏置，闭环）；
-   - `FC-001` 燃料电池发电系统（默认场景 = 20s +10A 电堆电流传感器偏置）；
-   - `GT-001` 燃气涡轮发电系统（默认场景 = 20s +0.3Hz 转速传感器偏置）。
-4. **三类故障家族**每系统可编排：`sensor_drift` 传感器漂移 / `load_step` 负载冲击 / `actuator_fault` 执行器异常。
-5. **Agent Arena**：隐藏真值盲测、内置多个确定性诊断 Agent 比赛、评分与排行榜、
-   盲测数据包导出/外部诊断导入（面向未来真实 AI Agent）。
-6. 导出：CSV、配置清单 JSON、HTML 报告、分享摘要、证据包（JSON）。
-7. 离线可运行；`FaultLab.html` 单文件双击可用；源码可在无构建依赖下用任意静态服务器打开。
+3. **三组固定 Run**：`baseline`（无故障）、`closed_loop_fault`（20 s +10 A 闭环）、
+   `monitor_only`（仅监测）；同配置、唯一变量、独立 `run_id`，均可回放/对照/导出。
+4. 导出：CSV、配置清单 JSON、证据包（JSON）；HTML 报告为 P1。P0 证据包格式以
+   `FaultLab-evaluation/NEXT/DATA_CONTRACT_SPEC.md` 为准。
+5. 离线可运行；实现层维持零构建经典脚本，并保留单文件构建能力（`FaultLab.html`，P1 交付形态）。
+6. 真值/观测/推断分离（每个数字带 `source_kind` 标签）；结论可回溯
+   （`run_id + variable + time_window`）；可信度标签由 Run 元数据生成，不由 UI 自由切换。
 
-**不做**：3D、真实设备、账号、任意 `.slx` 上传、云端排行榜、LLM 实时诊断（只留接入协议）。
+**扩展预览（P1/P2，不是 V0.1 P0 验收路径）**：
 
-> 规格中 "V0.1 不做 Agent Arena" 与用户明确要求冲突时，**以用户要求为准**：Arena 作为独立
-> 扩展页交付，并在 UI/README 标明"扩展预览，不属于 FL-001 基准验收路径"。
+- 三个系统可切换（`FL-001` / `FC-001` / `GT-001`）：FC-001 修完 §5.2 的 SOC 末值后可作为 P1 的
+  L0b 候选；**GT-001 当前形态 NO-GO（§5.3）**，恢复须先走独立 G2b 物理规格评审。
+- 三类故障家族（`sensor_drift` / `load_step` / `actuator_fault`）：其中 **FL-001 的 `load_step`
+  暂停实现**（§5.1）；其余作为扩展预览，不作为 P0 验收。
+- **Agent Arena**：P2 扩展预览（隐藏真值盲测、确定性诊断 Agent、评分/排行榜、盲测包导出与
+  外部诊断导入）。其"真值隔离"在本实现中是 UI 开关、**不是安全边界**；契约级隔离以
+  `DATA_CONTRACT_SPEC.md` 的 `exposure` / `project('blind')` 为准。
+- **不做**：3D、真实设备、账号、任意 `.slx` 上传、云端排行榜、LLM 实时诊断（只留接入协议）。
 
 **产品原则（所有 UI 必须体现）**：先系统后曲线；真值/观测/推断分离（每个数字带 source_kind 标签）；
-单一全局仿真时间线；结论可回溯（run_id + variable + time_window）；演示优先、渐进披露。
+单一全局仿真时间线；结论可回溯（run_id + variable + time_window）；演示优先、渐进披露；
+**已知故障传播解释 ≠ 诊断算法**（无检出率/误报率/诊断延迟指标）。
+
+> 范围裁决依据：`FaultLab-evaluation/DECISIONS/DECISIONS.md` 的 G0-DEC-01/14/15 与
+> `FaultLab-evaluation/NEXT/SCOPE_SPLIT_MEMO.md`。
 
 ---
 
@@ -346,9 +368,13 @@ UI 正文用 body；计量/变量/公式/时刻用 mono。微标签：mono 11px�
       preSnapshotId:'EV-001-pre', postSnapshotId:'EV-001-post' }
   ],
   snapshots: [
-    { snapshotId:'EV-001-pre', event_id:'EV-001', t_s:19.9, phase:'pre',
+    // G0 对齐（B01）：pre 是 t_start=20.0 的左极限，不是 19.9 s 采样行。
+    // 19.9 s 只是上一常规采样点（可用 timeseries 查询），不叫 pre。
+    { snapshotId:'EV-001-pre', event_id:'EV-001', t_s:20.0, phase:'pre',
+      derivation:'left_limit',
       variables:{ I_bat_true_A:25, I_bat_meas_A:25, … } },
-    { snapshotId:'EV-001-post', event_id:'EV-001', t_s:20, phase:'post', variables:{…} }
+    { snapshotId:'EV-001-post', event_id:'EV-001', t_s:20.0, phase:'post',
+      derivation:'post_sample', variables:{…} }
   ],
   metrics: [ /* §4.7 */ ],
   quality: [ /* §4.8 */ ],
@@ -457,7 +483,19 @@ GT 系统的 power conservation 含 `P_rotor_kW` 项（见 §5.3）。
 
 一阶环节精确离散：`y_{n+1} = target + (y_n - target) * exp(-dt/tau)`（target 在步内视为常数）。
 
-### 5.1 FL-001 电池储能（BESS）— 必须与规格解析式逐位一致
+### 5.0 G0 数值口径（新增；B01/B02/B04，详见 `NEXT/MODEL_VALIDATION_SPEC.md`）
+
+- **金标准积分规则**：FL-001 的能量与 SOC 以**解析积分（事件感知）**为准（见 §5.1 验收表）；
+  若实现采用数值求积，仅作敏感性证明，容差放宽至 `E ≥1e-5 kWh`、`SOC ≥5e-4 pp`；
+  `metrics.method_id` 必须声明（`analytic_flux` / `trapz_dt0.01` / …）。
+- **显示舍入**：存储全精度；显示按字段 precision，`round-half-up`；电流/功率 4 dp、能量 6 dp、
+  SOC 与 SOC_err 5–6 dp；"≈" 必须写明容差。
+- **事件编码**：`(event_id, phase)` 为主键；`pre` = `t_s=t_start` 左极限
+  （`derivation:'left_limit'`），`post` = 同刻采样值（`derivation:'post_sample'`）；
+  19.9 s 只是上一常规采样点，**不是 pre**；`timeseries.csv` 的 20.0 s 行 = post。
+- **SOC 公式**：`SOC% = 60 − 100·(1/40)·∫P dt/3600`（`∫P dt` 单位 kW·s）。旧文本缺 ×100，已修正（B04）。
+
+### 5.1 FL-001 电池储能（BESS）— 与规格解析式在 1e-6 容差内一致（G0：不要求"逐位一致"）
 
 **拓扑**：`battery` 电池组(40 kWh/400 V) → `converter` 双向 DC/DC → `bus` 400 V 直流母线 →
 `load` 30 kW；`generator` 理想平衡源（初始 20 kW）接母线；`sensor` 电池电流传感器；
