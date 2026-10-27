@@ -33,6 +33,7 @@ function opt(name, dflt) {
 }
 const JOURNEY = opt('journey', 'fl001-min');
 const PORT = Number(opt('port', '4319'));
+const CDP_PORT = Number(opt('cdp-port', '9339'));
 const BASE = opt('base', '');
 const OUT = path.resolve(ROOT, opt('out', 'artifacts'));
 const CHROME = opt('chrome', findChrome());
@@ -63,8 +64,9 @@ class Cdp {
       this.ws.onerror = () => reject(new Error('ws error'));
     });
     this.ws.onmessage = (ev) => {
+      if (process.env.E2E_DEBUG) console.log('[frame]', typeof ev.data, String(typeof ev.data === 'string' ? ev.data : '(binary)').slice(0, 140));
       let msg;
-      try { msg = JSON.parse(ev.data); } catch { return; }
+      try { msg = JSON.parse(typeof ev.data === 'string' ? ev.data : ''); } catch { return; }
       if (msg.id && this.pending.has(msg.id)) {
         const { resolve, reject } = this.pending.get(msg.id);
         this.pending.delete(msg.id);
@@ -80,9 +82,20 @@ class Cdp {
   }
   send(method, params = {}) {
     const id = ++this.id;
+    /* 30 s 防挂起：导航竞态可能吞掉 CDP 响应，超时即失败重试由调用方处理 */
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      this.ws.send(JSON.stringify({ id, method, params }));
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error('CDP 超时：' + method));
+      }, 30000);
+      this.pending.set(id, {
+        resolve: (v) => { clearTimeout(timer); resolve(v); },
+        reject: (e) => { clearTimeout(timer); reject(e); }
+      });
+      const payload = { id, method, params };
+      if (this.sessionId) payload.sessionId = this.sessionId;
+      if (process.env.E2E_DEBUG) console.log('[send]', id, method, this.sessionId ? '(routed ' + this.sessionId.slice(0, 8) + ')' : '(browser)');
+      this.ws.send(JSON.stringify(payload));
     });
   }
   async evalExpr(expr) {
@@ -98,21 +111,23 @@ class Cdp {
 }
 
 async function discoverWs(port) {
+  /* 浏览器级端点（/json/version）：Edge 的初始页 target 会话可能无响应，
+     统一走 browser WS + Target.createTarget + flatten 会话路由（对 Chrome 同样标准）。 */
   for (let i = 0; i < 40; i++) {
     try {
       const txt = await new Promise((resolve, reject) => {
-        http.get({ host: '127.0.0.1', port, path: '/json/list' }, (res) => {
+        http.get({ host: '127.0.0.1', port, path: '/json/version' }, (res) => {
           let d = '';
           res.on('data', (c) => { d += c; });
           res.on('end', () => resolve(d));
         }).on('error', reject);
       });
-      const pages = JSON.parse(txt).filter((p) => p.type === 'page' && p.webSocketDebuggerUrl);
-      if (pages.length) return pages[0].webSocketDebuggerUrl;
+      const wsUrl = JSON.parse(txt).webSocketDebuggerUrl;
+      if (wsUrl) return wsUrl;
     } catch { /* retry */ }
     await wait(250);
   }
-  throw new Error('CDP 页面发现超时');
+  throw new Error('CDP 浏览器端点发现超时');
 }
 
 function startServer() {
@@ -153,15 +168,31 @@ async function main() {
     const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'faultlab-e2e-'));
     chrome = spawn(CHROME, [
       '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-      '--disable-component-update', '--disable-sync', '--disable-client-side-phishing-detection',
+      '--disable-component-update', '--disable-sync', '--disable-client-side-phishing-detection', '--disable-extensions',
       '--disable-features=OptimizationGuideModelDownloading,OptimizationHintsFetching,OptimizationTargetPrediction',
-      '--remote-debugging-port=9339', '--user-data-dir=' + profile,
+      '--remote-debugging-port=' + CDP_PORT, '--user-data-dir=' + profile,
       'about:blank'
     ], { stdio: 'ignore' });
-    const wsUrl = await discoverWs(9339);
+    const wsUrl = await discoverWs(CDP_PORT);
     cdp = new Cdp(wsUrl);
     await cdp.ready;
-    await cdp.send('Runtime.enable');
+    /* Edge 无头模式的页面会话存在启动期抖动（初始页 agent 可能无响应）：
+       新建 target + attach 是已验证可靠的模式；enable 失败则换新 target 重试（≤3 轮）。 */
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const created = await cdp.send('Target.createTarget', { url: 'about:blank' });
+      const attached = await cdp.send('Target.attachToTarget', { targetId: created.targetId, flatten: true });
+      cdp.sessionId = attached.sessionId;
+      try {
+        await cdp.send('Runtime.enable');
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        if (attempt < 3) await wait(1500);
+      }
+    }
+    if (lastErr) throw lastErr;
     await cdp.send('Page.enable');
     await cdp.send('Network.enable');
     cdp.on('Runtime.consoleAPICalled', (p) => {

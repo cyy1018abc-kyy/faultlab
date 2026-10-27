@@ -1,4 +1,4 @@
-# FaultLab — Virtual Energy Lab
+# FaultLab — Virtual Energy Lab · v0.2.0
 
 > 亲手制造故障，观察系统反应。离线可运行的能源系统故障注入与传播解释实验场。
 >
@@ -176,3 +176,14 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
 - **实施证据**：`FaultLab-evaluation/NEXT/evidence/g2/`（golden/oracle/四件套）、`evidence/g4/`（因果护栏/白名单/范围守卫/README）
 - **golden 数据**：`data/golden/fl001_v1.json`（method_id=analytic_flux；全精度；sha256 见同目录 .sha256）
 - QA 截图与原型期报告：`artifacts/`（历史自检，不作为验收证据）
+
+## 11. 许可证
+
+本项目以 [MIT License](LICENSE) 发布（Copyright © 2026 cyy1018abc-kyy and FaultLab contributors）。
+
+- 全部源码、文档与 `FaultLab-evaluation/` 治理证据随仓库同许可发布。
+- 运行期零第三方依赖（浏览器原生 API + Python/Node 标准库），无第三方分发物义务；
+  五个对标开源项目（python-microgrid/PyBaMM/Open MCT/DoWhy/Grid2Op）仅作设计参考，
+  未复制其源码，故不产生许可传染问题。
+- `data/golden/*.json` 与 `artifacts/` 为本项目自产数据，随 MIT 发布。
+- 免责：软件按"现状"提供；模型为 L0 行为级演示，不构成任何工程、物理或安全保证。
