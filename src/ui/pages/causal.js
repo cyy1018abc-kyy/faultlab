@@ -1,6 +1,6 @@
 /* owner: causal-compare | module: page-causal | contract: docs/CONTRACT.md */
 /* 故障因果解释页：只渲染 run.causal / run.events / run.metrics / system 元数据与 run.timeseries。
-   页面不生成因果结论，也不把测量一致性残差解释成实际能量损失。 */
+   页面不生成因果结论，也不把测量一致性残差解读为损失的能量。 */
 (function () {
   'use strict';
   const FL = window.FL = window.FL || {};
@@ -227,6 +227,10 @@
   function buildSkeleton(root) {
     UI.clear(root);
     const wrap = el('div', { class: 'pg-causal page-pad' });
+    /* 页头常驻横幅（UI_COPY_GUARDRAILS §3.1 逐字锁定；TXT-04） */
+    wrap.appendChild(el('div', {
+      class: 'notice', 'data-testid': 'causal-banner', 'data-tone': 'warn', role: 'note'
+    }, '本次故障是运行前注入的配置事实；本页不做检测/定位/诊断，无检出率与延迟指标。'));
 
     refs = {
       wrap: wrap,
@@ -1191,6 +1195,22 @@
 
     body.appendChild(el('p', { class: 'cc-card-desc' },
       '测量一致性残差由测量通道构造，' + peakText + ' kW 是测量偏差的体现；真实功率守恒仍然成立。点击展开查看两条平衡式的逐项数值。'));
+    /* +4 kW 教学卡（UI_COPY_GUARDRAILS §4 逐字口径；TXT-07）。
+       仅对批准白名单内的 P0 基准故障 Run（+4 kW）显示数值；其余 Run 只给机制文本，不编造数字。 */
+    (function appendTeachingCard() {
+      try {
+        const scope = FL.scope && FL.scope.classify ? FL.scope.classify(run.config) : 'extension_preview';
+        const rMeasM = run.metrics.filter((m) => m.metric_id === 'max_abs_r_meas_kW')[0] || {};
+        const isP0FourKw = scope === 'approved_p0' && typeof rMeasM.value === 'number' && Math.abs(rMeasM.value - 4) < 1e-9;
+        if (!isP0FourKw) return;
+        body.appendChild(el('div', { class: 'notice', 'data-testid': 'card-residual-energy' }, [
+          el('div', {}, '+4 kW 是测量通道误差的功率当量（代数恒等），不是能量损失。'),
+          el('div', {}, '+4 kW×40 s = 0.04444 kWh（测量残差积分）；实际少放电 0.04278 kWh（真实口径，故障比基准少放）；测量口径电池电能比基准多 +0.00167 kWh（口径差异，非真实多充/多放）。'),
+          el('div', {}, '恒等分解：0.0444444 kWh（A 测量残差积分） = 0.0427778 kWh（B 实际少放电） + 0.0016667 kWh（C 测量口径电能差）；三者定义不同、口径不同，不能互相替代。'),
+          el('div', {}, '误差单位：pp（百分点）；60 s 误差 −0.11111 pp。')
+        ]));
+      } catch (e) { /* 教学卡为增强内容，出错不阻塞残差卡 */ }
+    })();
     if (!open) {
       const summary = el('div', { class: 'cc-resid-summary' });
       const hook = (st) => {

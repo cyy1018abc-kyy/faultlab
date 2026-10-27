@@ -1,6 +1,6 @@
 /* owner: arena-agents | module: agents-builtin | contract: docs/CONTRACT.md */
 /* =========================================================================
-   FaultLab — 内置确定性诊断 Agent 套件
+   FaultLab — 内置确定性诊断演示 Agent 套件（合成场景扩展预览）
    盲测接口：create(meta) -> {reset(), observe(sample, meta), diagnose()}
    sample 只包含 blindVisible 观测通道；本文件不访问 run / config / 真值。
    所有算法均为确定性规则/统计式实现，不使用 Math.random，不是 LLM。
@@ -395,7 +395,7 @@
       diagnose() {
         const fx = ext.fx;
         if (!latchedFamily) {
-          // 健康局：置信度随特征峰值缓慢上升，但保持低位
+          // 健康局：可信分随特征峰值缓慢上升，但保持低位
           const peak = Math.max(abs(fx.peak.residual) / 5, abs(fx.peak.load) / 15,
             ctx.has('n_meas_rpm') ? abs(fx.peak.speed) / 0.5 : 0);
           return healthyDiagnosis(ctx, fx, 0.05 + 0.2 * clamp(peak, 0, 1), null);
@@ -791,8 +791,8 @@
     name: '特征贝叶斯',
     family: 'probabilistic',
     description: '把残差、负荷、阀位、指令跟随、转速交叉五类手工特征送入高斯朴素贝叶斯，输出故障家族后验。',
-    strengths: '输出校准后的概率与家族后验；对三类故障有多假设竞争，误报倾向低。',
-    weaknesses: '依赖人工设定的类条件分布与先验；暂态特征可能拉低后验置信度。',
+    strengths: '输出标定后的概率与家族后验；对三类故障有多假设竞争，误报倾向低。',
+    weaknesses: '依赖人工设定的类条件分布与先验；暂态特征可能拉低后验可信分。',
     build: buildBayes
   });
 
@@ -801,7 +801,7 @@
     name: '多信号融合',
     family: 'fusion',
     description: '融合测量残差、指令跟随、阀位、负荷阶跃与转速/电气频率交叉校验，配合持续性判据与单位换算。',
-    strengths: '三系统三类故障全覆盖；交叉校验抑制误报；幅值按物理口径换算；置信度按证据强度校准。',
+    strengths: '三系统三类故障全覆盖；交叉校验抑制误报；幅值按物理口径换算；可信分按证据强度标定。',
     weaknesses: '规则与阈值仍由人工设定；对未建模的新型故障不具备泛化能力。',
     build: buildFusion
   });

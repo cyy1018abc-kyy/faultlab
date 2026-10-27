@@ -33,7 +33,7 @@
     ['component', '部件'],
     ['magnitude', '幅值'],
     ['latency', '延迟'],
-    ['calibration', '校准']
+    ['calibration', '标定']
   ];
   const FALLBACK_SPEC = {
     weights: { detection: 0.20, family: 0.25, component: 0.10, magnitude: 0.15, latency: 0.15, calibration: 0.15 },
@@ -204,7 +204,7 @@
       h('div', { class: 'arena-hero-main' }, [
         h('div', { class: 'eyebrow' }, 'EXT · DIAGNOSTIC ARENA'),
         h('h1', { class: 'arena-title' }, ['AI Agent ', h('em', {}, '诊断竞技场')]),
-        h('p', { class: 'arena-sub' }, '多个诊断算法在同一条盲观测流上比赛：隐藏故障家族、幅值、时刻与控制模式，真值全程封存；赛后揭晓逐项打分。'),
+        h('p', { class: 'arena-sub' }, '多个诊断演示 Agent 在同一条盲观测流上比赛：隐藏故障家族、幅值、时刻与控制模式，真值全程封存；赛后揭晓逐项打分。'),
         h('div', { class: 'arena-hero-tags' }, [
           ui.badge('内置确定性算法 · 非 LLM', { tone: 'info' }),
           ui.badge('盲测 · 真值封存', { tone: 'warn' }),
@@ -315,7 +315,7 @@
           refs.engineNote,
           h('div', { class: 'hint-row' }, [
             ui.icon('info', { size: 13 }),
-            h('span', {}, '单轮 100 分：检测 20% · 家族 25% · 部件 10% · 幅值 15% · 延迟 15% · 校准 15%；健康局误报扣 10 分。')
+            h('span', {}, '单轮 100 分：检测 20% · 家族 25% · 部件 10% · 幅值 15% · 延迟 15% · 标定 15%；健康局误报扣 10 分。')
           ]),
           refs.setupError
         ]),
@@ -462,7 +462,7 @@
           h('p', { class: 'arena-spec-note' }, '总分 = 100 × Σ(权重 × 得分) − 10 × 健康局误报，单轮最低 0 分；排行榜取各轮平均分。盲测数据包只含观测样本与评分口径，不含真值。'),
           h('div', { class: 'eyebrow mb-8 mt-16' }, '盲测设计'),
           h('ul', { class: 'arena-list' }, [
-            h('li', {}, '每轮约 20% 概率为健康局；轮数 ≥3 时若随机结果没有健康局，会把中间一轮替换为健康局，保证误报率有数据可查。'),
+            h('li', {}, '每轮约 20% 概率为健康局；轮数 ≥3 时若随机结果没有健康局，会把中间一轮替换为健康局，保证误报有数据可查。'),
             h('li', {}, '故障家族、幅值、注入时刻在故障目录范围内随机；闭环/仅监测模式随机；观测噪声可选且确定性。'),
             h('li', {}, 'Agent 只收到 blindVisible 观测流，按 0.1 s 顺序在线 observe；t=60 s 统一收卷。'),
             h('li', {}, '比赛期间 truthSealed=true，shell 禁用真值相关页面；结束后自动解封并揭晓真值。'),
@@ -808,7 +808,7 @@
     } else {
       refs.engineNote.setAttribute('data-tone', '');
       refs.engineNote.appendChild(ui.icon('check', { size: 13 }));
-      refs.engineNote.appendChild(h('span', {}, '就绪：' + local.agentCatalog.length + ' 个内置确定性诊断算法（非 LLM），三系统可用。'));
+      refs.engineNote.appendChild(h('span', {}, '就绪：' + local.agentCatalog.length + ' 个内置确定性演示 Agent（非 LLM），三系统可用。'));
     }
   }
 
@@ -920,7 +920,7 @@
     const body = h('div', { class: 'panel-body arena-lb-body' });
     const headRow = h('div', { class: 'arena-lb-headrow' }, [
       h('span', {}, '名次'), h('span', {}, 'Agent'), h('span', {}, '综合分'), h('span', {}),
-      h('span', {}, '检出率'), h('span', {}, '平均延迟'), h('span', {}, '误报率'),
+      h('span', {}, '检出'), h('span', {}, '平均延迟'), h('span', {}, '误报'),
       h('span', {}, '家族准确率'), h('span', {}, '覆盖')
     ]);
     body.appendChild(headRow);
@@ -1082,14 +1082,14 @@
         h('span', {}, '首报 '),
         h('strong', {}, isNum(d.detectTime_s) ? fmt().time(d.detectTime_s) : '—')
       ] : [
-        h('span', {}, '未报警；置信度 '),
+        h('span', {}, '未报警；可信分 '),
         h('strong', {}, fmt().num(d.confidence, 2)),
         showTruth ? h('span', { class: 'arena-mark', 'data-ok': String(truth.healthy) }, truth.healthy ? '✓' : '✗') : null
       ]
     ]);
     const confLine = h('div', { class: 'arena-result-conf mono' }, detected
-      ? '置信度 ' + fmt().num(d.confidence, 3) + (score.falseAlarm ? ' · 健康局误报 −10' : '')
-      : '置信度 ' + fmt().num(d.confidence, 3) + (score.falseAlarm ? ' · 误报 −10' : ''));
+      ? '可信分 ' + fmt().num(d.confidence, 3) + (score.falseAlarm ? ' · 健康局误报 −10' : '')
+      : '可信分 ' + fmt().num(d.confidence, 3) + (score.falseAlarm ? ' · 误报 −10' : ''));
 
     const breakdown = h('div', { class: 'arena-breakdown' });
     DIMS.forEach(([key, label]) => {

@@ -38,7 +38,7 @@
     },
     {
       id: 'focal', title: '焦点信号变化量（从故障时刻起）',
-      desc: '规格要求的实际焦点信号变化量，而不是"诊断延迟"——V0.1 没有诊断算法，不统计检出率与误报率。',
+      desc: '规格要求的实际焦点信号变化量口径（focal_change）；本演示无诊断算法，不统计诊断类指标。',
       metrics: ['focal_change', 'focal_change_A'], accent: true
     }
   ];
@@ -1097,7 +1097,7 @@
     }
     limBody.appendChild(el('div', { class: 'cp-data-nature' }, [
       UI.badge('数据性质：L0 行为级演示', { tone: 'warn', icon: 'flask' }),
-      el('p', {}, '数据性质：解析/行为级（L0）演示数据，不是 Simulink 运行结果、不是现场数据、也不是实测结论。' +
+      el('p', {}, '数据性质：解析/行为级（L0）演示数据；非 Simulink、非现场数据、非实测。' +
         '所有结论可回溯到运行 ID、模型哈希与配置哈希。')
     ]));
     if (data.baseline && data.trial) {
@@ -1249,7 +1249,7 @@
     body.appendChild(row);
     [
       'CSV 导出试验运行的 601 点全精度采样；配置清单含 config / model / quality / hashes。',
-      'HTML 报告是自包含文件；证据包在 validation_failed 时会在文件名与内容中标注「验证未通过」，不生成"验证通过"字样。',
+      'HTML 报告是自包含文件；证据包在内部一致性检查未通过时会在文件名与内容中标注 FAIL，不生成"通过"字样。',
       '分享摘要为纯文本，可用于提交排障材料。'
     ].forEach((n) => body.appendChild(el('p', { class: 'cp-export-note' }, n)));
     if (!exporterReady) {

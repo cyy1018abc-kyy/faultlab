@@ -1,7 +1,7 @@
 /* owner: arena-agents | module: arena | contract: docs/CONTRACT.md */
 /* =========================================================================
    FaultLab — Agent Arena 引擎
-   隐藏场景生成（seeded）→ FL.core.simulate → 盲观测流回放 → 逐 Agent 诊断 → 评分
+   隐藏场景生成（seeded）→ FL.core.simulate → 盲观测流回放 → 逐 Agent 诊断演示（合成评测游戏）→ 评分
    真值只用于比赛结束后的揭晓与评分；盲观测流与导出包不含任何真值/故障通道。
    所有随机性来自 FL.rng.mulberry32(seed)：同 setup + seed 结果逐字节可复现。
    ========================================================================= */
@@ -433,7 +433,7 @@
   }
 
   /* 小样本覆盖保护：rounds>=3 时若随机结果没有任何健康局，把中间一轮替换为健康局，
-     让「误报率」在演示与自测中有数据可查；不改变其余轮次的随机流。 */
+     让「误报计数」在演示与自测中有数据可查；不改变其余轮次的随机流。 */
   function makeHealthyScenario(systemId, setup, roundNo, feedbackMode) {
     const base = clone(FL.systems.defaultConfig(systemId));
     base.feedback_mode = feedbackMode || 'closed_loop';

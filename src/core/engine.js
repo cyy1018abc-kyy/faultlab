@@ -1126,7 +1126,7 @@
         var v0 = arr ? arr[idxAt(t0)] : null;
         var v1 = arr ? arr[idxAt(t1)] : null;
         var note = interpolate(ev.note, facts);
-        note += '（实测 ' + fmtVal(v0, precision) + ' → ' + fmtVal(v1, precision) + (unit ? ' ' + unit : '') + '）';
+        note += '（运行数值 ' + fmtVal(v0, precision) + ' → ' + fmtVal(v1, precision) + (unit ? ' ' + unit : '') + '）';
         return {
           runId: ctx.runId,
           run_id: ctx.runId,
@@ -1150,6 +1150,8 @@
         short: interpolate(spec.short, facts),
         detail: interpolate(spec.detail, facts),
         layer: spec.layer,
+        kind: spec.kind,
+        epistemic: spec.epistemic,
         componentId: spec.componentId,
         signalIds: (spec.signalIds || []).slice(),
         evidence: evidence
@@ -1157,7 +1159,7 @@
     });
 
     var edges = edgeSpecs.map(function (e) {
-      return { from: e.from, to: e.to, label: interpolate(e.label, facts) };
+      return { from: e.from, to: e.to, label: interpolate(e.label, facts), dashed: e.dashed === true };
     });
 
     var alternatives = (tpl.alternatives || []).map(function (a) {
@@ -1430,7 +1432,48 @@
       sameObs ? ((baselineRun.signals || []).length + ' 个信号定义一致') : '观测信号定义（id/单位/来源）不一致，禁止差值图');
 
     var failed = checks.some(function (c) { return c.status === 'fail'; });
-    var diffAllowed = sameClock && sameObs;
+
+    /* 对比白名单裁决（DATA_CONTRACT_SPEC §2.11 / T-15 / D-04）：
+       baseline↔fault 允许 fault/bias 差异；closed↔monitor 允许 feedback_mode 差异；
+       其余配置差异（如两故障 Run 幅值不同）一律 incomparable，禁用差值图与因果断言。 */
+    function sameFaultConfig(a, b) {
+      var an = a || {};
+      var bn = b || {};
+      if ((an.family || 'none') !== (bn.family || 'none')) return false;
+      if ((an.family || 'none') === 'none') return true;
+      if (Number(an.t_start_s) !== Number(bn.t_start_s)) return false;
+      var ap = an.params || {};
+      var bp = bn.params || {};
+      var keys = Object.keys(Object.assign({}, ap, bp));
+      for (var i = 0; i < keys.length; i++) if (Number(ap[keys[i]]) !== Number(bp[keys[i]])) return false;
+      return true;
+    }
+    var bBase = !bc.fault || bc.fault.family === 'none';
+    var tBase = !tc.fault || tc.fault.family === 'none';
+    var modeDiff = bc.feedback_mode !== tc.feedback_mode;
+    var faultDiff = !sameFaultConfig(bc.fault, tc.fault);
+    var allowedDiffs = [];
+    var verdict;
+    if (failed) {
+      verdict = 'incomparable';
+    } else if (modeDiff && faultDiff) {
+      verdict = 'incomparable';
+    } else if (faultDiff) {
+      /* 仅故障配置不同：仅当一对为基准（无故障）、另一为故障 Run 时在白名单内 */
+      if (bBase !== tBase) {
+        verdict = 'comparable';
+        allowedDiffs.push('fault');
+      } else {
+        verdict = 'incomparable';
+      }
+    } else if (modeDiff) {
+      /* 仅反馈模式不同：closed↔monitor 白名单（D-04） */
+      verdict = 'comparable';
+      allowedDiffs.push('feedback_mode');
+    } else {
+      verdict = 'comparable';
+    }
+    var diffAllowed = verdict !== 'incomparable';
 
     /* 指标配对 */
     var pairs = [];
@@ -1448,7 +1491,10 @@
     var findings = [];
     var warnings = [];
     checks.forEach(function (c) { if (c.status === 'fail') warnings.push(c.label + '：' + c.message); });
-    if (!diffAllowed) warnings.push('单位/时间基准不兼容，已禁用差值视图。');
+    if (!diffAllowed) warnings.push('两个 Run 的配置差异不在批准白名单内（baseline↔fault 允许 fault/bias；closed↔monitor 允许 feedback_mode），已禁用差值图与因果断言。');
+    if (verdict === 'incomparable') {
+      warnings.push('本对比不可比（incomparable）："仅由故障造成"类结论不可用；请改用兼容运行或仅查看。');
+    }
 
     function pairOf(id) {
       var ids = [id].concat(METRIC_ALIAS[id] || []);
@@ -1488,7 +1534,7 @@
         id: 'F3',
         title: '焦点信号实际变化量',
         text: '从故障时刻起，' + (pFocal.trial.signal_label || pFocal.trial.signal_id || '焦点信号') +
-          ' 的实际变化量为 ' + signed(pFocal.trial.value, 2) + ' ' + pFocal.deltaUnit + '（focal_change，可用于替代"诊断延迟"表述）。',
+          ' 的实际变化量为 ' + signed(pFocal.trial.value, 2) + ' ' + pFocal.deltaUnit + '（focal_change：实际变化量口径，本演示无诊断算法）。',
         metric_ids: [pFocal.trial.metric_id],
         severity: 'info'
       });
@@ -1509,15 +1555,29 @@
         id: 'F5',
         title: '测量一致性残差峰值',
         text: '试验组最大测量一致性残差为 ' + fmtVal(pRmeas.trial.value, 2) + ' kW，而真实守恒残差为 ' +
-          fmtVal((findMetric(trialRun.metrics, 'max_abs_r_true_kW') || {}).value, 6) + ' kW；前者是测量偏差，不是实际能量损失。',
-        metric_ids: [pRmeas.trial.metric_id, (findMetric(trialRun.metrics, 'max_abs_r_true_kW') || findMetric(trialRun.metrics, 'max_abs_r_true_kW') || {}).metric_id].filter(Boolean),
+          fmtVal((findMetric(trialRun.metrics, 'max_abs_r_true_kW') || {}).value, 6) + ' kW；前者是测量偏差，不是能量损失。',
+        metric_ids: [pRmeas.trial.metric_id, (findMetric(trialRun.metrics, 'max_abs_r_true_kW') || {}).metric_id].filter(Boolean),
         severity: 'info'
       });
     }
 
+    /* 不可比时禁用全部发现（T-15/ST-07：不给出"仅由故障造成"类结论） */
+    if (verdict === 'incomparable') findings.length = 0;
+
     return {
       valid: !failed,
       diffAllowed: diffAllowed,
+      verdict: verdict,
+      allowed_diffs: allowedDiffs,
+      compatibility: {
+        model_version: { ok: sameModel },
+        engine_version: { ok: sameEngine },
+        dt_s: { ok: bc.dt_s === tc.dt_s },
+        duration_s: { ok: bc.duration_s === tc.duration_s },
+        initial_conditions: { ok: sameInitial },
+        load_profile: { ok: sameLoad },
+        observation_definitions: { ok: sameObs }
+      },
       checks: checks,
       pairs: pairs,
       findings: findings,

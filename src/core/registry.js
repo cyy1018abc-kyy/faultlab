@@ -107,6 +107,7 @@
       run_hash: '',
       created_at: run.createdAt,
       status: run.status || 'completed',
+      scope: (FL.scope && FL.scope.classify) ? FL.scope.classify(run.config) : 'extension_preview',
       provenance: { model_provenance: 'analytical_demo' },
       verification: {
         consistency_checks: 'pass',

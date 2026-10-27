@@ -46,6 +46,30 @@
       "exit_code": 0
     },
     {
+      "id": "G4 scope-guard.test.js（SA-24 范围守卫）",
+      "cmd": "node tests/scope-guard.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "G4 compare.test.js（对比白名单 T-15）",
+      "cmd": "node tests/compare.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "G4 causal-rules.test.js（因果规则/证据链/教学卡）",
+      "cmd": "node tests/causal-rules.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "G4 copy-guard.mjs（禁止词扫描 §6.3）",
+      "cmd": "node tools/copy-guard.mjs",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
       "id": "+ core.test.js（既有回归，适配新语义）",
       "cmd": "node tests/core.test.js",
       "status": "pass",
@@ -59,5 +83,5 @@
     }
   ],
   "node": "v26.5.1",
-  "generated_at": "2026-10-27T17:57:12.937Z"
+  "generated_at": "2026-10-27T18:17:28.316Z"
 }

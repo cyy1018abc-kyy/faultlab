@@ -123,6 +123,7 @@
       engine_version: run.engineVersion,
       run_id: run.runId,
       role: run.role,
+      scope: run.manifest.scope || (FL.scope && FL.scope.classify ? FL.scope.classify(run.config) : 'extension_preview'),
       label: run.label || '',
       status: run.status || 'completed',
       created_at: run.createdAt || null,
@@ -132,7 +133,7 @@
       provenance: {
         model_provenance: 'analytical_demo',
         data_kind: '解析/行为级演示数据（synthetic），非 Simulink、非实测',
-        hash_semantics: 'run_hash 与文件 SHA-256 为内容校验和，不代表签名、来源或第三方认证'
+        hash_semantics: 'run_hash 与文件 SHA-256 为内容校验和，不代表签名/来源/第三方认证'
       },
       integrity: run.manifest.integrity,
       config_hash: run.configHash,
@@ -413,6 +414,7 @@
       manifest: {
         run_id: manifest.run_id,
         role: 'imported',
+        scope: manifest.scope || (FL.scope && FL.scope.classify ? FL.scope.classify(cfg) : 'extension_preview'),
         config_hash: manifest.config_hash,
         model_hash: manifest.model_hash,
         engine_version: manifest.engine_version,

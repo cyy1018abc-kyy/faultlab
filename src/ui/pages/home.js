@@ -9,7 +9,7 @@
 
   const TRUST = [
     { icon: 'shield', label: '离线可运行', title: '纯静态单页应用：无网络请求、无需安装 MATLAB，双击 FaultLab.html 亦可运行。' },
-    { icon: 'gauge', label: 'L0 行为级演示', title: '解析/行为级降阶模型，非 Simulink 模型，也非现场实测结果。' },
+    { icon: 'gauge', label: 'L0 行为级演示', title: '解析/行为级降阶模型；非 Simulink、非实测（无实测对比）。' },
     { icon: 'flask', label: '演示数据（解析示例）', title: '所有数值由模型生成，界面标注「预设值 / 示例」，并按 source_kind 标出来源。' }
   ];
 
@@ -446,7 +446,7 @@
           : [el('li', { class: 'home-assume-item' }, el('span', { class: 'muted' }, '该系统的模型假设尚未提供。'))]),
         el('div', { class: 'hint-row home-side-hint' }, [
           ui.icon('info', { size: 13 }),
-          el('span', {}, '解析 / 行为级演示模型，不是 Simulink 模型或现场实测结果。')
+          el('span', {}, '解析 / 行为级演示模型；非 Simulink、非实测（无实测对比）。')
         ]),
         el('button', {
           class: 'btn btn-sm btn-block home-side-btn', type: 'button',
@@ -562,7 +562,7 @@
       el('div', { class: 'notice', 'data-tone': 'info' }, [
         ui.icon('info', { size: 14 }),
         el('span', {}, '本页所有假设与公式来自 ' + (model.model_id || '模型清单') + ' v' + (model.model_version || '—') +
-          '，属于解析 / 行为级演示模型；不是 Simulink 模型，也不是现场实测结论。')
+          '，属于解析 / 行为级演示模型；非 Simulink、非实测（无实测对比）。')
       ]),
       el('div', { class: 'home-drawer-block' }, [
         el('div', { class: 'eyebrow' }, '模型假设 · assumptions'),
@@ -786,7 +786,7 @@
       wrap.appendChild(el('footer', { class: 'home-foot' }, [
         el('div', { class: 'home-foot-main' }, [
           el('span', { class: 'eyebrow' }, 'FaultLab V0.1 · 实验首页'),
-          el('span', { class: 'home-foot-text' }, '离线单页应用 · L0 行为级解析模型 · 演示数据（预设值 / 示例），非 Simulink、非现场实测')
+          el('span', { class: 'home-foot-text' }, '离线单页应用 · L0 行为级解析模型 · 演示数据（预设值 / 示例），非 Simulink、非实测')
         ]),
         el('span', { class: 'home-foot-meta mono' }, 'run 数据保存在本地浏览器 localStorage')
       ]));

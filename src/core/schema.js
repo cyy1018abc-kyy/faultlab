@@ -345,7 +345,7 @@
     if (m.bundle_schema_version !== BUNDLE_SCHEMA_VERSION) bad('bundle_schema_version', 'bundle_schema_version 必须为 v1');
     if (!m.verification || typeof m.verification !== 'object') bad('verification', '缺少 verification 三级证据');
     else if (m.verification.model_validation !== 'not_performed' || m.verification.hardware_verification !== 'not_performed') {
-      problems.push(contractError('CN-E02', 'verification', 'model_validation / hardware_verification 必须为 not_performed（L0 演示，无实测/硬件验证）', '检查证据三级字段'));
+      problems.push(contractError('CN-E02', 'verification', 'model_validation / hardware_verification 必须为 not_performed（L0 演示，模型/硬件验证均未进行）', '检查证据三级字段'));
     }
     if (!m.integrity || m.integrity.run_hash !== m.run_hash) bad('integrity', 'integrity.run_hash 与 run_hash 不一致');
     return problems;

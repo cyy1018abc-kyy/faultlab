@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CORE_DIR = path.join(__dirname, '..', 'src', 'core');
-const CORE_FILES = ['hash.js', 'rng.js', 'schema.js', 'systems.js', 'engine.js', 'metrics.js', 'checks.js', 'registry.js', 'bundle.js'];
+const CORE_FILES = ['hash.js', 'rng.js', 'schema.js', 'scope.js', 'systems.js', 'engine.js', 'metrics.js', 'checks.js', 'registry.js', 'bundle.js'];
 
 function bootstrap() {
   globalThis.window = globalThis;

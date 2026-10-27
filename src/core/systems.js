@@ -122,7 +122,7 @@
     summary: '40 kWh 电池组经双向 DC/DC 接入理想 400 V 直流母线，与理想发电机共同为 30 kW 恒定负载供电；控制器按电池电流测量值闭环调节放电电流。',
     questions: [
       '传感器测量偏高时，真实电池电流会怎样变化？',
-      '+4 kW 的测量残差是额外的能量损失吗？',
+      '+4 kW 的测量残差是额外损失的能量吗？',
       '真实电能与基于测量的估计如何分离？'
     ],
     duration_s: 60,
@@ -243,7 +243,7 @@
       sig({ id: 'SOC_true_pct', label: '真实 SOC', shortLabel: 'SOC_true', unit: '%', category: 'soc', sourceKind: 'MODEL_STATE', definition: '由真实电池功率积分得到的荷电状态。', formula: 'SOC_true = SOC0 − ∫P_bat,true dt / 40 kWh × 100%', precision: 5, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'SOC_est_pct', label: '估计 SOC', shortLabel: 'SOC_est', unit: '%', category: 'soc', sourceKind: 'OBSERVATION', definition: '由测量电池功率积分得到的 SOC 估计。', formula: 'SOC_est = SOC0 − ∫P_bat,meas dt / 40 kWh × 100%', precision: 5, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true }),
       sig({ id: 'r_true_kW', label: '真实功率平衡残差', shortLabel: 'r_true', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '真实功率守恒残差，理想模型下恒为 0。', formula: 'r_true = P_gen,true + P_bat,true − P_load,served', precision: 6, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
-      sig({ id: 'r_meas_kW', label: '测量一致性残差', shortLabel: 'r_meas', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '由测量构造的功率平衡残差；故障期间为 +4 kW，是测量偏差，不是实际能量损失。', formula: 'r_meas = P_gen,true + P_bat,meas − P_load,served', precision: 2, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true })
+      sig({ id: 'r_meas_kW', label: '测量一致性残差', shortLabel: 'r_meas', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '由测量构造的功率平衡残差；故障期间为 +4 kW，是测量偏差，不是能量损失。', formula: 'r_meas = P_gen,true + P_bat,meas − P_load,served', precision: 2, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true })
     ],
     faults: [
       fault({
@@ -292,7 +292,7 @@
       limitations: [
         '单一恒定负载、理想母线、无保护动作与故障传播。',
         '不含电池老化、热管理、变换器开关动态与电网交互。',
-        'L0 行为级演示模型，不是 Simulink 模型或现场实测结果。'
+        'L0 行为级演示模型；非实测、非 Simulink、无实测对比。'
       ],
       equations: [
         { id: 'EQ-1', latex_text: 'I_meas(t) = I_true(t) + b(t)', note: '测量通道偏置叠加' },
@@ -304,8 +304,8 @@
       ]
     },
     acceptance: {
-      reference: '规格 §1 校准表 / 契约 §5.1',
-      exactness: 'FL-001 默认场景与解析式逐位一致（容差 1e-6）',
+      reference: 'MODEL_VALIDATION_SPEC §1.2/§3（解析金标准，未与实测校准）',
+      exactness: 'FL-001 默认场景与解析式在 1e-6 容差内一致（求积/舍入规则见 MODEL_VALIDATION_SPEC §3.5/§7）',
       keyValues: {
         E_bat_kWh: 0.1238889, E_gen_kWh: 0.3761111, E_load_kWh: 0.5,
         SOC_true_end_pct: 59.6902778, SOC_est_end_pct: 59.5791667, SOC_err_pp: -0.1111111,
@@ -329,7 +329,7 @@
     questions: [
       '电堆电流测量偏高时，电堆真实出力与电池缓冲如何变化？',
       '为什么测量功率残差为 +4 kW 而真实功率仍然守恒？',
-      'SOC 估计偏差来自测量链还是真实能量损失？'
+      'SOC 估计偏差来自测量链还是真实损失的能量？'
     ],
     duration_s: 60,
     dt_s: 0.1,
@@ -510,7 +510,7 @@
       limitations: [
         '不含电堆热管理、水管理、气体扩散与寿命衰减。',
         '不含 DC/DC 开关动态与效率曲线；电池缓冲视为理想源。',
-        'L0 行为级演示模型，不是 Simulink 模型或现场实测结果。'
+        'L0 行为级演示模型；非实测、非 Simulink、无实测对比。'
       ],
       equations: [
         { id: 'EQ-1', latex_text: 'I_fc,meas = I_fc + b(t)', note: '测量通道偏置叠加' },
@@ -738,7 +738,7 @@
       limitations: [
         '单机无穷大母线等效，无电网潮流与多机交互。',
         '不含燃烧、透平热力学、励磁调压与保护动作。',
-        'L0 行为级演示模型，不是 Simulink 模型或现场实测结果。'
+        'L0 行为级演示模型；非实测、非 Simulink、无实测对比。'
       ],
       equations: [
         { id: 'EQ-1', latex_text: 'df/dt = (P_gen + P_bat − P_load) / K_J, K_J = 5.0 kW·s/Hz', note: '转子等效惯量方程' },
@@ -770,7 +770,9 @@
     sensor_drift: {
       id: 'sensor-drift-feedback',
       headline: 't={t0} s，{faultLabel}：{sign}{mag} {unit} 注入测量通道',
-      mechanismSummary: '偏置污染测量通道 → 控制器按错误电流反馈 → 真实电池电流下降 → 理想发电机补偿 → 测量功率出现 +{r_meas_peak} kW 一致性残差（不是能量损失）。',
+      /* G0-DEC-13 / UI_COPY_GUARDRAILS §3.3：r_meas 不是发电机补偿的结果，
+         它是测量通道误差的功率当量（代数恒等），与 τ、反馈模式无关。 */
+      mechanismSummary: '偏置污染测量通道 → 控制器按错误电流反馈 → 真实电池电流下降 → 理想发电机补偿。测量残差 +{r_meas_peak} kW 是测量通道误差的功率当量（代数恒等），不是能量损失，也不是发电机补偿的结果。',
       nodes: [
         {
           id: 'n1', order: 1, title: '偏置注入', short: '传感器偏置 {sign}{mag} {unit}',
@@ -803,10 +805,14 @@
           evidence: [{ varId: 'P_gen_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s 20.00 kW → 60.0 s {P_gen_60} kW' }]
         },
         {
+          /* ⑥ 测量功率残差：代数恒等（UI_COPY_GUARDRAILS §3.2/§3.3 逐字口径）。
+             不得写"因为发电机补偿所以残差 +4 kW"——⑥ 与 τ、反馈模式、发电机补偿无关。 */
           id: 'n6', order: 6, title: '测量功率残差', short: 'r_meas = +{r_meas_peak} kW，r_true = {r_true_max}',
           layer: 'observation', componentId: 'bus', signalIds: ['r_meas_kW', 'r_true_kW'],
-          detail: '因为测量电池功率仍包含 {sign}{mag} {unit} 的假象，而真实功率守恒不受影响，所以测量一致性残差 r_meas = P_gen,true + P_bat,meas − P_load 在故障期间为 +{r_meas_peak} kW，真实残差 r_true = {r_true_max} kW。注意：+{r_meas_peak} kW 是测量一致性残差，不是额外能量损失；真实能量满足 E_bat {E_bat} kWh + E_gen {E_gen} kWh = E_load {E_load} kWh。',
-          evidence: [{ varId: 'r_meas_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障期间 r_meas 恒为 +{r_meas_peak} kW，r_true 恒为 0' }]
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: 'r_meas = (P_gen + P_bat,true − P_load) + (P_bat,meas − P_bat,true) = 0 + 0.4·b = +{r_meas_peak} kW。它是测量通道误差的功率当量，不是能量损失，也不是 ⑤ 的结果；在仅监测与闭环两种模式下都为 +{r_meas_peak} kW。真实残差 r_true = {r_true_max} kW；真实能量满足 E_bat {E_bat} kWh + E_gen {E_gen} kWh = E_load {E_load} kWh（定义自洽）。',
+          evidence: [{ varId: 'r_meas_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障期间 r_meas 恒为 +{r_meas_peak} kW（代数恒等 0.4·b），r_true 恒为 0' }]
         }
       ],
       edges: [
@@ -814,7 +820,8 @@
         { from: 'n2', to: 'n3', label: '进入闭环反馈' },
         { from: 'n3', to: 'n4', label: '真实电流目标下降' },
         { from: 'n4', to: 'n5', label: '母线功率缺口' },
-        { from: 'n5', to: 'n6', label: '残差在测量侧显现' }
+        /* ⑥ 不再挂在 ⑤ 下游（G0-DEC-13）：从 ② 测量通道分支以虚线接入 */
+        { from: 'n2', to: 'n6', label: '测量通道误差的功率当量', dashed: true }
       ],
       monitorNodes: [
         {
@@ -855,7 +862,7 @@
         { from: 'm3', to: 'm5', label: '真实能量不变，仅估计偏移' }
       ],
       assumptions: ['A-ideal-bus', 'A-ideal-gen', 'A-l0'],
-      limitations: ['τ = 1.5 s 为行为级等效时间常数，不是实测控制器参数。', '不含电池等效电路、温度与效率动态。', 'L0 演示模型：结论只在上述假设下成立。'],
+      limitations: ['τ = 1.5 s 为行为级等效时间常数，非实测参数。', '不含电池等效电路、温度与效率动态。', 'L0 演示模型：结论只在上述假设下成立。'],
       alternatives: [{ title: '若为仅监测模式', text: '偏置不进入物理回路，真实电流保持 25 A，只有测量电流、测量残差与估计 SOC 偏移。' }]
     },
     load_step: {
@@ -902,7 +909,7 @@
         { from: 'n4', to: 'n5', label: '能量重新分配' }
       ],
       assumptions: ['A-ideal-bus', 'A-ideal-gen', 'A-gen-lag', 'A-l0'],
-      limitations: ['τ_gen = 2.0 s 为行为级等效时间常数，不是实测机组参数。', '不含保护动作、频率/电压动态与资源限制。', 'L0 演示模型：结论只在上述假设下成立。'],
+      limitations: ['τ_gen = 2.0 s 为行为级等效时间常数，非实测参数。', '不含保护动作、频率/电压动态与资源限制。', 'L0 演示模型：结论只在上述假设下成立。'],
       alternatives: [{ title: '若发电机为理想瞬时平衡源', text: '缺口会被瞬时补偿，电池电流不会出现约 50 A 的短时上升，负载阶跃对电池无影响。' }]
     },
     actuator_fault: {
@@ -957,7 +964,7 @@
     sensor_drift: {
       id: 'fc-sensor-drift',
       headline: 't={t0} s，{faultLabel}：{sign}{mag} {unit} 注入电堆电流测量通道',
-      mechanismSummary: '电堆电流测量偏高 → 控制器认为电堆多发电 → 真实电堆电流下降 → 电池缓冲补足 → 测量残差 +{r_meas_peak} kW，EMS 平衡估算使 SOC_est 偏高 {SOC_err} pp。',
+      mechanismSummary: '电堆电流测量偏高 → 控制器认为电堆出力偏多 → 真实电堆电流下降 → 电池缓冲补足 → 测量残差 +{r_meas_peak} kW，EMS 平衡估算使 SOC_est 偏高 {SOC_err} pp。',
       nodes: [
         {
           id: 'n1', order: 1, title: '偏置注入', short: '电堆电流偏置 {sign}{mag} {unit}',
@@ -974,7 +981,7 @@
         {
           id: 'n3', order: 3, title: '控制器误认为电堆发电偏多', short: '等效目标 I_fc_ref − b：{I_fc_ref} → {I_fc_target} A',
           layer: 'mechanism', componentId: 'controller', signalIds: ['I_fc_ref_A', 'I_fc_meas_A'],
-          detail: '因为控制器按测量电堆电流闭环反馈（τ_fc·dI_fc/dt + I_fc = I_fc_ref − b(t)，τ_fc = 1.2 s），所以等效目标电流从 {I_fc_ref} A 降为 {I_fc_target} A，控制器认为电堆已经多发电。',
+          detail: '因为控制器按测量电堆电流闭环反馈（τ_fc·dI_fc/dt + I_fc = I_fc_ref − b(t)，τ_fc = 1.2 s），所以等效目标电流从 {I_fc_ref} A 降为 {I_fc_target} A，控制器认为电堆出力已经偏多。',
           evidence: [{ varId: 'I_fc_ref_A', tStartOffset: 0.0, tEndOffset: 40.0, note: 'I_fc_ref 指令保持 {I_fc_ref} A 不变，反馈通道被污染' }]
         },
         {
@@ -1042,7 +1049,7 @@
         { from: 'm2', to: 'm5', label: '估计链路偏移' }
       ],
       assumptions: ['A-ideal-bus', 'A-const-v', 'A-ideal-balance', 'A-fc-soc-est', 'A-fc-first-order', 'A-l0'],
-      limitations: ['τ_fc = 1.2 s 为行为级等效时间常数，不是实测电堆参数。', '不含热管理、水管理与气体传输动态。', 'L0 演示模型：结论只在上述假设下成立。'],
+      limitations: ['τ_fc = 1.2 s 为行为级等效时间常数，非实测参数。', '不含热管理、水管理与气体传输动态。', 'L0 演示模型：结论只在上述假设下成立。'],
       alternatives: [{ title: '若 SOC 改用电池电流库仑积分', text: '电池电流传感器健康，SOC 估计误差将≈0；本模型的 SOC 偏差来自 EMS 平衡估算口径（假设 A-fc-soc-est）。' }]
     },
     load_step: {
@@ -1222,7 +1229,7 @@
         { from: 'm3', to: 'm4', label: '功率平衡不变' }
       ],
       assumptions: ['A-ideal-bus', 'A-lumped-inertia', 'A-droop', 'A-gov-integral', 'A-freq-redundant', 'A-l0'],
-      limitations: ['K_J = 5.0 kW·s/Hz 为降阶等效惯量，不是实测转动惯量。', '不含电网潮流、励磁调压、燃烧与透平热力学。', 'L0 演示模型：结论只在上述假设下成立。'],
+      limitations: ['K_J = 5.0 kW·s/Hz 为降阶等效惯量，非实测参数。', '不含电网潮流、励磁调压、燃烧与透平热力学。', 'L0 演示模型：结论只在上述假设下成立。'],
       alternatives: [{ title: '若为仅监测模式', text: '偏置只污染转速读数，调速器与电池调频使用健康频率，真实频率保持 50 Hz；故障仅体现为冗余量测不一致。' }]
     },
     load_step: {
@@ -1276,7 +1283,7 @@
         { from: 'n5', to: 'n6', label: '能量重新分配' }
       ],
       assumptions: ['A-ideal-bus', 'A-lumped-inertia', 'A-droop', 'A-gov-integral', 'A-gen-lag', 'A-l0'],
-      limitations: ['K_J、Ki、K_bat 为降阶等效参数，不是实测机组参数。', '不含电网潮流、励磁调压、燃烧与透平热力学。', 'L0 演示模型：结论只在上述假设下成立。'],
+      limitations: ['K_J、Ki、K_bat 为降阶等效参数，非实测参数。', '不含电网潮流、励磁调压、燃烧与透平热力学。', 'L0 演示模型：结论只在上述假设下成立。'],
       alternatives: [{ title: '若电池一次调频更强', text: '频率最低点会更浅、恢复更快；本模型 K_bat = 24 kW/Hz 为设定值。' }]
     },
     actuator_fault: {

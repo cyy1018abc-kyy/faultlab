@@ -171,7 +171,7 @@
     if (measStatus === 'pass') {
       measMsg = '测量一致性残差最大 ' + maxRm.toExponential(2) + ' kW（无故障或无测量偏置）';
     } else if (measStatus === 'warn' && faulted) {
-      measMsg = '故障期间测量一致性残差为 ' + maxRm.toFixed(2) + ' kW：这是测量偏差，不是实际能量损失（真实守恒由 conservation-true 单独校验）';
+      measMsg = '故障期间测量一致性残差为 ' + maxRm.toFixed(2) + ' kW：这是测量偏差，不是能量损失（真实口径由 conservation-true 单独校验）';
     } else if (measStatus === 'warn') {
       measMsg = '观测噪声开启，测量一致性残差 ' + maxRm.toFixed(3) + ' kW 非零（演示用噪声，允许 warn）';
     } else {

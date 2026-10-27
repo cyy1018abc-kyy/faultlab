@@ -100,13 +100,13 @@
         source_kind_legend: ['CONFIG', 'MODEL_STATE', 'OBSERVATION', 'CONTROLLER', 'FAULT_EVENT', 'DERIVED', 'MODEL_ASSUMPTION'],
         estimator_method: (run.signals || []).some((s) => s.id === 'SOC_est_pct') && run.systemId === 'FC-001'
           ? 'ems_power_balance_estimate' : 'naive_coulomb_counting',
-        hash_semantics: '浏览器端 SHA-256（规范化 JSON）仅证明导出内容一致性，不是防篡改签名或第三方认证。',
+        hash_semantics: '浏览器端 SHA-256（规范化 JSON）仅证明导出内容一致性，不代表签名/来源/第三方认证。',
         evidence_levels: {
           model_internal_consistency: 'passed_for_demo',
           model_validated_against_experiment: 'not_performed',
           real_hardware_verified: 'not_performed'
         },
-        notes: '说明文本不作为计算数据源；观测残差不是实际能量损失。'
+        notes: '说明文本不作为计算数据源；观测残差不是能量损失。'
       }
     };
   }
@@ -178,7 +178,7 @@
       validation_status: failed ? 'validation_failed' : 'validation_passed_for_demo',
       validation_note: failed
         ? '本证据包包含未通过的数值校验项，标记为“验证未通过”，不得用于“可信仿真”结论。'
-        : '本证据包通过演示级数值校验；数据仍为解析/行为级演示数据，不代表实测。',
+        : '本证据包通过演示级数值校验；数据仍为解析/行为级演示数据（非实测）。',
       runs,
       comparison: comp ? {
         valid: comp.valid, diffAllowed: comp.diffAllowed,
@@ -187,7 +187,7 @@
       provenance: {
         data_kind: '解析/行为级演示数据（L0），非 Simulink、非实测',
         source_kind_legend: ['CONFIG', 'MODEL_STATE', 'OBSERVATION', 'CONTROLLER', 'FAULT_EVENT', 'DERIVED', 'MODEL_ASSUMPTION'],
-        hash_semantics: '浏览器端 SHA-256（规范化 JSON）仅证明导出内容一致性，不是防篡改签名或第三方认证。',
+        hash_semantics: '浏览器端 SHA-256（规范化 JSON）仅证明导出内容一致性，不代表签名/来源/第三方认证。',
         evidence_levels: {
           model_internal_consistency: 'passed_for_demo',
           model_validated_against_experiment: 'not_performed',
@@ -319,7 +319,7 @@
   <tbody>${metricRows || '<tr><td colspan="6">不可用</td></tr>'}</tbody></table>
 
   <h2>真实/测量功率平衡</h2>
-  <div class="notice">真实残差 r_true = P_gen,true + P_bat,true − P_load 恒为 0（理想平衡）；观测一致性残差 r_meas = P_gen,true + P_bat,meas − P_load 在故障期间为测量残差（例如 +4 kW），它不是实际多发的能量，也不是实际电能损失。</div>
+  <div class="notice">真实残差 r_true = P_gen,true + P_bat,true − P_load 恒为 0（理想平衡）；观测一致性残差 r_meas = P_gen,true + P_bat,meas − P_load 在故障期间为测量残差（例如 +4 kW），它不是能量损失，也不是额外发电的能量。</div>
 
   <h2>故障事件</h2>
   <table><thead><tr><th>事件</th><th>类型</th><th class="num">时刻</th><th>目标通道</th><th class="num">幅值</th><th>单位</th><th>说明</th></tr></thead><tbody>${eventRows || '<tr><td colspan="7">无故障（基准运行）</td></tr>'}</tbody></table>

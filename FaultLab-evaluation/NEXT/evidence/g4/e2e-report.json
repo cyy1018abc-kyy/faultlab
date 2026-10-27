@@ -1,0 +1,13 @@
+{
+  "journey": "fl001-min",
+  "ok": true,
+  "pass": 40,
+  "fail": 0,
+  "failures": [],
+  "environment": {
+    "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "base": "http://127.0.0.1:4319",
+    "node": "v26.5.1"
+  },
+  "generated_at": "2026-10-27T18:17:25.731Z"
+}
