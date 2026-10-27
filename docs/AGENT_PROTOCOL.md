@@ -8,6 +8,13 @@
 > 契约来源：`docs/CONTRACT.md` §11；实现：`src/agents/builtin-agents.js`、`src/agents/arena.js`、
 > `src/ui/pages/arena.js`。
 
+> **G0 裁决注记（2026-10-27T20:35）**：Agent Arena 为 **P2 扩展预览**，不属于 V0.1 P0 验收路径
+> （`FaultLab-evaluation/DECISIONS/DECISIONS.md` G0-DEC-14/15、`NEXT/SCOPE_SPLIT_MEMO.md`）。
+> 本协议为草案（`arena_version="0.1"`），**未经 G0 评审**。文中"真值隔离"在当前实现中是
+> `blindVisible` 过滤 + 导出包断言（**UI 级**），**不是安全边界**；契约级隔离以
+> `FaultLab-evaluation/NEXT/DATA_CONTRACT_SPEC.md` 的 `exposure` 字段与 `project('blind')` 纯函数为准。
+> 评分/排行榜只能表述为"合成场景的 Agent 评测游戏"，**不得表述为真实诊断能力/检出率/误报率证据**。
+
 ---
 
 ## 1. 盲测流程（外部视角）

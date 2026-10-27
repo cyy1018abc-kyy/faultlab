@@ -511,15 +511,18 @@ t_start_s:20, params:{magnitude:10}}`，`duration_s:60, dt_s:0.1`，`initial:{lo
 - 仅监测：`I_true(t) ≡ 25 A`（b 不进入物理回路）。
 - `I_meas = I_true + b(t)`；`P_bat_true = 0.4*I_true`；`P_bat_meas = 0.4*I_meas`；
   `P_gen_true = P_load_demand - P_bat_true`（理想瞬时补偿）；`P_load_served = P_load_demand`。
-- `SOC_true = 60 - ∫P_bat_true dt / (40 kWh * 3600)`（百分数，`∫` 用 kW·s → /3600 → kWh）；
+- `SOC_true = 60 - 100 * ∫P_bat_true dt / (40 kWh * 3600)`（百分数，`∫` 用 kW·s → /3600 → kWh；
+  **G0 B04：旧文本缺 ×100，已修正**）；
   `SOC_est` 用 `P_bat_meas` 积分。`r_true = P_gen_true + P_bat_true - P_load_served`；
   `r_meas = P_gen_true + P_bat_meas - P_load_served`。
-- 扩展 `load_step`：t_start 后 `P_load_demand` 从 30 阶跃到 `30+magnitude`；假设发电机为一阶
-  惯性源 `tau_gen=2.0 s` 追踪 `P_load_demand - P_bat_true`；电池电流保持 `I_ref` 反馈控制；
-  场景假设追加 `A-gen-lag`（仅该场景生效，写进 model.assumptions 引用）。
-- 扩展 `actuator_fault`：变换器电流上限降为 `I_cap = I_ref*magnitude/100`（例如 55% → 13.75 A），
-  真实电流被限幅，控制器指令仍为 25 A；发电机补偿剩余需求。`I_true = min(控制输出, I_cap)`
-  （带 0.4 s 一阶过渡）。观测 `I_bat_cap_A`（FAULT_EVENT）。
+- **扩展 `load_step`：G0 暂停实现（B12）**。原因：现文本"发电机一阶惯性源（`tau_gen=2.0 s`）追踪
+  `P_load_demand - P_bat_true`"与"电池电流保持 `I_ref` 反馈控制"自相矛盾（按文字起始失衡 −10 kW，
+  与"守恒 ≤1e-6"相差 7 个数量级），且发电机滞后曲线违反 V0.2 §1.2 R-02。
+  恢复条件：删除发电机滞后，或引入母线储能 `E_bus/P_bus` 并把守恒式改为
+  `P_gen+P_bat+P_bus=P_load`，走独立 G2b 物理规格评审。**当前不得作为验收路径。**
+- 扩展 `actuator_fault`（扩展预览，不作 P0 验收）：变换器电流上限降为 `I_cap = I_ref*magnitude/100`
+  （例如 55% → 13.75 A），真实电流被限幅，控制器指令仍为 25 A；发电机补偿剩余需求。
+  `I_true = min(控制输出, I_cap)`（带 0.4 s 一阶过渡）。观测 `I_bat_cap_A`（FAULT_EVENT）。
 
 **必含信号**（id / label / unit / sourceKind / category / chart）：
 | id | label | unit | source | category | 备注 |
@@ -543,6 +546,10 @@ t_start_s:20, params:{magnitude:10}}`，`duration_s:60, dt_s:0.1`，`initial:{lo
 
 **验收数值（core.test.js 必须断言，容差 1e-6，除非注明）**：
 
+> **G0 B02/B04 注记**：能量/SOC 金标准为**解析积分**（事件感知）；若实现用 0.1 s 梯形，仅作敏感性
+> 对照且容差放宽；显示按 §5.0 规则。`SOC_true` 末值以 `59.6902777778%`、`SOC_est` 以
+> `59.5791666667%`、`SOC_err_pp` 以 `-0.1111111 pp` 为全精度基准。
+
 | 检查 | 期望 |
 |---|---|
 | 采样 | 601 点，t[600]=60，dt=0.1 |
@@ -560,15 +567,14 @@ t_start_s:20, params:{magnitude:10}}`，`duration_s:60, dt_s:0.1`，`initial:{lo
 | 无故障基准 | E_bat=0.1666667, E_gen=0.3333333, SOC_true=59.5833333, SOC_err=0, max r_meas=0 |
 | 仅监测 60s | I_true 恒 25；I_meas(30s)=35；SOC_true=59.58333；SOC_est=59.47222；SOC_err=-0.11111 |
 | `focal_change` | 故障组 `I_true(60)-I_true(20)` = -10 A |
-| 事件快照 | pre@19.9 `I_meas=25`；post@20.0 `I_meas=35` |
+| 事件快照 | `pre` = `t_s=20.0` 左极限（`I_meas=25`，`derivation:'left_limit'`）；`post` = `t_s=20.0`（`I_meas=35`）；19.9 s 采样行 `I_meas=25`（普通采样，**不是 pre**） |
 | 质量检查 | 全部 pass（`conservation-meas` 允许 warn） |
 | 哈希 | 同 config 两次运行 configHash 相同；改 magnitude 后不同；原 Run 对象不被改写 |
 
-**扩展场景验收范围**：
-- load_step（+10 kW @20s）：`P_load_demand` 30→40；`P_gen_true` 约 2 s 时间常数升到 30 kW；
-  真实电池电流从 25 短暂升到约 50 A（发电机爬坡期间），约 10 s 后回落 25 A；守恒 ≤1e-6。
-- actuator_fault（cap 55%）@20s：`I_true` 降到 ≈13.75 A（过渡 0.4s）；`I_ref` 保持 25；
-  发电机补偿到 ≈24.5 kW；`r_meas ≈0`（测量本身一致），但指令-实际偏差明显。
+**扩展场景验收范围（扩展预览；FL-001 `load_step` 已由 G0 暂停，见 §5.1）**：
+- **load_step：暂停，不设验收。** 重写条件见 §5.1（母线储能状态 + G2b）。
+- actuator_fault（cap 55%）@20s（扩展预览，不作 P0 验收）：`I_true` 降到 ≈13.75 A（过渡 0.4s）；
+  `I_ref` 保持 25；发电机补偿到 ≈24.5 kW；`r_meas ≈0`（测量本身一致），但指令-实际偏差明显。
 
 ### 5.2 FC-001 燃料电池系统
 
@@ -606,10 +612,20 @@ t_start_s:20, params:{magnitude:10}}`，`duration_s:60, dt_s:0.1`，`initial:{lo
 
 **验收范围**：默认 sensor_drift 60s：`I_fc_true` 50→40 A（tau 1.2）；`P_fc_true` 20→16 kW；
 `P_bat_true` 10→14 kW；`E_load=0.5 kWh`；`E_fc+E_bat=0.5`（容差 1e-3）；`r_true≈0`；
-`r_meas` 故障期 ≈ +4 kW；SOC_err = **+0.11111 pp**（正号：估计放电偏少 → 估计 SOC 偏高），
-`SOC_true_end=59.47222%`、`SOC_est_end=59.58333%`；monitor 模式真值不变。
+`r_meas` 故障期 ≈ +4 kW；SOC_err = **+0.1111111 pp**（正号：估计放电偏少 → 估计 SOC 偏高），
+**G0 B12 修正**：`SOC_true_end=59.4755556%`、`SOC_est_end=59.5866667%`
+（旧文本 59.47222/59.58333 忽略 τ_fc=1.2 s 过渡尾项，偏 0.00334 pp）；若坚持稳态近似，
+必须显式写"稳态近似 ±0.01 pp"并写入 `model.assumptions`。monitor 模式真值不变。
 
-### 5.3 GT-001 燃气涡轮发电系统
+### 5.3 GT-001 燃气涡轮发电系统 — **G0 裁定：当前形态 NO-GO（仅保留为扩展规格草案）**
+
+> **G0-DEC-15 / B12**：本模型当前**不得实现、不得作为验收路径、不得对外展示为"机组动态"**。
+> 已知缺陷：①`load_step`"8–20 s 恢复 50 Hz"与独立复算不符（复算 `|Δf|≤0.2 Hz@30.03 s`、
+> `≤0.1 Hz@36.56 s`、`nadir −0.4105 Hz@21.07 s`）；②`r_meas` 无公式（功率测量全部健康，无对应残差）；
+> ③`r_true=0` 与 `P_rotor` 定义冲突（须 `r_true := P_gen+P_bat−P_load−P_rotor`）；
+> ④惯量模型是 f≈f₀ 线性化，未声明；⑤电池"5 kW 基准"却稳态放电 12.2 kW，无限幅。
+> 恢复条件：见 `FaultLab-evaluation/NEXT/SCOPE_SPLIT_MEMO.md` 的 G2b 清单。在此之前 UI 可保留为
+> **扩展预览**（截图/演示），但 README/SCOPE 必须标注"未评审、非验收"。
 
 **拓扑**：`turbine` 燃气涡轮（燃料阀 `valve` 控制）→ `generator` 同步发电机（25 kW 基准）→
 `bus` 400 V（AC 整流后等效）；`battery` 电池缓冲（5 kW 基准，40 kWh）→ `bus`；
@@ -642,11 +658,13 @@ t_start_s:20, params:{magnitude:10}}`，`duration_s:60, dt_s:0.1`，`initial:{lo
 `valve_meas_pct`(OBSERVATION, blind), `P_gen_cap_kW`(FAULT_EVENT), `V_bus_V`(MODEL_ASSUMPTION, blind)。
 类别：`frequency/power/soc/residual/actuator`。
 
-**验收范围**：默认 sensor_drift +0.3 Hz @20s 稳态：`f_true ≈ 49.7 Hz`、`f_meas_Hz ≈ 49.7 Hz`（健康通道）、
-`n_meas_rpm ≈ 3000 rpm`（偏置通道读作 50 Hz 等价）、`P_gen_true ≈ 17.8 kW`、`P_bat ≈ 12.2 kW`（容差 ±0.6）；
-守恒含转子项 ≤1e-3 kW；Agent 可用 `n_meas/60 − f_meas = +0.3 Hz` 交叉校验；
-load_step +10 kW：频率最低点 −0.3 ~ −0.6 Hz，8–20 s 恢复 50 Hz，最终 `P_gen≈35`、`P_bat≈5`；
-actuator 50%：`P_gen≈20`，频率稳态 ≈49.6~49.9 且持续偏差，电池长期约 10 kW。
+**验收范围（现状记录；G0 未接受，等待 G2b 重写）**：默认 sensor_drift +0.3 Hz @20s：
+`f_true ≈ 49.7 Hz`（60 s 时 49.6999，100 s 才近似稳态）、`f_meas_Hz = f`（健康通道）、
+`P_gen_true ≈ 17.9 kW`、`P_bat ≈ 12.1 kW`（60 s 值，未完全稳态）；
+load_step +10 kW 复算：`nadir −0.4105 Hz @21.07 s`；`|Δf|≤0.2 Hz @30.03 s`、`≤0.1 Hz @36.56 s`、
+`≤0.05 Hz @42.95 s`（**旧文本"8–20 s 恢复"不成立**）；最终 `P_gen≈34.8`、`P_bat≈5.2`；
+actuator 50%：`P_gen≈20`、频率稳态 ≈49.79、电池约 10 kW（`P_gen_cmd` 可达 40 kW，无执行器抗饱和）。
+**G2b 恢复前：全部数值仅作记录，不得写入 golden、不得用于对外结论。**
 所有场景无 NaN/Inf，SOC ∈ [0,100]。
 
 ---
@@ -692,7 +710,9 @@ FL.systems = {
 ```
 
 `FL.core.simulate` 内部生成 `run.causal`（按 faultFamily + feedback_mode + 数值），页面不得拼因果文案。
-事件快照：`pre` 取故障前最后一个采样点（`t_start - 0.1`），`post` 取 `t_start`。
+事件快照（G0 B01）：`pre` 取 `t_s=t_start` 的**左极限**（`derivation:'left_limit'`，b=0），
+`post` 取 `t_s=t_start` 的采样值（`derivation:'post_sample'`，b=10）；上一常规采样点
+`t_start-0.1` 只作为普通采样行查询，**不叫 pre**。
 
 `rng.js` 提供：`FL.rng.mulberry32(seed) -> ()=>[0,1)`、`FL.rng.gauss(rand)`、`FL.rng.hashSeed(str)`。
 噪声只加在 `sourceKind==='OBSERVATION'` 的信号上，且确定性（按 seed + 信号 id + index）。
@@ -890,7 +910,13 @@ tooltip 由页面用 DOM 实现（chart 只回调）；不引入任何第三方�
 
 ---
 
-## 11. Agent Arena（arena-agents 提供）
+## 11. Agent Arena（arena-agents 提供）— **P2 扩展预览（G0 裁决，非 V0.1 验收路径）**
+
+> **G0-DEC-14/15**：Arena 不属于 V0.1 P0 验收路径；本实现的 `truthSealed` 为 UI 开关，
+> **不是安全边界**（用户可经 DevTools/重算绕过）。契约级真值隔离以
+> `FaultLab-evaluation/NEXT/DATA_CONTRACT_SPEC.md` 的 `exposure` 与 `project('blind')` 为准。
+> UI/文档必须标注"扩展预览 · 合成场景 · 非真实诊断性能"；评分/排行榜不得表述为诊断能力认证。
+> 本节保留为实现参考；若与 `DATA_CONTRACT_SPEC.md` 冲突，以规格文档为准。
 
 ### 11.1 盲测流程
 
@@ -1009,6 +1035,11 @@ CSS 下载按钮必须有 hover/focus/disabled 状态；`validation_failed` 时�
 
 ## 13. 验收口径（页面 owner 自检 + Lead 终检）
 
+> **G0 注记（2026-10-27）**：本节是**原型级**验收口径（历史实现自检），不是 G2 科学验收。
+> G2 的正式验收以 `FaultLab-evaluation/NEXT/MODEL_VALIDATION_SPEC.md` 的 PHY/SA 矩阵与
+> `DATA_CONTRACT_SPEC.md` 的字段校验为准；`docs/SCOPE.md` 的"全部实现 ✅"为原型自评，
+> 不作为通过依据。**任何"验证通过"字样只能表示内部一致性检查，不能表示模型/硬件验证。**
+
 规格 §11 UX-01..UX-12 全部通过（Lead 用 headless Chrome 自动化 + 截图）。页面级最低要求：
 
 **首页 lab-pages**：三系统卡片可进入；FL-001 参数摘要（20s/+10A/60s/400V/演示）；三个问题；
@@ -1084,3 +1115,38 @@ $chrome = "C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 **禁止**：改别人文件、改 index.html、改 theme.css 令牌、引入依赖、联网、占端口、
 在页面里自造真值/观测不分的文案、把 +4 kW 观测残差说成实际能量损失、展示未建模物理量。
+
+---
+
+## 附录 G0 对齐记录（2026-10-27）
+
+> 依据：`FaultLab-evaluation/DECISIONS/DECISIONS.md`（用户 2026-10-27T20:35 指令批准）与
+> `FaultLab-evaluation/REVIEWS/REVIEW_DIFF.md` 的 B01–B15。
+> 本附录只记录**文档对齐**；产品代码是否已同步不在本文件声明范围内（以实际测试结果为准）。
+
+| # | 位置 | 修改内容 | 依据 | 状态 |
+|---|---|---|---|---|
+| 1 | 文件头 | 新增「G0 裁决基线」：权威顺序、P0=FL-001 三 Run、扩展=P1/P2、强制偏离清单 | D-01..D-08 / G0-DEC-01/14 | 已完成 |
+| 2 | §1 产品范围 | 拆为「P0 基线（FL-001 五页 + 三 Run + 导出/重载）」与「扩展预览（FC/GT/三类故障族/Arena）」；Arena 标 P2；GT 标 NO-GO | B11 / G0-DEC-01/14/15 | 已完成 |
+| 3 | §4.6 snapshots | `pre` 由 `t_s=19.9` 改为 `t_s=20.0 + derivation:'left_limit'`；`post` 为 `post_sample` | B01 | 已完成 |
+| 4 | §5 新增 §5.0 | 冻结积分规则（解析优先）、显示舍入、事件编码、SOC 公式 ×100 | B02/B04 | 已完成 |
+| 5 | §5.1 标题 | "逐位一致" → "1e-6 容差内一致"（浮点不可能逐位一致） | W-09 / B02 | 已完成 |
+| 6 | §5.1 SOC 公式 | 补 ×100：`SOC% = 60 − 100·(1/40)·∫P dt/3600` | B04 | 已完成 |
+| 7 | §5.1 `load_step` | 标记**暂停实现**，写明矛盾证据与恢复条件（母线储能或删除滞后，走 G2b） | B12 | 已完成 |
+| 8 | §5.1 验收表 | 新增积分/舍入注记；事件快照行改为 pre=20.0 左极限、19.9 为普通采样 | B01/B02 | 已完成 |
+| 9 | §5.2 FC-001 | SOC 末值修正为 `59.4755556% / 59.5866667%`（或声明稳态近似 ±0.01 pp） | B12 | 已完成 |
+| 10 | §5.3 GT-001 | 新增 **NO-GO** 横幅与 5 项已知缺陷；验收段改为记录性文字并注明"不得写入 golden/对外结论" | B12 / G0-DEC-15 | 已完成 |
+| 11 | §6 | `pre` 快照规则改为左极限（同 #3） | B01 | 已完成 |
+| 12 | §11 Agent Arena | 标 P2 扩展预览；声明 `truthSealed` 非安全边界；契约级隔离指向 DATA_CONTRACT_SPEC | B08 / G0-DEC-11/14 | 已完成 |
+| 13 | §13 验收口径 | 标明本节为原型级验收，G2 以 MODEL_VALIDATION_SPEC / DATA_CONTRACT_SPEC 为准 | B14 / G0-DEC-16 | 已完成 |
+| 14 | §14 构建/运行/测试 | 保持不变（零构建路线与 G0-DEC-03 一致）；单文件构建为 P1 交付能力 | G0-DEC-03 | 无需修改 |
+
+**未在本文件展开、由规格文档承接的内容**：
+- 数据对象/字段/哈希/导入/投影 → `FaultLab-evaluation/NEXT/DATA_CONTRACT_SPEC.md`
+- 金标准/PHY/SA/oracle → `FaultLab-evaluation/NEXT/MODEL_VALIDATION_SPEC.md`
+- 文案/因果护栏/禁止词 → `FaultLab-evaluation/NEXT/UI_COPY_GUARDRAILS.md`
+- P0a/P0b/P1/P2 任务与 DoD → `FaultLab-evaluation/NEXT/BACKLOG_APPROVED.md`
+- FC/GT/Arena/load_step 处置 → `FaultLab-evaluation/NEXT/SCOPE_SPLIT_MEMO.md`
+
+> 对齐时快照：`docs/CONTRACT.md` 由 54,666 字节 / 1,048 行 增至本版本；基线哈希见
+> `FaultLab-evaluation/DECISIONS/DECISIONS.md` 与 `SPEC_v0.2_APPROVED.md`。
