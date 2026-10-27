@@ -1,0 +1,3 @@
+# golden 与校验和侧车必须字节级稳定（verify_golden V-02 / verify_bundle 按字节校验）
+data/golden/** -text
+*.sha256 -text
