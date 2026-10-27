@@ -4,3 +4,4 @@ FaultLab-evaluation/
 node_modules/
 *.tmp
 *.log
+!artifacts/QA_REPORT.md
