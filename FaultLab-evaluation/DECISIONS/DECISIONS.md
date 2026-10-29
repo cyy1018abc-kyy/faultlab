@@ -363,6 +363,129 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   发现项 F-1…F-6；评审侧建议 **CONDITIONAL GO**，关闭前置条件 = F-1 许可证决定（用户决策，
   仓库当前无 LICENSE）+ F-4 双浏览器人工走查留档；发布候选基线标签 `g5-rc1`。
   决策侧（G5 关闭/驳回）待用户裁决；关闭前不得对外发布。批准人：用户（启动）；记录人：实现 Agent。
+- `CHG-20261029-01`：**V0.3 阶段规划批准（按推荐裁定）+ 暂不开工**。用户 2026-10-29 指令「先按推荐，
+  不开工」。批准 `NEXT/V0.3_PLAN_APPROVED.md`（由 V0.3_PLAN_DRAFT.md 批准后更名）为 V0.3 阶段权威规划；
+  O-07…O-12 按其 §7 推荐裁定生效：O-07=A（WS-A 收尾 + WS-C FL-19 RFC + WS-D Arena 评测协议 +
+  WS-E/F 的 G2b 文档阶段全面铺开，实现按 G6/G2b 门禁逐个放行）、O-08=部分重启**优先序**（P1-05、
+  P1-03 优先；重启实施仍待用户开工指令 + 各自 CHG）、O-09=FC-001 升正式验收（实施待开工指令；
+  须 CHG + model_version 升版 + golden 重建；SA-24 白名单仍不含 FC）、O-10=a（上游修订以新文件承载，
+  INPUT/ 冻结快照不动）、O-11=a（性能阈值 E2E 实测后冻结入门禁）、O-12=发布版本 **v0.3.0**。
+  本次批准为**规划采纳，不含开工授权**：所有 V3-xx 与重启的 P1 任务实施前须用户逐次开工指令；
+  G6/G2b/G7/G8 门禁与规划 §5 红线照常约束。`BACKLOG_APPROVED.md` 为 G0 冻结件不做改动，
+  其 §5.2 引用关系以本条为准。批准人：用户；记录人：实现 Agent。
+- `CHG-20261030-01`：**V0.3 开工队列前三项交付（V3-20 / V3-10 / V3-01）**。用户 2026-10-30 指令
+  「进入实现阶段」。① **V3-20 Arena 真值隔离评估**：判定**可守（有条件）**、无需架构 B 重评——
+  威胁模型内数据路径（内置 Agent 输入/观测过滤/评分隔离/Run 快照/导出包/持久化/路由封存）逐项查证
+  干净；两项协议级发现 **LEAK-1**（盲测导出包携带原始 seed，`mulberry32` 确定性抽样 + MIT 源码公开
+  ⇒ 可离线重建全部轮次真值，现行 `assertSealed` 键名扫描不可拦截）与 **LEAK-2**（`schema.project('blind')`
+  事件脱敏保留 `trigger_s`，可泄漏注入时刻；现无生产调用方，属潜伏缺陷）；守卫清单六条移交 V3-21/V3-22；
+  触发架构 B 重评的条件（对外排位/竞争性评测/评分宣称诊断能力）写入评估记录
+  （`NEXT/evidence/g6/v3-20-truth-isolation-assessment.md`）。② **V3-10 FL-19 后端适配 RFC**：
+  `NEXT/FL19_BACKEND_RFC_DRAFT.md` v1 交付（B-1…B-5 候选与许可初判、BackendAdapter 接口只增不改、
+  进程外/回环/零安装隔离规则、EvidenceBundle v1 兼容与跨后端 incomparable 口径、golden 唯一 +
+  tolerance_profile 声明制、BK-E01…05 错误码、开放问题 Q-1…Q-5），待 V3-11 双路独立评审，
+  过 G6 前不写产品代码。③ **V3-01 G4 人工走查补课**：`qa.mjs ux` 14/14 + `misc` 9/9（本轮实测，
+  控制台 0 错误）+ 六页截图人工复核（归档 `evidence/g6/screenshots/`）+ UX-T01…T13 子集映射
+  （两项豁免留痕：T10 引擎失败态复演、T12 reduced-motion 断言）；根 README §9 该遗留项关闭
+  （`evidence/g6/walkthrough-v3-01.md`）。全程零产品代码改动；`run-g2.mjs` 开工前后均 16/16。
+  本条为执行记录，不关闭任何门禁：G6/G2b 未动。
+  批准人：用户（开工指令）；记录人：实现 Agent。
+- `CHG-20261030-02`：**V0.3 第二批开工交付（V3-11 / V3-21 / V3-22）——RFC 与评测协议双双通过
+  双路独立评审并修订至 v1.1；G6-WS-C/WS-D 关闭待用户批准**。用户 2026-10-30 指令「进入 V3-11
+  （RFC 双路独立评审）、V3-21/V3-22（Arena 评测协议起草与评审）」。① **V3-21**：起草
+  `NEXT/ARENA_EVAL_PROTOCOL_DRAFT.md`（独立盲评测协议 v2：双轨制、固定测试集与
+  testset_id、Verifier 模型与成绩单哈希链、盲包 v2 closed-world 白名单、评分数值规格、
+  负例 17 条与 AE 错误码），逐条落位 V3-20 六条守卫。② **V3-22**：双路独立上下文对抗评审
+  （评审 C 真值隔离视角 / 评审 D 工程视角，互不可见，均 **CONDITIONAL GO**）——C 发现
+  F-1 [BLK]（v1 的 testset_id 末段含 set_seed 材料，8 hex 即 32 位种子全部空间，LEAK-1 前门复活）、
+  F-2…F-5 [MAJ]（红线过度承诺、deriveChangePoints 实为软事件表、open_seed 种子空间共用与
+  提交无绑定、组织方零约束）；D 发现 F-01 [BLK]（scoring_rules 仅指针，权重/窗口/舍入未入协议文本，
+  第三方复算不可能）、F-02 [BLK]（score_hash 序列化未定义）、F-03…F-06 [MAJ]。协议修订至 **v1.1**
+  吸收全部「G6 前必须改」（testset_id 独立随机串化、红线二分改写、禁项按可派生性定义、提交绑定、
+  组织方约束、N-B13…17 增补；评分数值冻结、canonical_json 沿用 Canonicalization v1、1-based
+  更正、sealedProjection 显式并集、负例映射表、生成器 MVP 与 2–52 s 更正）。
+  合并记录：`NEXT/evidence/g6/v3-22-protocol-review.md`。③ **V3-11**：RFC v1 双路独立上下文评审
+  （评审 A 物理/数值视角 / 评审 B 工程/契约视角，互不可见，均 **CONDITIONAL GO**）——A 发现
+  F-1 [BLK]（scope 机制自相矛盾：registry 按 classify 重算，白名单配置的后端 Run 会判 approved_p0
+  进入 P0 验收面）、F-2…F-6 [MAJ]；B 发现 F-01 [BLK]（「逐字节兼容 v1」与「backend 入哈希」互斥，
+  run_hash 输入面系 G0-DEC-07 冻结项）、F-02…F-06 [MAJ]（engine_version 语义、两级接口现实、
+  provenance 硬编码、回环 HTTP CORS/CSRF、verify_bundle 网格硬约束）。多项发现双路交叉印证。
+  RFC 修订至 **v1.1**（scope 受控扩展明文化+CHG+断言、role 复原+两级接口 produce/assembleRun/
+  createFromParts、复核分工如实化、容差判定层感知 tolerance_profile+B-1 按 rtol 1e-12、
+  B-4 措辞触发器、backend 不入 run_hash、engine_version=产生数值的实现版本+compareRuns 零改动、
+  条件化 provenance、I-2 安全条款、网格锁定、BK-E01a/b 拆分）；Q-1…Q-5 裁定记录待用户批准生效
+  （Q-3 否决 numerical_demo、Q-4 三守卫、Q-5 FMU 强制 model_manifest）。
+  合并记录：`NEXT/evidence/g6/v3-11-rfc-review.md`。全程零产品代码改动（run-g2 基线不适用重跑）；
+  两项评审侧结论均为「修订后放行」，**G6-WS-C/WS-D 关闭待用户批准**（批准时随 CHG 落 QP-1…5、
+  Q-1…5 裁定与 DATA_CONTRACT_SPEC 措辞 CHG 条目）；实现（V3-12 后端准入、Arena 评测轨 MVP）
+  仍属 G6 后另批。批准人：用户（开工指令）；记录人：实现 Agent。
+- `CHG-20261030-03`：**G6-WS-C 与 G6-WS-D 关闭（用户批准）+ 开放问题裁定生效**。用户 2026-10-30
+  指令「批准」。批准对象：① `NEXT/FL19_BACKEND_RFC_APPROVED.md`（由 FL19_BACKEND_RFC_DRAFT.md
+  批准后更名，v1.1）——FL-19 后端适配方案 + Q-1…Q-5 裁定生效（Q-1 回环 HTTP、stdio 仅限 Node
+  工具链、I-2 安全条款 CORS 收窄 + Origin/Sec-Fetch-Site + 会话 token；Q-2 B-1 独立性四边界
+  （独立编写/自检独立/「跨实现一致性检查」措辞/解析口径按 rtol 1e-12）；Q-3 否决 `numerical_demo`
+  新档位，B-1=analytical_demo、B-5/B-4=numerical_simulation，后端 Run 三字段恒 `not_performed`；
+  Q-4 B-2/B-3 登记三守卫（准入门绑定 FL-001 方程集/许可核实为前置/验收路径禁入直至各自 RFC+G2b）；
+  Q-5 FMU 强制附 machine-readable model_manifest 方准入，拒绝者仅「黑盒预览」禁入对比结论）；
+  ② `NEXT/ARENA_EVAL_PROTOCOL_APPROVED.md`（由 ARENA_EVAL_PROTOCOL_DRAFT.md 批准后更名，v1.1）
+  ——独立盲评测协议 v2 + QP-1…QP-5 裁定生效（QP-1 Node 单实现首发、Python 仅赛后复算脚本；
+  QP-2 场次独立 + 入库共享基准集；QP-3 取最高 + 全次留痕、哈希链绑提交序号；QP-4
+  deriveChangePoints 首发前置 = sr1 健康局假候选率测量并公布；QP-5 允许 post-reveal 调试赛、
+  成绩单永久标「post-reveal·不计分」且种子空间受 §4 隔离约束）。G6-WS-C/WS-D 关闭 = RFC/协议门
+  通过；**实现仍待用户逐次开工指令**：下一队列 V3-12（后端适配准入清单冻结：Q-4 三守卫、
+  tolerance_profile 逐字段档位、BK-E03 页面侧 vs-golden 校验器、noise 页面侧施加、method 双口径
+  显示规则、scope-guard 断言增补——评审 B F-12 归属表）与评测轨 MVP（协议 §8 五件套）。
+  随实现另需落：DATA_CONTRACT_SPEC §1.1 engine_version 措辞 CHG（「实现版本」）、BK/AE 错误码
+  入契约错误码表、copy-guard 允许串扩充（deviations 留痕）。批准人：用户；记录人：实现 Agent。
+- `CHG-20261030-04`：**V0.3 第三批开工交付（V3-12 冻结 + 评测轨 MVP 实现过 G7 + WS-E/WS-F G2b 文档）**。
+  用户 2026-10-30 指令（/goal）「V3-12 后端适配准入清单冻结、评测轨 MVP 实现（协议 §8 五件套）完成后走
+  G7、WS-E/WS-F 的 G2b 文档阶段同一批次实现」。① **V3-12**：`NEXT/V312_BACKEND_ADMISSION_CHECKLIST.md`
+  **FROZEN**——Q-4 三守卫机检化（G-1 准入门绑定/G-2 依赖冻结/G-3 验收路径禁入，机检形式定义）、
+  tolerance_profile 逐字段档位（`fl001-analytic-crosscheck` rtol 1e-12 / `fl001-rk4-dt0.1` 上限值，
+  量化依据强制）、BK-E03 归属页面侧 vs-golden 校验器（`src/core/golden-compare.js` 计划新建）、
+  noise 页面侧施加并声明、method 双口径并排显示、scope-guard 四断言（backend ⇒ 强制 extension_preview，
+  classify 不改）、engine_version/model_manifest/复核链落地与 C-1…C-5 CHG 条目清单、评审 B F-12
+  归属总表。② **评测轨 MVP（第一批产品代码）+ G7 集成验收通过**：`src/core/arena-protocol.js`
+  （sealedProjection 键名禁词并集 + 语义禁项；场景流/deriveTruth/blindObservables/buildSamples 自
+  arena.js 抽出共享，arena.js 反向调用逐位等价；盲包 v2 closed-world 构造 + V-00…V-06b 校验 +
+  CSPRNG 标识符 + sr1 冻结常量 + SCORING_SPEC_TEXT 冻结文本；提交绑定 + score_hash 落章）、
+  `tools/arena2-gen.mjs`（盲包 + reveal 生成器）、`tools/arena2-verify.mjs`（Verifier V-00…V-10）、
+  `tests/arena-protocol-negative.test.js`（N-B1…N-B17 冻结 fixtures + MVP smoke）、`run-g2.mjs`
+  挂步（16→17 步）。验证：负例+smoke **42/42**、arena 回归 **155/155**（重构逐位等价）、
+  copy-guard **exit 0**（无允许串扩充）、run-g2 **17/17**（E2E 40 断言基线不回退、双 golden verify
+  通过；`artifacts/run-g2-report.json`）、CLI 端到端双形态（单轮/4 轮含噪）通过；**QP-4 前置满足**：
+  deriveChangePoints（sr1）健康局假候选率实测 **0/30**、可测幅值（≥5 A）阶跃邻近检出 **7/7**（随
+  测试发布）。偏差 D-13…D-16 登记（`evidence/g7/README.md` §4）。页面演示轨 UI 零改动（index.html
+  仅增 arena-protocol.js 加载项）。③ **V3-30**：`NEXT/GT001_G2B_SPEC_DRAFT.md` v1 交付——恢复条件
+  1–7 逐条落文（r_true 定义恒等、r_meas 废除改 `f_channel_diff_Hz` 通道差、惯量线性化声明
+  E_kin=125·(f/50)² kW·s + 能量校核、验收锚点重写含 60 s 未收敛声明、电池短时额定 ±15 kW +
+  限幅检查、GT 未建模物理清单、UI 标签「单机等效频率响应示意（L0b）」+ 禁止措辞）；条件 8（独立
+  oracle/golden）→ V3-31、条件 9（抗饱和/恢复定义）随 V3-32 评审裁定。**G2b 未关闭，GT-001 实现
+  仍禁止**（G0-DEC-15）。④ **V3-40**：`NEXT/LOAD_STEP_RULING_MEMO.md` v1 交付——删除/重写两选项
+  全量代价收益 + Arena 涟漪分析；记录人**推荐删除**（风险不对称/教学边际价值低/GT 语境更自洽）；
+  **裁定权在用户（O-13）**，裁定前现文本维持禁止实现。批准人：用户（开工指令）；记录人：实现 Agent。
+- `CHG-20261030-05`：**V0.3 第四批（FL-19 开工增量一过 G7 + V3-32 GT-001 双路评审完成 → 规格 v1.1）+ 入库**。
+  用户 2026-10-30 四指令（O-13 裁定路径询问 / V3-32 派发 / FL-19 开工 / 入库）。① **FL-19 开工增量一
+  （第一批后端代码，过 G7）**：B-1 Python 解析后端（`tools/backend/py/fl001_analytic.py`，按
+  MODEL_VALIDATION_SPEC §1.3/§5.2 独立编写，vs golden 逐点最差 **1.19e-16**、metrics 全部 ≤1e-12，
+  解析交叉层）+ B-5 RK4 后端（3.49e-8，声明档 fl001-rk4-dt0.1；步左沿目标消除跨阶跃 stage 混值）+
+  `tools/backend/fl001-adapter.mjs`（stdio 工具链形态，BK-E02 形状校验）+ `src/core/golden-compare.js`
+  （**BK-E03 判定载体**，analytic 档直接采用 golden.tolerances.analytic_crosscheck 单一来源）+
+  `tests/backend-admission.test.js`（G-1a/c 准入门绑定、G-2 依赖冻结、三场景×双后端、确定性、
+  两条负例，**51/51**）+ run-g2 挂步 17→**18/18 全绿**（E2E 40 基线不回退）；
+  copy-guard exit 0；偏差 D-17…D-19（`evidence/g7/backend-increment1.md`）。增量二
+  （createFromParts 组装层/UI 桥/scope 断言 1·3·4）另批。② **V3-32 完成（评审侧）**：GT-001 规格
+  双路独立上下文评审（互不可见，均含实机复算）——物理路 **CONDITIONAL GO**（F1 [BLK] 能量校核
+  判据线性化截断残差 4.3e-3~8.4e-3 超 1e-6 三四个数量级；F2 缺 f(60)=49.992 锚点；F3 ±15 kW 与
+  参数域冲突；F4 恢复数未经验证；F5 容差阶梯失准）；工程路 **CONDITIONAL GO**（F-01 [BLK] checks.js
+  漏列破门禁·实机验证；F-02/F-03 与物理路交叉印证；F-04…F-09 更新序/字段面/run 集；20 文件涟漪
+  清单）。规格修订 **v1.1** 吸收全部「批准前必改」（能量校核残差项显式化、锚点补全、限幅重裁定
+  包络 25 kW + 15 kW 降声明、§9 清除瞬态如实化 + 抗饱和 (a)/(b) 待用户定案、oracle 更新序冻结、
+  golden run 集 ≥5、checks/因果模板/测试涟漪补全）。合并记录：`evidence/g2b/gt001-v3-32-review.md`。
+  **G2b 关闭待用户批准**（批准时定案 §9 (a)/(b) 与 §4 网格决策）；GT-001 实现仍禁止。③ **O-13**：
+  裁定路径已答复用户（两选项动作清单 + 记录人推荐删除；一词裁定即执行）。④ **入库**：本批连同
+  CHG-20261029-01…本条全部 V0.3 工作以单提交入库并推送远端（提交哈希见 git log；推送重试机制
+  应对 github 直连抖动）。批准人：用户（开工/入库指令）；记录人：实现 Agent。
 
 **效力声明**：
 1. 本文件自 2026-10-27T20:35 起具有实现约束力；任何实现不得反向定义本文件。

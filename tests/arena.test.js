@@ -27,7 +27,8 @@ const CORE_FILES = [
   'src/core/systems.js',
   'src/core/engine.js',
   'src/core/metrics.js',
-  'src/core/checks.js'
+  'src/core/checks.js',
+  'src/core/arena-protocol.js'
 ];
 const AGENT_FILES = [
   'src/agents/builtin-agents.js',

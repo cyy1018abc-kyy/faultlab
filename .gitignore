@@ -2,6 +2,7 @@
 # Project source, QA screenshots (artifacts/), and the V0.2 G0 evaluation
 # evidence package (FaultLab-evaluation/) are intentionally tracked.
 node_modules/
+out/
 *.tmp
 *.log
 __pycache__/

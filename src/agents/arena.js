@@ -11,14 +11,11 @@
   const ARENA_VERSION = '0.1';
   const ARENA = FL.arena = FL.arena || {};
 
-  const FAMILY_ORDER = ['sensor_drift', 'load_step', 'actuator_fault'];
-  const FAMILY_LABELS = {
-    sensor_drift: '传感器漂移',
-    load_step: '负载冲击',
-    actuator_fault: '执行器异常',
-    none: '健康'
-  };
-  const HEALTHY_RATIO = 0.2;
+  /* 场景流/真值/盲观测流共享实现见 src/core/arena-protocol.js（盲评测协议 v2 §8 MVP-1：
+     组织方生成器与页面共用同一实现，杜绝双实现漂移）。 */
+  const FAMILY_ORDER = FL.arenaProtocol.FAMILY_ORDER;
+  const FAMILY_LABELS = FL.arenaProtocol.FAMILY_LABELS;
+  const HEALTHY_RATIO = FL.arenaProtocol.HEALTHY_RATIO;
 
   const WEIGHTS = {
     detection: 0.20,
@@ -112,104 +109,13 @@
     return FAMILY_ORDER[i];
   }
 
-  /* 用已抽取的 [0,1) 直接完成幅值离散化（保持一次抽取的顺序） */
-  function magnitudeFromRoll(roll, faultDef) {
-    const p = faultDef && faultDef.params && faultDef.params[0] ? faultDef.params[0] : null;
-    if (!p) return 10;
-    const step = isNum(p.step) && p.step > 0 ? p.step : 1;
-    const min = isNum(p.min) ? p.min : 0;
-    const max = isNum(p.max) ? p.max : min + 10 * step;
-    const count = Math.max(1, Math.floor((max - min) / step) + 1);
-    const idx = Math.min(count - 1, Math.floor(roll * count));
-    return round(min + idx * step, 6);
-  }
-
-  function buildScenario(systemId, setup, rng, roundNo) {
-    const base = clone(FL.systems.defaultConfig(systemId));
-    const duration = base.duration_s || 60;
-    // 固定抽样顺序，保证同 seed 的随机流稳定
-    const healthRoll = rng();
-    const familyRoll = rng();
-    const feedbackRoll = rng();
-    const timeRoll = rng();
-    const magnitudeRoll = rng();
-
-    const healthy = healthRoll < HEALTHY_RATIO;
-    const family = healthy ? 'none' : FAMILY_ORDER[Math.min(2, Math.floor(familyRoll * 3))];
-    const feedbackMode = feedbackRoll < 0.5 ? 'closed_loop' : 'monitor';
-    let faultDef = null;
-    let faultId = null;
-    let magnitude = 0;
-    let unit = '';
-    let tStart = null;
-    if (!healthy) {
-      try { faultDef = FL.systems.fault(systemId, family); } catch (e) { faultDef = null; }
-      if (!faultDef) throw new Error('系统 ' + systemId + ' 缺少故障家族 ' + family);
-      faultId = faultDef.id;
-      magnitude = magnitudeFromRoll(magnitudeRoll, faultDef);
-      unit = faultDef.params && faultDef.params[0] ? faultDef.params[0].unit : '';
-      const range = Array.isArray(faultDef.timeRange) ? faultDef.timeRange : [2, 55];
-      const lo = Math.max(0.1, isNum(range[0]) ? range[0] : 2);
-      const hi = Math.min(isNum(range[1]) ? range[1] : 55, Math.max(lo, duration - 8));
-      tStart = round(lo + timeRoll * Math.max(0, hi - lo), 1);
-    }
-
-    const config = base;
-    config.feedback_mode = feedbackMode;
-    config.initial = clone(config.initial || { load_kW: 30, SOC_pct: 60 });
-    config.noise = {
-      enabled: !!setup.noise,
-      seed: (setup.seed + roundNo * 7919) >>> 0,
-      level: setup.noise ? 1 : 0
-    };
-    if (healthy) {
-      config.fault = { family: 'none', faultId: null, t_start_s: 20, params: { magnitude: 0 } };
-    } else {
-      config.fault = { family: family, faultId: faultId, t_start_s: tStart, params: { magnitude: magnitude } };
-    }
-    return {
-      config: config,
-      healthy: healthy,
-      family: family,
-      faultDef: faultDef,
-      faultId: faultId,
-      magnitude: healthy ? null : magnitude,
-      unit: unit,
-      tStart: tStart,
-      feedbackMode: feedbackMode,
-      expectedComponent: healthy ? 'none' : ((FL.systems.get(systemId).faultAnchors || {})[family] || 'none')
-    };
-  }
+  const magnitudeFromRoll = FL.arenaProtocol.magnitudeFromRoll;
+  const buildScenario = FL.arenaProtocol.buildScenario;
 
   /* ---------------------------------------------------------- blind flow */
-  const FORBIDDEN_ID = /(^|_)(true|bias|cap)(_|$)/i;
-
-  function blindObservables(run) {
-    const out = [];
-    (run && run.signals ? run.signals : []).forEach((sig) => {
-      if (!sig || typeof sig.id !== 'string') return;
-      if (sig.blindVisible !== true) return;
-      if (sig.sourceKind === 'FAULT_EVENT' || sig.sourceKind === 'MODEL_STATE') return;
-      if (FORBIDDEN_ID.test(sig.id)) return;
-      out.push({ id: sig.id, label: sig.label || sig.id, unit: sig.unit || '' });
-    });
-    return out;
-  }
-
-  function buildSamples(run, observables) {
-    const series = run && run.timeseries && run.timeseries.t ? run.timeseries.t : [];
-    const signals = run && run.timeseries ? run.timeseries.signals || {} : {};
-    const rows = [];
-    for (let i = 0; i < series.length; i++) {
-      const row = [series[i]];
-      for (let j = 0; j < observables.length; j++) {
-        const arr = signals[observables[j].id];
-        row.push(arr && isNum(arr[i]) ? arr[i] : null);
-      }
-      rows.push(row);
-    }
-    return rows;
-  }
+  const FORBIDDEN_ID = FL.arenaProtocol.BLIND_ID_RE;
+  const blindObservables = FL.arenaProtocol.blindObservables;
+  const buildSamples = FL.arenaProtocol.buildSamples;
 
   function buildMeta(systemId, run, observables) {
     const sys = FL.systems.get(systemId);
@@ -240,35 +146,7 @@
   }
 
   /* --------------------------------------------------------------- truth */
-  /* 评分用的真值由「本轮隐藏场景」直接构造；不读取运行对象中的真值字段，
-     也不把任何真值写进盲观测流或导出包。 */
-  function deriveTruth(scenario, run) {
-    const healthy = scenario.healthy;
-    const family = healthy ? 'none' : scenario.family;
-    const component = healthy ? 'none' : scenario.expectedComponent;
-    let magnitude = null;
-    if (!healthy && isNum(scenario.magnitude)) {
-      magnitude = { value: round(scenario.magnitude, 6), unit: scenario.unit || '' };
-    }
-    const sys = (function () { try { return FL.systems.get(scenario.config.systemId); } catch (e) { return null; } })();
-    const comps = sys && sys.components ? sys.components : [];
-    let componentLabel = component;
-    comps.forEach((c) => { if (c.id === component) componentLabel = c.label || c.id; });
-    return {
-      faultFamily: family,
-      faultFamilyLabel: healthy ? '健康局' : (FAMILY_LABELS[family] || family),
-      faultId: healthy ? null : scenario.faultId,
-      component: component,
-      componentLabel: healthy ? '无' : componentLabel,
-      magnitude: magnitude,
-      t_fault: healthy ? null : scenario.tStart,
-      healthy: healthy,
-      none: healthy,
-      feedbackMode: healthy ? 'healthy' : scenario.feedbackMode,
-      active_s: healthy ? 0 : round(((run.config && run.config.duration_s) || 60) - (scenario.tStart || 0), 1),
-      detectedAt: null
-    };
-  }
+  const deriveTruth = FL.arenaProtocol.deriveTruth;
 
   /* -------------------------------------------------------------- scoring */
   function normalizeDiagnosis(input) {
@@ -432,31 +310,6 @@
     return copy;
   }
 
-  /* 小样本覆盖保护：rounds>=3 时若随机结果没有任何健康局，把中间一轮替换为健康局，
-     让「误报计数」在演示与自测中有数据可查；不改变其余轮次的随机流。 */
-  function makeHealthyScenario(systemId, setup, roundNo, feedbackMode) {
-    const base = clone(FL.systems.defaultConfig(systemId));
-    base.feedback_mode = feedbackMode || 'closed_loop';
-    base.noise = {
-      enabled: !!setup.noise,
-      seed: (setup.seed + roundNo * 7919) >>> 0,
-      level: setup.noise ? 1 : 0
-    };
-    base.fault = { family: 'none', faultId: null, t_start_s: 20, params: { magnitude: 0 } };
-    return {
-      config: base,
-      healthy: true,
-      family: 'none',
-      faultDef: null,
-      faultId: null,
-      magnitude: null,
-      unit: '',
-      tStart: null,
-      feedbackMode: base.feedback_mode,
-      expectedComponent: 'none'
-    };
-  }
-
   /* ------------------------------------------------------------ createMatch */
   function createMatch(setup, opts) {
     requireAPIs();
@@ -470,13 +323,8 @@
     const startedIso = nowIso();
     const rounds = [];
 
-    // 先生成全部隐藏场景（固定随机流），再做小样本健康局覆盖保护
-    const scenarios = [];
-    for (let i = 0; i < norm.rounds; i++) scenarios.push(buildScenario(norm.systemId, norm, rng, i));
-    if (norm.rounds >= 3 && scenarios.every((s) => !s.healthy)) {
-      const target = Math.floor(norm.rounds / 2);
-      scenarios[target] = makeHealthyScenario(norm.systemId, norm, target, scenarios[target].feedbackMode);
-    }
+    // 场景流 + 健康局覆盖保护（共享实现：src/core/arena-protocol.js，rng 消耗顺序不变）
+    const scenarios = FL.arenaProtocol.buildScenarioSet(norm.systemId, norm, rng);
 
     for (let i = 0; i < norm.rounds; i++) {
       const scenario = scenarios[i];

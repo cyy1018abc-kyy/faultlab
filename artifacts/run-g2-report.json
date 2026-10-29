@@ -88,6 +88,18 @@
       "exit_code": 0
     },
     {
+      "id": "G6 arena-protocol-negative.test.js（盲评测协议 v2 + N-B1…B17 负例 + MVP smoke + QP-4 假候选率）",
+      "cmd": "node tests/arena-protocol-negative.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
+      "id": "FL-19 backend-admission.test.js（B-1/B-5 vs golden + 准入机检 G-1/G-2）",
+      "cmd": "node tests/backend-admission.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
       "id": "+ core.test.js（既有回归，适配新语义）",
       "cmd": "node tests/core.test.js",
       "status": "pass",
@@ -101,5 +113,5 @@
     }
   ],
   "node": "v26.5.1",
-  "generated_at": "2026-10-27T19:30:45.217Z"
+  "generated_at": "2026-10-29T19:45:48.909Z"
 }
