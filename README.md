@@ -118,6 +118,7 @@ src/core/                      hash/schema/scope/protocol/systems/engine/metrics
 src/ui/                        组件库、store、壳层、图表、导出、六个页面
 src/agents/                    内置演示 Agent、盲测编排与评分
 data/golden/                   golden（oracle 生成；engine 只读比对）
+tools/backend/                 FL-19 数值后端（B-1 解析/B-5 RK4）+ Node 适配器（G6 批准）
 tools/oracle/                  独立解析 oracle + emit_golden（不 import src/**）
 scripts/verify_golden.py       一键 golden 校验（exit 0/1/2）
 tools/verify_bundle.py         证据包第三方离线复核
@@ -166,8 +167,10 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
   记录见 `FaultLab-evaluation/NEXT/evidence/g6/walkthrough-v3-01.md`；T10/reduced-motion 两项豁免留痕）。
 - **FC-001**：修复清单已闭环（G2b-lite，`evidence/g4/fc001-g2b-lite.md`）；实现仍为 `extension_preview`，
   升正式验收已裁定（V0.3 O-09）待实施（实施须 `model_version` 升版 + golden 重建 + CHG）。
-- **GT-001 当前形态 NO-GO**（G0-DEC-15）：恢复须 G2b 物理规格评审；不得作为验收/对外结论。
-- **FL-001 `load_step`**：删除或重写（G2b），当前不进入实现。
+- **GT-001**：G2b 物理规格 v1.1 已批准（2026-10-30，§9=(a)、网格保留 60 s）；实现（V3-31/33）
+  待开工，完成前演示仍为扩展预览、不进入验收。
+- **FL-001 `load_step`**：已删除（O-13，2026-10-30；归档 `evidence/g2b/load_step-removed-contract-text.md`）；
+  FL-001 故障族为 sensor_drift + actuator_fault（后者仍为扩展预览）。
 - **Arena**：P2 扩展预览；独立评测协议 v2 已批准（G6-WS-D）且评测轨 MVP 已实现（gen/verify CLI +
   17 条负例门禁，`evidence/g7/`）；页面演示轨不变；评分只标「合成故障评测游戏，非真实诊断性能」。
 - 浏览器端计算与哈希不构成第三方验证；分享/复核以证据包 v1 + `verify_bundle.py` 为准。
@@ -179,8 +182,8 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
 - **G2 规格（本版权威）**：`FaultLab-evaluation/NEXT/` —— DATA_CONTRACT_SPEC / MODEL_VALIDATION_SPEC /
   UI_COPY_GUARDRAILS / BACKLOG_APPROVED / SCOPE_SPLIT_MEMO；V0.3 阶段：`V0.3_PLAN_APPROVED.md`、
   `FL19_BACKEND_RFC_APPROVED.md`（G6-WS-C 已闭）、`ARENA_EVAL_PROTOCOL_APPROVED.md`（G6-WS-D 已闭）、
-  `V312_BACKEND_ADMISSION_CHECKLIST.md`（FROZEN）、`GT001_G2B_SPEC_DRAFT.md`（G2b 待评审）、
-  `LOAD_STEP_RULING_MEMO.md`（裁定待用户）
+  `V312_BACKEND_ADMISSION_CHECKLIST.md`（FROZEN）、`GT001_G2B_SPEC_APPROVED.md`（G2b 已闭，
+  V3-31/V3-33 待开工）、`LOAD_STEP_RULING_MEMO.md`（O-13 已裁定：删除）
 - **实施证据**：`FaultLab-evaluation/NEXT/evidence/g2/`（golden/oracle/四件套）、`evidence/g4/`（因果护栏/白名单/范围守卫/README）、
   `evidence/g5/`（发布就绪/双浏览器走查）、`evidence/g6/`（V0.3：真值隔离评估、RFC/协议双路评审、走查补课 + 截图）、
   `evidence/g7/`（评测轨 MVP + FL-19 后端增量一实施证据：18/18 聚合、42/42 负例、51/51 准入机检、QP-4 假候选率发布）

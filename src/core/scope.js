@@ -65,8 +65,19 @@
     return classify(config) === 'approved_p0';
   }
 
-  /* 验收门禁：P0 验收/golden 比对路径必须先通过；不通过抛中文错误 */
+  /* 验收门禁：P0 验收/golden 比对路径必须先通过；不通过抛中文错误。
+     受控扩展（FL19 RFC §1 / V312 §6 断言 3）：凡 run.manifest.backend 存在（后端 Run），
+     即使 config 落在白名单内也不得进入 P0 验收路径——scope 强制 extension_preview
+     的执行点之一（classify 本身零改动）。 */
   function assertApprovedP0(configOrRun) {
+    if (configOrRun && configOrRun.manifest && configOrRun.manifest.backend) {
+      var errB = new Error('[SCOPE] 该运行由数值后端产出（' + configOrRun.manifest.backend.id +
+        '），scope=extension_preview：不进入 P0 验收路径（跨实现一致性检查走专用 golden 校验）。');
+      errB.name = 'ScopeError';
+      errB.code = 'SCOPE-E01';
+      errB.next = '后端 Run 的 golden 对照使用 vs_golden_tolerance 检查（V312 §3）';
+      throw errB;
+    }
     if (!isApprovedP0(configOrRun)) {
       var err = new Error('[SCOPE] 该场景超出 G0 批准范围（扩展预览·未评审）：P0 验收仅接受 FL-001 × sensor_drift/无故障 × +10 A @20.0 s × 30 kW/60% × 60 s/0.1 s。');
       err.name = 'ScopeError';

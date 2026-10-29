@@ -255,8 +255,10 @@ sysList.forEach((item) => {
   ok(s.components.length >= 6, id + '：components 数量 ≥ 6');
   ok(s.edges.length >= 6, id + '：edges 数量 ≥ 6');
   ok(s.signals.length >= 10, id + '：signals 数量 ≥ 10');
-  eq(s.faults.length, 3, id + '：三个故障家族');
-  eq(s.faults.map((f) => f.family).sort().join(','), 'actuator_fault,load_step,sensor_drift', id + '：故障家族覆盖');
+  const wantFamilies = id === 'FL-001' ? 2 : 3; /* FL-001 load_step 已按 O-13 删除 */
+  eq(s.faults.length, wantFamilies, id + '：故障家族数');
+  const wantJoin = id === 'FL-001' ? 'actuator_fault,sensor_drift' : 'actuator_fault,load_step,sensor_drift';
+  eq(s.faults.map((f) => f.family).sort().join(','), wantJoin, id + '：故障家族覆盖');
   eq(s.signals.map((sg) => sg.id).join(','), systems.get(id).signals.map((sg) => sg.id).join(','), id + '：signals 顺序稳定');
   eq(typeof s.model.model_id, 'string', id + '：model_id');
   eq(typeof s.model.model_version, 'string', id + '：model_version');
@@ -336,7 +338,8 @@ ok(gtSignals.n_meas_rpm.formula.indexOf('b(t)') !== -1, 'GT-001 n_meas_rpm 公�
 ok(gtSignals.r_meas_kW.formula.indexOf('P_rotor') !== -1, 'GT-001 r_meas 扣除转子项');
 
 /* 便捷 API */
-eq(systems.fault('FL-001', 'load_step').family, 'load_step', 'systems.fault 按家族查询');
+eq(systems.fault('FL-001', 'load_step'), null, 'O-13：FL-001 load_step 已删除');
+eq(systems.fault('GT-001', 'load_step').family, 'load_step', 'systems.fault 按家族查询');
 eq(systems.fault('FL-001', 'nope'), null, 'systems.fault 未知家族返回 null');
 eq(systems.component('FL-001', 'sensor').id, 'sensor', 'systems.component 查询');
 eq(systems.component('FL-001', 'nope'), null, 'systems.component 未知返回 null');
@@ -512,27 +515,12 @@ ok(flMonitor.causal.nodes.some((n) => n.layer === 'mechanism'), 'monitor 因果�
 eq(flMonitor.causal.monitorContrast.description.indexOf('仅监测') !== -1, true, 'monitor monitorContrast 描述含仅监测');
 
 /* ================================================================== */
-/* 4. FL-001 扩展场景：load_step / actuator_fault                       */
+/* 4. FL-001 扩展场景：actuator_fault（load_step 已按 O-13 删除）        */
 /* ================================================================== */
-const flLoad = makeRun('FL-001', { fault: { family: 'load_step' } });
-assertRunShape(flLoad, 'FL-001 load_step', 'FL-001');
-eq(flLoad.events.length, 1, 'load_step 1 个事件');
-eq(flLoad.events[0].event_type, 'load_step', 'load_step event_type');
-eq(flLoad.events[0].target_signal, 'P_load_demand_kW', 'load_step target_signal');
-eq(flLoad.events[0].target_component, 'load', 'load_step target_component');
-close(at(flLoad, 'P_load_demand_kW', 19.9), 30, 1e-9, 'load_step 前需求 30 kW');
-close(at(flLoad, 'P_load_demand_kW', 20.0), 40, 1e-9, 'load_step 后需求 40 kW');
-close(at(flLoad, 'P_load_served_kW', 30), 40, 1e-9, 'load_step 服务功率=需求');
-close(at(flLoad, 'P_gen_true_kW', 60), 30, 1e-3, 'load_step P_gen 60s→30 kW');
-let iPeak = -Infinity;
-for (let t = 20; t <= 60.0001; t += 0.1) iPeak = Math.max(iPeak, at(flLoad, 'I_bat_true_A', t));
-close(iPeak, 50, 0.05, 'load_step 电池电流峰值约 50 A');
-close(at(flLoad, 'I_bat_true_A', 60), 25, 1e-3, 'load_step 60s 电流回落 25 A');
-close(at(flLoad, 'I_bat_true_A', 20), 50, 1e-6, 'load_step 20.0s 电流阶跃到 50 A');
-close(mval(flLoad, 'E_load_kWh'), 2200 / 3600, 1e-6, 'load_step E_load=0.6111111 kWh');
-close(mval(flLoad, 'E_bat_kWh') + mval(flLoad, 'E_source_kWh'), 2200 / 3600, 1e-6, 'load_step 电能守恒');
-ok(mval(flLoad, 'max_abs_r_true_kW') <= 1e-6, 'load_step 真实守恒 ≤1e-6');
-eq(flLoad.causal.nodes.length, 5, 'load_step 因果链 5 节点');
+let flLoadRejected = null;
+try { makeRun('FL-001', { fault: { family: 'load_step' } }); } catch (e) { flLoadRejected = e; }
+ok(flLoadRejected && /不支持故障家族/.test(flLoadRejected.message),
+  'O-13：FL-001 load_step 场景被校验拒绝（' + (flLoadRejected && flLoadRejected.message) + '）');
 
 const flAct = makeRun('FL-001', { fault: { family: 'actuator_fault' } });
 assertRunShape(flAct, 'FL-001 actuator_fault', 'FL-001');
@@ -664,7 +652,7 @@ const scenarioMatrix = [
   ['FL-001', 'default', {}],
   ['FL-001', 'healthy', { fault: { family: 'none' } }],
   ['FL-001', 'monitor', { feedback_mode: 'monitor' }],
-  ['FL-001', 'load_step', { fault: { family: 'load_step' } }],
+  /* FL-001 load_step 已按 O-13 删除（校验拒绝断言见第 4 节） */
   ['FL-001', 'actuator', { fault: { family: 'actuator_fault' } }],
   ['FC-001', 'default', {}],
   ['FC-001', 'healthy', { fault: { family: 'none' } }],
@@ -794,11 +782,14 @@ close(mergedCfg.initial.load_kW, 35, 0, 'createConfig 覆盖 load_kW');
 close(mergedCfg.initial.SOC_pct, 60, 0, 'createConfig 深合并保留 SOC_pct');
 close(mergedCfg.fault.params.magnitude, 10, 0, 'createConfig 深合并保留故障参数');
 
-const loadFamilyCfg = core.createConfig('FL-001', { fault: { family: 'load_step' } });
-eq(loadFamilyCfg.fault.family, 'load_step', '切换家族 family=load_step');
+/* 家族切换：FL-001 load_step 已按 O-13 删除 → 改用 FC-001 验证切换逻辑 */
+const loadFamilyCfg = core.createConfig('FC-001', { fault: { family: 'load_step' } });
+eq(loadFamilyCfg.fault.family, 'load_step', '切换家族 family=load_step（FC-001）');
 eq(loadFamilyCfg.fault.faultId, 'load_step_10kW', '切换家族自动纠正 faultId');
 close(loadFamilyCfg.fault.params.magnitude, 10, 0, '切换家族使用新家族默认 magnitude=10');
 eq(core.validateConfig(loadFamilyCfg).ok, true, '切换家族后的配置校验通过');
+const flUnknownFamilyCfg = core.createConfig('FL-001', { fault: { family: 'load_step' } });
+eq(flUnknownFamilyCfg.fault.faultId, 'I_bat_sensor_bias', 'O-13：FL-001 未知家族回退默认故障');
 
 const actFamilyCfg = core.createConfig('FL-001', { fault: { family: 'actuator_fault' } });
 eq(actFamilyCfg.fault.faultId, 'converter_current_limit', '切换 actuator 家族 faultId');
@@ -914,7 +905,9 @@ ok(cmp.findings.some((f) => f.metric_ids.indexOf('focal_change') !== -1 || f.met
 ok(cmp.findings.some((f) => f.metric_ids.indexOf('max_abs_r_meas_kW') !== -1), 'findings 引用 r_meas 并说明不是能量损失');
 eq(cmp.warnings.length, 0, '有效对比无警告');
 
-const cmpLoad = core.compareRuns(flHealthy, flLoad);
+/* load-profile 白名单逻辑改用 FC-001 对（FL-001 load_step 已按 O-13 删除） */
+const fcHealthyRun = makeRun('FC-001', { fault: { family: 'none' } });
+const cmpLoad = core.compareRuns(fcHealthyRun, fcLoad);
 eq(cmpLoad.valid, false, 'load_step 对比：valid=false（负载曲线改变）');
 ok(cmpLoad.checks.some((c) => c.id === 'load-profile' && c.status === 'fail'), 'load_step 对比 load-profile=fail');
 ok(cmpLoad.warnings.length > 0, 'load_step 对比有警告');

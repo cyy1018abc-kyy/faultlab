@@ -175,6 +175,16 @@
     return round(min + idx * step, 6);
   }
 
+  /* 场景族池：随系统故障目录派生（单一来源）——FL-001 的 load_step 已按 O-13 删除，
+     其盲测池自动收缩为 sensor_drift/actuator_fault；GT-001/FC-001 目录不变。 */
+  function familyPool(systemId) {
+    try {
+      var fams = (FL.systems.get(systemId).faults || []).map(function (f) { return f.family; });
+      if (fams.length) return fams;
+    } catch (e) { /* 目录不可用时回退全局序 */ }
+    return FAMILY_ORDER;
+  }
+
   function buildScenario(systemId, setup, rng, roundNo) {
     var base = clone(FL.systems.defaultConfig(systemId));
     var duration = base.duration_s || 60;
@@ -186,7 +196,8 @@
     var magnitudeRoll = rng();
 
     var healthy = healthRoll < HEALTHY_RATIO;
-    var family = healthy ? 'none' : FAMILY_ORDER[Math.min(2, Math.floor(familyRoll * 3))];
+    var pool = familyPool(systemId);
+    var family = healthy ? 'none' : pool[Math.min(pool.length - 1, Math.floor(familyRoll * pool.length))];
     var feedbackMode = feedbackRoll < 0.5 ? 'closed_loop' : 'monitor';
     var faultDef = null;
     var faultId = null;

@@ -219,7 +219,7 @@
       { id: 'controller->converter', from: 'controller', to: 'converter', kind: 'signal', label: '电流指令' },
       { id: 'load->controller', from: 'load', to: 'controller', kind: 'signal', label: '负载需求' }
     ],
-    faultAnchors: { sensor_drift: 'sensor', load_step: 'load', actuator_fault: 'converter' },
+    faultAnchors: { sensor_drift: 'sensor', actuator_fault: 'converter' },
     signalCategories: [
       { id: 'current', label: '电流' },
       { id: 'power', label: '功率' },
@@ -237,7 +237,7 @@
       sig({ id: 'P_bat_meas_kW', label: '电池测量功率', shortLabel: 'P_bat,meas', unit: 'kW', category: 'power', sourceKind: 'OBSERVATION', definition: '由测量电流换算的电池功率。', formula: 'P_bat,meas = 0.4 × I_meas', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left', step: true }, blindVisible: true }),
       sig({ id: 'P_gen_true_kW', label: '发电机真实功率', shortLabel: 'P_gen,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '理想发电机真实出力（母线平衡）。', formula: 'P_gen,true = P_load − P_bat,true', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'P_gen_meas_kW', label: '发电机测量功率', shortLabel: 'P_gen,meas', unit: 'kW', category: 'power', sourceKind: 'OBSERVATION', definition: '发电机功率测量（健康通道）。', formula: 'P_gen,meas = P_gen,true', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true, noiseSigma: 0.15 }),
-      sig({ id: 'P_load_demand_kW', label: '负载需求功率', shortLabel: 'P_load', unit: 'kW', category: 'power', sourceKind: 'CONFIG', definition: '配置的负载需求功率；load_step 场景在故障时刻阶跃。', formula: 'P_load = 30 kW（load_step: +magnitude）', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left', step: true }, blindVisible: true }),
+      sig({ id: 'P_load_demand_kW', label: '负载需求功率', shortLabel: 'P_load', unit: 'kW', category: 'power', sourceKind: 'CONFIG', definition: '配置的负载需求功率（恒定；FL-001 的 load_step 家族已按 O-13 删除）。', formula: 'P_load = 30 kW', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left' }, blindVisible: true }),
       sig({ id: 'P_load_served_kW', label: '负载实际获得功率', shortLabel: 'P_served', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '负载实际获得的功率（理想母线即需求功率）。', formula: 'P_load,served = P_load,demand', precision: 2, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'V_bus_V', label: '直流母线电压', shortLabel: 'V_bus', unit: 'V', category: 'power', sourceKind: 'MODEL_ASSUMPTION', definition: '理想母线电压，恒为 400 V（模型假设，不是仿真状态）。', formula: 'V_bus = 400 V', precision: 0, chart: { style: 'solid', colorToken: 'ink', axis: 'left', defaultVisible: false }, blindVisible: true, tableOnly: true }),
       sig({ id: 'SOC_true_pct', label: '真实 SOC', shortLabel: 'SOC_true', unit: '%', category: 'soc', sourceKind: 'MODEL_STATE', definition: '由真实电池功率积分得到的荷电状态。', formula: 'SOC_true = SOC0 − ∫P_bat,true dt / 40 kWh × 100%', precision: 5, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
@@ -256,16 +256,8 @@
         monitorEffect: '真实电流不变，仅测量值跳变',
         causalTemplateId: 'sensor-drift-feedback'
       }),
-      fault({
-        id: 'load_step_10kW', family: 'load_step', label: '负载功率阶跃', shortLabel: '负载冲击',
-        target: 'load',
-        description: '负载需求在故障时刻阶跃 +magnitude kW；发电机为一阶惯性源，电池承担瞬态缺口。',
-        params: [{ key: 'magnitude', label: '阶跃幅值', unit: 'kW', min: 5, max: 20, step: 1, default: 10, precision: 0, help: '负载需求 30 kW → 30+magnitude kW' }],
-        defaultTime_s: 20, timeRange: [2, 55],
-        closedLoopEffect: '电池短时增发，发电机一阶爬坡后电流回落',
-        monitorEffect: '物理输入，与控制模式无关，两种模式均生效',
-        causalTemplateId: 'load-step-bus-balance'
-      }),
+      /* FL-001 load_step 已按 O-13（CHG-20261030-06）删除——归档：
+         FaultLab-evaluation/NEXT/evidence/g2b/load_step-removed-contract-text.md */
       fault({
         id: 'converter_current_limit', family: 'actuator_fault', label: '变流器电流限幅', shortLabel: '执行器异常',
         target: 'converter',

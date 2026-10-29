@@ -545,3 +545,48 @@ project(run, level) -> ProjectedRun
 并同步 `docs/CONTRACT.md` 与 `NEXT/BACKLOG_APPROVED.md` 中受影响任务。
 **不覆盖**：模型物理与容差（→ MODEL_VALIDATION_SPEC）、UI 文案（→ UI_COPY_GUARDRAILS）、
 范围与任务（→ BACKLOG_APPROVED / SCOPE_SPLIT_MEMO）。
+
+---
+
+## 附录 A：V0.3 FL-19 后端适配扩展登记（CHG-20261030-05/06；V312_BACKEND_ADMISSION_CHECKLIST §8 C-1…C-3）
+
+> 登记范围：`manifest.backend`（数值后端 Run）、`engine_version` 语义扩展、BK 错误码命名空间。
+> EvidenceBundle v1 七文件结构与 run_hash 输入面**零改动**（RFC §5.2 v1.1 裁定：backend 字段为
+> manifest 展示面，不入哈希）；bundle_schema_version 不升版。
+
+### A.1 `run.manifest.backend`（仅后端 Run 携带；组装层 `registry.createFromParts` 写入）
+
+| 字段 | 类型 | 语义 |
+|---|---|---|
+| `id` | string | 适配器标识（如 `py-analytic-fl001`） |
+| `version` | string | 适配器/后端实现版本 |
+| `method_id` | string | 后端数值口径（自由串，如 `py_analytic`/`py_rk4_dt0.1`；**不占用** metrics.method 冻结枚举） |
+| `tolerance_profile_id` | string | 容差档（V312 §2 冻结表；如 `fl001-analytic-crosscheck`） |
+| `provenance` | string | `analytical_demo`（解析口径）/ `numerical_simulation`（数值口径）——Q-3 裁定，**不新增枚举** |
+
+联动：`manifest.scope` 强制 `extension_preview`（受控扩展，优先级高于 `classify`，classify 零改动）；
+`manifest.provenance.model_provenance` 取 `backend.provenance`；页脚三级字段不合并，
+`model_validation`/`hardware_verification` 对后端 Run 恒 `not_performed`。
+
+### A.2 `engine_version` 语义扩展（C-1）
+
+`engine_version` = **产生数值的实现版本**：JS 引擎 Run 沿用 `0.1.0`；后端 Run 取
+`<backend.id>@<version>`（如 `py-analytic-fl001@0.1.0`）。既有 `compareRuns` engine-version 一致性
+闸门据此天然拦截跨后端/跨实现对比（incomparable）；backend 字段仅作展示与复核面。
+
+### A.3 BK 错误码命名空间（C-3；与 CN-E 并列，仅后端适配路径使用）
+
+| 码 | 场景 |
+|---|---|
+| `BK-E01a` | 后端连接不可达（健康探测，退避 ≤3）——HTTP 桥时代生效 |
+| `BK-E01b` | simulate 作业超时（声明式，独立于连接超时） |
+| `BK-E02` | 后端输出未通过形状/校验（不部分采纳；`createFromParts` 冻结前抛出） |
+| `BK-E03` | 超出声明 tolerance_profile（载体：`golden-compare.js` → quality `vs_golden_tolerance` fail） |
+| `BK-E04` | 后端进程崩溃/部分输出（整轮丢弃，不自动重试） |
+| `BK-E05` | 白名单外 config（复用 SCOPE-E01 文案路径） |
+
+### A.4 范围声明
+
+本附录不改变：Run/EventSnapshot/DerivedMetric/EvidenceBundle v1 字段面、Canonicalization v1、
+`run_hash` 输入面、P0 白名单 SA-24。后端 Run 的 golden 对照走 `golden-compare.js` 专用路径，
+不进入应用内 approved 比对（`assertApprovedP0` 对后端 Run 抛 SCOPE-E01——V312 §6 断言 3）。

@@ -486,6 +486,34 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   裁定路径已答复用户（两选项动作清单 + 记录人推荐删除；一词裁定即执行）。④ **入库**：本批连同
   CHG-20261029-01…本条全部 V0.3 工作以单提交入库并推送远端（提交哈希见 git log；推送重试机制
   应对 github 直连抖动）。批准人：用户（开工/入库指令）；记录人：实现 Agent。
+- `CHG-20261030-06`：**O-13 裁定执行（FL-001 load_step 删除）+ G2b 关闭（GT-001 规格批准）+
+  FL-19 增量二（组装层）+ 入库**。用户 2026-10-30 三指令（「裁定；批准；实现后续后端的批准」）。
+  ① **O-13 = 选项 A 删除**（按 `LOAD_STEP_RULING_MEMO` 推荐；用户指令「裁定」采纳记录人推荐）：
+  `docs/CONTRACT.md` 四处更新（§5.1 扩展段改为删除注记、验收行、头部与范围节）；删除前原文归档
+  `NEXT/evidence/g2b/load_step-removed-contract-text.md`；`systems.js` FL-001 移除 load_step 故障
+  定义/faultAnchors 条目/P_load_demand 文案；`engine.js` simulateFL001 移除 isLoad 分支（FC/GT
+  分支不动）；`arena-protocol.js` 场景族池改为**按系统故障目录派生**（familyPool——FL-001 盲测池
+  自动收缩为 sensor_drift/actuator_fault，GT/FC 目录不变）；测试同步：core.test（家族覆盖按系统
+  期望、systems.fault 查询、FL-001 load_step 场景块 → 校验拒绝断言、家族切换改 FC-001 验证、
+  场景矩阵删 FL-001 load_step 行、load-profile 白名单 fixture 改 FC-001 对）、compare.test（同上
+  FC-001 对）。**裁定边界**：仅 FL-001 的 load_step；actuator_fault（三系统）与 FC/GT 的
+  load_step 不在本裁定范围。golden 不受影响（白名单本就仅 sensor_drift/none）。
+  ② **G2b 关闭（GT-001 规格 v1.1 批准）**：`NEXT/GT001_G2B_SPEC_DRAFT.md` 更名
+  `GT001_G2B_SPEC_APPROVED.md`；批准时定案：**§9 抗饱和 = 方案 (a)**（现状钳位 + 清除瞬态如实
+  声明，不改方程，恢复锚点降暂定待增补轮 oracle 复算冻结）、**§4 网格 = 保留 60 s / dt=0.1
+  输出网格**（Euler 0.01 为积分子步）。合并记录：`evidence/g2b/gt001-v3-32-review.md`。
+  **V3-31（独立 oracle + gt001_v1 golden）与 V3-33（实现：§10 涟漪清单 20 文件）待逐次开工
+  指令**；实现完成前 GT-001 演示仍为扩展预览、不进入任何验收。③ **FL-19 增量二（组装层）过 G7**：
+  `registry.createFromParts`（结构骨架取自 JS 引擎同 config simulate、timeseries 替换为后端序列、
+  metrics/checks 页面侧重算、golden-compare 注入式附加 vs_golden_tolerance 检查（BK-E03 载体生效）、
+  engine_version=`backend.id@version`（跨后端对比天然 incomparable）、manifest.backend 不入
+  run_hash、**scope 受控扩展执行点**：强制 extension_preview + `scope.assertApprovedP0` 对后端
+  Run 抛 SCOPE-E01（classify 零改动——V312 §6 断言 1/2/3 全落地））、python 后端补 provenance
+  字段（B-1=analytical_demo/B-5=numerical_simulation，Q-3）、准入测试 51→**66/66**（scope 断言
+  1–4、bundle 导出断言、BK-E02 原子性、跨后端闸门、B-5 组装）、`DATA_CONTRACT_SPEC` 附录 A
+  （C-1 engine_version 语义 / C-2 manifest.backend / C-3 BK 错误码登记）。全量验证：
+  `run-g2.mjs` **18/18**（compare.test 修复后）、copy-guard exit 0。
+  ④ **入库**：随批提交推送（哈希见 git log）。批准人：用户（裁定/批准/开工指令）；记录人：实现 Agent。
 
 **效力声明**：
 1. 本文件自 2026-10-27T20:35 起具有实现约束力；任何实现不得反向定义本文件。

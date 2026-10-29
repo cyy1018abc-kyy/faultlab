@@ -26,7 +26,9 @@ const fault = runOf({}, 'CMP-FAULT');
 const monitor = runOf({ feedback_mode: 'monitor' }, 'CMP-MON');
 const faultMag12 = runOf({ fault: { family: 'sensor_drift', faultId: 'I_bat_sensor_bias', t_start_s: 20, params: { magnitude: 12 } } }, 'CMP-MAG12');
 const fc = FL.core.simulate(FL.core.createConfig('FC-001', {}), { runId: 'CMP-FC' });
-const loadStep = runOf({ fault: { family: 'load_step', faultId: 'load_step_10kW', t_start_s: 20, params: { magnitude: 10 } } }, 'CMP-LOAD');
+/* FL-001 load_step 已按 O-13 删除——load-profile 白名单逻辑改用 FC-001 对 */
+const fcHealthy = FL.core.simulate(FL.core.createConfig('FC-001', { fault: { family: 'none' } }), { runId: 'CMP-FC-BASE' });
+const loadStep = FL.core.simulate(FL.core.createConfig('FC-001', { fault: { family: 'load_step', faultId: 'load_step_10kW', t_start_s: 20, params: { magnitude: 10 } } }), { runId: 'CMP-LOAD' });
 
 /* 1. baseline ↔ fault：白名单内（fault/bias 差异） */
 let cmp = core.compareRuns(healthy, fault);
@@ -59,8 +61,8 @@ cmp = core.compareRuns(healthy, fc);
 eq(cmp.verdict, 'incomparable', 'FL-001 ↔ FC-001 incomparable');
 eq(cmp.diffAllowed, false, '跨系统禁用差值图');
 
-/* 6. 负载曲线不同（load_step）：incomparable（负载不一致不能归因传感器故障） */
-cmp = core.compareRuns(healthy, loadStep);
+/* 6. 负载曲线不同（load_step）：incomparable（负载不一致不能归因传感器故障）——FC-001 对 */
+cmp = core.compareRuns(fcHealthy, loadStep);
 eq(cmp.verdict, 'incomparable', 'load_step 对比 incomparable（load-profile fail）');
 ok(cmp.checks.some((c) => c.id === 'load-profile' && c.status === 'fail'), 'load-profile 检查 fail');
 

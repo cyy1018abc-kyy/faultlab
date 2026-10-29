@@ -455,26 +455,22 @@
     var soc0 = cfg.initial.SOC_pct;
     var I_ref = (load0 - 20) / V;
     var isSensor = family === 'sensor_drift';
-    var isLoad = family === 'load_step';
     var isAct = family === 'actuator_fault';
     var I_cap = isAct ? I_ref * magnitude / 100 : null;
 
     function bAt(time) { return (isSensor && tStart != null && time >= tStart - 1e-9) ? magnitude : 0; }
-    function demandAt(time) { return (isLoad && tStart != null && time >= tStart - 1e-9) ? load0 + magnitude : load0; }
 
     var series = makeSeries(system, n);
     var I_true = I_ref;
-    var P_gen = load0 - V * I_ref;
     var intI = 0;
     var intB = 0;
     var intDemand = 0;
-    var intPgen = 0;
 
     function record(k) {
       var time = t[k];
       var b = bAt(time);
-      var demand = demandAt(time);
-      var iTrue = isLoad ? (demand - P_gen) / V : I_true;
+      var demand = load0;
+      var iTrue = I_true;
       var iMeas = iTrue + b;
       var pBat = V * iTrue;
       var pBatMeas = V * iMeas;
@@ -502,26 +498,18 @@
       for (var j = 0; j < SUB; j++) {
         var time = (k - 1) * SUB * DT_INT + j * DT_INT;
         var b = bAt(time);
-        var demand = demandAt(time);
-        intDemand += demand * DT_INT;
+        intDemand += load0 * DT_INT;
         intB += b * DT_INT;
-        if (isLoad) {
-          var genStep = foStep(P_gen, demand - V * I_ref, 2.0, DT_INT);
-          P_gen = genStep.y;
-          intPgen += genStep.integral;
-        } else {
-          var controlTarget = I_ref - (monitor ? 0 : b);
-          var target = controlTarget;
-          if (isAct && time >= tStart - 1e-9) target = Math.min(controlTarget, I_cap);
-          var step = foStep(I_true, target, isAct ? 0.4 : 1.5, DT_INT);
-          I_true = step.y;
-          intI += step.integral;
-        }
+        var controlTarget = I_ref - (monitor ? 0 : b);
+        var target = controlTarget;
+        if (isAct && time >= tStart - 1e-9) target = Math.min(controlTarget, I_cap);
+        var step = foStep(I_true, target, isAct ? 0.4 : 1.5, DT_INT);
+        I_true = step.y;
+        intI += step.integral;
       }
-      if (isLoad) intI = (intDemand - intPgen) / V;
       record(k);
     }
-    var intPbat = isLoad ? (intDemand - intPgen) : V * intI;
+    var intPbat = V * intI;
     return {
       series: series,
       integrals: {

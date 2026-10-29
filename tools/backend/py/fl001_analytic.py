@@ -32,6 +32,7 @@ BACKEND = {
     "license": "MIT",
     "license_verified": True,
     "equations_source": "MODEL_VALIDATION_SPEC §1.3/§5.2（独立编写，未派生自 tools/oracle）",
+    "provenance": "analytical_demo",
     "systems": ["FL-001"],
     "signals": [
         "I_bat_true_A", "I_bat_meas_A", "bias_A", "P_bat_true_kW", "P_bat_meas_kW",

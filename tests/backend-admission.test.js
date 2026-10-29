@@ -70,7 +70,7 @@ let adapter = null;
     ['closed_loop_fault', { feedback_mode: 'closed_loop', family: 'sensor_drift' }],
     ['monitor_only', { feedback_mode: 'monitor', family: 'sensor_drift' }]
   ];
-  const baseCfg = { duration_s: 60.0, dt_s: 0.1, fault_time_s: 20.0, bias_A: 10.0,
+  const baseCfg = { systemId: 'FL-001', duration_s: 60.0, dt_s: 0.1, fault_time_s: 20.0, bias_A: 10.0,
     Pload_demand_kW: 30.0, SOC0_pct: 60.0, tau_s: 1.5 };
   for (const [runId, patch] of runs) {
     const cfg = Object.assign({}, baseCfg, patch);
@@ -111,6 +111,68 @@ let adapter = null;
     fault_time_s: 20.0, bias_A: 10, feedback_mode: 'closed_loop', initial: { load_kW: 30, SOC_pct: 60 },
     fault: { family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20.0 } };
   eq(FL.scope.classify(wl), 'approved_p0', 'V312 §6 断言 2：classify 对白名单场景仍判 approved_p0（组装层强制发生在增补二）');
+
+  /* ---------- 增量二：createFromParts 组装层（scope 断言 1/3/4 + 对比闸门 + BK-E02） ---------- */
+  const cfgEngine = FL.core.createConfig('FL-001', { fault: { family: 'sensor_drift' }, feedback_mode: 'closed_loop' });
+  const producedB1 = adapter.produce('py-analytic-fl001', cfgF);
+  const backendDecl = {
+    id: producedB1.backend.id, version: producedB1.backend.version,
+    method_id: producedB1.backend.method_id,
+    tolerance_profile_id: producedB1.backend.tolerance_profile_id,
+    provenance: producedB1.backend.provenance
+  };
+  const backendRun = FL.registry.createFromParts({
+    config: cfgEngine, produced: producedB1, backend: backendDecl, golden
+  });
+  /* 断言 1：backend Run 强制 extension_preview（即使 config 落在白名单内） */
+  eq(backendRun.manifest.scope, 'extension_preview', '断言 1：backend Run scope 强制 extension_preview');
+  /* 断言 2（复核）：classify 对同 config 仍判 approved_p0（强制发生在组装层） */
+  eq(FL.scope.classify(backendRun.config), 'approved_p0', '断言 2：classify 语义零改动');
+  /* 断言 3：后端 Run 不得进入应用内 approved 验收路径 */
+  let scopeErr = null;
+  try { FL.scope.assertApprovedP0(backendRun); } catch (e) { scopeErr = e; }
+  ok(scopeErr && scopeErr.code === 'SCOPE-E01', '断言 3：assertApprovedP0 对后端 Run 抛 SCOPE-E01');
+  /* engine_version = 产生数值的实现版本（≠ JS '0.1.0'） */
+  ok(backendRun.engineVersion.indexOf('py-analytic-fl001@') === 0 && backendRun.engineVersion !== '0.1.0',
+    'engine_version = 实现版本（' + backendRun.engineVersion + '）');
+  ok(backendRun.manifest.backend && backendRun.manifest.backend.method_id === 'py_analytic',
+    'manifest.backend 携带适配器身份与容差档');
+  ok(backendRun.manifest.provenance.model_provenance === 'analytical_demo',
+    'B-1 provenance = analytical_demo（Q-3 裁定）');
+  /* golden 附加检查（BK-E03 载体在组装层生效） */
+  ok(backendRun.quality.some((q) => q.id === 'vs_golden_tolerance' && q.status === 'pass'),
+    'vs_golden_tolerance 检查 pass（B-1 解析交叉层）');
+  /* 哈希可重算（backend 字段不入 run_hash，RFC §5.2） */
+  eq(FL.registry.verifyRunHash(backendRun), true, '后端 Run run_hash 可重算一致');
+  /* 跨后端对比闸门：JS Run vs 后端 Run 引擎版本不一致 → incomparable */
+  const jsRun = FL.registry.createRun({ config: cfgEngine, runId: 'RUN-JS-CMP' });
+  const cmpBE = FL.core.compareRuns(jsRun, backendRun);
+  eq(cmpBE.valid, false, '跨后端对比 valid=false（engineVersion 闸门）');
+  ok(cmpBE.checks.some((c) => c.id === 'engine-version' && c.status === 'fail'), 'engine-version check=fail');
+  /* 断言 4：证据包导出 → scope 落 manifest，结构层校验通过 */
+  const bundleFiles = FL.bundle.buildBundleFiles(backendRun);
+  const bm = JSON.parse(bundleFiles['manifest.json']);
+  eq(bm.scope, 'extension_preview', '断言 4：证据包 manifest.scope=extension_preview');
+  eq(bm.integrity.run_hash, backendRun.manifest.run_hash, '断言 4：包内 run_hash 与 Run 一致');
+  /* BK-E02 原子性：信号缺失 → 抛错且无半成品 */
+  const broken = JSON.parse(JSON.stringify(producedB1)); broken.signals.made_up_extra = producedB1.signals.I_bat_true_A.slice();
+  let bk02 = null;
+  try { FL.registry.createFromParts({ config: cfgEngine, produced: broken, backend: backendDecl, golden }); }
+  catch (e) { bk02 = e; }
+  ok(bk02 && bk02.code === 'BK-E02', 'BK-E02：信号集不一致拒绝（不部分采纳）');
+  /* B-5 组装 + 声明档 golden 检查 */
+  const producedB5 = adapter.produce('py-rk4-fl001', cfgF);
+  const b5Run = FL.registry.createFromParts({
+    config: cfgEngine, produced: producedB5,
+    backend: { id: producedB5.backend.id, version: producedB5.backend.version,
+      method_id: producedB5.backend.method_id,
+      tolerance_profile_id: producedB5.backend.tolerance_profile_id,
+      provenance: producedB5.backend.provenance },
+    golden
+  });
+  ok(b5Run.quality.some((q) => q.id === 'vs_golden_tolerance' && q.status === 'pass'),
+    'B-5 vs_golden_tolerance pass（rk4 声明档）');
+  eq(b5Run.manifest.provenance.model_provenance, 'numerical_simulation', 'B-5 provenance = numerical_simulation（Q-3 裁定）');
 
   /* ---------- 汇总 ---------- */
   console.log('\n== FL-19 后端适配准入机检（G-1/G-2 + golden 容差档） ==');

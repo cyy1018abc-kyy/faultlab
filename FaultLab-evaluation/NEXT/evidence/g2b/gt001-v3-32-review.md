@@ -54,7 +54,7 @@
 
 ## 5. 复核入口
 
-- 规格：`NEXT/GT001_G2B_SPEC_DRAFT.md`（v1.1，含修订记录段）
+- 规格：`NEXT/GT001_G2B_SPEC_APPROVED.md`（v1.1，含修订记录段；批准时由 GT001_G2B_SPEC_DRAFT.md 更名，CHG-20261030-06）
 - 基准：`SCOPE_SPLIT_MEMO.md` §3.1–3.3；`docs/CONTRACT.md` §5.3；`CLAUDE_REVIEW.md` §10.3
 - 代码锚点：engine.js simulateGT001/applyNoise/buildFacts、systems.js GT 段与 causalTemplates、
   checks.js:146/163-186/269、metrics.js:84-86/232-239/329-359、arena-protocol.js V-05、verify_golden.py
