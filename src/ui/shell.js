@@ -367,7 +367,7 @@
     if (!cv) return;
     const wrap = cv.parentElement;
     const w = Math.max(10, wrap.clientWidth);
-    const hgt = 28;
+    const hgt = 24;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(hgt * dpr)) {
       cv.width = Math.round(w * dpr);

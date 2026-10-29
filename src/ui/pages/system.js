@@ -358,24 +358,11 @@
     return res;
   }
 
-  function roundedPath(pts, radius) {
+  function straightPath(pts) {
     if (!pts.length) return '';
-    if (pts.length === 1) return 'M' + fmtPoint(pts[0]);
     let d = 'M' + fmtPoint(pts[0]);
-    for (let i = 1; i < pts.length - 1; i++) {
-      const prev = pts[i - 1], cur = pts[i], next = pts[i + 1];
-      const d1 = Math.hypot(cur.x - prev.x, cur.y - prev.y);
-      const d2 = Math.hypot(next.x - cur.x, next.y - cur.y);
-      if (d1 < 1e-6 || d2 < 1e-6) continue;
-      const r = Math.min(radius, d1 * 0.5, d2 * 0.5);
-      const u1 = { x: (cur.x - prev.x) / d1, y: (cur.y - prev.y) / d1 };
-      const u2 = { x: (next.x - cur.x) / d2, y: (next.y - cur.y) / d2 };
-      if (Math.abs(u1.x - u2.x) < 1e-3 && Math.abs(u1.y - u2.y) < 1e-3) { d += ' L' + fmtPoint(cur); continue; }
-      const a = { x: cur.x - u1.x * r, y: cur.y - u1.y * r };
-      const b = { x: cur.x + u2.x * r, y: cur.y + u2.y * r };
-      d += ' L' + fmtPoint(a) + ' Q' + fmtPoint(cur) + ' ' + fmtPoint(b);
-    }
-    return d + ' L' + fmtPoint(pts[pts.length - 1]);
+    for (let i = 1; i < pts.length; i++) d += ' L' + fmtPoint(pts[i]);
+    return d;
   }
 
   function polylineMid(pts) {
@@ -430,7 +417,7 @@
     }
     pts.push(anchors.endStub, anchors.endPort);
     const clean = dedupeSimplify(pts);
-    return { d: roundedPath(clean, 8), points: clean, mid: polylineMid(clean) };
+    return { d: straightPath(clean), points: clean, mid: polylineMid(clean) };
   }
 
   function polylineLength(pts) {

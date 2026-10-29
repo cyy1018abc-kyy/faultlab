@@ -5,7 +5,7 @@
    页面骨架 / 状态
    ========================================================================= */
 .pg-signals { display: block; min-width: 0; }
-.pg-signals .sig-stage { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.pg-signals .sig-stage { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .pg-signals .sig-banners { display: flex; flex-direction: column; gap: 10px; }
 .pg-signals .sig-banners[hidden] { display: none; }
 
@@ -24,7 +24,7 @@
 .pg-signals .sig-topbar { overflow: hidden; }
 .pg-signals .sig-topbar-main {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 18px; padding: 13px 16px 10px; flex-wrap: wrap;
+  gap: 16px; padding: 10px 12px 8px; flex-wrap: wrap;
 }
 .pg-signals .sig-head-titles { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .pg-signals .sig-head-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
@@ -45,7 +45,7 @@
 
 .pg-signals .sig-topbar-row {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  padding: 0 16px 12px;
+  padding: 0 12px 10px;
 }
 .pg-signals .sig-cats { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .pg-signals .sig-cats .seg { flex-wrap: wrap; }
@@ -57,13 +57,13 @@
    ========================================================================= */
 .pg-signals .sig-layout {
   display: grid;
-  grid-template-columns: 238px minmax(0, 1fr) 330px;
-  gap: 14px;
+  grid-template-columns: 232px minmax(0, 1fr) 322px;
+  gap: 10px;
   align-items: start;
   min-width: 0;
 }
 .pg-signals .sig-layout > * { min-width: 0; }
-.pg-signals .sig-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.pg-signals .sig-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 
 /* =========================================================================
    左侧信号通道
@@ -217,7 +217,7 @@
   padding-bottom: 8px; border-bottom: 1px solid var(--line-1);
 }
 .pg-signals .sig-snap-now {
-  font-family: var(--font-display); font-size: 25px; font-weight: 600;
+  font-family: var(--font-display); font-size: 21px; font-weight: 600;
   line-height: 1; color: var(--ink-0); font-variant-numeric: tabular-nums;
 }
 .pg-signals .sig-snap-unit { font-size: 10px; color: var(--ink-3); }

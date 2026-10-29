@@ -26,9 +26,9 @@
 .pg-causal .cc-focus {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(260px, .9fr);
-  gap: 18px;
+  gap: 14px;
   align-items: start;
-  padding: 14px 16px 14px 18px;
+  padding: 12px 14px 12px 16px;
   border: 1px solid var(--line-1);
   border-left: 2px solid var(--fault);
   border-radius: var(--r-md);
@@ -54,7 +54,7 @@
 .pg-causal .cc-focus-eyebrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pg-causal .cc-focus-headline {
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 17.5px;
   font-weight: 600;
   letter-spacing: .01em;
   line-height: 1.35;

@@ -7,7 +7,7 @@
 .pg-system .sys-wrap {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 .pg-system .sys-head {
   display: flex;
@@ -29,7 +29,7 @@
   flex-wrap: wrap;
 }
 .pg-system .sys-page-title {
-  font-size: clamp(20px, 2vw, 27px);
+  font-size: clamp(19px, 1.8vw, 24px);
   font-weight: 600;
   letter-spacing: .02em;
   color: var(--ink-0);
@@ -63,8 +63,8 @@
    ===================================================================== */
 .pg-system .sys-grid {
   display: grid;
-  grid-template-columns: 306px minmax(0, 1fr) 330px;
-  gap: 14px;
+  grid-template-columns: 300px minmax(0, 1fr) 324px;
+  gap: 10px;
   align-items: start;
 }
 .pg-system .sys-col { min-width: 0; }
@@ -80,8 +80,8 @@
 .pg-system .sys-left-body {
   display: flex;
   flex-direction: column;
-  gap: 13px;
-  padding: 13px;
+  gap: 11px;
+  padding: 11px;
 }
 .pg-system .sys-run-summary { display: flex; flex-direction: column; gap: 8px; }
 .pg-system .sys-run-summary:empty { display: none; }

@@ -34,6 +34,22 @@
     }
   ];
 
+  const PAGE_GUIDE = [
+    { id: 'home', icon: 'home', desc: '选择系统、创建运行、找回历史实验' },
+    { id: 'system', icon: 'grid', desc: '在拓扑总览上编排故障并注入观察' },
+    { id: 'signals', icon: 'wave', desc: '真实 / 测量 / 派生信号同轴核对' },
+    { id: 'causal', icon: 'link', desc: '事件机制链解释每个数字为何变化' },
+    { id: 'compare', icon: 'compare', desc: '与无故障基准对齐比较并导出证据' },
+    { id: 'arena', icon: 'target', desc: '盲测竞技场：内置 Agent 同台排名', ext: true }
+  ];
+
+  const ROLE_META = {
+    baseline: { label: '基准', tone: 'ok' },
+    fault: { label: '故障组', tone: 'danger' },
+    contrast: { label: '对照', tone: 'info' },
+    imported: { label: '导入', tone: 'warn' }
+  };
+
   const local = {
     selectedId: null,
     lastRunId: null,
@@ -223,6 +239,8 @@
       local.refs.heroSecondary
     ]);
 
+    const agentCount = safe(() => (FL.agents && typeof FL.agents.list === 'function' ? FL.agents.list().length : 0), 0);
+
     const hero = el('section', { class: 'home-hero' }, [
       copy,
       buildFlowArt(),
@@ -233,7 +251,13 @@
         el('span', { class: 'home-strip-dot', 'aria-hidden': 'true' }),
         el('span', { class: 'home-strip-item' }, [el('b', { class: 'mono' }, String(points)), ' 点 / 信号']),
         el('span', { class: 'home-strip-dot', 'aria-hidden': 'true' }),
-        el('span', { class: 'home-strip-item' }, '3 个系统 · 同一套五页面')
+        el('span', { class: 'home-strip-item' }, [el('b', { class: 'mono' }, String(list().length)), ' 个系统 · 同一套页面']),
+        el('span', { class: 'home-strip-dot', 'aria-hidden': 'true' }),
+        el('span', { class: 'home-strip-item' }, [el('b', { class: 'mono' }, String(PAGE_GUIDE.length)), ' 个逻辑视图']),
+        el('span', { class: 'home-strip-dot', 'aria-hidden': 'true' }),
+        agentCount
+          ? el('span', { class: 'home-strip-item' }, [el('b', { class: 'mono' }, String(agentCount)), ' 个内置 Agent'])
+          : null
       ])
     ]);
     return hero;
@@ -298,6 +322,145 @@
   function buildDetail() {
     local.refs.detail = el('section', { class: 'home-detail', id: 'home-detail' });
     return local.refs.detail;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* page guide tiles                                                    */
+  /* ------------------------------------------------------------------ */
+  function buildExploreSection() {
+    local.refs.exploreGrid = el('div', { class: 'home-guide-grid' });
+    PAGE_GUIDE.forEach((g, i) => {
+      const def = (FL.pages && FL.pages[g.id]) || {};
+      const tile = el('button', {
+        class: 'home-guide-tile fl-card fl-card--hover', type: 'button',
+        'data-page': g.id,
+        on: { click: () => actions.navigate(g.id) }
+      }, [
+        el('span', { class: 'home-guide-icon' }, ui.icon(g.icon, { size: 16 })),
+        el('span', { class: 'home-guide-body' }, [
+          el('span', { class: 'home-guide-label' }, [
+            el('span', { class: 'home-guide-index mono' }, String(i + 1).padStart(2, '0')),
+            el('span', { class: 'home-guide-title display' }, def.navLabel || def.label || g.id)
+          ]),
+          el('span', { class: 'home-guide-desc' }, g.desc)
+        ]),
+        el('span', { class: 'home-guide-go' }, [
+          g.ext ? el('span', { class: 'badge', 'data-tone': 'info' }, 'EXT') : null,
+          ui.icon('arrow-right', { size: 13 })
+        ])
+      ]);
+      local.refs.exploreGrid.appendChild(tile);
+    });
+    return el('section', { class: 'home-explore-section' }, [
+      el('div', { class: 'section-head home-section-head' }, [
+        el('div', {}, [
+          el('div', { class: 'eyebrow' }, '03 / 页面导览'),
+          el('h2', { class: 'section-title home-section-title' }, '六个逻辑视图，一条证据链'),
+          el('p', { class: 'section-sub' }, '同一时刻、同一运行贯穿全部页面；任一页面都能回溯到模型与来源。')
+        ]),
+        el('span', { class: 'badge', 'data-tone': 'neutral' }, '共享时间线')
+      ]),
+      local.refs.exploreGrid
+    ]);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* recent runs                                                         */
+  /* ------------------------------------------------------------------ */
+  function runEventText(run) {
+    const evs = (run && run.events || []).filter((e) => e.event_type && e.event_type !== 'healthy');
+    if (!evs.length) return { text: '无故障基准', tone: 'ok' };
+    const ev = evs[0];
+    const label = ev.shortLabel || ev.label || (ev.parameter_key || ev.event_type);
+    return { text: fmt.num(ev.trigger_s, 1) + ' s · ' + label, tone: 'danger', count: evs.length };
+  }
+
+  function runModeText(run) {
+    const m = run && run.config && run.config.feedback_mode;
+    return m === 'monitor' ? '仅监测' : '闭环';
+  }
+
+  function renderRuns(st) {
+    const host = local.refs.runsHost;
+    if (!host) return;
+    ui.clear(host);
+    const runs = Object.keys(st.runs || {}).map((id) => st.runs[id])
+      .filter(Boolean)
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+    if (local.refs.runsNote) {
+      local.refs.runsNote.textContent = runs.length ? ('共 ' + runs.length + ' 个运行 · 存于本地浏览器') : '';
+    }
+
+    if (!runs.length) {
+      host.appendChild(el('div', { class: 'home-runs-empty' }, [
+        ui.icon('clock', { size: 15 }),
+        el('span', {}, '还没有运行记录 — 点击「开始实验」创建第一个 Run，之后每次实验都会留档在此。')
+      ]));
+      return;
+    }
+    const shown = runs.slice(0, 8);
+    shown.forEach((run) => {
+      const role = ROLE_META[run.role] || { label: run.role || '—', tone: 'neutral' };
+      const ev = runEventText(run);
+      const isActive = st.activeRun && st.activeRun.runId === run.runId;
+      const time = String(run.createdAt || '').slice(5, 16).replace('T', ' ');
+      const hash = String(run.configHash || '').slice(0, 8);
+      const row = el('div', { class: 'home-runs-row' + (isActive ? ' is-active' : '') }, [
+        el('span', { class: 'home-runs-id mono' }, [
+          el('b', {}, run.runId),
+          isActive ? el('span', { class: 'badge', 'data-tone': 'acc' }, '当前') : null
+        ]),
+        el('span', { class: 'home-runs-label' }, run.label || '—'),
+        el('span', { class: 'home-runs-cell' }, [
+          el('span', { class: 'badge', 'data-tone': role.tone }, role.label),
+          el('span', { class: 'home-runs-mode' }, runModeText(run))
+        ]),
+        el('span', { class: 'home-runs-cell home-runs-sys' }, [
+          el('span', { class: 'eyebrow' }, '系统'),
+          el('span', { class: 'mono' }, run.systemId || '—')
+        ]),
+        el('span', { class: 'home-runs-event', 'data-tone': ev.tone }, [
+          el('span', { class: 'eyebrow' }, ev.count > 1 ? '事件 ×' + ev.count : '事件'),
+          el('span', { class: 'mono' }, ev.text)
+        ]),
+        el('span', { class: 'home-runs-meta mono' }, [hash, el('span', { class: 'home-runs-time' }, time)]),
+        el('span', { class: 'home-runs-actions' }, [
+          el('button', {
+            class: 'btn btn-xs' + (isActive ? '' : ' home-runs-load'), type: 'button',
+            disabled: isActive ? 'true' : null,
+            on: { click: () => { actions.loadRun(run.runId); } }
+          }, [el('span', {}, isActive ? '查看中' : '载入'), ui.icon('arrow-right', { size: 11 })]),
+          el('button', {
+            class: 'btn btn-xs btn-ghost home-runs-del', type: 'button',
+            title: '删除该运行（当前运行不可删除）',
+            disabled: isActive ? 'true' : null,
+            on: { click: () => { actions.deleteRun(run.runId); } }
+          }, [ui.icon('trash', { size: 11 })])
+        ])
+      ]);
+      host.appendChild(row);
+    });
+    if (runs.length > shown.length) {
+      host.appendChild(el('div', { class: 'home-runs-more' },
+        '仅显示最近 ' + shown.length + ' 条（共 ' + runs.length + ' 条）'));
+    }
+  }
+
+  function buildRunsSection() {
+    local.refs.runsNote = el('span', { class: 'home-section-note' });
+    local.refs.runsHost = el('div', { class: 'home-runs-list' });
+    return el('section', { class: 'home-runs-section' }, [
+      el('div', { class: 'section-head home-section-head' }, [
+        el('div', {}, [
+          el('div', { class: 'eyebrow' }, '04 / 历史运行'),
+          el('h2', { class: 'section-title home-section-title' }, '运行档案，随时召回'),
+          el('p', { class: 'section-sub' }, '每次实验生成不可变 Run（含配置哈希）；载入后可在全部页面按原数据回看。')
+        ]),
+        local.refs.runsNote
+      ]),
+      local.refs.runsHost
+    ]);
   }
 
   function renderDetail(sysDef, selected, st) {
@@ -745,6 +908,7 @@
     renderHero(state0, systems, sysDef, selected);
     renderCards(selected);
     renderDetail(sysDef, selected, state0);
+    renderRuns(state0);
   }
 
   function renderUnavailable() {
@@ -783,6 +947,8 @@
       wrap.appendChild(buildHero(state()));
       wrap.appendChild(buildSystemsSection());
       wrap.appendChild(buildDetail());
+      wrap.appendChild(buildExploreSection());
+      wrap.appendChild(buildRunsSection());
       wrap.appendChild(el('footer', { class: 'home-foot' }, [
         el('div', { class: 'home-foot-main' }, [
           el('span', { class: 'eyebrow' }, 'FaultLab V0.2.0 · 实验首页'),

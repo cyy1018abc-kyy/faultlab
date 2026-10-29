@@ -7,8 +7,8 @@
 .pg-compare .cp-head {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 13px 15px 12px;
+  gap: 10px;
+  padding: 11px 13px 10px;
   border: 1px solid var(--line-1);
   border-radius: var(--r-md);
   background: linear-gradient(180deg, rgba(17, 22, 29, .92), rgba(11, 15, 21, .94));
@@ -54,7 +54,7 @@
 }
 .pg-compare .cp-select {
   width: 100%;
-  height: 34px;
+  height: 30px;
   padding: 0 9px;
   background: var(--bg-2);
   border: 1px solid var(--line-2);
@@ -121,7 +121,7 @@
 /* ============================================================
    指标卡
    ============================================================ */
-.pg-compare .cp-metrics-section { margin-top: 18px; }
+.pg-compare .cp-metrics-section { margin-top: 12px; }
 .pg-compare .cp-section-head {
   display: flex;
   align-items: flex-end;
@@ -136,7 +136,7 @@
 
 .pg-compare .cp-metric-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(288px, 1fr));
   gap: 10px;
   align-items: start;
 }
@@ -249,7 +249,7 @@
 /* ============================================================
    视图：叠加 / 双屏 / 差值
    ============================================================ */
-.pg-compare .cp-view-section { margin-top: 18px; }
+.pg-compare .cp-view-section { margin-top: 12px; }
 .pg-compare .cp-view { overflow: hidden; }
 .pg-compare .cp-view-head { flex-wrap: wrap; row-gap: 8px; }
 .pg-compare .cp-view-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -302,7 +302,7 @@
 /* ============================================================
    发现 / 局限
    ============================================================ */
-.pg-compare .cp-findings-section { margin-top: 18px; }
+.pg-compare .cp-findings-section { margin-top: 12px; }
 .pg-compare .cp-findings {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
@@ -389,7 +389,7 @@
 /* ============================================================
    导出
    ============================================================ */
-.pg-compare .cp-export-section { margin-top: 18px; }
+.pg-compare .cp-export-section { margin-top: 12px; }
 .pg-compare .cp-export { overflow: hidden; }
 .pg-compare .cp-export-status { display: flex; gap: 6px; flex-wrap: wrap; }
 .pg-compare .cp-export-body { display: flex; flex-direction: column; gap: 8px; }

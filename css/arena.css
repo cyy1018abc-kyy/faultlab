@@ -4,7 +4,7 @@
 .pg-arena {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
   max-width: 1680px;
   margin: 0 auto;
@@ -16,8 +16,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 20px;
-  padding: 18px 22px 20px;
+  gap: 16px;
+  padding: 14px 18px 16px;
   border: 1px solid var(--line-1);
   border-radius: var(--r-md);
   background:
@@ -125,8 +125,8 @@
 .pg-arena .arena-setup-body {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px 18px;
-  padding: 18px 18px 14px;
+  gap: 12px 14px;
+  padding: 14px 14px 12px;
 }
 .pg-arena .arena-setup-body .field { min-width: 0; }
 .pg-arena .arena-span-2 { grid-column: span 2; }
@@ -265,7 +265,7 @@
 @keyframes arenaStripe { to { transform: translateX(16px); } }
 
 /* ============================================================ leaderboard */
-.pg-arena .arena-results { display: flex; flex-direction: column; gap: 16px; }
+.pg-arena .arena-results { display: flex; flex-direction: column; gap: 12px; }
 .pg-arena .arena-lb { overflow: hidden; }
 .pg-arena .arena-lb-head { flex-wrap: wrap; row-gap: 8px; }
 .pg-arena .arena-lb-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
@@ -354,7 +354,7 @@
 .pg-arena .arena-lb-metric::before { content: ""; }
 
 /* ============================================================ round card */
-.pg-arena .arena-rounds { display: flex; flex-direction: column; gap: 16px; }
+.pg-arena .arena-rounds { display: flex; flex-direction: column; gap: 12px; }
 .pg-arena .arena-round { overflow: hidden; }
 .pg-arena .arena-round-head {
   display: flex;
