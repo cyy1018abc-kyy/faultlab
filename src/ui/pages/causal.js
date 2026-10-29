@@ -604,10 +604,8 @@
       if (adjacent) {
         const ax = dir > 0 ? a.right : a.left;
         const bx = dir > 0 ? b.left : b.right;
-        const ay = a.cy;
-        const by = b.cy;
-        const dx = Math.max(16, Math.min(64, Math.abs(bx - ax) * 0.48));
-        const d = 'M' + ax + ',' + ay + ' C' + (ax + dir * dx) + ',' + ay + ' ' + (bx - dir * dx) + ',' + by + ' ' + bx + ',' + by;
+        const ym = (a.cy + b.cy) / 2;
+        const d = 'M' + ax + ',' + ym + ' L' + bx + ',' + ym;
         /* 同行连线的文字放在该行节点上方/下方，避免压住相邻节点卡 */
         const labelAbove = rowIdx === 0;
         return {
@@ -616,16 +614,16 @@
           ly: labelAbove ? Math.min(a.top, b.top) - 9 : Math.max(a.bottom, b.bottom) + 9
         };
       }
-      /* 跨列连线：绕行到行间空隙，避免穿过中间节点卡 */
+      /* 跨列连线：直角绕行到行间空隙，避免穿过中间节点卡 */
       const ax = a.cx + dir * Math.min(46, a.w * 0.32);
       const bx = b.cx - dir * Math.min(46, b.w * 0.32);
       if (rowIdx === 0) {
         const y = Math.max(a.bottom, b.bottom) + 20;
-        const d = 'M' + ax + ',' + a.bottom + ' C' + ax + ',' + y + ' ' + bx + ',' + y + ' ' + bx + ',' + b.bottom;
+        const d = 'M' + ax + ',' + a.bottom + ' L' + ax + ',' + y + ' L' + bx + ',' + y + ' L' + bx + ',' + b.bottom;
         return { d: d, vertical: false, lx: (ax + bx) / 2, ly: y };
       }
       const y2 = Math.min(a.top, b.top) - 20;
-      const d = 'M' + ax + ',' + a.top + ' C' + ax + ',' + y2 + ' ' + bx + ',' + y2 + ' ' + bx + ',' + b.top;
+      const d = 'M' + ax + ',' + a.top + ' L' + ax + ',' + y2 + ' L' + bx + ',' + y2 + ' L' + bx + ',' + b.top;
       return { d: d, vertical: false, lx: (ax + bx) / 2, ly: y2 };
     }
     const vdir = b.cy >= a.cy ? 1 : -1;
@@ -633,9 +631,9 @@
     const bx = b.cx;
     const ay = vdir > 0 ? a.bottom : a.top;
     const by = vdir > 0 ? b.top : b.bottom;
-    const dy = Math.max(12, Math.min(48, Math.abs(by - ay) * 0.5));
-    const d = 'M' + ax + ',' + ay + ' C' + ax + ',' + (ay + vdir * dy) + ' ' + bx + ',' + (by - vdir * dy) + ' ' + bx + ',' + by;
-    return { d: d, vertical: true, lx: ax + (bx > ax ? -14 : 14), ly: (ay + by) / 2 };
+    const my = (ay + by) / 2;
+    const d = 'M' + ax + ',' + ay + ' L' + ax + ',' + my + ' L' + bx + ',' + my + ' L' + bx + ',' + by;
+    return { d: d, vertical: true, lx: ax + (bx > ax ? -14 : 14), ly: my };
   }
 
   /* --------------------------------------------------------- inspector */
