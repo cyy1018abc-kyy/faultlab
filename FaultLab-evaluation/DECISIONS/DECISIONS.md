@@ -537,6 +537,43 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   门禁关闭 + golden 批准）内容不同，故并行线 CHG 文件不迁入主线，其批准事实与摘要见
   RFC §9.4；备份分支保留可随时调阅。⑥ **入库**：实现提交 311d0f0 已合并 `main` 并推送远端；本补齐
   随下一次提交推送（哈希见 git log）。批准人：用户（还原/补齐指令及合并推送确认）；记录人：实现 Agent。
+- `CHG-20261030-08`：**V0.3.0 发布交付（T1–T5）+ G8（发布门 v0.3.0）关闭 + 版本 V0.3.0 + 标签 `v0.3.0`**。
+  用户 2026-10-30 批准 **V0.3.0 最终实施计划**（稳定性 / 可复现性 / 可追溯性发布：不新增产品功能、
+  不改架构、不新增物理模型、不做 FC-001 升级、不重建单文件 `FaultLab.html`）。① **T1 G2 报告追溯**：
+  `tools/run-g2.mjs` 报告新增代码版本元数据（`code.commit_sha` / `branch` / `worktree_dirty` /
+  `dirty_paths`）、环境元数据（platform / arch / node / python）与执行元数据（command / started_at /
+  generated_at / duration_ms，单项测试 duration_ms），19 步测试集合、执行顺序与 PASS/FAIL 判据不变；
+  候选提交 `1a8c1aee4f95d9e1d867fd318bc5114ee4330443`（`main`，`worktree_dirty=false`）上
+  **19/19 PASS**（ok=true / failed=0；`2026-10-30T10:49:10.226Z`，duration 25828 ms；
+  环境 win32 / x64 / Node v24.14.0 / Python 3.14.4；报告 `artifacts/run-g2-report.json`，发布证据
+  归档 `evidence/g8/`）；G2 内 ② 浏览器 E2E 同提交 Chrome 40/40（`artifacts/e2e-report.json` 已刷新，
+  commit 一致、`worktree_dirty=false`）。② **T2 I-11 逐位复验**：
+  `tools/verify-i11-bitidentity.mjs` **增量**新增 `--baseline <f>` 对照模式（默认快照行为与位置参数
+  向后兼容），在候选提交上重新生成 `evidence/g8/i11-bitidentity/{baseline-7aed9f6,current,comparison}.json`
+  + README：对基线 `7aed9f6e12408aed2a163255d03d029ad8030a50` **12/12 配置 · 36/36 字段**
+  （`run_hash` / `signals_sha256` / `metrics_sha256`）逐位一致、比对 exit 0；RFC §9.6 的 12 个
+  `run_hash` 逐位交叉核对通过；比对器负例自检（篡改快照）exit 1、35/36 并精确列出差异，证明非恒真
+  通过；`engine_version` 维持 **0.1.0**（数值实现未变，不升版）。③ **T3 双浏览器 E2E**：
+  `tools/e2e.mjs` **增量**新增 CDP `Browser.getVersion` 浏览器身份与代码版本 / 执行元数据，既有
+  40 断言、旅程（fl001-min）与退出码不变；在**同一候选提交**、`worktree_dirty=false` 下：
+  Chrome **155.0.8059.85** 40/40（`evidence/g8/chrome/e2e-report.json` + `e2e-fl001-min.png`，
+  `2026-10-30T10:49:28.407Z`，base :4319）、Edge **155.0.4283.62** 40/40
+  （`evidence/g8/edge/e2e-report.json` + `e2e-fl001-min.png`，`2026-10-30T10:49:44.847Z`，
+  base :4322，msedge 路径已核实）；双浏览器走查记录 `evidence/g8/walkthrough-dual-browser.md`
+  （仅当前稳定大版本实测，无旧版本 / 其它 OS 矩阵）。④ **T4 G8 关闭**：复用 G5 就绪检查单 R-01…R-10
+  （全部 ✅）+ 双浏览器走查 + 版本号 / 标签 / README / 页脚同步 + CHG；证据索引
+  `evidence/g8/README.md`、检查单 `evidence/g8/g8-release-checklist.md`；支撑计数：Copy Guard PASS
+  （29 模式，exit 0）、scope-guard 24/24、bundle 35/35（含 `verify_bundle.py` 正常 / 篡改交叉验证）、
+  plants 83/83、双 golden `verify_golden` exit 0。⑤ **T5 版本与文档同步**：README /
+  `V0.3_PLAN_APPROVED.md` / 本条 CHG 统一对外版本 **V0.3.0**（发布日期 2026-10-30）；产品侧仅品牌串
+  同步（`index.html` meta description、`src/ui/pages/home.js`、`src/ui/shell.js`），
+  **`engine_version` 保持 0.1.0**（数值实现未变，不升版）；发布标签 **`v0.3.0`**（发布提交 = tag
+  `v0.3.0` 所指提交，哈希见 git log）。
+  **边界声明（持续有效）**：G8 关闭仅为**内部一致性与可复现性**证据，不构成模型验证、物理验证、
+  实测或硬件验证；`model_provenance=analytical_demo`、`model_validation=not_performed`、
+  `hardware_verification=not_performed` 不变；FC-001 维持 `extension_preview`（未升级）；
+  GT-001 实现仍禁止（V3-31/V3-33 待开工）；Arena 维持扩展预览；单文件 `FaultLab.html` 不重建、
+  不发布（P1-05 未批准）。批准人：用户（最终实施计划）；记录人：实现 Agent。
 
 **效力声明**：
 1. 本文件自 2026-10-27T20:35 起具有实现约束力；任何实现不得反向定义本文件。

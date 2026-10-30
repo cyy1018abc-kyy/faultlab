@@ -1,0 +1,29 @@
+{
+  "journey": "fl001-min",
+  "ok": true,
+  "pass": 40,
+  "fail": 0,
+  "failures": [],
+  "environment": {
+    "chrome": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "base": "http://127.0.0.1:4322",
+    "node": "v24.14.0",
+    "browser": {
+      "product": "Edg/155.0.4283.62",
+      "revision": "@aa3a7406ba8c53a83536df539f07124d73c899bd",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0",
+      "jsVersion": "15.5.9.7"
+    }
+  },
+  "generated_at": "2026-10-30T10:49:44.847Z",
+  "code": {
+    "commit_sha": "1a8c1aee4f95d9e1d867fd318bc5114ee4330443",
+    "branch": "main",
+    "worktree_dirty": false
+  },
+  "execution": {
+    "started_at": "2026-10-30T10:49:34.146Z",
+    "generated_at": "2026-10-30T10:49:44.847Z",
+    "duration_ms": 10702
+  }
+}

@@ -7,7 +7,23 @@
   "environment": {
     "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
     "base": "http://127.0.0.1:4319",
-    "node": "v24.14.0"
+    "node": "v24.14.0",
+    "browser": {
+      "product": "Chrome/155.0.8059.85",
+      "revision": "@0e66b94549a8bd85f03fbdf189b752d6e7b63c32",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+      "jsVersion": "15.5.35.25"
+    }
   },
-  "generated_at": "2026-10-30T09:21:45.418Z"
+  "generated_at": "2026-10-30T10:48:58.445Z",
+  "code": {
+    "commit_sha": "1a8c1aee4f95d9e1d867fd318bc5114ee4330443",
+    "branch": "main",
+    "worktree_dirty": false
+  },
+  "execution": {
+    "started_at": "2026-10-30T10:48:47.696Z",
+    "generated_at": "2026-10-30T10:48:58.445Z",
+    "duration_ms": 10749
+  }
 }

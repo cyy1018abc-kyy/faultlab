@@ -1,0 +1,36 @@
+{
+  "purpose": "I-11 plant 接口移植逐位一致性比对（CHG-20261030-07）",
+  "generated_at": "2026-10-30T10:52:33.195Z",
+  "baseline_path": "FaultLab-evaluation\\NEXT\\evidence\\g8\\i11-bitidentity\\baseline-7aed9f6.json",
+  "baseline": {
+    "code": {
+      "commit_sha": "7aed9f6e12408aed2a163255d03d029ad8030a50",
+      "branch": "HEAD",
+      "worktree_dirty": false
+    },
+    "engine_version": "0.1.0",
+    "node": "v24.14.0"
+  },
+  "current": {
+    "code": {
+      "commit_sha": "1a8c1aee4f95d9e1d867fd318bc5114ee4330443",
+      "branch": "main",
+      "worktree_dirty": false
+    },
+    "engine_version": "0.1.0",
+    "node": "v24.14.0"
+  },
+  "fields": [
+    "run_hash",
+    "signals_sha256",
+    "metrics_sha256"
+  ],
+  "configs_total": 12,
+  "configs_matched": 12,
+  "fields_compared": 36,
+  "fields_matched": 36,
+  "missing_in_baseline": [],
+  "extra_in_baseline": [],
+  "match": true,
+  "diffs": []
+}

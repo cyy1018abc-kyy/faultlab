@@ -1,4 +1,4 @@
-# FaultLab — Virtual Energy Lab · v0.2.0
+# FaultLab — Virtual Energy Lab · v0.3.0
 
 > 亲手制造故障，观察系统反应。离线可运行的能源系统故障注入与传播解释实验场。
 >
@@ -7,7 +7,19 @@
 > （`model_validation=not_performed`）、未做硬件验证（`hardware_verification=not_performed`）。
 > 所有数字带来源标签；「内部一致性检查通过」不等于模型验证，更不等于与真实设备一致。
 
-> **范围与状态（G0 批准 2026-10-27；G2 实施记录 2026-10-28）**
+> **范围与状态（V0.3.0 发布：G8 关闭 2026-10-30；基线历史：G0 批准 2026-10-27 / G2 实施记录 2026-10-28 / G5 关闭 2026-10-28）**
+> - **发布版本 v0.3.0**（标签 `v0.3.0`）：**稳定性 / 可复现性 / 可追溯性发布**——不新增产品功能、
+>   不改架构、不新增物理模型、不做 FC-001 升级、不重建单文件 `FaultLab.html`。发布门 G8 就绪检查单
+>   R-01…R-10 关闭；证据见 `FaultLab-evaluation/NEXT/evidence/g8/README.md`（证据索引）与
+>   `evidence/g8/g8-release-checklist.md`（就绪检查单）。
+> - **V0.3.0 验证摘要（仅内部一致性与可复现性证据，非模型验证/硬件验证）**：候选提交
+>   `1a8c1aee4f95d9e1d867fd318bc5114ee4330443` 上 `node tools/run-g2.mjs` **19/19 PASS**
+>   （ok=true / failed=0 / worktree_dirty=false；报告 `artifacts/run-g2-report.json`
+>   `2026-10-30T10:49:10.226Z`，含 commit/branch/worktree/node/python 追溯字段）；I-11 Plant 接口
+>   对基线 `7aed9f6` **12/12 配置 · 36/36 字段**（`run_hash` / `signals_sha256` / `metrics_sha256`
+>   逐位一致；`engine_version` 维持 0.1.0）；双 golden（fl001/fc001）`verify_golden` exit 0、
+>   `copy-guard` exit 0（29 模式）、EvidenceBundle v1 复核链不变；Chrome 155.0.8059.85 /
+>   Edge 155.0.4283.62 各 E2E **40/40**（同一候选提交，worktree_dirty=false）。
 > - **P0 验收基线（唯一验收路径）**：`FL-001` × 3 组固定 Run（`baseline` / `closed_loop_fault` / `monitor_only`）
 >   × 5 逻辑视图 × 单一时钟 × 事件 pre/post（20.0−/20.0+）× 因果证据跳转 × 对比白名单 × 证据包导出/重载 × golden 校验。
 > - **G2 四件套已按批准规格实施并全绿**（2026-10-28）：独立 oracle + golden v1、Schema/单位字典、
@@ -123,16 +135,19 @@ tools/backend/                 FL-19 数值后端（B-1 解析/B-5 RK4）+ Node 
 tools/oracle/                  独立解析 oracle + emit_golden（不 import src/**）
 scripts/verify_golden.py       一键 golden 校验（exit 0/1/2）
 tools/verify_bundle.py         证据包第三方离线复核
-tools/verify-i11-bitidentity.mjs  I-11 移植逐位一致性快照（12 配置 run_hash/signals/metrics）
-tools/e2e.mjs                  CDP headless 浏览器 E2E（fl001-min 旅程）
+tools/verify-i11-bitidentity.mjs  I-11 移植逐位一致性快照（12 配置 run_hash/signals/metrics；
+                               --baseline 基线对照模式，V0.3.0 T2）
+tools/e2e.mjs                  CDP headless 浏览器 E2E（fl001-min 旅程，40 断言；报告含浏览器身份与
+                               代码版本追溯，V0.3.0 T3）
 tools/copy-guard.mjs           禁止词扫描（UI_COPY_GUARDRAILS §6.3）
 tools/arena2-gen.mjs           盲评测 v2 测试集/盲包/reveal 生成器（评测轨，G6 已批准）
 tools/arena2-verify.mjs        盲评测 v2 可信评测器（V-00…V-10 + score_hash 落章）
-tools/run-g2.mjs               G2 四件套聚合器（任一失败非零退出；19 步）
+tools/run-g2.mjs               G2 四件套聚合器（任一失败非零退出；19 步；报告含 commit/branch/
+                               worktree/node/python 追溯字段，V0.3.0 T1）
 tests/                         core / arena（既有）+ schema / event-phase / engine / registry /
                                bundle / scope-guard / compare / causal-rules / report / plants（I-11）/
                                arena-protocol-negative（协议 v2 负例 N-B1…B17 + smoke）
-FaultLab-evaluation/           G0 决策、G2 规格、V0.3 规划与实施证据（evidence/g2、g4、g5、g6、g7）
+FaultLab-evaluation/           G0 决策、G2 规格、V0.3 规划与实施证据（evidence/g2、g4、g5、g6、g7、g8）
 docs/CONTRACT.md 等            工程契约与协议（G0 对齐版）
 artifacts/                     QA 截图与运行报告（run-g2-report.json / e2e-report.json）
 ```
@@ -141,16 +156,21 @@ artifacts/                     QA 截图与运行报告（run-g2-report.json / e
 
 ```powershell
 python tools/oracle/fl001_oracle.py --self-check   # oracle 自检（SC-1..SC-6）
-python scripts/verify_golden.py                    # golden 一键校验（exit 0/1/2）
-node tools/run-g2.mjs                              # 四件套聚合：数值/E2E/Registry/Schema + 回归（19 步）
+python scripts/verify_golden.py                    # 双 golden 一键校验（默认 fl001；exit 0/1/2）
+python scripts/verify_golden.py fc001              # FC-001 golden（G2b-lite 口径）
+node tools/run-g2.mjs                              # 四件套聚合：数值/E2E/Registry/Schema + 回归（19 步；含追溯元数据）
 node tests/plants.test.js                          # I-11 Plant 适配器接口护栏（83 断言）
-node tools/verify-i11-bitidentity.mjs [out.json]   # I-11 逐位一致性快照（12 配置；基线对照见 RFC §9）
+node tools/verify-i11-bitidentity.mjs [out.json]   # I-11 逐位一致性快照（12 配置 run_hash/signals/metrics）
+node tools/verify-i11-bitidentity.mjs --baseline <baseline.json> --out <comparison.json>
+                                                   # 对基线快照逐位对照（36/36 字段；exit 0=一致）
+node tools/e2e.mjs [--chrome <浏览器路径>] [--out <证据目录>]  # 浏览器 E2E 单跑（40 断言）
 python tools/verify_bundle.py <bundle_dir>         # 第三方复核证据包目录
 node tools/copy-guard.mjs                          # 禁止词扫描（命中 exit 1）
 node tools/qa.mjs shots                            # 原型期截图走查（历史工具，不作验收）
 ```
 
-> 通过判据与证据记录见 `FaultLab-evaluation/NEXT/evidence/g2/README.md` 与 `evidence/g4/`。
+> 通过判据与证据记录见 `FaultLab-evaluation/NEXT/evidence/g8/`（V0.3.0 发布门：`README.md` 证据索引 +
+> `g8-release-checklist.md` R-01…R-10）、`evidence/g2/README.md`（G2 四件套）与 `evidence/g4/`。
 > 所有「PASS」均为内部一致性/可复核性证据；**不构成模型验证、物理守恒验证或硬件验证**。
 
 ## 8. 键盘快捷键
@@ -165,19 +185,27 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
 
 ## 9. 已知局限与未完成项
 
+- **V0.3.0 发布边界**：本版为**稳定性 / 可复现性 / 可追溯性发布**——交付物为测试与证据工具的追溯
+  增强（G2 报告代码/环境元数据、I-11 基线对照模式、E2E 浏览器身份元数据）、G8 发布证据与版本/文档
+  同步；**不新增产品功能、不改架构、不新增物理模型、不做 FC-001 升级、不重建单文件 `FaultLab.html`**。
+  `engine_version` 维持 **0.1.0**（数值实现未变，不升版）；G8 关闭仅为内部一致性与可复现性证据，
+  不是模型验证、不是实测/硬件验证（三标签不变）；发布门证据见 `evidence/g8/README.md`（索引）与
+  `evidence/g8/g8-release-checklist.md`（R-01…R-10）。
 - **模型边界**：L0 解析/行为级。不含电化学/OCV/温度/效率、电力电子开关动态、母线电容与电压动态、
   传感器噪声（P0 默认关闭）、保护逻辑；控制器为行为级一阶等效，不是经验证的设备控制器。
 - **G4 人工走查**（P0b-01/02）：已由 V3-01 补课关闭（2026-10-30，qa ux 14/14 + misc 9/9 + 六页截图复核，
   记录见 `FaultLab-evaluation/NEXT/evidence/g6/walkthrough-v3-01.md`；T10/reduced-motion 两项豁免留痕）。
-- **FC-001**：修复清单已闭环（G2b-lite，`evidence/g4/fc001-g2b-lite.md`）；实现仍为 `extension_preview`，
-  升正式验收已裁定（V0.3 O-09）待实施（实施须 `model_version` 升版 + golden 重建 + CHG）。
+- **FC-001**：修复清单已闭环（G2b-lite，`evidence/g4/fc001-g2b-lite.md`）；实现仍为 `extension_preview`
+  （**V0.3.0 发布未升级**），升正式验收已裁定（V0.3 O-09）待实施（实施须 `model_version` 升版 +
+  golden 重建 + CHG）。
 - **GT-001**：G2b 物理规格 v1.1 已批准（2026-10-30，§9=(a)、网格保留 60 s）；实现（V3-31/33）
   待开工，完成前演示仍为扩展预览、不进入验收。
 - **FL-001 `load_step`**：已删除（O-13，2026-10-30；归档 `evidence/g2b/load_step-removed-contract-text.md`）；
   FL-001 故障族为 sensor_drift + actuator_fault（后者仍为扩展预览）。
 - **I-11 模型接口（Plant/Sensor/Controller/Fault）**：S1/S2 已还原到 V0.3 主线
   （`RFC_MODEL_INTERFACE_I11_APPROVED.md` + CHG-20261030-07；FL/FC 的 `none`/`sensor_drift` 家族走
-  `src/core/plants/` 适配器，`run_hash` 逐位不变）；S3（GT-001）未排期，GT 内联分支保留。
+  `src/core/plants/` 适配器，`run_hash` 逐位不变）；V0.3.0 复验 **12/12 配置 · 36/36 字段** 对基线
+  `7aed9f6` 逐位一致（`evidence/g8/i11-bitidentity/`）；S3（GT-001）未排期，GT 内联分支保留。
 - **Arena**：P2 扩展预览；独立评测协议 v2 已批准（G6-WS-D）且评测轨 MVP 已实现（gen/verify CLI +
   17 条负例门禁，`evidence/g7/`）；页面演示轨不变；评分只标「合成故障评测游戏，非真实诊断性能」。
 - 浏览器端计算与哈希不构成第三方验证；分享/复核以证据包 v1 + `verify_bundle.py` 为准。
@@ -185,6 +213,10 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
 
 ## 10. 参考
 
+- **V0.3.0 发布**：版本标识 **V0.3.0**（发布日期 2026-10-30）；发布提交 = tag `v0.3.0` 所指提交
+  （哈希见 git log）；发布门证据 `FaultLab-evaluation/NEXT/evidence/g8/README.md`（证据索引）与
+  `evidence/g8/g8-release-checklist.md`（就绪检查单 R-01…R-10，全部 ✅）；变更记录
+  `DECISIONS/DECISIONS.md` §8 `CHG-20261030-08`。
 - **G0 决策（已批准）**：`FaultLab-evaluation/DECISIONS/DECISIONS.md`、`DECISIONS/SPEC_v0.2_APPROVED.md`
 - **G2 规格（本版权威）**：`FaultLab-evaluation/NEXT/` —— DATA_CONTRACT_SPEC / MODEL_VALIDATION_SPEC /
   UI_COPY_GUARDRAILS / BACKLOG_APPROVED / SCOPE_SPLIT_MEMO；V0.3 阶段：`V0.3_PLAN_APPROVED.md`、
@@ -194,7 +226,9 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
   `RFC_MODEL_INTERFACE_I11_APPROVED.md`（I-11 模型接口，CHG-20261030-07 还原；S3 未排期）
 - **实施证据**：`FaultLab-evaluation/NEXT/evidence/g2/`（golden/oracle/四件套）、`evidence/g4/`（因果护栏/白名单/范围守卫/README）、
   `evidence/g5/`（发布就绪/双浏览器走查）、`evidence/g6/`（V0.3：真值隔离评估、RFC/协议双路评审、走查补课 + 截图）、
-  `evidence/g7/`（评测轨 MVP + FL-19 后端增量一实施证据：18/18 聚合、42/42 负例、51/51 准入机检、QP-4 假候选率发布）
+  `evidence/g7/`（评测轨 MVP + FL-19 后端增量一实施证据：18/18 聚合、42/42 负例、51/51 准入机检、QP-4 假候选率发布）、
+  `evidence/g8/`（V0.3.0 发布：G8 R-01…R-10、I-11 12/12 配置 · 36/36 字段复验、Chrome 155 / Edge 155 各 E2E 40/40
+  与双浏览器走查、G2 追溯报告）
 - **golden 数据**：`data/golden/fl001_v1.json`（method_id=analytic_flux；全精度；sha256 见同目录 .sha256）
 - QA 截图与原型期报告：`artifacts/`（历史自检，不作为验收证据）
 
