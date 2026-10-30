@@ -1,4 +1,4 @@
-/* owner: core-engine | module: tests/plants | contract: RFC_MODEL_INTERFACE_I11.md §2（移植 CHG-20261030-07） */
+/* owner: core-engine | module: tests/plants | contract: RFC_MODEL_INTERFACE_I11_APPROVED.md §2/§9（移植 CHG-20261030-07） */
 /* I-11 Plant 适配器接口护栏：node tests/plants.test.js（不依赖任何第三方库）
    覆盖：Plant/Sensor/Controller/Fault 职责边界（monitor 语义归 Controller、测量偏置独立于回路）、
         stepOf 与 engine.foStep 数值口径一致性、派发边界（plant 家族 vs 暂缓家族内联路径）、

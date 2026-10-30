@@ -514,6 +514,29 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   （C-1 engine_version 语义 / C-2 manifest.backend / C-3 BK 错误码登记）。全量验证：
   `run-g2.mjs` **18/18**（compare.test 修复后）、copy-guard exit 0。
   ④ **入库**：随批提交推送（哈希见 git log）。批准人：用户（裁定/批准/开工指令）；记录人：实现 Agent。
+- `CHG-20261030-07`：**I-11 模型接口实现还原（S1/S2 移植回 V0.3 主线）+ 文档补齐 + 入库**。用户
+  2026-10-30 两指令（16:21「还原远端同步 github 仓库的进度」、17:37「补齐缺失部分」）。① **背景**：
+  2026-10-30 16:17 工作区被重置到 `origin/main`（7aed9f6），并行备份线
+  （`backup/local-parallel-p1-20261028`，tip 373859f）上的 I-11 S1/S2 实现与 RFC 未随主线保留，
+  按用户指令从备份分支还原。② **还原内容（提交 311d0f0，12 文件 +558/−7）**：
+  `src/core/plants/fl001.js`（S1）与 `src/core/plants/fc001.js`（S2）适配器、`engine.js` 家族门
+  （`fl001PlantCapable`/`fc001PlantCapable`）+ `simulateFL001Plant`/`simulateFC001Plant` 委托
+  （内联数值路径保留）、`index.html` 与 `tests/core-load.js`/`tests/arena.test.js` 装载清单、
+  `tests/plants.test.js`（**83 断言**接口护栏）、`tools/verify-i11-bitidentity.mjs`（12 配置逐位
+  快照）、`run-g2` 挂步 18→**19**、证据刷新（`artifacts/run-g2-report.json` 19/19、
+  `e2e-report.json` 40/0）。**边界**：FL-001 适配器只覆盖 `none`/`sensor_drift`（`load_step` 已按
+  O-13 删除；`actuator_fault` 保留内联扩展预览路径）；FC-001 `none`/`sensor_drift` 走适配器，
+  `load_step`/`actuator_fault` 暂缓家族保留内联（RFC S2 验收边界）；GT-001 未接入（S3 未排期）；
+  registry/bundle/backend/scope/UI 零改动；单文件 `FaultLab.html` 不重建（P1-05 未批准）。③ **验证**：
+  `run-g2` **19/19**（plants 83/83、arena 155/155、E2E 40/0、backend-admission 66/66、双 golden
+  verify、copy-guard exit 0）；逐位一致性 **12/12 配置 0 mismatch**（`run_hash`/`signals_sha256`/
+  `metrics_sha256`，基线 7aed9f6 对照还原后；`engine_version` 维持 0.1.0）。④ **文档补齐**：归档
+  `NEXT/RFC_MODEL_INTERFACE_I11_APPROVED.md`（含 §9 移植附录、12 配置快照、复现步骤与未包含项；
+  主线代码注释引用统一为该文件名）；本记录；README 目录/工具/验证命令/文末索引对齐。⑤ **批准与
+  编号说明**：并行线 CHG-20261028-01/02（I-11 RFC 批准 + S1/S2 记录）与主线同号 CHG（G2 数值
+  门禁关闭 + golden 批准）内容不同，故并行线 CHG 文件不迁入主线，其批准事实与摘要见
+  RFC §9.4；备份分支保留可随时调阅。⑥ **入库**：实现提交 311d0f0 已合并 `main` 并推送远端；本补齐
+  随下一次提交推送（哈希见 git log）。批准人：用户（还原/补齐指令及合并推送确认）；记录人：实现 Agent。
 
 **效力声明**：
 1. 本文件自 2026-10-27T20:35 起具有实现约束力；任何实现不得反向定义本文件。

@@ -1,4 +1,4 @@
-/* owner: core-engine | module: plants/fl001 | contract: RFC_MODEL_INTERFACE_I11.md §2（移植 CHG-20261030-07） */
+/* owner: core-engine | module: plants/fl001 | contract: RFC_MODEL_INTERFACE_I11_APPROVED.md §2/§9（移植 CHG-20261030-07） */
 /* FL-001 Plant / Sensor / Controller / Fault 适配器（I-11 S1 移植）。
    职责边界（RFC §2/§7）：
    - Plant 只承载真实状态方程（EQ-3 一阶行为级，数值子步离散）与子步积分通量；

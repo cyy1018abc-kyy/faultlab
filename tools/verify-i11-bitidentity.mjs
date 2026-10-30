@@ -1,4 +1,4 @@
-/* owner: core-engine | module: tools/verify-i11-bitidentity | contract: RFC_MODEL_INTERFACE_I11.md 移植附录（CHG-20261030-07） */
+/* owner: core-engine | module: tools/verify-i11-bitidentity | contract: RFC_MODEL_INTERFACE_I11_APPROVED.md 移植附录（CHG-20261030-07） */
 /* I-11 移植逐位一致性验证：对固定配置矩阵经 FL.registry.createRun 全管线输出
    run_hash 与 series/metrics 哈希快照（run_hash 由 registry 层计算，G0-DEC-07 契约面）。
    用法：node tools/verify-i11-bitidentity.mjs [输出文件]

@@ -442,7 +442,7 @@
   }
 
   /* ---------------- FL-001 电池储能 ---------------- */
-  /* I-11 S1 移植（CHG-20261030-07，RFC_MODEL_INTERFACE_I11.md §3）：none / sensor_drift 家族走
+  /* I-11 S1 移植（CHG-20261030-07，RFC_MODEL_INTERFACE_I11_APPROVED.md §3）：none / sensor_drift 家族走
      src/core/plants/fl001.js（Plant/Sensor/Controller/Fault 边界，数值子步口径）；actuator_fault
      为未评审扩展预览家族，保留下方内联数值路径（O-13 归档；FL-001 load_step 已按 O-13 删除）。
      数值表达式与抽取前逐字一致，移植验收 = plant 家族 run_hash 与 series 逐位不变
@@ -602,7 +602,7 @@
   }
 
   /* ---------------- FC-001 燃料电池 ---------------- */
-  /* I-11 S2 移植（CHG-20261030-07，RFC_MODEL_INTERFACE_I11.md §3）：none / sensor_drift 家族走
+  /* I-11 S2 移植（CHG-20261030-07，RFC_MODEL_INTERFACE_I11_APPROVED.md §3）：none / sensor_drift 家族走
      src/core/plants/fc001.js（数值子步口径，与 FC 解析 golden 的比对走既有 verify_golden fc001 层）；
      load_step / actuator_fault 为暂缓家族，保留下方内联数值路径（RFC §3 S2 验收边界）。
      数值表达式与抽取前逐字一致，移植验收 = FC Run run_hash 与 series 逐位不变。 */

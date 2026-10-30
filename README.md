@@ -115,6 +115,7 @@ index.html                     开发入口（脚本按序加载）
 css/                           主题令牌与页面样式
 src/core/                      hash/schema/scope/protocol/systems/engine/metrics/checks/registry/bundle/
                                arena-protocol（盲评测协议 v2 共享模块）
+src/core/plants/               I-11 Plant 适配器（fl001 / fc001；RFC_MODEL_INTERFACE_I11_APPROVED）
 src/ui/                        组件库、store、壳层、图表、导出、六个页面
 src/agents/                    内置演示 Agent、盲测编排与评分
 data/golden/                   golden（oracle 生成；engine 只读比对）
@@ -122,13 +123,14 @@ tools/backend/                 FL-19 数值后端（B-1 解析/B-5 RK4）+ Node 
 tools/oracle/                  独立解析 oracle + emit_golden（不 import src/**）
 scripts/verify_golden.py       一键 golden 校验（exit 0/1/2）
 tools/verify_bundle.py         证据包第三方离线复核
+tools/verify-i11-bitidentity.mjs  I-11 移植逐位一致性快照（12 配置 run_hash/signals/metrics）
 tools/e2e.mjs                  CDP headless 浏览器 E2E（fl001-min 旅程）
 tools/copy-guard.mjs           禁止词扫描（UI_COPY_GUARDRAILS §6.3）
 tools/arena2-gen.mjs           盲评测 v2 测试集/盲包/reveal 生成器（评测轨，G6 已批准）
 tools/arena2-verify.mjs        盲评测 v2 可信评测器（V-00…V-10 + score_hash 落章）
-tools/run-g2.mjs               G2 四件套聚合器（任一失败非零退出；17 步）
+tools/run-g2.mjs               G2 四件套聚合器（任一失败非零退出；19 步）
 tests/                         core / arena（既有）+ schema / event-phase / engine / registry /
-                               bundle / scope-guard / compare / causal-rules / report /
+                               bundle / scope-guard / compare / causal-rules / report / plants（I-11）/
                                arena-protocol-negative（协议 v2 负例 N-B1…B17 + smoke）
 FaultLab-evaluation/           G0 决策、G2 规格、V0.3 规划与实施证据（evidence/g2、g4、g5、g6、g7）
 docs/CONTRACT.md 等            工程契约与协议（G0 对齐版）
@@ -140,7 +142,9 @@ artifacts/                     QA 截图与运行报告（run-g2-report.json / e
 ```powershell
 python tools/oracle/fl001_oracle.py --self-check   # oracle 自检（SC-1..SC-6）
 python scripts/verify_golden.py                    # golden 一键校验（exit 0/1/2）
-node tools/run-g2.mjs                              # 四件套聚合：数值/E2E/Registry/Schema + 回归
+node tools/run-g2.mjs                              # 四件套聚合：数值/E2E/Registry/Schema + 回归（19 步）
+node tests/plants.test.js                          # I-11 Plant 适配器接口护栏（83 断言）
+node tools/verify-i11-bitidentity.mjs [out.json]   # I-11 逐位一致性快照（12 配置；基线对照见 RFC §9）
 python tools/verify_bundle.py <bundle_dir>         # 第三方复核证据包目录
 node tools/copy-guard.mjs                          # 禁止词扫描（命中 exit 1）
 node tools/qa.mjs shots                            # 原型期截图走查（历史工具，不作验收）
@@ -171,6 +175,9 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
   待开工，完成前演示仍为扩展预览、不进入验收。
 - **FL-001 `load_step`**：已删除（O-13，2026-10-30；归档 `evidence/g2b/load_step-removed-contract-text.md`）；
   FL-001 故障族为 sensor_drift + actuator_fault（后者仍为扩展预览）。
+- **I-11 模型接口（Plant/Sensor/Controller/Fault）**：S1/S2 已还原到 V0.3 主线
+  （`RFC_MODEL_INTERFACE_I11_APPROVED.md` + CHG-20261030-07；FL/FC 的 `none`/`sensor_drift` 家族走
+  `src/core/plants/` 适配器，`run_hash` 逐位不变）；S3（GT-001）未排期，GT 内联分支保留。
 - **Arena**：P2 扩展预览；独立评测协议 v2 已批准（G6-WS-D）且评测轨 MVP 已实现（gen/verify CLI +
   17 条负例门禁，`evidence/g7/`）；页面演示轨不变；评分只标「合成故障评测游戏，非真实诊断性能」。
 - 浏览器端计算与哈希不构成第三方验证；分享/复核以证据包 v1 + `verify_bundle.py` 为准。
@@ -183,7 +190,8 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
   UI_COPY_GUARDRAILS / BACKLOG_APPROVED / SCOPE_SPLIT_MEMO；V0.3 阶段：`V0.3_PLAN_APPROVED.md`、
   `FL19_BACKEND_RFC_APPROVED.md`（G6-WS-C 已闭）、`ARENA_EVAL_PROTOCOL_APPROVED.md`（G6-WS-D 已闭）、
   `V312_BACKEND_ADMISSION_CHECKLIST.md`（FROZEN）、`GT001_G2B_SPEC_APPROVED.md`（G2b 已闭，
-  V3-31/V3-33 待开工）、`LOAD_STEP_RULING_MEMO.md`（O-13 已裁定：删除）
+  V3-31/V3-33 待开工）、`LOAD_STEP_RULING_MEMO.md`（O-13 已裁定：删除）、
+  `RFC_MODEL_INTERFACE_I11_APPROVED.md`（I-11 模型接口，CHG-20261030-07 还原；S3 未排期）
 - **实施证据**：`FaultLab-evaluation/NEXT/evidence/g2/`（golden/oracle/四件套）、`evidence/g4/`（因果护栏/白名单/范围守卫/README）、
   `evidence/g5/`（发布就绪/双浏览器走查）、`evidence/g6/`（V0.3：真值隔离评估、RFC/协议双路评审、走查补课 + 截图）、
   `evidence/g7/`（评测轨 MVP + FL-19 后端增量一实施证据：18/18 聚合、42/42 负例、51/51 准入机检、QP-4 假候选率发布）

@@ -1,4 +1,4 @@
-/* owner: core-engine | module: plants/fc001 | contract: RFC_MODEL_INTERFACE_I11.md §2（I-11 S2 原始批准 CHG-20261028-01/02；移植 CHG-20261030-07） */
+/* owner: core-engine | module: plants/fc001 | contract: RFC_MODEL_INTERFACE_I11_APPROVED.md §2/§9（I-11 S2 原始批准 CHG-20261028-01/02；移植 CHG-20261030-07） */
 /* FC-001 Plant / Sensor / Controller / Fault 适配器（I-11 S2 移植）。
    职责边界（与 plants/fl001.js 同构，RFC §2/§7）：
    - Plant 只承载真实状态方程（EQ-3 一阶行为级，数值子步离散）与子步积分通量；
