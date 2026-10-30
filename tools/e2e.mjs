@@ -16,9 +16,17 @@
  *   E-07 EvidenceBundle v1 在浏览器内构建→导入→run_hash 一致；
  *   E-08 全程无 console error、无外部网络请求（纯浏览器离线）。
  *
- * 退出码：0=全部通过；1=存在失败项。报告写 artifacts/e2e-report.json。
+ * 退出码：0=全部通过；1=存在失败项。报告写 <--out 目录>/e2e-report.json。
+ *
+ * V0.3.0 T3 双浏览器追溯增强（不改变旅程、40 条断言、执行顺序与退出码）：
+ *   - --out 输出目录在 main() 启动即创建（原为截图/写报告时才创建）；
+ *   - environment.browser：CDP Browser.getVersion 实测 product/revision/userAgent/
+ *     jsVersion（浏览器级会话，必须在 Target.attachToTarget 设置 sessionId 之前发送）；
+ *   - code：commit_sha / branch / worktree_dirty（仅 tracked 变更）；
+ *   - execution：started_at / generated_at / duration_ms。
+ *   原有顶层字段（journey/ok/pass/fail/failures/environment/generated_at）全部保留。
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -38,6 +46,41 @@ const BASE = opt('base', '');
 const OUT = path.resolve(ROOT, opt('out', 'artifacts'));
 const CHROME = opt('chrome', findChrome());
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ------------------------------------------------- 追溯信息（T3） */
+const STARTED_MS = Date.now();
+const STARTED_AT = new Date().toISOString();
+
+/* 受限 Windows 沙箱（workspace-write）下管道 stdio 可能 EPERM（libuv 走 named pipe）：
+   子进程输出改走继承的临时文件 fd，使 commit_sha/branch/worktree_dirty 在受限环境
+   仍为真实值；stdio:'inherit'/'ignore' 类环境与 danger-full-access 下同样可移植。 */
+function runCapture(cmd, argsArr, cwd) {
+  const file = path.join(os.tmpdir(),
+    'fl-capture-' + process.pid + '-' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.log');
+  let fd = null;
+  try {
+    fd = fs.openSync(file, 'w');
+    const res = spawnSync(cmd, argsArr, { cwd, stdio: ['ignore', fd, fd], timeout: 15000 });
+    const out = fs.readFileSync(file, 'utf8');
+    return { status: res.status, stdout: out, error: res.error || null };
+  } catch (e) {
+    return { status: null, stdout: '', error: e };
+  } finally {
+    if (fd !== null) { try { fs.closeSync(fd); } catch { /* ignore */ } }
+    try { fs.unlinkSync(file); } catch { /* ignore */ }
+  }
+}
+
+function git(argsArr) {
+  const res = runCapture('git', argsArr, ROOT);
+  if (res.error || res.status !== 0) return null;
+  return (res.stdout || '').trim();
+}
+
+const COMMIT_SHA = git(['rev-parse', 'HEAD']);
+const BRANCH = git(['rev-parse', '--abbrev-ref', 'HEAD']);
+const STATUS_TRACKED = git(['status', '--porcelain', '--untracked-files=no']);
+const WORKTREE_DIRTY = STATUS_TRACKED === null ? null : STATUS_TRACKED.length > 0;
 
 function findChrome() {
   const candidates = [
@@ -155,10 +198,14 @@ function close(a, b, tol, name) {
 const PAGES = ['home', 'system', 'signals', 'causal', 'compare'];
 
 async function main() {
+  /* 输出目录在启动浏览器/服务器之前创建（失败也可留痕） */
+  fs.mkdirSync(OUT, { recursive: true });
   const server = BASE ? null : startServer();
   const base = BASE || ('http://127.0.0.1:' + PORT);
   let chrome = null;
   let cdp = null;
+  let browserVersion = null;
+  let browserVersionError = null;
   try {
     await new Promise((resolve, reject) => {
       const probe = () => http.get(base + '/index.html', (res) => { res.resume(); resolve(); }).on('error', reject);
@@ -176,6 +223,13 @@ async function main() {
     const wsUrl = await discoverWs(CDP_PORT);
     cdp = new Cdp(wsUrl);
     await cdp.ready;
+    /* 浏览器真实身份：Browser.getVersion 是浏览器级域，必须在
+       Target.attachToTarget 设置 cdp.sessionId 之前发送（否则会被路由到页面会话）。 */
+    try {
+      browserVersion = await cdp.send('Browser.getVersion');
+    } catch (e) {
+      browserVersionError = e && e.message ? e.message : String(e);
+    }
     /* Edge 无头模式的页面会话存在启动期抖动（初始页 agent 可能无响应）：
        新建 target + attach 是已验证可靠的模式；enable 失败则换新 target 重试（≤3 轮）。 */
     let lastErr = null;
@@ -326,7 +380,6 @@ async function main() {
     eq(consoleErrors.length, 0, 'E-08：全程无 console error');
 
     /* 截图留证 */
-    fs.mkdirSync(OUT, { recursive: true });
     const shot = await cdp.send('Page.captureScreenshot', { format: 'png' });
     fs.writeFileSync(path.join(OUT, 'e2e-fl001-min.png'), Buffer.from(shot.data, 'base64'));
   } finally {
@@ -335,18 +388,53 @@ async function main() {
     if (server) { try { server.kill(); } catch { /* ignore */ } }
   }
 
+  const generatedAt = new Date().toISOString();
+  const browser = browserVersion
+    ? {
+        product: browserVersion.product,
+        revision: browserVersion.revision,
+        userAgent: browserVersion.userAgent,
+        jsVersion: browserVersion.jsVersion
+      }
+    : {
+        product: null,
+        revision: null,
+        userAgent: null,
+        jsVersion: null,
+        error: browserVersionError
+      };
   const report = {
+    /* 原有字段（读取兼容） */
     journey: JOURNEY,
     ok: fail === 0,
     pass, fail,
     failures,
-    environment: { chrome: CHROME, base: BASE || ('http://127.0.0.1:' + PORT), node: process.version },
-    generated_at: new Date().toISOString()
+    environment: {
+      chrome: CHROME,
+      base: BASE || ('http://127.0.0.1:' + PORT),
+      node: process.version,
+      browser
+    },
+    generated_at: generatedAt,
+    /* T3 追溯：代码版本 */
+    code: {
+      commit_sha: COMMIT_SHA,
+      branch: BRANCH,
+      worktree_dirty: WORKTREE_DIRTY
+    },
+    /* T3 追溯：执行信息 */
+    execution: {
+      started_at: STARTED_AT,
+      generated_at: generatedAt,
+      duration_ms: Date.now() - STARTED_MS
+    }
   };
-  fs.mkdirSync(OUT, { recursive: true });
   fs.writeFileSync(path.join(OUT, 'e2e-report.json'), JSON.stringify(report, null, 2));
   console.log('\n================================================');
   console.log('E2E ' + JOURNEY + '：PASS ' + pass + ' / FAIL ' + fail + (fail ? '  ✗' : '  ✓'));
+  console.log('浏览器：' + (browser.product || 'n/a') + '（revision ' + (browser.revision || 'n/a') + '）');
+  console.log('追溯：commit=' + (COMMIT_SHA || 'n/a').slice(0, 12) + ' branch=' + (BRANCH || 'n/a') +
+    ' dirty=' + WORKTREE_DIRTY + ' node=' + process.version + ' 用时 ' + report.execution.duration_ms + ' ms');
   if (fail) {
     failures.slice(0, 30).forEach((f, i) => console.log('  [' + i + '] ' + f.name + '\n      ' + f.detail));
     console.log('================================================');

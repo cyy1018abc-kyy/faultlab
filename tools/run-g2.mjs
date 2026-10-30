@@ -1,5 +1,5 @@
 /**
- * run-g2.mjs — G2 验收四件套聚合器（P0b-05 / G0-DEC-16）。
+ * run-g2.mjs — G2 验收四件套聚合器（P0b-05 / G0-DEC-16；V0.3.0 T1 追溯增强）。
  *
  *   node tools/run-g2.mjs            # 全部四件套
  *   node tools/run-g2.mjs --skip-e2e # 跳过浏览器 E2E（CI 无 Chrome 时）
@@ -10,6 +10,13 @@
  *   ③ RunRegistry/规范哈希：node tests/registry.test.js
  *   ④ Schema/单位字典：node tests/schema.test.js（含导入负例 tests/bundle.test.js）
  *   附加回归：tests/event-phase.test.js、tests/core.test.js、tests/arena.test.js
+ *
+ * V0.3.0 追溯增强（不改变 19 步测试、执行顺序与 PASS/FAIL 判据）：
+ *   - 代码版本：commit_sha / branch / worktree_dirty（含脏文件清单）
+ *   - 运行环境：platform / arch / node / python
+ *   - 执行信息：command / started_at / generated_at / duration_ms
+ *   - 单项测试：duration_ms；失败时保留简短错误输出（error 字段）
+ *   工作区不干净只作标记，不阻止测试。原有报告字段保留。
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -19,6 +26,33 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const args = process.argv.slice(2);
 const skipE2e = args.indexOf('--skip-e2e') !== -1;
+const STARTED_MS = Date.now();
+const STARTED_AT = new Date().toISOString();
+const COMMAND = 'node tools/run-g2.mjs' + (skipE2e ? ' --skip-e2e' : '');
+
+/* ------------------------------------------------------- 追溯信息（T1） */
+function git(argsArr) {
+  const res = spawnSync('git', argsArr, { cwd: ROOT, encoding: 'utf8' });
+  if (res.error || res.status !== 0) return null;
+  return (res.stdout || '').trim();
+}
+
+function pythonVersion() {
+  for (const cmd of ['python', 'python3']) {
+    const res = spawnSync(cmd, ['--version'], { cwd: ROOT, encoding: 'utf8' });
+    if (!res.error && res.status === 0) {
+      return ((res.stdout || '') + (res.stderr || '')).trim() || null;
+    }
+  }
+  return null;
+}
+
+const COMMIT_SHA = git(['rev-parse', 'HEAD']);
+const BRANCH = git(['rev-parse', '--abbrev-ref', 'HEAD']);
+const STATUS_TRACKED = git(['status', '--porcelain', '--untracked-files=no']);
+const WORKTREE_DIRTY = STATUS_TRACKED === null ? null : STATUS_TRACKED.length > 0;
+const DIRTY_PATHS = STATUS_TRACKED ? STATUS_TRACKED.split(/\r?\n/).filter(Boolean).slice(0, 20) : [];
+const PYTHON_VERSION = pythonVersion();
 
 const STEPS = [
   { id: '① verify_golden fl001（独立 oracle → golden 容差比对）', cmd: 'python', args: ['scripts/verify_golden.py'] },
@@ -42,6 +76,22 @@ const STEPS = [
   { id: '+ arena.test.js（既有回归）', cmd: 'node', args: ['tests/arena.test.js'] }
 ];
 
+/* 失败时保留简短错误输出（T1）：stdout/stderr 各取末尾若干行，总长受限 */
+function shortError(res) {
+  const tail = (text, lines) => {
+    const all = String(text || '').split(/\r?\n/).filter((line) => line.trim().length > 0);
+    return all.slice(-lines).join('\n');
+  };
+  const out = [];
+  if (res.error) out.push('spawn error: ' + (res.error.message || String(res.error)));
+  const so = tail(res.stdout, 12);
+  const se = tail(res.stderr, 8);
+  if (so) out.push('---- stdout 末尾 ----\n' + so);
+  if (se) out.push('---- stderr 末尾 ----\n' + se);
+  const text = out.join('\n');
+  return text.length > 1600 ? text.slice(0, 1600) + '\n…(截断)' : text;
+}
+
 const results = [];
 let failed = 0;
 for (const step of STEPS) {
@@ -50,14 +100,18 @@ for (const step of STEPS) {
     console.log('[SKIP] ' + step.id);
     continue;
   }
+  const stepStartedMs = Date.now();
   const res = spawnSync(step.cmd, step.args, { cwd: ROOT, encoding: 'utf8', timeout: 300000 });
+  const durationMs = Date.now() - stepStartedMs;
   const ok = res.status === 0;
   if (!ok) failed++;
-  results.push({
+  const entry = {
     id: step.id, cmd: step.cmd + ' ' + step.args.join(' '),
-    status: ok ? 'pass' : 'fail', exit_code: res.status
-  });
-  console.log('[' + (ok ? 'PASS' : 'FAIL') + '] ' + step.id);
+    status: ok ? 'pass' : 'fail', exit_code: res.status, duration_ms: durationMs
+  };
+  if (!ok) entry.error = shortError(res);
+  results.push(entry);
+  console.log('[' + (ok ? 'PASS' : 'FAIL') + '] ' + step.id + '（' + durationMs + ' ms）');
   if (!ok) {
     const tail = (res.stdout || '').split('\n').slice(-14).join('\n');
     console.log('---- stdout 末尾 ----\n' + tail);
@@ -65,16 +119,43 @@ for (const step of STEPS) {
   }
 }
 
+const generatedAt = new Date().toISOString();
 const report = {
+  /* 原有字段（读取兼容） */
   gate: 'G2 四件套',
   ok: failed === 0,
   failed_count: failed,
   results,
   node: process.version,
-  generated_at: new Date().toISOString()
+  generated_at: generatedAt,
+  /* T1 代码版本 */
+  code: {
+    commit_sha: COMMIT_SHA,
+    branch: BRANCH,
+    worktree_dirty: WORKTREE_DIRTY,
+    dirty_paths: DIRTY_PATHS
+  },
+  /* T1 运行环境 */
+  environment: {
+    platform: process.platform,
+    arch: process.arch,
+    node: process.version,
+    python: PYTHON_VERSION
+  },
+  /* T1 执行信息 */
+  execution: {
+    command: COMMAND,
+    started_at: STARTED_AT,
+    generated_at: generatedAt,
+    duration_ms: Date.now() - STARTED_MS
+  }
 };
+fs.mkdirSync(path.join(ROOT, 'artifacts'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'artifacts', 'run-g2-report.json'), JSON.stringify(report, null, 2));
 console.log('\n================================================');
+console.log('追溯：commit=' + (COMMIT_SHA || 'n/a').slice(0, 12) + ' branch=' + (BRANCH || 'n/a') +
+  ' dirty=' + WORKTREE_DIRTY + ' node=' + process.version + ' python=' + PYTHON_VERSION +
+  ' 用时 ' + report.execution.duration_ms + ' ms');
 if (failed) {
   console.log('G2 聚合：' + failed + ' 项失败（详见 artifacts/run-g2-report.json）——相应门禁不得声称关闭。');
   process.exit(1);

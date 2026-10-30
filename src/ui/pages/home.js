@@ -225,7 +225,7 @@
       el('div', { class: 'home-hero-eyebrow' }, [
         el('span', { class: 'eyebrow eyebrow--acc' }, 'FaultLab · Virtual Energy Lab'),
         el('span', { class: 'home-hero-eyebrow-sep', 'aria-hidden': 'true' }),
-        el('span', { class: 'eyebrow' }, 'V0.2.0 / 实验首页')
+        el('span', { class: 'eyebrow' }, 'V0.3.0 / 实验首页')
       ]),
       el('h1', { class: 'home-title display' }, [
         '亲手注入故障，',
@@ -951,7 +951,7 @@
       wrap.appendChild(buildRunsSection());
       wrap.appendChild(el('footer', { class: 'home-foot' }, [
         el('div', { class: 'home-foot-main' }, [
-          el('span', { class: 'eyebrow' }, 'FaultLab V0.2.0 · 实验首页'),
+          el('span', { class: 'eyebrow' }, 'FaultLab V0.3.0 · 实验首页'),
           el('span', { class: 'home-foot-text' }, '离线单页应用 · L0 行为级解析模型 · 演示数据（预设值 / 示例），非 Simulink、非实测')
         ]),
         el('span', { class: 'home-foot-meta mono' }, 'run 数据保存在本地浏览器 localStorage')
