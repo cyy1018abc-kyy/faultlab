@@ -28,6 +28,12 @@
       "exit_code": 0
     },
     {
+      "id": "+ plants.test.js（I-11 plant 接口护栏，CHG-20261030-07）",
+      "cmd": "node tests/plants.test.js",
+      "status": "pass",
+      "exit_code": 0
+    },
+    {
       "id": "② e2e.mjs（浏览器 E2E，PHY-08/SA-22）",
       "cmd": "node tools/e2e.mjs",
       "status": "pass",
@@ -112,6 +118,6 @@
       "exit_code": 0
     }
   ],
-  "node": "v26.5.1",
-  "generated_at": "2026-10-29T20:42:30.781Z"
+  "node": "v24.14.0",
+  "generated_at": "2026-10-30T09:21:57.747Z"
 }

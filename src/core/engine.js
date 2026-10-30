@@ -442,7 +442,85 @@
   }
 
   /* ---------------- FL-001 电池储能 ---------------- */
+  /* I-11 S1 移植（CHG-20261030-07，RFC_MODEL_INTERFACE_I11.md §3）：none / sensor_drift 家族走
+     src/core/plants/fl001.js（Plant/Sensor/Controller/Fault 边界，数值子步口径）；actuator_fault
+     为未评审扩展预览家族，保留下方内联数值路径（O-13 归档；FL-001 load_step 已按 O-13 删除）。
+     数值表达式与抽取前逐字一致，移植验收 = plant 家族 run_hash 与 series 逐位不变
+     （快照工具 tools/verify-i11-bitidentity.mjs）。 */
+  function fl001PlantCapable(cfg) {
+    return cfg.fault.family === 'none' || cfg.fault.family === 'sensor_drift';
+  }
+
+  function simulateFL001Plant(system, cfg, t) {
+    var plant = FL.core.plants.createFl001Plant(cfg);
+    var V = plant.V;
+    var load0 = plant.load0;
+    var soc0 = plant.soc0;
+    var I_ref = plant.I_ref;
+    var n = t.length - 1;
+
+    var series = makeSeries(system, n);
+    var I_true = plant.I_ref;
+    var intI = 0;
+    var intB = 0;
+    var intDemand = 0;
+
+    function record(k) {
+      var time = t[k];
+      var b = plant.bAt(time);
+      var demand = load0;
+      var iTrue = I_true;
+      var iMeas = plant.iMeasAt(iTrue, time);
+      var pBat = V * iTrue;
+      var pBatMeas = V * iMeas;
+      var pGen = demand - pBat;
+      series.I_bat_true_A[k] = iTrue;
+      series.I_bat_meas_A[k] = iMeas;
+      series.I_ref_A[k] = I_ref;
+      series.bias_A[k] = b;
+      series.I_bat_cap_A[k] = null;
+      series.P_bat_true_kW[k] = pBat;
+      series.P_bat_meas_kW[k] = pBatMeas;
+      series.P_gen_true_kW[k] = pGen;
+      series.P_gen_meas_kW[k] = pGen;
+      series.P_load_demand_kW[k] = demand;
+      series.P_load_served_kW[k] = demand;
+      series.V_bus_V[k] = 400;
+      series.SOC_true_pct[k] = soc0 - (V * intI) / (CAP_KWH * 3600) * 100;
+      series.SOC_est_pct[k] = soc0 - (V * intI + V * intB) / (CAP_KWH * 3600) * 100;
+      series.r_true_kW[k] = pGen + pBat - demand;
+      series.r_meas_kW[k] = pGen + pBatMeas - demand;
+    }
+
+    record(0);
+    for (var k = 1; k <= n; k++) {
+      for (var j = 0; j < SUB; j++) {
+        var time = (k - 1) * SUB * DT_INT + j * DT_INT;
+        var b = plant.bAt(time);
+        intDemand += load0 * DT_INT;
+        intB += b * DT_INT;
+        var step = plant.stepOf(I_true, time, DT_INT);
+        I_true = step.y;
+        intI += step.integral;
+      }
+      record(k);
+    }
+    var intPbat = V * intI;
+    return {
+      series: series,
+      integrals: {
+        E_load: intDemand,
+        E_source: intDemand - intPbat,
+        E_bat: intPbat,
+        E_bat_meas: intPbat + V * intB,
+        intI: intI,
+        intB: intB
+      }
+    };
+  }
+
   function simulateFL001(system, cfg, t) {
+    if (fl001PlantCapable(cfg)) return simulateFL001Plant(system, cfg, t);
     var n = t.length - 1;
     var dt = cfg.dt_s;
     var V = 0.4;
@@ -524,7 +602,87 @@
   }
 
   /* ---------------- FC-001 燃料电池 ---------------- */
+  /* I-11 S2 移植（CHG-20261030-07，RFC_MODEL_INTERFACE_I11.md §3）：none / sensor_drift 家族走
+     src/core/plants/fc001.js（数值子步口径，与 FC 解析 golden 的比对走既有 verify_golden fc001 层）；
+     load_step / actuator_fault 为暂缓家族，保留下方内联数值路径（RFC §3 S2 验收边界）。
+     数值表达式与抽取前逐字一致，移植验收 = FC Run run_hash 与 series 逐位不变。 */
+  function fc001PlantCapable(cfg) {
+    return cfg.fault.family === 'none' || cfg.fault.family === 'sensor_drift';
+  }
+
+  function simulateFC001Plant(system, cfg, t) {
+    var plant = FL.core.plants.createFc001Plant(cfg);
+    var V = plant.V;
+    var load0 = plant.load0;
+    var soc0 = plant.soc0;
+    var n = t.length - 1;
+
+    var series = makeSeries(system, n);
+    var I_fc = plant.I_fc_ref;
+    var intIfc = 0;
+    var intB = 0;
+    var intDemand = 0;
+
+    function record(k) {
+      var time = t[k];
+      var b = plant.bAt(time);
+      var demand = load0;
+      var iMeas = plant.iMeasAt(I_fc, time);
+      var pFc = V * I_fc;
+      var pFcMeas = V * iMeas;
+      var pBat = demand - pFc;
+      var pBatEst = demand - pFcMeas;
+      series.I_fc_true_A[k] = I_fc;
+      series.I_fc_meas_A[k] = iMeas;
+      series.I_fc_ref_A[k] = plant.I_fc_ref;
+      series.bias_A[k] = b;
+      series.I_fc_cap_A[k] = null;
+      series.P_fc_true_kW[k] = pFc;
+      series.P_fc_meas_kW[k] = pFcMeas;
+      series.I_bat_true_A[k] = pBat / V;
+      series.I_bat_meas_A[k] = pBat / V;
+      series.P_bat_true_kW[k] = pBat;
+      series.P_bat_meas_kW[k] = pBat;
+      series.P_bat_est_kW[k] = pBatEst;
+      series.P_load_demand_kW[k] = demand;
+      series.P_load_served_kW[k] = demand;
+      series.V_bus_V[k] = 400;
+      series.SOC_true_pct[k] = soc0 - (intDemand - V * intIfc) / (CAP_KWH * 3600) * 100;
+      series.SOC_est_pct[k] = soc0 - (intDemand - V * intIfc - V * intB) / (CAP_KWH * 3600) * 100;
+      series.r_true_kW[k] = pFc + pBat - demand;
+      series.r_meas_kW[k] = pFcMeas + pBat - demand;
+      series.valve_cmd_pct[k] = 100;
+      series.valve_meas_pct[k] = 100;
+    }
+
+    record(0);
+    for (var k = 1; k <= n; k++) {
+      for (var j = 0; j < SUB; j++) {
+        var time = (k - 1) * SUB * DT_INT + j * DT_INT;
+        var b = plant.bAt(time);
+        var demand = load0;
+        intDemand += demand * DT_INT;
+        intB += b * DT_INT;
+        var st = plant.stepOf(I_fc, time, DT_INT);
+        I_fc = st.y;
+        intIfc += st.integral;
+      }
+      record(k);
+    }
+    return {
+      series: series,
+      integrals: {
+        E_load: intDemand,
+        E_source: V * intIfc,
+        E_bat: intDemand - V * intIfc,
+        E_bat_est: intDemand - V * (intIfc + intB),
+        intB: intB
+      }
+    };
+  }
+
   function simulateFC001(system, cfg, t) {
+    if (fc001PlantCapable(cfg)) return simulateFC001Plant(system, cfg, t);
     var n = t.length - 1;
     var dt = cfg.dt_s;
     var V = 0.4;

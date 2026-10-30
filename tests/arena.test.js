@@ -25,6 +25,8 @@ const CORE_FILES = [
   'src/core/rng.js',
   'src/core/protocol.js',
   'src/core/systems.js',
+  'src/core/plants/fl001.js',
+  'src/core/plants/fc001.js',
   'src/core/engine.js',
   'src/core/metrics.js',
   'src/core/checks.js',
