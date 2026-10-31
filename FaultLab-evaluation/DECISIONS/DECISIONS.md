@@ -654,3 +654,12 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   ② **V0.5.0 规划**：`NEXT/V05_RELEASE_PLAN.md` v1——FC-001 首次正式展示（F-1…3）/ L1 可行性 RFC
   （L-1，Q-4 守卫下）/ 评测轨深化（S-1…3）/ FMU 路线推进（M-1/M-2）/ GT UI 收尾（T-1/T-2）。
   批准人：用户；记录人：实现 Agent。
+
+- `CHG-20261031-04`：**v0.5.0 发布（G8 关闭）**。用户 2026-10-31 指令（全队列执行）。
+  交付：T-1/T-2 GT-001 UI 正式化收尾（level=L0b 已批 + inspector 走查 ✓）、F-1…F-3 FC-001
+  首次正式展示（scope=approved_fc、compare/export round-trip）、S-1 多场次并行（--sessions N）、
+  S-2 评测轨接入指南（EVAL_TRACK_GUIDE.md）、S-3 rank 排序（scoreV2 avg_score 内建）、
+  L-1 L1 可行性 RFC（GT 非线性首选 M / PyBaMM 需 G2b XL / 热模型需 G2b XL）、
+  M-1/M-2 FMU 路线状态声明（D-27/D-28：准入层已交付，ctypes doStep 待样本）。验证：
+  **run-g2 24/24**（duration 17673 ms）、copy-guard 33 模式 0、全测试套件 16 文件全绿。
+  发布证据 `evidence/g8/v050-release.md`。批准人：用户（全队列执行指令）；记录人：实现 Agent。

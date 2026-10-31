@@ -1,6 +1,6 @@
 {
   "gate": "G2 四件套",
-  "duration_ms": 14581,
+  "duration_ms": 17673,
   "ok": true,
   "failed_count": 0,
   "results": [
@@ -9,182 +9,181 @@
       "cmd": "python scripts/verify_golden.py",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 532
+      "duration_ms": 722
     },
     {
       "id": "① verify_golden fc001（P1-06 / G2b-lite）",
       "cmd": "python scripts/verify_golden.py fc001",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 537
+      "duration_ms": 769
     },
     {
       "id": "① verify_golden gt001（V3-31 / G2b v1.1）",
       "cmd": "python scripts/verify_golden.py gt001",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 407
+      "duration_ms": 538
     },
     {
       "id": "① engine.test.js（FL-001 601 点对 golden + PHY/SA）",
       "cmd": "node tests/engine.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 129
+      "duration_ms": 159
     },
     {
       "id": "① engine-fc.test.js（FC-001 601 点对 golden，P1-06）",
       "cmd": "node tests/engine-fc.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 133
+      "duration_ms": 157
     },
     {
       "id": "+ plants.test.js（I-11 plant 接口护栏，CHG-20261030-07）",
       "cmd": "node tests/plants.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 125
+      "duration_ms": 166
     },
     {
       "id": "② e2e.mjs（浏览器 E2E，PHY-08/SA-22）",
       "cmd": "node tools/e2e.mjs",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 7751
+      "duration_ms": 8239
     },
     {
       "id": "V3-03 perf.mjs（E2E 主旅程时长阈值，F-5 收尾）",
       "cmd": "node tools/perf.mjs",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 91
+      "duration_ms": 121
     },
     {
       "id": "③ registry.test.js（RunRegistry/规范哈希/不可变）",
       "cmd": "node tests/registry.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 201
+      "duration_ms": 224
     },
     {
       "id": "④ schema.test.js（Schema/单位字典/exposure/投影）",
       "cmd": "node tests/schema.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 134
+      "duration_ms": 169
     },
     {
       "id": "④ bundle.test.js（EvidenceBundle v1 + N-1…N-10 负例）",
       "cmd": "node tests/bundle.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 481
+      "duration_ms": 681
     },
     {
       "id": "+ event-phase.test.js（事件相位 G0-DEC-05）",
       "cmd": "node tests/event-phase.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 148
+      "duration_ms": 205
     },
     {
       "id": "G4 scope-guard.test.js（SA-24 范围守卫）",
       "cmd": "node tests/scope-guard.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 168
+      "duration_ms": 248
     },
     {
       "id": "G4 compare.test.js（对比白名单 T-15）",
       "cmd": "node tests/compare.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 129
+      "duration_ms": 177
     },
     {
       "id": "G4 causal-rules.test.js（因果规则/证据链/教学卡）",
       "cmd": "node tests/causal-rules.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 115
+      "duration_ms": 174
     },
     {
       "id": "G4 copy-guard.mjs（禁止词扫描 §6.3）",
       "cmd": "node tools/copy-guard.mjs",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 210
+      "duration_ms": 301
     },
     {
       "id": "P1 report.test.js（HTML 报告验收）",
       "cmd": "node tests/report.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 139
+      "duration_ms": 220
     },
     {
       "id": "G6 arena-protocol-negative.test.js（盲评测协议 v2 + N-B1…B17 负例 + MVP smoke + QP-4 假候选率）",
       "cmd": "node tests/arena-protocol-negative.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 363
+      "duration_ms": 538
     },
     {
       "id": "FL-19 backend-admission.test.js（B-1/B-5 vs golden + 准入机检 G-1/G-2）",
       "cmd": "node tests/backend-admission.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 1547
+      "duration_ms": 2202
     },
     {
       "id": "V3-33 engine-gt.test.js（GT-001 引擎 ↔ golden ±1e-9 + GT PHY 检查）",
       "cmd": "node tests/engine-gt.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 224
+      "duration_ms": 313
     },
     {
       "id": "FL-19 backend-bridge.test.js（后端对照 HTTP 桥安全边界+端点）",
       "cmd": "node tests/backend-bridge.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 362
+      "duration_ms": 420
     },
     {
       "id": "V3-34 fmu-admission（Q-5：model_manifest 强制 + zip 结构 + 拒绝路径）",
       "cmd": "python tools/backend/py/fmu_admission.py --self-check",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 85
+      "duration_ms": 139
     },
     {
       "id": "+ core.test.js（既有回归，适配新语义）",
       "cmd": "node tests/core.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 202
+      "duration_ms": 303
     },
     {
       "id": "+ arena.test.js（既有回归）",
       "cmd": "node tests/arena.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 364
+      "duration_ms": 483
     }
   ],
   "node": "v26.5.1",
-  "generated_at": "2026-10-31T07:21:58.978Z",
+  "generated_at": "2026-10-31T09:29:59.554Z",
   "code": {
-    "commit_sha": "25cd76a1a41158b21f449dca4c52c44e82bc1140",
+    "commit_sha": "96267b36a5ca9bee0ea43d5218a5027080018a9a",
     "branch": "main",
     "worktree_dirty": true,
     "dirty_paths": [
-      "M FaultLab-evaluation/DECISIONS/DECISIONS.md",
-      " M src/core/scope.js",
-      " M src/core/systems.js",
-      " M tests/engine-fc.test.js",
-      " M tests/scope-guard.test.js"
+      "M README.md",
+      " M index.html",
+      " M src/ui/shell.js",
+      " M tools/arena2-session.mjs"
     ]
   },
   "environment": {
@@ -195,8 +194,8 @@
   },
   "execution": {
     "command": "node tools/run-g2.mjs",
-    "started_at": "2026-10-31T07:21:44.232Z",
-    "generated_at": "2026-10-31T07:21:58.978Z",
-    "duration_ms": 14746
+    "started_at": "2026-10-31T09:29:41.673Z",
+    "generated_at": "2026-10-31T09:29:59.554Z",
+    "duration_ms": 17881
   }
 }

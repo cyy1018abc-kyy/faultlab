@@ -1,4 +1,4 @@
-# FaultLab — Virtual Energy Lab · v0.4.0
+# FaultLab — Virtual Energy Lab · v0.5.0
 
 > 亲手制造故障，观察系统反应。离线可运行的能源系统故障注入与传播解释实验场。
 >
