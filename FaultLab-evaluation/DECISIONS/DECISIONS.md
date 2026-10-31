@@ -663,3 +663,12 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   M-1/M-2 FMU 路线状态声明（D-27/D-28：准入层已交付，ctypes doStep 待样本）。验证：
   **run-g2 24/24**（duration 17673 ms）、copy-guard 33 模式 0、全测试套件 16 文件全绿。
   发布证据 `evidence/g8/v050-release.md`。批准人：用户（全队列执行指令）；记录人：实现 Agent。
+
+- `CHG-20261031-05`：**FC 扩展故障族 G2b 规格草案（FCEXT_G2B_SPEC_DRAFT v1）+ I_fc_ref 歧义定案**。
+  用户 2026-10-31 指令「V0.3 规划的 V3-04 后续」。交付 `NEXT/FCEXT_G2B_SPEC_DRAFT.md` v1：
+  load_step（I_fc_ref 自适应定案 = (P_load−10)/0.4，锚点 I_fc(60)=75.00/P_bat(60)=10.00/
+  max|P_bat|=20.00 在包络内；τ_fc=1.2s 一阶跟随物理自洽——FC 电池是理想平衡源，与 FL-001
+  矛盾不同源）+ actuator_fault 55%（I_fc(60)=27.50/P_bat(60)=19.00/max=19.00 在 ±25 kW 内；
+  抗饱和=钳位式需 assumption 登记）+ golden 扩展轮（fc001_v1 增 Run ≥4）+ UI 正式化（FC scope
+  已 approved_fc）+ 风险（I_fc_ref 歧义已定案/电池限幅不适用/因果模板引用安全）。
+  **FC 扩展 G2b 关闭待双路独立评审 + 用户批准**。批准人：用户（V3-04 后续指令）；记录人：实现 Agent。
