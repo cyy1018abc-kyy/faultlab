@@ -45,8 +45,8 @@ eq(scope.classify(mk({ initial: { load_kW: 35, SOC_pct: 60 } })), 'extension_pre
 eq(scope.classify(mk({ initial: { load_kW: 30, SOC_pct: 60 }, noise: { enabled: true, seed: 1, level: 0.5 } })),
   'extension_preview', '开启噪声超白名单（P0 noise=null）');
 eq(scope.classify(Object.assign({}, cfgFault, { duration_s: 30, dt_s: 0.1 })), 'extension_preview', '改 duration 超白名单');
-eq(scope.classify({ systemId: 'FC-001', modelId: 'fc.pem.l0', modelVersion: '1.0.0', duration_s: 60, dt_s: 0.1, feedback_mode: 'closed_loop', fault: { family: 'sensor_drift', faultId: 'I_fc_sensor_bias', t_start_s: 20, params: { magnitude: 10 } }, initial: { load_kW: 30, SOC_pct: 60 }, noise: { enabled: false, seed: 12345, level: 0 } }),
-  'extension_preview', 'FC-001 整体为扩展预览（P1 条件项）');
+eq(scope.classify({ systemId: 'FC-001', modelId: 'fc.pem.l0', modelVersion: '1.1.0', duration_s: 60, dt_s: 0.1, feedback_mode: 'closed_loop', fault: { family: 'sensor_drift', faultId: 'I_fc_sensor_bias', t_start_s: 20, params: { magnitude: 10 } }, initial: { load_kW: 30, SOC_pct: 60 }, noise: { enabled: false, seed: 12345, level: 0 } }),
+  'approved_fc', 'FC-001 scope=approved_fc（V3-04 升正式，SA-24 白名单仍不含 FC-001）');
 eq(scope.classify({ systemId: 'GT-001', modelId: 'gt.sync.l0', modelVersion: '1.0.0', duration_s: 60, dt_s: 0.1, feedback_mode: 'closed_loop', fault: { family: 'sensor_drift', faultId: 'speed_sensor_bias', t_start_s: 20, params: { magnitude: 0.3 } }, initial: { load_kW: 30, SOC_pct: 60 }, noise: { enabled: false, seed: 12345, level: 0 } }),
   'extension_preview', 'GT-001 整体为扩展预览（G2b 规格已批准，实现待开工 V3-31/33）');
 eq(scope.classify(null), 'extension_preview', '空配置 extension_preview');

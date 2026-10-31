@@ -31,7 +31,8 @@
 >   这是**内部一致性与可复核性证据**；G2/G3 门禁关闭裁决仍以 Lead/用户对证据包的复核为准。
 > - **FC-001 / GT-001 / load_step / actuator_fault / Agent Arena 为扩展预览（P1/P2）**，携带
 >   `scope='extension_preview'` 标注，不进入 P0 验收；**GT-001 已按 G2b 批准规格实现（f_channel_diff 通道差改造 + gt001_v1 golden 六 Run ±1e-9 +
-  engine-gt 90/90 + 清除恢复锚点 §9 定案）；仍为扩展预览，不进入 P0 验收**
+  engine-gt 90/90 + 清除恢复锚点 §9 定案）；仍为扩展预览，不进入 P0 验收**；**FC-001 已升正式验收
+  （V3-04，model_version=1.1.0，scope=approved_fc）**
 >   （`FaultLab-evaluation/NEXT/SCOPE_SPLIT_MEMO.md`）。
 > - 旧原型自检的测试 PASS 数字已从本 README 移出（不得作为验收证据引用）；历史记录见
 >   `artifacts/QA_REPORT.md` 与 git 历史。

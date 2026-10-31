@@ -27,10 +27,20 @@
     return typeof a === 'number' && isFinite(a) && Math.abs(a - b) <= (tol || 1e-9);
   }
 
-  /* classify(config) -> 'approved_p0' | 'extension_preview'
-     config 为实现配置（systemId/fault/initial/noise...）或已 ScenarioConfig 化对象均可。 */
+  /* classify(config) -> 'approved_p0' | 'approved_fc' | 'extension_preview'
+     config 为实现配置（systemId/fault/initial/noise...）或已 ScenarioConfig 化对象均可。
+     FC-001 approved_fc（V3-04 / CHG-20261030-12）：G2b-lite 闭环 + 升正式；
+     SA-24 白名单仍不含 FC-001（不进入 P0 验收路径，验收口径独立成表）。 */
   function classify(config) {
     if (!config || typeof config !== 'object') return 'extension_preview';
+    if (config.systemId === 'FC-001' && config.modelId === 'fc.pem.l0'
+      && config.modelVersion === '1.1.0'
+      && config.duration_s === 60 && config.dt_s === 0.1
+      && config.fault && (config.fault.family === 'none' || config.fault.family === 'sensor_drift')
+      && config.initial && config.initial.load_kW === 30 && config.initial.SOC_pct === 60
+      && !(config.noise && (config.noise.enabled === true || (config.noise.seed != null && config.noise.level > 0)))) {
+      return 'approved_fc';
+    }
     var systemId = config.systemId || null;
     var modelId = config.modelId || config.model_id || null;
     var family = config.fault && config.fault.family ? config.fault.family

@@ -489,7 +489,7 @@
     ],
     model: {
       model_id: 'fc.pem.l0',
-      model_version: '1.0.0',
+      model_version: '1.1.0',
       assumptions: [
         { id: 'A-ideal-bus', text: '直流母线 400 V 理想，无母线动态与压降。' },
         { id: 'A-const-v', text: '电堆与电池均按 0.4 kV 等效恒压处理：P_kW = 0.4 × I_A。' },

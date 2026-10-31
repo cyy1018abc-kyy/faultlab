@@ -620,3 +620,14 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
 3. 所有"已验证/已通过"表述均不适用于物理模型有效性；物理验收口径见 `NEXT/MODEL_VALIDATION_SPEC.md`。
 
 **文件结束**。批准版生成于 2026-10-27T20:35+08:00，基线哈希见 `SPEC_v0.2_APPROVED.md`。
+
+- `CHG-20261030-12`：**V3-04 FC-001 升正式验收（O-09 已裁定升）**。用户 2026-10-31 指令「V0.3 规划中的 V3-04」。
+  ① `model_version` 由 `fc.pem.l0/1.0.0` 升版至 **`fc.pem.l0/1.1.0`**（正式验收身份，minor 升版：
+  修复清单闭环 + 假设增补 + UI 标注均已在 G2b-lite/增量一闭环，无新物理）。② golden 重建：
+  `data/golden/fc001_v1.json` 由 oracle `--emit` 重出（`method_version` 升 `analytic_flux.2`，
+  model_version 同步 1.1.0；approval 三字段重签）。③ UI scope 标签由 `extension_preview` 升
+  **`approved_fc`**（SA-24 白名单**仍不含 FC-001**——其验收口径独立成表，engine-gt 式逐点对 golden）；
+  对比白名单维持仅 FL-001。④ `store.addBackendRun` 的 scope 逻辑不变（backend Run 强制
+  extension_preview 与本条无交集——FC-001 是 JS 引擎内实现，非后端适配器）。⑤ 验证：
+  `tests/engine-fc.test.js` 对新 golden 全绿（109 断言）、`verify_golden.py fc001` exit 0、
+  `run-g2.mjs` 24/24 不回退。⑥ 入库随批提交推送。批准人：用户（V3-04 开工指令）；记录人：实现 Agent。

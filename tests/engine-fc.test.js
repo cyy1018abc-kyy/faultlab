@@ -109,7 +109,7 @@ close(m(base, 'SOC_err_pp').value, 0, 1e-9, 'FC 基准 SOC_err=0（电池传感�
 close(m(cl, 'E_source_kWh').value + m(cl, 'E_bat_kWh').value, 0.5, 1e-9, 'FC E_fc+E_bat=0.5 kWh（定义恒等）');
 
 /* 7. 范围守卫：FC-001 为 extension_preview（不进入 P0 验收） */
-eq(FL.scope.classify(RUNS.closed_loop_fault), 'extension_preview', 'FC-001 scope=extension_preview（P1 条件项，G2b-lite 口径）');
+eq(FL.scope.classify(RUNS.closed_loop_fault), 'approved_fc', 'FC-001 scope=approved_fc（V3-04 升正式，CHG-20261030-12）');
 
 /* 8. golden 身份与批准 */
 eq(golden.golden_id, 'fc001_v1', 'golden_id=fc001_v1');
