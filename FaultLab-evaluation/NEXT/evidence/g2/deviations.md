@@ -14,3 +14,5 @@
 | D-7 | QualityChecks 同时携带契约字段（observed/expected/tolerance/reason/owner）与 UI 别名（label/computed_value/message） | §2.7 契约字段集 | 导出（checks.json）经 `FL.contract.toContractCheck` 投影为纯契约字段面；内存别名仅为零破坏 UI | 低 |
 | D-8 | E2E 刷新恢复语义：整页刷新恢复 Run/页面，游标复位；跨页游标保持由 SPA hash 路由承载 | BACKLOG P0a-06 DoD "共享游标/选中/Run 跨页状态" | E2E 分别断言两条路径（深链刷新保 Run；SPA 导航保游标） | 无 |
 | D-9 | 本轮未创建 GitHub Issue（计划文档 §5 的 I-01…I-16 为建议编号） | 计划文档 §10.5 | 以本证据包 + commit 记录代替 Issue 看板；编号映射见 evidence README | 流程层面 |
+
+| D-26 | copy-guard 增四禁词（机组动态验证/电网稳定验证/一次调频验证/惯量验证）+ ALLOW「非机组/电网动态验证」否定语境（GT-001 tagline，G2b v1.1 条件 7） | GT UI 正式化（D-23 收尾）；33 模式 0 命中复核于 CHG-20261030-10 |

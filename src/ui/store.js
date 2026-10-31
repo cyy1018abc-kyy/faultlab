@@ -506,6 +506,33 @@
       return { ok: true, run };
     },
 
+    /* 后端对照运行入库（FL-19 增量三；V312 §6 断言已由 createFromParts 保证
+       scope=extension_preview / manifest.backend）。不覆盖现有 Run。 */
+    addBackendRun(run) {
+      if (!run || !run.manifest || !run.manifest.backend) {
+        actions.toast('仅接受由后端组装层产出的运行（manifest.backend）', 'danger');
+        return { ok: false };
+      }
+      let id = run.runId || 'RUN-BACKEND';
+      while (state.runs[id]) {
+        id = id + '-B' + String(Object.keys(state.runs).length + 1);
+      }
+      if (id !== run.runId) {
+        const patched = JSON.parse(JSON.stringify(run));
+        patched.runId = id;
+        const m = Object.assign({}, patched.manifest, { run_id: id });
+        patched.manifest = m;
+        run = FL.registry.deepFreeze(patched);
+      }
+      state.runs[id] = run;
+      setActiveRun(run, { keepTime: false });
+      pruneRuns();
+      persist();
+      actions.toast('后端对照运行已入库（' + (run.manifest.backend.id) + ' · scope=extension_preview）', 'ok');
+      notify('run');
+      return { ok: true, run };
+    },
+
     navigate(pageId) {
       if (state.truthSealed && ['signals', 'causal', 'compare'].indexOf(pageId) >= 0) {
         actions.toast('盲测进行中：真值相关页面已封存，比赛结束后解锁', 'warn');

@@ -75,6 +75,7 @@ const STEPS = [
   { id: 'G6 arena-protocol-negative.test.js（盲评测协议 v2 + N-B1…B17 负例 + MVP smoke + QP-4 假候选率）', cmd: 'node', args: ['tests/arena-protocol-negative.test.js'] },
   { id: 'FL-19 backend-admission.test.js（B-1/B-5 vs golden + 准入机检 G-1/G-2）', cmd: 'node', args: ['tests/backend-admission.test.js'] },
   { id: 'V3-33 engine-gt.test.js（GT-001 引擎 ↔ golden ±1e-9 + GT PHY 检查）', cmd: 'node', args: ['tests/engine-gt.test.js'] },
+  { id: 'FL-19 backend-bridge.test.js（后端对照 HTTP 桥安全边界+端点）', cmd: 'node', args: ['tests/backend-bridge.test.js'] },
   { id: '+ core.test.js（既有回归，适配新语义）', cmd: 'node', args: ['tests/core.test.js'] },
   { id: '+ arena.test.js（既有回归）', cmd: 'node', args: ['tests/arena.test.js'] }
 ];

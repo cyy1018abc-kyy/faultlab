@@ -54,7 +54,7 @@
       h('span', { class: 'brand-mark' }, [ui.icon('pulse', { size: 22 })]),
       h('span', { class: 'brand-text' }, [
         h('span', { class: 'brand-name' }, ['FAULT', h('em', {}, 'LAB')]),
-        h('span', { class: 'brand-sub' }, ['Virtual Energy Lab · V0.3.0'])
+        h('span', { class: 'brand-sub' }, ['Virtual Energy Lab · V0.3.1'])
       ])
     ]);
 
@@ -530,12 +530,12 @@
       h('hr', { class: 'hr' }),
       h('div', { class: 'eyebrow mb-8' }, '数据可信度'),
       h('p', { class: 'muted' },
-        'FaultLab V0.3.0 是离线可运行的行为级（L0）解析模型演示：FL-001 的数值由规格中的解析式精确生成，' +
+        'FaultLab V0.3.1 是离线可运行的行为级（L0）解析模型演示：FL-001 的数值由规格中的解析式精确生成，' +
         '非 Simulink、非现场数据、非实测。所有数字都带来源标签（配置 / 模型状态 / 观测 / 控制器 / 故障事件 / 派生 / 模型假设），' +
         '说明文本不作为计算数据源。观测残差（如 +4 kW）是测量一致性残差，不是能量损失。'),
       h('hr', { class: 'hr' }),
       h('div', { class: 'eyebrow mb-8' }, '版本'),
-      h('p', { class: 'muted' }, 'FaultLab V0.3.0 / FL-001 · 基准日期 2026-10-27 · 离线单页应用 · 模型层级 L0')
+      h('p', { class: 'muted' }, 'FaultLab V0.3.1 / FL-001 · 基准日期 2026-10-27 · 离线单页应用 · 模型层级 L0')
     ]);
     ui.modal({ title: '帮助与快捷键', subtitle: 'FaultLab — Virtual Energy Lab', content, wide: false });
   }

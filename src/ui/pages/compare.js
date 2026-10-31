@@ -175,7 +175,8 @@
       metrics: el('section', { class: 'cp-metrics-section' }),
       view: el('section', { class: 'cp-view-section' }),
       findings: el('section', { class: 'cp-findings-section' }),
-      export: el('section', { class: 'cp-export-section' })
+      export: el('section', { class: 'cp-export-section' }),
+      backend: el('section', { class: 'cp-backend-section' })
     };
     wrap.appendChild(refs.head);
     wrap.appendChild(refs.notices);
@@ -184,6 +185,7 @@
     wrap.appendChild(refs.view);
     wrap.appendChild(refs.findings);
     wrap.appendChild(refs.export);
+    wrap.appendChild(refs.backend);
     root.appendChild(wrap);
   }
 
@@ -1328,6 +1330,84 @@
     }, 140);
   }
 
+  /* ------------------------------------------- 后端对照面板（FL-19 增量三）
+     扩展预览·未评审：经本机回环桥生成同一场景的后端对照运行（scope=extension_preview，
+     不进入 P0 验收）。安全边界见 tools/backend/py/bridge.py（回环 + Origin 白名单 +
+     Sec-Fetch-Site + 令牌）。页面不生成数值：数值来自后端 produce，组装走
+     FL.core.createFromParts，golden 由页面只读注入。 */
+  let goldenCache = null;
+
+  function fetchGolden() {
+    if (goldenCache) return Promise.resolve(goldenCache);
+    return fetch('data/golden/fl001_v1.json').then((r) => r.json()).then((g) => {
+      goldenCache = g;
+      return g;
+    });
+  }
+
+  function buildBackendPanel(host) {
+    const details = el('details', { class: 'cp-backend-panel' });
+    details.appendChild(el('summary', {}, [
+      '后端对照（扩展预览·未评审）——同一场景交由本机数值后端重算'
+    ]));
+    const row = el('div', { class: 'cp-backend-row' });
+    const bridgeInput = el('input', { class: 'cp-backend-input', value: 'http://127.0.0.1:8765',
+      'aria-label': '桥地址' });
+    const tokenInput = el('input', { type: 'password', class: 'cp-backend-input',
+      'aria-label': '桥接令牌', placeholder: '桥接令牌（见 out/backend-bridge.json）' });
+    const backendSel = el('select', { class: 'cp-backend-input', 'aria-label': '后端选择' });
+    [['py-analytic-fl001', 'B-1 Python 解析（analytic 交叉层）'],
+     ['py-rk4-fl001', 'B-5 Python RK4（声明档）']].forEach(([v, t]) => {
+      backendSel.appendChild(el('option', { value: v }, t));
+    });
+    const btn = el('button', { class: 'cp-backend-btn', type: 'button' }, '用当前运行场景生成后端对照运行');
+    const msg = el('div', { class: 'cp-backend-msg muted' }, '需要本机桥：python tools/backend/py/bridge.py');
+    row.appendChild(bridgeInput);
+    row.appendChild(tokenInput);
+    row.appendChild(backendSel);
+    row.appendChild(btn);
+    details.appendChild(row);
+    details.appendChild(msg);
+    host.appendChild(details);
+
+    btn.addEventListener('click', () => {
+      const state = apiRef.getState();
+      const src = state.activeRun || null;
+      if (!src) { msg.textContent = '当前无运行场景可对照。'; return; }
+      btn.disabled = true;
+      msg.textContent = '正在请求本机桥…';
+      fetch(bridgeInput.value.replace(/\/$/, '') + '/capabilities', { headers: { 'X-Bridge-Token': tokenInput.value } })
+        .then((r) => { if (!r.ok) throw new Error('桥不可用或令牌不匹配（HTTP ' + r.status + '）'); return r.json(); })
+        .then(() => fetch(bridgeInput.value.replace(/\/$/, '') + '/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Bridge-Token': tokenInput.value },
+          body: JSON.stringify({ backendId: backendSel.value, config: src.config })
+        }))
+        .then((r) => { if (!r.ok) throw new Error('simulate 失败（HTTP ' + r.status + '）'); return r.json(); })
+        .then((out) => {
+          if (!out.ok) throw new Error(out.error || 'produce 失败');
+          return fetchGolden().then((g) => ({ out, g }));
+        })
+        .then(({ out, g }) => {
+          const produced = out.result;
+          const backend = { id: produced.backend.id, version: produced.backend.version,
+            method_id: produced.backend.method_id,
+            tolerance_profile_id: produced.backend.tolerance_profile_id,
+            provenance: produced.backend.provenance };
+          const run = FL.core.createFromParts({ config: src.config, produced, backend, golden: g });
+          const res = act('addBackendRun', run);
+          if (!res || !res.ok) throw new Error('入库被拒绝');
+          msg.textContent = '已生成后端对照运行 ' + run.runId + '（' + backend.id +
+            ' · scope=extension_preview），已加入运行列表与对比选择。';
+          btn.disabled = false;
+        })
+        .catch((e) => {
+          msg.textContent = '失败：' + (e && e.message ? e.message : e);
+          btn.disabled = false;
+        });
+    });
+  }
+
   /* ------------------------------------------------------------- page def */
   pages['compare'] = {
     id: 'compare',
@@ -1339,6 +1419,7 @@
       UI = api.ui;
       FMT = api.fmt;
       buildSkeleton(root);
+      buildBackendPanel(refs.backend);
       window.addEventListener('resize', onResize);
     },
     update(state, reason) {
