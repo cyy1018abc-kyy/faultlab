@@ -1,0 +1,78 @@
+{
+  "schema": "faultlab.arena.score.v2",
+  "bundle_kind": "arena_blind",
+  "testset_id": "arena2-FL001-6-21edd85f",
+  "match_id": "a916420e-bcda-4872-8c7c-6dfd53968005",
+  "scoring_rules": "v2",
+  "notice": "合成故障评测游戏，非真实诊断性能",
+  "rounds": [
+    {
+      "index": 1,
+      "detection": "0.0000",
+      "family": "0.0000",
+      "component": "0.0000",
+      "magnitude": "0.0000",
+      "latency": "0.0000",
+      "calibration": "0.1317",
+      "falseAlarm": 0,
+      "round_score": "2.0"
+    },
+    {
+      "index": 2,
+      "detection": "1.0000",
+      "family": "1.0000",
+      "component": "1.0000",
+      "magnitude": "0.0000",
+      "latency": "1.0000",
+      "calibration": "0.9900",
+      "falseAlarm": 0,
+      "round_score": "84.9"
+    },
+    {
+      "index": 3,
+      "detection": "0.0000",
+      "family": "0.0000",
+      "component": "0.0000",
+      "magnitude": "0.0000",
+      "latency": "0.0000",
+      "calibration": "0.1321",
+      "falseAlarm": 0,
+      "round_score": "2.0"
+    },
+    {
+      "index": 4,
+      "detection": "1.0000",
+      "family": "1.0000",
+      "component": "1.0000",
+      "magnitude": "1.0000",
+      "latency": "1.0000",
+      "calibration": "0.9951",
+      "falseAlarm": 0,
+      "round_score": "99.9"
+    },
+    {
+      "index": 5,
+      "detection": "0.0000",
+      "family": "0.0000",
+      "component": "0.0000",
+      "magnitude": "0.0000",
+      "latency": "0.0000",
+      "calibration": "0.1370",
+      "falseAlarm": 0,
+      "round_score": "2.1"
+    },
+    {
+      "index": 6,
+      "detection": "1.0000",
+      "family": "1.0000",
+      "component": "1.0000",
+      "magnitude": "0.0000",
+      "latency": "1.0000",
+      "calibration": "0.9900",
+      "falseAlarm": 0,
+      "round_score": "84.9"
+    }
+  ],
+  "avg_score": 46,
+  "score_hash": "c92306fa9ce8fbf468ba1e37502eab52cda097f3fa20fd847a5342b8e25b2b13"
+}

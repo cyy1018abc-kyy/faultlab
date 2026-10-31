@@ -62,6 +62,9 @@ RUNS = [
      "family": "load_step", "faulted": True, "magnitude": 10.0, "unit": "kW"},
     {"key": "actuator_fault", "role": "fault", "feedback_mode": "closed_loop",
      "family": "actuator_fault", "faulted": True, "magnitude": 50.0, "unit": "%"},
+    {"key": "actuator_clear", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "actuator_fault", "faulted": True, "magnitude": 50.0, "unit": "%",
+     "t_clear_s": 35.0},
 ]
 
 
@@ -102,6 +105,7 @@ def simulate_run(spec):
     is_load = family == "load_step"
     is_act = family == "actuator_fault"
     p_gen_cap = 40.0 * magnitude / 100.0 if is_act else None
+    t_clear = spec.get("t_clear_s") if is_act else None
 
     def b_at(time):
         return magnitude if (is_sensor and t_start is not None and time >= t_start - 1e-9) else 0.0
@@ -148,8 +152,9 @@ def simulate_run(spec):
         series["r_true_kW"][k] = p_gen + p_bat - demand - p_rotor
         series["f_channel_diff_Hz"][k] = series["n_meas_rpm"][k] / 60.0 - series["f_meas_Hz"][k]
         series["valve_cmd_pct"][k] = js_clamp(p_gen_cmd / 40.0 * 100.0, 0.0, 100.0)
-        series["valve_meas_pct"][k] = magnitude if (is_act and time >= t_start - 1e-9) else series["valve_cmd_pct"][k]
-        series["P_gen_cap_kW"][k] = p_gen_cap if (is_act and time >= t_start - 1e-9) else None
+        capped = is_act and time >= t_start - 1e-9 and not (t_clear is not None and time >= t_clear - 1e-9)
+        series["valve_meas_pct"][k] = magnitude if capped else series["valve_cmd_pct"][k]
+        series["P_gen_cap_kW"][k] = p_gen_cap if capped else None
 
     record(0)
     for k in range(1, n + 1):
@@ -165,7 +170,9 @@ def simulate_run(spec):
             y, _ = fo_step(p_gen, cmd_next, TAU_G, DT_INT)
             gen_before = p_gen
             p_gen = y
-            if is_act and t_start is not None and time >= t_start - 1e-9:
+            cap_active = is_act and t_start is not None and time >= t_start - 1e-9 and not (
+                t_clear is not None and time >= t_clear - 1e-9)
+            if cap_active:
                 p_gen = min(p_gen, p_gen_cap)
 
             f += residual / KJ * DT_INT
@@ -250,6 +257,35 @@ def simulate_run(spec):
                  "variables": vars_at(i_post), "units": units, "fault_id": spec.get("fault_id")},
             ],
         })
+        if spec.get("t_clear_s"):
+            tc = spec["t_clear_s"]
+            i_tc = int(round(tc / DT_S))
+
+            def vars_tc(idx):
+                return {
+                    "f_true_Hz": series["f_true_Hz"][idx],
+                    "f_meas_Hz": series["f_meas_Hz"][idx],
+                    "n_meas_rpm": series["n_meas_rpm"][idx],
+                    "f_channel_diff_Hz": series["f_channel_diff_Hz"][idx],
+                    "P_gen_true_kW": series["P_gen_true_kW"][idx],
+                }
+
+            events.append({
+                "event_id": "EV-002",
+                "event_type": "actuator_clear",
+                "trigger_s": tc,
+                "target_signal": "P_gen_cap_kW",
+                "magnitude": 0.0,
+                "unit": "kW",
+                "snapshots": [
+                    {"snapshot_id": "EV-002-pre", "event_id": "EV-001", "phase": "pre",
+                     "t_s": tc, "derivation": "left_limit",
+                     "variables": vars_tc(i_tc - 1), "units": units, "fault_id": None},
+                    {"snapshot_id": "EV-002-post", "event_id": "EV-001", "phase": "post",
+                     "t_s": tc, "derivation": "post_sample",
+                     "variables": vars_tc(i_tc), "units": units, "fault_id": None},
+                ],
+            })
 
     return {"series": series, "integrals": integrals, "metrics": metrics,
             "scalars": scalars, "events": events}
@@ -307,6 +343,21 @@ def self_check():
     rec("GS-5-anchors", ok5,
         "nadir=%.4f f60_load=%.4f f60_sensor=%.4f" % (nadir, f60_load, f_end),
         "±0.01/±0.01/±0.005 Hz", "load_step nadir −0.4105@21.1 s、f(60)=49.992、sensor_drift 49.7055")
+
+    # GS-7 清除恢复（G2b v1.1 §9 扩展轮）：t_clear=35 后钳位释放——
+    #   如实测得指令 wound-up → P_gen 过冲 → 频率上摆；恢复锚点由本 oracle 实测后冻结进规格 §9 追记。
+    fresh_clr = simulate_run(RUNS[5])
+    f_arr_c = fresh_clr["series"]["f_true_Hz"][int(round(35.0 / DT_S)):]
+    overshoot = max(f_arr_c) - 50.0
+    t_back05 = None
+    for idx, fv in enumerate(f_arr_c):
+        if abs(fv - 50.0) <= 0.05:
+            t_back05 = 35.0 + idx * DT_S
+            break
+    ok7 = overshoot > 0.05 and t_back05 is not None
+    rec("GS-7-clear-recovery", ok7,
+        "过冲 +%.3f Hz，回 |Δf|≤0.05 @ %.1f s" % (overshoot, t_back05 if t_back05 else -1),
+        "过冲 >0.05 Hz 且可恢复", "钳位式抗饱和的清除瞬态（方案 a 如实声明）")
 
     # GS-6 健康局：f ≡ 50、通道差 ≡ 0、r_true ≡ 0
     fresh_h = simulate_run(RUNS[0])

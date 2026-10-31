@@ -598,6 +598,21 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   （`evidence/g7/v03-closeout.md`）。CONTRACT §5.3 头注更新为 G2b 批准状态（实现完成前仍扩展预览）。
   ⑥ 入库随批提交推送。**V0.3 剩余待批**：FL-19 增量三（HTTP 桥+UI 入口）、GT UI 正式化增补
   （W-11+四禁词登记 D-23）、G8 发布 v0.3.0。批准人：用户（开工指令）；记录人：实现 Agent。
+- `CHG-20261030-11`：**下一版本队列三线实现（用户「批准」三队列：FMU 路线 Q-5 / GT load_step·
+  actuator golden 扩展轮 §9 定案 / 评测轨对外评测场次）**。① **GT 扩展轮**：`fault.t_clear_s`
+  （清除时刻，可选参数：校验器网格/范围校验、GT 钳位释放门 record/子步双处、createConfig 保留
+  扩展键）；oracle 镜像 + RUNS 增第 6 Run `actuator_clear`（t_clear=35 s）+ GS-7 清除恢复锚点
+  （**过冲 +0.213 Hz、回 |Δf|≤0.05 @ 36.1 s = t_clear+1.1 s，与物理评审 F-04 推算 +0.21 精确
+  印证**）；golden 重发（6 Run）+ EV-002 清除事件（oracle/engine 双侧，buildSnapshots 多事件
+  循环化）；engine-gt 增清除断言（90/90）；规格 §9 追记定案数字。② **评测轨首场次**：
+  `tools/arena2-session.mjs`（盲包→builtin Agent 盲测→提交→scoreV2 落章全链路；修复
+  buildRevealV2 键名 testsetId→testset_id 笔误——AE-E12 排查记录）；首场次归档
+  `evidence/g8/eval-session-001/`（bundle/reveal/3 参赛提交/score-report；
+  builtin/sensor-limit 46 分、residual 99.2、cusum 98.8——合成游戏分，非真实诊断性能）。
+  ③ **FMU 准入层（Q-5 落地）**：`tools/backend/py/fmu_admission.py`（A-1 zip 结构/A-2
+  model_manifest 字段面/A-3 禁占 FL-001 身份/黑盒预览降级；自检 FS-1…3 全过）；真实 FMI 二进制
+  执行（ctypes doStep）**待实际 FMU 样本**（D-27，不虚设）。④ 验证：run-g2 **24/24**（增 fmu-admission
+  步）。⑤ 入库随批提交推送。批准人：用户（三队列批准指令）；记录人：实现 Agent。
 
 **效力声明**：
 1. 本文件自 2026-10-27T20:35 起具有实现约束力；任何实现不得反向定义本文件。

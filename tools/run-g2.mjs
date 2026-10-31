@@ -76,6 +76,7 @@ const STEPS = [
   { id: 'FL-19 backend-admission.test.js（B-1/B-5 vs golden + 准入机检 G-1/G-2）', cmd: 'node', args: ['tests/backend-admission.test.js'] },
   { id: 'V3-33 engine-gt.test.js（GT-001 引擎 ↔ golden ±1e-9 + GT PHY 检查）', cmd: 'node', args: ['tests/engine-gt.test.js'] },
   { id: 'FL-19 backend-bridge.test.js（后端对照 HTTP 桥安全边界+端点）', cmd: 'node', args: ['tests/backend-bridge.test.js'] },
+  { id: 'V3-34 fmu-admission（Q-5：model_manifest 强制 + zip 结构 + 拒绝路径）', cmd: 'python', args: ['tools/backend/py/fmu_admission.py', '--self-check'] },
   { id: '+ core.test.js（既有回归，适配新语义）', cmd: 'node', args: ['tests/core.test.js'] },
   { id: '+ arena.test.js（既有回归）', cmd: 'node', args: ['tests/arena.test.js'] }
 ];

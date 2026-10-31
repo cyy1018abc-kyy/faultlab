@@ -210,6 +210,8 @@
           t_start_s: fcfg.t_start_s == null ? def.defaultTime_s : fcfg.t_start_s,
           params: params
         };
+        /* 保留可选扩展键（如 G2b v1.1 §9 的 fault.t_clear_s——清除时刻） */
+        if (fcfg.t_clear_s != null) out.fault.t_clear_s = fcfg.t_clear_s;
       }
     }
     return out;
@@ -319,6 +321,20 @@
               var known = def.params.some(function (p) { return p.key === k; });
               if (!known) warnings.push('fault.params.' + k + ' 不是 ' + def.label + ' 的已知参数，计算时忽略');
             });
+            /* fault.t_clear_s（可选，G2b v1.1 §9 扩展轮）：执行器故障清除时刻——
+               清除后 P_gen_cap 释放、P_gen 回到指令跟随；仅对带钳位的家族生效。 */
+            var tClear = fcfg.t_clear_s;
+            if (tClear !== undefined && tClear !== null) {
+              if (typeof tClear !== 'number' || !isFinite(tClear)) {
+                push('fault.t_clear_s', '必须是数字（单位 s）或省略');
+              } else if (Math.abs(tClear * 10 - Math.round(tClear * 10)) > 1e-9) {
+                push('fault.t_clear_s', '必须落在 0.1 s 采样网格上（收到 ' + tClear + '）');
+              } else if (tClear <= tStart) {
+                push('fault.t_clear_s', '必须晚于 fault.t_start_s（' + tStart + ' s）');
+              } else if (tClear >= durForFault) {
+                push('fault.t_clear_s', '必须早于 duration_s（' + durForFault + ' s）');
+              }
+            }
           }
         }
       }
@@ -796,6 +812,9 @@
     var isLoad = family === 'load_step';
     var isAct = family === 'actuator_fault';
     var P_gen_cap = isAct ? 40 * magnitude / 100 : null;
+    /* G2b v1.1 §9 扩展轮：t_clear 后钳位释放（P_gen 回到指令跟随；指令已 wound-up，
+       清除瞬态如实呈现——过冲见 A-gt-antiwindup-clamp 与局限声明） */
+    var tClear = (isAct && cfg.fault && cfg.fault.t_clear_s != null) ? cfg.fault.t_clear_s : null;
 
     function bAt(time) { return (isSensor && tStart != null && time >= tStart - 1e-9) ? magnitude : 0; }
     function demandAt(time) { return (isLoad && tStart != null && time >= tStart - 1e-9) ? load0 + magnitude : load0; }
@@ -832,8 +851,9 @@
       series.r_true_kW[k] = P_gen + pBat - demand - pRotor;
       series.f_channel_diff_Hz[k] = series.n_meas_rpm[k] / 60 - series.f_meas_Hz[k];
       series.valve_cmd_pct[k] = clamp(P_gen_cmd / 40 * 100, 0, 100);
-      series.valve_meas_pct[k] = (isAct && time >= tStart - 1e-9) ? magnitude : series.valve_cmd_pct[k];
-      series.P_gen_cap_kW[k] = (isAct && time >= tStart - 1e-9) ? P_gen_cap : null;
+      var capped = isAct && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9);
+      series.valve_meas_pct[k] = capped ? magnitude : series.valve_cmd_pct[k];
+      series.P_gen_cap_kW[k] = capped ? P_gen_cap : null;
     }
 
     record(0);
@@ -850,7 +870,7 @@
         var genStep = foStep(P_gen, cmdNext, tau_g, DT_INT);
         var genBefore = P_gen;
         P_gen = genStep.y;
-        if (isAct && tStart != null && time >= tStart - 1e-9) P_gen = Math.min(P_gen, P_gen_cap);
+        if (isAct && tStart != null && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9)) P_gen = Math.min(P_gen, P_gen_cap);
 
         f += residual / KJ * DT_INT;
 
@@ -951,7 +971,7 @@
     var magText = formatAmount(cfg.fault.params.magnitude, p);
     var targetSignal = (TARGET_SIGNAL[system.id] && TARGET_SIGNAL[system.id][family]) || 'P_load_demand_kW';
     var label = (def ? def.label : '故障') + ' ' + magText + ' @ ' + tStart.toFixed(1) + ' s';
-    return [{
+    const out = [{
       event_id: 'EV-001',
       event_type: EVENT_TYPE[family] || 'fault',
       trigger_s: tStart,
@@ -966,6 +986,25 @@
       preSnapshotId: 'EV-001-pre',
       postSnapshotId: 'EV-001-post'
     }];
+    /* G2b v1.1 §9 扩展轮：执行器清除事件（t_clear 后钳位释放） */
+    if (system.id === 'GT-001' && family === 'actuator_fault' && cfg.fault.t_clear_s != null) {
+      out.push({
+        event_id: 'EV-002',
+        event_type: 'actuator_clear',
+        trigger_s: cfg.fault.t_clear_s,
+        target_signal: 'P_gen_cap_kW',
+        target_component: target,
+        magnitude: 0,
+        unit: 'kW',
+        phase: 'clear',
+        label: '执行器故障清除 @ ' + Number(cfg.fault.t_clear_s).toFixed(1) + ' s',
+        description: '钳位释放：P_gen 回到指令跟随（清除瞬态见 A-gt-antiwindup-clamp）。',
+        target_component_label: comp ? comp.label : target,
+        preSnapshotId: 'EV-002-pre',
+        postSnapshotId: 'EV-002-post'
+      });
+    }
+    return out;
   }
 
   /* 事件快照（DATA_CONTRACT_SPEC §2.5 / G0-DEC-05 / B01）：
@@ -975,11 +1014,7 @@
      左极限值等于上一采样行值，故 pre.variables 取自 iPre 行、t_s 仍为 t_f。 */
   function buildSnapshots(system, cfg, t, series, events) {
     if (!events.length) return [];
-    var ev = events[0];
     var dt = cfg.dt_s;
-    var tF = ev.trigger_s;
-    var iPre = clamp(Math.round((tF - dt) / dt), 0, t.length - 1);
-    var iPost = clamp(Math.round(tF / dt), 0, t.length - 1);
     var units = {};
     system.signals.forEach(function (sg) { units[sg.id] = sg.unit || ''; });
     function varsAt(idx) {
@@ -987,6 +1022,11 @@
       system.signals.forEach(function (sg) { out[sg.id] = series[sg.id] ? series[sg.id][idx] : null; });
       return out;
     }
+    var snapsOut = [];
+    events.forEach(function (ev) {
+      var tF = ev.trigger_s;
+      var iPre = clamp(Math.round((tF - dt) / dt), 0, t.length - 1);
+      var iPost = clamp(Math.round(tF / dt), 0, t.length - 1);
     function preSnapshot() {
       var snap = {
         snapshot_id: ev.preSnapshotId,
@@ -1014,7 +1054,10 @@
         fault_id: cfg.fault.faultId || null
       };
     }
-    return [preSnapshot(), postSnapshot()];
+      snapsOut.push(preSnapshot());
+      snapsOut.push(postSnapshot());
+    });
+    return snapsOut;
   }
 
   function buildTruth(system, cfg) {

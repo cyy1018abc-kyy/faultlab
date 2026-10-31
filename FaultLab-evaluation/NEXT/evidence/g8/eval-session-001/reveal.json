@@ -1,0 +1,136 @@
+{
+  "schema": "faultlab.arena.reveal.v1",
+  "testset_id": "arena2-FL001-6-21edd85f",
+  "match_id": "a916420e-bcda-4872-8c7c-6dfd53968005",
+  "set_seed": 20261027,
+  "mapping": [
+    {
+      "round": 1,
+      "truth": {
+        "faultFamily": "actuator_fault",
+        "faultFamilyLabel": "执行器异常",
+        "faultId": "converter_current_limit",
+        "component": "converter",
+        "componentLabel": "双向 DC/DC 变换器",
+        "magnitude": {
+          "value": 40,
+          "unit": "%"
+        },
+        "t_fault": 45.1,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "monitor",
+        "active_s": 14.9,
+        "detectedAt": null
+      },
+      "match_id": "a916420e-bcda-4872-8c7c-6dfd53968005"
+    },
+    {
+      "round": 2,
+      "truth": {
+        "faultFamily": "sensor_drift",
+        "faultFamilyLabel": "传感器漂移",
+        "faultId": "I_bat_sensor_bias",
+        "component": "sensor",
+        "componentLabel": "电流传感器",
+        "magnitude": {
+          "value": 17,
+          "unit": "A"
+        },
+        "t_fault": 30.8,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "monitor",
+        "active_s": 29.2,
+        "detectedAt": null
+      },
+      "match_id": "a916420e-bcda-4872-8c7c-6dfd53968005"
+    },
+    {
+      "round": 3,
+      "truth": {
+        "faultFamily": "actuator_fault",
+        "faultFamilyLabel": "执行器异常",
+        "faultId": "converter_current_limit",
+        "component": "converter",
+        "componentLabel": "双向 DC/DC 变换器",
+        "magnitude": {
+          "value": 81,
+          "unit": "%"
+        },
+        "t_fault": 40.9,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "monitor",
+        "active_s": 19.1,
+        "detectedAt": null
+      },
+      "match_id": "a916420e-bcda-4872-8c7c-6dfd53968005"
+    },
+    {
+      "round": 4,
+      "truth": {
+        "faultFamily": "none",
+        "faultFamilyLabel": "健康局",
+        "faultId": null,
+        "component": "none",
+        "componentLabel": "无",
+        "magnitude": null,
+        "t_fault": null,
+        "healthy": true,
+        "none": true,
+        "feedbackMode": "healthy",
+        "active_s": 0,
+        "detectedAt": null
+      },
+      "match_id": "a916420e-bcda-4872-8c7c-6dfd53968005"
+    },
+    {
+      "round": 5,
+      "truth": {
+        "faultFamily": "actuator_fault",
+        "faultFamilyLabel": "执行器异常",
+        "faultId": "converter_current_limit",
+        "component": "converter",
+        "componentLabel": "双向 DC/DC 变换器",
+        "magnitude": {
+          "value": 74,
+          "unit": "%"
+        },
+        "t_fault": 46.7,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "closed_loop",
+        "active_s": 13.3,
+        "detectedAt": null
+      },
+      "match_id": "a916420e-bcda-4872-8c7c-6dfd53968005"
+    },
+    {
+      "round": 6,
+      "truth": {
+        "faultFamily": "sensor_drift",
+        "faultFamilyLabel": "传感器漂移",
+        "faultId": "I_bat_sensor_bias",
+        "component": "sensor",
+        "componentLabel": "电流传感器",
+        "magnitude": {
+          "value": 13,
+          "unit": "A"
+        },
+        "t_fault": 34.2,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "closed_loop",
+        "active_s": 25.8,
+        "detectedAt": null
+      },
+      "match_id": "a916420e-bcda-4872-8c7c-6dfd53968005"
+    }
+  ],
+  "scenario_rules": "sr1",
+  "scoring_rules_spec": "v2",
+  "engine_version": "0.1.0",
+  "model_version": "fl001.1",
+  "generated_at": "2026-10-31T06:59:03.616Z"
+}

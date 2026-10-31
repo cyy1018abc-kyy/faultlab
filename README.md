@@ -30,7 +30,8 @@
 >   RunRegistry/规范哈希、浏览器 E2E；证据见 `FaultLab-evaluation/NEXT/evidence/g2/`。
 >   这是**内部一致性与可复核性证据**；G2/G3 门禁关闭裁决仍以 Lead/用户对证据包的复核为准。
 > - **FC-001 / GT-001 / load_step / actuator_fault / Agent Arena 为扩展预览（P1/P2）**，携带
->   `scope='extension_preview'` 标注，不进入 P0 验收；**GT-001 当前形态 NO-GO**
+>   `scope='extension_preview'` 标注，不进入 P0 验收；**GT-001 已按 G2b 批准规格实现（f_channel_diff 通道差改造 + gt001_v1 golden 六 Run ±1e-9 +
+  engine-gt 90/90 + 清除恢复锚点 §9 定案）；仍为扩展预览，不进入 P0 验收**
 >   （`FaultLab-evaluation/NEXT/SCOPE_SPLIT_MEMO.md`）。
 > - 旧原型自检的测试 PASS 数字已从本 README 移出（不得作为验收证据引用）；历史记录见
 >   `artifacts/QA_REPORT.md` 与 git 历史。
@@ -206,8 +207,9 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
   （`RFC_MODEL_INTERFACE_I11_APPROVED.md` + CHG-20261030-07；FL/FC 的 `none`/`sensor_drift` 家族走
   `src/core/plants/` 适配器，`run_hash` 逐位不变）；V0.3.0 复验 **12/12 配置 · 36/36 字段** 对基线
   `7aed9f6` 逐位一致（`evidence/g8/i11-bitidentity/`）；S3（GT-001）未排期，GT 内联分支保留。
-- **Arena**：P2 扩展预览；独立评测协议 v2 已批准（G6-WS-D）且评测轨 MVP 已实现（gen/verify CLI +
-  17 条负例门禁，`evidence/g7/`）；页面演示轨不变；评分只标「合成故障评测游戏，非真实诊断性能」。
+- **Arena / 评测轨**：协议 v2 已批准并实现（gen/session/verify CLI + 17 条负例 + 24 步聚合门禁）；
+  首场次归档 `evidence/g8/eval-session-001/`（3 参赛、score_hash 落章）；页面演示轨不变；
+  评分只标「合成故障评测游戏，非真实诊断性能」。
 - 浏览器端计算与哈希不构成第三方验证；分享/复核以证据包 v1 + `verify_bundle.py` 为准。
 - 未接入 Simulink/FMU 后端、真实设备、云端账户与排行榜（明确不做）。
 

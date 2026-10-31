@@ -20,6 +20,7 @@ function ok(cond, name, detail) {
   else { fail++; failures.push(name + (detail ? ' — ' + detail : '')); }
 }
 function eq(a, b, name) { ok(a === b, name, 'expected ' + JSON.stringify(b) + '，actual ' + JSON.stringify(a)); }
+function close(a, b, tol, name) { ok(Math.abs(a - b) <= tol, name, 'expected ' + b + ' ±' + tol + '，actual ' + a); }
 
 const golden = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'golden', 'gt001_v1.json'), 'utf8'));
 const tol = golden.tolerances.gate;
@@ -49,7 +50,8 @@ const RUN_CFG = {
   closed_loop_fault: { fault: { family: 'sensor_drift' }, feedback_mode: 'closed_loop' },
   monitor_only: { fault: { family: 'sensor_drift' }, feedback_mode: 'monitor' },
   load_step: { fault: { family: 'load_step' }, feedback_mode: 'closed_loop' },
-  actuator_fault: { fault: { family: 'actuator_fault' }, feedback_mode: 'closed_loop' }
+  actuator_fault: { fault: { family: 'actuator_fault' }, feedback_mode: 'closed_loop' },
+  actuator_clear: { fault: { family: 'actuator_fault', t_clear_s: 35.0 }, feedback_mode: 'closed_loop' }
 };
 
 Object.keys(golden.runs).forEach((runKey) => {
@@ -121,6 +123,21 @@ Object.keys(golden.runs).forEach((runKey) => {
   ok(run.quality.some((q) => q.check_id === 'conservation-meas' &&
     (runKey === 'closed_loop_fault' || runKey === 'monitor_only' ? q.status === 'warn' : q.status === 'pass')),
     runKey + '：频率通道冗余一致性检查（健康 pass / 故障 warn）');
+  /* 清除局（G2b v1.1 §9 扩展轮）：钳位释放 + EV-002 + 恢复锚点（oracle 实测定案） */
+  if (runKey === 'actuator_clear') {
+    eq(run.events.length, 2, runKey + '：EV-001 + EV-002（清除）');
+    const ev2 = run.events[1];
+    eq(ev2.event_type, 'actuator_clear', runKey + '：EV-002 event_type');
+    eq(ev2.trigger_s, 35.0, runKey + '：EV-002 t_clear=35 s');
+    eq(run.timeseries.signals.P_gen_cap_kW[351], null, runKey + '：t=35.1 起钳位释放（P_gen_cap=null）');
+    const pGen36 = run.timeseries.signals.P_gen_true_kW[360];
+    ok(pGen36 > 22 && pGen36 < 40, runKey + '：清除后 P_gen 回升（t=36 s：' + pGen36.toFixed(2) + ' kW）');
+    const fArrC = run.timeseries.signals.f_true_Hz.slice(350);
+    const over = Math.max.apply(null, fArrC) - 50;
+    close(over, 0.213, 0.01, runKey + '：清除过冲 +0.213 Hz（§9 定案）');
+    eq(FL.registry.verifyRunHash(run), true, runKey + '：run_hash 可重算');
+    return;
+  }
   eq(FL.registry.verifyRunHash(run), true, runKey + '：run_hash 可重算');
 });
 

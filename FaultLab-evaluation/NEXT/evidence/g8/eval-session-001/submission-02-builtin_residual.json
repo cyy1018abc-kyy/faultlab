@@ -1,0 +1,103 @@
+{
+  "protocol": "v2",
+  "agent": {
+    "name": "builtin/residual"
+  },
+  "testset_id": "arena2-FL001-6-21edd85f",
+  "match_id": "a916420e-bcda-4872-8c7c-6dfd53968005",
+  "results": [
+    {
+      "round": 1,
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "actuator_fault",
+        "component": "converter",
+        "magnitude": {
+          "value": 40.7,
+          "unit": "%"
+        },
+        "detectTime_s": 45.6,
+        "confidence": 0.9,
+        "explanation": "指令与反馈持续不匹配：相对偏差 59.3%（阈值 15%），而测量一致性残差接近 0 → 执行器异常，估计输出受限 40.7 %。",
+        "firstAlarmT": 45.6
+      }
+    },
+    {
+      "round": 2,
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "sensor_drift",
+        "component": "sensor",
+        "magnitude": {
+          "value": 17.1,
+          "unit": "A"
+        },
+        "detectTime_s": 30.9,
+        "confidence": 0.9,
+        "explanation": "测量一致性残差 r_meas 持续约 6.84 kW（阈值 0.9 kW），负荷需求未发生阶跃 → 测量通道内部不一致，判定传感器漂移；按 P=0.4·I 换算，估计通道偏置 17.1 A。",
+        "firstAlarmT": 30.900000000000002
+      }
+    },
+    {
+      "round": 3,
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "actuator_fault",
+        "component": "converter",
+        "magnitude": {
+          "value": 81.5,
+          "unit": "%"
+        },
+        "detectTime_s": 42.1,
+        "confidence": 0.9,
+        "explanation": "指令与反馈持续不匹配：相对偏差 18.5%（阈值 15%），而测量一致性残差接近 0 → 执行器异常，估计输出受限 81.5 %。",
+        "firstAlarmT": 42.1
+      }
+    },
+    {
+      "round": 4,
+      "diagnosis": {
+        "faultDetected": false,
+        "faultType": "none",
+        "component": "none",
+        "magnitude": null,
+        "detectTime_s": null,
+        "confidence": 0.0641712892208698,
+        "explanation": "全部盲观测特征在阈值内：测量一致性残差≈0、负荷需求无阶跃、指令-反馈跟踪正常、转速/电气频率交叉校验一致 → 未发现故障，判定为健康局。",
+        "firstAlarmT": null
+      }
+    },
+    {
+      "round": 5,
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "actuator_fault",
+        "component": "converter",
+        "magnitude": {
+          "value": 74.4,
+          "unit": "%"
+        },
+        "detectTime_s": 47.5,
+        "confidence": 0.9,
+        "explanation": "指令与反馈持续不匹配：相对偏差 25.6%（阈值 15%），而测量一致性残差接近 0 → 执行器异常，估计输出受限 74.4 %。",
+        "firstAlarmT": 47.5
+      }
+    },
+    {
+      "round": 6,
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "sensor_drift",
+        "component": "sensor",
+        "magnitude": {
+          "value": 13.2,
+          "unit": "A"
+        },
+        "detectTime_s": 34.3,
+        "confidence": 0.9,
+        "explanation": "测量一致性残差 r_meas 持续约 5.27 kW（阈值 0.9 kW），负荷需求未发生阶跃 → 测量通道内部不一致，判定传感器漂移；按 P=0.4·I 换算，估计通道偏置 13.2 A。",
+        "firstAlarmT": 34.300000000000004
+      }
+    }
+  ]
+}

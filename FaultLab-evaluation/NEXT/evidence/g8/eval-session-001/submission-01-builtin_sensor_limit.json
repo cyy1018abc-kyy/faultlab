@@ -1,0 +1,94 @@
+{
+  "protocol": "v2",
+  "agent": {
+    "name": "builtin/sensor-limit"
+  },
+  "testset_id": "arena2-FL001-6-21edd85f",
+  "match_id": "a916420e-bcda-4872-8c7c-6dfd53968005",
+  "results": [
+    {
+      "round": 1,
+      "diagnosis": {
+        "faultDetected": false,
+        "faultType": "none",
+        "component": "none",
+        "magnitude": null,
+        "detectTime_s": null,
+        "confidence": 0.06819173642799144,
+        "explanation": "全部盲观测特征在阈值内：测量一致性残差≈0、负荷需求无阶跃、指令-反馈跟踪正常、转速/电气频率交叉校验一致 → 未发现故障，判定为健康局。",
+        "firstAlarmT": null
+      }
+    },
+    {
+      "round": 2,
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "sensor_drift",
+        "component": "sensor",
+        "magnitude": {
+          "value": 6.84,
+          "unit": "kW"
+        },
+        "detectTime_s": 30.8,
+        "confidence": 0.9,
+        "explanation": "测量一致性残差 r_meas 持续约 6.84 kW（阈值 0.9 kW），负荷需求未发生阶跃 → 测量通道内部不一致，判定传感器漂移；按 P=0.4·I 换算，估计通道偏置 6.84 kW。",
+        "firstAlarmT": 30.8
+      }
+    },
+    {
+      "round": 3,
+      "diagnosis": {
+        "faultDetected": false,
+        "faultType": "none",
+        "component": "none",
+        "magnitude": null,
+        "detectTime_s": null,
+        "confidence": 0.06837502528196637,
+        "explanation": "全部盲观测特征在阈值内：测量一致性残差≈0、负荷需求无阶跃、指令-反馈跟踪正常、转速/电气频率交叉校验一致 → 未发现故障，判定为健康局。",
+        "firstAlarmT": null
+      }
+    },
+    {
+      "round": 4,
+      "diagnosis": {
+        "faultDetected": false,
+        "faultType": "none",
+        "component": "none",
+        "magnitude": null,
+        "detectTime_s": null,
+        "confidence": 0.07014274101739147,
+        "explanation": "全部盲观测特征在阈值内：测量一致性残差≈0、负荷需求无阶跃、指令-反馈跟踪正常、转速/电气频率交叉校验一致 → 未发现故障，判定为健康局。",
+        "firstAlarmT": null
+      }
+    },
+    {
+      "round": 5,
+      "diagnosis": {
+        "faultDetected": false,
+        "faultType": "none",
+        "component": "none",
+        "magnitude": null,
+        "detectTime_s": null,
+        "confidence": 0.07101879405389355,
+        "explanation": "全部盲观测特征在阈值内：测量一致性残差≈0、负荷需求无阶跃、指令-反馈跟踪正常、转速/电气频率交叉校验一致 → 未发现故障，判定为健康局。",
+        "firstAlarmT": null
+      }
+    },
+    {
+      "round": 6,
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "sensor_drift",
+        "component": "sensor",
+        "magnitude": {
+          "value": 5.27,
+          "unit": "kW"
+        },
+        "detectTime_s": 34.2,
+        "confidence": 0.9,
+        "explanation": "测量一致性残差 r_meas 持续约 5.27 kW（阈值 0.9 kW），负荷需求未发生阶跃 → 测量通道内部不一致，判定传感器漂移；按 P=0.4·I 换算，估计通道偏置 5.27 kW。",
+        "firstAlarmT": 34.2
+      }
+    }
+  ]
+}
