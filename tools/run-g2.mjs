@@ -57,10 +57,12 @@ const PYTHON_VERSION = pythonVersion();
 const STEPS = [
   { id: '① verify_golden fl001（独立 oracle → golden 容差比对）', cmd: 'python', args: ['scripts/verify_golden.py'] },
   { id: '① verify_golden fc001（P1-06 / G2b-lite）', cmd: 'python', args: ['scripts/verify_golden.py', 'fc001'] },
+  { id: '① verify_golden gt001（V3-31 / G2b v1.1）', cmd: 'python', args: ['scripts/verify_golden.py', 'gt001'] },
   { id: '① engine.test.js（FL-001 601 点对 golden + PHY/SA）', cmd: 'node', args: ['tests/engine.test.js'] },
   { id: '① engine-fc.test.js（FC-001 601 点对 golden，P1-06）', cmd: 'node', args: ['tests/engine-fc.test.js'] },
   { id: '+ plants.test.js（I-11 plant 接口护栏，CHG-20261030-07）', cmd: 'node', args: ['tests/plants.test.js'] },
   { id: '② e2e.mjs（浏览器 E2E，PHY-08/SA-22）', cmd: 'node', args: ['tools/e2e.mjs'], skip: skipE2e },
+  { id: 'V3-03 perf.mjs（E2E 主旅程时长阈值，F-5 收尾）', cmd: 'node', args: ['tools/perf.mjs'], skip: skipE2e },
   { id: '③ registry.test.js（RunRegistry/规范哈希/不可变）', cmd: 'node', args: ['tests/registry.test.js'] },
   { id: '④ schema.test.js（Schema/单位字典/exposure/投影）', cmd: 'node', args: ['tests/schema.test.js'] },
   { id: '④ bundle.test.js（EvidenceBundle v1 + N-1…N-10 负例）', cmd: 'node', args: ['tests/bundle.test.js'] },
@@ -72,6 +74,7 @@ const STEPS = [
   { id: 'P1 report.test.js（HTML 报告验收）', cmd: 'node', args: ['tests/report.test.js'] },
   { id: 'G6 arena-protocol-negative.test.js（盲评测协议 v2 + N-B1…B17 负例 + MVP smoke + QP-4 假候选率）', cmd: 'node', args: ['tests/arena-protocol-negative.test.js'] },
   { id: 'FL-19 backend-admission.test.js（B-1/B-5 vs golden + 准入机检 G-1/G-2）', cmd: 'node', args: ['tests/backend-admission.test.js'] },
+  { id: 'V3-33 engine-gt.test.js（GT-001 引擎 ↔ golden ±1e-9 + GT PHY 检查）', cmd: 'node', args: ['tests/engine-gt.test.js'] },
   { id: '+ core.test.js（既有回归，适配新语义）', cmd: 'node', args: ['tests/core.test.js'] },
   { id: '+ arena.test.js（既有回归）', cmd: 'node', args: ['tests/arena.test.js'] }
 ];
@@ -91,7 +94,7 @@ function shortError(res) {
   const text = out.join('\n');
   return text.length > 1600 ? text.slice(0, 1600) + '\n…(截断)' : text;
 }
-
+const __t0 = Date.now();
 const results = [];
 let failed = 0;
 for (const step of STEPS) {
@@ -123,6 +126,7 @@ const generatedAt = new Date().toISOString();
 const report = {
   /* 原有字段（读取兼容） */
   gate: 'G2 四件套',
+  duration_ms: Date.now() - __t0,
   ok: failed === 0,
   failed_count: failed,
   results,

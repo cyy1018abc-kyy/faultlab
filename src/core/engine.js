@@ -830,7 +830,7 @@
       series.SOC_true_pct[k] = soc0 - intPbat / (CAP_KWH * 3600) * 100;
       series.SOC_est_pct[k] = soc0 - intPbat / (CAP_KWH * 3600) * 100;
       series.r_true_kW[k] = P_gen + pBat - demand - pRotor;
-      series.r_meas_kW[k] = P_gen + pBat - demand - pRotor;
+      series.f_channel_diff_Hz[k] = series.n_meas_rpm[k] / 60 - series.f_meas_Hz[k];
       series.valve_cmd_pct[k] = clamp(P_gen_cmd / 40 * 100, 0, 100);
       series.valve_meas_pct[k] = (isAct && time >= tStart - 1e-9) ? magnitude : series.valve_cmd_pct[k];
       series.P_gen_cap_kW[k] = (isAct && time >= tStart - 1e-9) ? P_gen_cap : null;
@@ -910,7 +910,7 @@
       }
     } else if (system.id === 'GT-001') {
       for (k = 0; k < series.f_meas_Hz.length; k++) {
-        series.r_meas_kW[k] = series.P_gen_meas_kW[k] + series.P_bat_meas_kW[k] - series.P_load_served_kW[k] - series.P_rotor_kW[k];
+        series.f_channel_diff_Hz[k] = series.n_meas_rpm[k] / 60 - series.f_meas_Hz[k];
       }
     }
   }
@@ -1177,7 +1177,7 @@
       facts.P_load_60 = at('P_load_demand_kW', dur, 2);
       facts.P_load_pre = at('P_load_demand_kW', tStart - 0.1, 2);
       facts.P_load_post = at('P_load_demand_kW', tStart, 2);
-      facts.r_meas_peak = fmtVal(maxAbsFrom('r_meas_kW', 0), 2);
+      facts.f_diff_peak = fmtVal(maxAbsFrom('f_channel_diff_Hz', 0), 3);
       facts.r_true_max = fmtVal(maxAbsFrom('r_true_kW', 0), 2);
       var fRange = rangeValues('f_true_Hz', tStart, dur);
       facts.f_nadir = fRange ? fmtVal(fRange.min, 2) : '—';

@@ -143,7 +143,7 @@
     /* ---- conservation-true（PHY-01 定义自洽：G0-DEC-12 冻结 FL-001 容差 ≤1e-12 kW）----
        注意：这是定义恒等式的代数一致性回归（P_gen := P_load − P_bat），
        不是"物理守恒验证"，更不能表述为模型验证（MODEL_VALIDATION_SPEC §4.3）。 */
-    var tolTrue = system.id === 'GT-001' ? 1e-3 : (system.id === 'FC-001' ? 1e-6 : 1e-12);
+    var tolTrue = system.id === 'GT-001' ? 1e-9 : (system.id === 'FC-001' ? 1e-6 : 1e-12);
     var maxRt = maxAbs(series.r_true_kW);
     var trueOk = maxRt !== null && maxRt <= tolTrue;
     quality.push(check(
@@ -160,6 +160,29 @@
     ));
 
     /* ---- conservation-meas ---- */
+    if (system.id === 'GT-001') {
+      /* GT：r_meas 已废除（G2b v1.1 条件 2）——改为频率通道冗余一致性检查。
+         无噪声 golden 口径 max|f_channel_diff| ≤ 1e-9 Hz；故障期 = b(t) 属预期检测信号（warn）。 */
+      var maxFd = maxAbs(series.f_channel_diff_Hz);
+      var fdStatus;
+      if (maxFd === null) fdStatus = 'fail';
+      else if (maxFd <= 1e-9) fdStatus = 'pass';
+      else if (faulted) fdStatus = 'warn';
+      else if (noiseEnabled) fdStatus = 'warn';
+      else fdStatus = 'fail';
+      var fdMsg;
+      if (fdStatus === 'pass') fdMsg = '频率通道冗余不一致最大 ' + maxFd.toExponential(2) + ' Hz（健康口径 ≤1e-9）';
+      else if (fdStatus === 'warn' && faulted) fdMsg = '故障期间通道不一致 ' + maxFd.toFixed(3) + ' Hz：这是测量偏差（检测信号），不是能量损失';
+      else if (fdStatus === 'warn') fdMsg = '观测噪声开启，通道不一致 ' + maxFd.toFixed(4) + ' Hz 非零（演示用噪声，允许 warn）';
+      else fdMsg = '无故障且无噪声时通道不一致应≤1e-9 Hz，实际 ' + maxFd + ' Hz';
+      quality.push(check(
+        'conservation-meas', '频率通道冗余一致性',
+        fdStatus,
+        faulted ? '故障期等于偏置量（检测信号，warn 允许）' : '≤ 1e-9 Hz',
+        maxFd,
+        fdMsg
+      ));
+    } else {
     var maxRm = maxAbs(series.r_meas_kW);
     var measStatus;
     if (maxRm === null) measStatus = 'fail';
@@ -184,6 +207,43 @@
       maxRm,
       measMsg
     ));
+    }
+
+    /* ---- GT 专属 PHY（G2b v1.1 §3/§5；CHG-20261030-06 批准口径）---- */
+    if (system.id === 'GT-001') {
+      /* gt-energy-consistency：线性化能量离散自洽（代数恒等，非物理验证）。
+         ∫P_rotor 取子步左矩形（与 f 更新同式，= K_J·Δf 精确 telescoping，经 E_rotor 指标承载）；
+         二次型 ΔE_kin 与线性化能量之差 = 线性化截断残差 K_J·Δf²/(2f₀)（恒正）。 */
+      var fArrGt = series.f_true_Hz;
+      var fEndGt = fArrGt && fArrGt.length ? fArrGt[fArrGt.length - 1] : null;
+      if (fEndGt !== null) {
+        var dfGt = fEndGt - 50;
+        var dEkGt = (5.0 * 50 / 2) * ((fEndGt / 50) * (fEndGt / 50) - 1); /* kW·s */
+        var eLinGt = null;
+        (metrics || []).forEach(function (m) {
+          if (m.metric_id === 'E_rotor_kWh' && m.value != null) eLinGt = m.value * 3600;
+        });
+        var truncGt = 5.0 * dfGt * dfGt / (2 * 50);
+        var eResid = (eLinGt !== null && !isNaN(eLinGt)) ? Math.abs(dEkGt - eLinGt - truncGt) : null;
+        var eOk = eResid !== null && eResid <= 1e-6;
+        quality.push(check(
+          'gt-energy-consistency', '线性化能量离散自洽（含截断残差项）',
+          eOk ? 'pass' : 'fail', 'numeric',
+          eResid,
+          'ΔE_kin − ∫P_rotor − K_J·Δf²/(2f₀) = ' + (eResid === null ? '不可用' : eResid.toExponential(2)) +
+            ' kW·s（代数恒等回归：验证离散自洽与线性化截断项量级，不是物理验证）'
+        ));
+      }
+      /* gt-bat-envelope：变流器物理包络 ±25 kW（合法参数域内恒过；±15 kW 短时额定为假设/UI 警示） */
+      var maxPbatGt = maxAbs(series.P_bat_true_kW);
+      var envOk = maxPbatGt !== null && maxPbatGt <= 25;
+      quality.push(check(
+        'gt-bat-envelope', '电池功率在变流器包络内（±25 kW）',
+        envOk ? 'pass' : 'fail', 'numeric',
+        maxPbatGt,
+        'max|P_bat| = ' + (maxPbatGt === null ? '不可用' : maxPbatGt.toFixed(3)) + ' kW；工作点超 ±15 kW 时依赖短时过载假设（长时运行须降额）'
+      ));
+    }
 
     /* ---- units ---- */
     var unitIssues = [];

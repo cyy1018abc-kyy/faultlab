@@ -4,6 +4,7 @@
 用法：
   python scripts/verify_golden.py                # fl001（默认）
   python scripts/verify_golden.py fc001          # FC-001（P1-06 / G2b-lite）
+  python scripts/verify_golden.py gt001          # GT-001（V3-31 / G2b v1.1）
   python scripts/verify_golden.py --json out.json
 
 退出码：0=全部通过；1=数值/容差不通过（或 golden/oracle 缺失损坏）；2=oracle 内部自检失败。
@@ -34,6 +35,7 @@ ORACLE_DIR = os.path.join(ROOT, "tools", "oracle")
 sys.path.insert(0, ORACLE_DIR)
 import fl001_oracle  # noqa: E402
 import fc001_oracle  # noqa: E402
+import gt001_oracle  # noqa: E402
 
 MODELS = {
     "fl001": {
@@ -51,6 +53,15 @@ MODELS = {
         "scalars": [
             ("E_fc_true_kWh", "kWh"), ("E_bat_true_kWh", "kWh"), ("E_bat_est_kWh", "kWh"),
             ("E_load_kWh", "kWh"),
+            ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
+        ],
+    },
+    "gt001": {
+        "oracle": gt001_oracle,
+        "i_true": "f_true_Hz", "i_meas": "n_meas_rpm",
+        "event_tol": "f_Hz_atol",
+        "scalars": [
+            ("E_source_kWh", "kWh"), ("E_bat_kWh", "kWh"), ("E_load_kWh", "kWh"), ("E_rotor_kWh", "kWh"),
             ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
         ],
     },
@@ -79,13 +90,19 @@ def _amax(arr):
 def series_limit(sid, arr, tol):
     if sid == "t":
         return tol["t_s"]
+    if sid.endswith("_Hz"):
+        return tol.get("f_Hz_atol", 1e-9)
+    if sid.endswith("_rpm"):
+        return tol.get("n_rpm_atol", 1e-9)
     if sid.endswith("_kW"):
         return max(tol["P_kW_atol"], tol["P_kW_rtol"] * max(1.0, _amax(arr)))
     if sid.startswith("SOC"):
         return tol["SOC_pp"]
     if sid.startswith("I_") or sid.startswith("bias"):
         return max(tol["I_A_atol"], tol["I_A_rtol"] * max(1.0, _amax(arr)))
-    return tol["r_true_kW"] if "r_true" in sid else tol["r_meas_kW_atol"]
+    if "r_true" in sid:
+        return tol["r_true_kW"]
+    return tol.get("r_meas_kW_atol", tol.get("f_Hz_atol", 1e-9))
 
 
 def metric_within(mid, unit, fv, gv, tol):
@@ -95,6 +112,8 @@ def metric_within(mid, unit, fv, gv, tol):
         return close_within(fv, gv, 1e-12, tol["SOC_pp"])
     if mid.startswith("max_abs_r_true"):
         return abs(fv - gv) <= tol["r_true_kW"]
+    if mid.startswith("max_abs_f_channel_diff"):
+        return abs(fv - gv) <= tol.get("f_Hz_atol", 1e-9)
     if mid.startswith("max_abs_r_meas"):
         return abs(fv - gv) <= tol["r_meas_kW_atol"]
     return close_within(fv, gv, tol["I_A_rtol"], tol["I_A_atol"])
@@ -256,11 +275,12 @@ def main(argv):
             gp, gq = ge["snapshots"][0], ge["snapshots"][1]
             fp, fq = fe["snapshots"][0], fe["snapshots"][1]
             t_f = golden["config"]["fault_time_s"]
+            ev_tol = tol[cfg.get("event_tol", "I_A_atol")]
             ev_ok = (gp["t_s"] == fp["t_s"] == t_f and gq["t_s"] == fq["t_s"] == t_f
                      and gp["derivation"] == fp["derivation"] == "left_limit"
                      and gq["derivation"] == fq["derivation"] == "post_sample"
-                     and abs(fp["variables"][cfg["i_meas"]] - gp["variables"][cfg["i_meas"]]) <= tol["I_A_atol"]
-                     and abs(fq["variables"][cfg["i_meas"]] - gq["variables"][cfg["i_meas"]]) <= tol["I_A_atol"])
+                     and abs(fp["variables"][cfg["i_meas"]] - gp["variables"][cfg["i_meas"]]) <= ev_tol
+                     and abs(fq["variables"][cfg["i_meas"]] - gq["variables"][cfg["i_meas"]]) <= ev_tol)
             rec("V-09-events-%s" % run_key, ev_ok,
                 "pre/post t_s=事件时刻、derivation、%s 相位值" % cfg["i_meas"])
             all_ok = all_ok and ev_ok

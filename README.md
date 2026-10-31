@@ -195,11 +195,7 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
   传感器噪声（P0 默认关闭）、保护逻辑；控制器为行为级一阶等效，不是经验证的设备控制器。
 - **G4 人工走查**（P0b-01/02）：已由 V3-01 补课关闭（2026-10-30，qa ux 14/14 + misc 9/9 + 六页截图复核，
   记录见 `FaultLab-evaluation/NEXT/evidence/g6/walkthrough-v3-01.md`；T10/reduced-motion 两项豁免留痕）。
-- **FC-001**：修复清单已闭环（G2b-lite，`evidence/g4/fc001-g2b-lite.md`）；实现仍为 `extension_preview`
-  （**V0.3.0 发布未升级**），升正式验收已裁定（V0.3 O-09）待实施（实施须 `model_version` 升版 +
-  golden 重建 + CHG）。
-- **GT-001**：G2b 物理规格 v1.1 已批准（2026-10-30，§9=(a)、网格保留 60 s）；实现（V3-31/33）
-  待开工，完成前演示仍为扩展预览、不进入验收。
+
 - **FL-001 `load_step`**：已删除（O-13，2026-10-30；归档 `evidence/g2b/load_step-removed-contract-text.md`）；
   FL-001 故障族为 sensor_drift + actuator_fault（后者仍为扩展预览）。
 - **I-11 模型接口（Plant/Sensor/Controller/Fault）**：S1/S2 已还原到 V0.3 主线

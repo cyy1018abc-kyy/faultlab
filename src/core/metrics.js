@@ -81,8 +81,8 @@
     return isNum(v) ? v : null;
   }
 
-  /* 频率恢复时间：故障后最后一个 |f-50| > tol 的采样之后（s）；永不完全恢复 => null */
-  /* GT load_step 验收要求 8–20 s 恢复 50 Hz，采用工程口径 |Δf| ≤ 0.1 Hz */
+  /* 频率恢复时间：故障后最后一个 |f-50| > tol 的采样之后（s）；永不完全恢复 => null
+     （GT load_step 旧「8–20 s 恢复」口径已废除——G2b v1.1 §4；f_recovery 为参考值，未收敛返回 null） */
   var FREQ_RECOVERY_TOL = 0.1;
 
   function recoveryTime(t, arr, tStart, tol) {
@@ -229,10 +229,13 @@
         blindSafe: false,
         definition: 'max |r_true|；定义恒等式（P_gen := P_load − P_bat），仅作代数一致性回归，不是物理验证'
       });
-    mk('max_abs_r_meas_kW', '最大测量一致性残差', maxAbs(series.r_meas_kW), 'kW', 4,
+    mk(system.id === 'GT-001' ? 'max_abs_f_channel_diff_Hz' : 'max_abs_r_meas_kW',
+      system.id === 'GT-001' ? '最大频率通道不一致' : '最大测量一致性残差',
+      maxAbs(system.id === 'GT-001' ? series.f_channel_diff_Hz : series.r_meas_kW),
+      system.id === 'GT-001' ? 'Hz' : 'kW', 4,
       'algebraic', {
         method_version: '1',
-        source_signal_ids: ['r_meas_kW'],
+        source_signal_ids: [system.id === 'GT-001' ? 'f_channel_diff_Hz' : 'r_meas_kW'],
         time_window_s: faulted ? [tStart, duration] : [0, duration],
         blindSafe: true,
         definition: 'max |r_meas| = 0.4·|b(t)|；故障期非零来自测量偏差，不是能量损失'

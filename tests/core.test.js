@@ -166,15 +166,19 @@ function assertRunShape(run, label, systemId) {
       .indexOf(sg.sourceKind) !== -1, label + '：sourceKind 合法（' + sg.id + '）', show(sg.sourceKind));
   });
 
-  /* metrics 必含项（FL-001 用契约 §2.6 P0 指标集 ID；FC/GT 沿用旧 ID） */
+  /* metrics 必含项（FL-001 用契约 §2.6 P0 指标集 ID；FC 沿用旧 ID；GT 用 G2b v1.1 新指标） */
   const requiredMetrics = run.systemId === 'FL-001'
     ? ['E_load_kWh', 'E_load_served_60s', 'E_gen_true_60s', 'E_bat_true_60s',
       'SOC_true_end_pct', 'SOC_est_end_pct', 'SOC_err_end_pp', 'max_abs_r_true_kW', 'max_abs_r_meas_kW',
       'fault_active_s', 'fault_duration_s', 'fault_peak_magnitude', 'effective_mode', 'focal_change_A',
       'I_true_26s_A', 'I_meas_20post_A']
-    : ['E_load_kWh', 'E_load_served_kWh', 'E_source_kWh', 'E_bat_kWh',
-      'SOC_true_end_pct', 'SOC_est_end_pct', 'SOC_err_pp', 'max_abs_r_true_kW', 'max_abs_r_meas_kW',
-      'fault_active_s', 'fault_duration_s', 'fault_peak_magnitude', 'effective_mode', 'focal_change'];
+    : (run.systemId === 'GT-001'
+      ? ['E_load_kWh', 'E_load_served_kWh', 'E_source_kWh', 'E_bat_kWh',
+        'SOC_true_end_pct', 'SOC_est_end_pct', 'SOC_err_pp', 'max_abs_r_true_kW', 'max_abs_f_channel_diff_Hz',
+        'fault_active_s', 'fault_duration_s', 'fault_peak_magnitude', 'effective_mode', 'focal_change']
+      : ['E_load_kWh', 'E_load_served_kWh', 'E_source_kWh', 'E_bat_kWh',
+        'SOC_true_end_pct', 'SOC_est_end_pct', 'SOC_err_pp', 'max_abs_r_true_kW', 'max_abs_r_meas_kW',
+        'fault_active_s', 'fault_duration_s', 'fault_peak_magnitude', 'effective_mode', 'focal_change']);
   const metricIds = run.metrics.map((m) => m.metric_id);
   requiredMetrics.forEach((id) => {
     ok(metricIds.indexOf(id) !== -1, label + '：metrics 含 ' + id);
@@ -335,7 +339,9 @@ const gtSignals = systems.signalMap('GT-001');
 eq(gtSignals.f_meas_Hz.sourceKind, 'OBSERVATION', 'GT-001 f_meas_Hz 为 OBSERVATION');
 ok(gtSignals.f_meas_Hz.definition.indexOf('健康') !== -1, 'GT-001 f_meas_Hz 定义为健康通道');
 ok(gtSignals.n_meas_rpm.formula.indexOf('b(t)') !== -1, 'GT-001 n_meas_rpm 公式含故障偏置 b(t)');
-ok(gtSignals.r_meas_kW.formula.indexOf('P_rotor') !== -1, 'GT-001 r_meas 扣除转子项');
+ok(gtSignals.f_channel_diff_Hz.formula.indexOf('n_meas/60') !== -1, 'GT-001 f_channel_diff 通道差定义');
+ok(gtSignals.f_channel_diff_Hz.exposure === 'blind_observable', 'GT-001 f_channel_diff 显式 blind_observable（G2b v1.1 条件 2）');
+ok(gtSignals.r_true_kW.formula.indexOf('P_rotor') !== -1, 'GT-001 r_true 含转子项（定义恒等）');
 
 /* 便捷 API */
 eq(systems.fault('FL-001', 'load_step'), null, 'O-13：FL-001 load_step 已删除');
@@ -605,7 +611,8 @@ close(at(gtDefault, 'n_meas_rpm', 19.9), 3000, 1e-9, 'GT 故障前 n_meas=3000 r
 close(at(gtDefault, 'n_meas_rpm', 20.0), 3018, 1e-9, 'GT 20.0s n_meas=3018 rpm（+0.3Hz）');
 close(at(gtDefault, 'P_load_demand_kW', 60), 30, 1e-9, 'GT 负载恒 30 kW');
 ok(mval(gtDefault, 'max_abs_r_true_kW') <= 1e-3, 'GT 含转子项真实守恒 ≤1e-3');
-ok(mval(gtDefault, 'max_abs_r_meas_kW') <= 1e-6, 'GT 功率测量一致（r_meas≈0）');
+close(mval(gtDefault, 'max_abs_f_channel_diff_Hz'), 0.3, 1e-9, 'GT 通道不一致 = +0.3 Hz（检测信号，G2b v1.1 条件 2）');
+ok(mval(gtDefault, 'max_abs_r_true_kW') <= 1e-9, 'GT r_true 定义恒等 ≤1e-9');
 eq(gtDefault.causal.nodes.length, 6, 'GT 默认因果链 6 节点');
 ok(gtDefault.causal.nodes.some((n) => n.signalIds.indexOf('n_meas_rpm') !== -1), 'GT 因果链引用转速通道');
 ok(gtDefault.causal.nodes.some((n) => n.signalIds.indexOf('f_meas_Hz') !== -1), 'GT 因果链引用健康频率量测');

@@ -32,7 +32,7 @@
     load: ['P_load_served_kW', 'P_load_demand_kW'],
     rotor: ['P_rotor_kW'],
     rTrue: ['r_true_kW'],
-    rMeas: ['r_meas_kW']
+    rMeas: ['r_meas_kW', 'f_channel_diff_Hz']
   };
 
   let el = null;

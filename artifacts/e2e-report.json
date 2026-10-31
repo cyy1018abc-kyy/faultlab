@@ -7,23 +7,23 @@
   "environment": {
     "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
     "base": "http://127.0.0.1:4319",
-    "node": "v24.14.0",
+    "node": "v26.5.1",
     "browser": {
-      "product": "Chrome/155.0.8059.85",
-      "revision": "@0e66b94549a8bd85f03fbdf189b752d6e7b63c32",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
-      "jsVersion": "15.5.35.25"
+      "product": "Chrome/156.0.8078.76",
+      "revision": "@93ce6b54af3fee27e384d1f30346e80db47a14da",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+      "jsVersion": "15.6.75.25"
     }
   },
-  "generated_at": "2026-10-30T10:48:58.445Z",
+  "generated_at": "2026-10-31T06:14:53.787Z",
   "code": {
-    "commit_sha": "1a8c1aee4f95d9e1d867fd318bc5114ee4330443",
+    "commit_sha": "b0a81516cacd1afc70e0db99c649caefafe6e7d4",
     "branch": "main",
-    "worktree_dirty": false
+    "worktree_dirty": true
   },
   "execution": {
-    "started_at": "2026-10-30T10:48:47.696Z",
-    "generated_at": "2026-10-30T10:48:58.445Z",
-    "duration_ms": 10749
+    "started_at": "2026-10-31T06:14:46.485Z",
+    "generated_at": "2026-10-31T06:14:53.787Z",
+    "duration_ms": 7302
   }
 }

@@ -574,6 +574,30 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   `hardware_verification=not_performed` 不变；FC-001 维持 `extension_preview`（未升级）；
   GT-001 实现仍禁止（V3-31/V3-33 待开工）；Arena 维持扩展预览；单文件 `FaultLab.html` 不重建、
   不发布（P1-05 未批准）。批准人：用户（最终实施计划）；记录人：实现 Agent。
+- `CHG-20261030-09`：**V0.3 收尾批（V3-31 oracle/golden + V3-33 GT-001 实现 + V3-02 上游勘误 +
+  V3-03 性能阈值冻结）+ 入库**。用户 2026-10-30 指令「V3-31/V3-33 开工指令以及 V0.3 收尾项」。
+  ① **V3-31 完成**：`tools/oracle/gt001_oracle.py`（按 G2b v1.1 §8 冻结更新序逐算子独立实现；
+  自检 GS-1…GS-6 全过——线性化能量恒等 2.6e-15、抗饱和钳位、通道差≡b 9.9e-15、锚点
+  nadir 49.5894/f60 49.9922/49.7055）；`data/golden/gt001_v1.json`（5 Run 含 monitor 语义覆盖、
+  method_id=gt001_euler_dt0.01、gate 增 f_Hz_atol/n_rpm_atol=1e-9、approval 三字段）；
+  `verify_golden.py` 参数化 gt001（exit 0；fl001/fc001 不受影响）。
+  ② **V3-33 完成（§10 涟漪 20 项对照）**：信号目录（r_meas_kW→f_channel_diff_Hz，DERIVED 显式
+  exposure='blind_observable'；r_true 定义恒等注记；tagline L0b；assumptions A-gt-inertia-lin/
+  A-gt-bat-rating/A-gt-antiwindup-clamp；limitations 条件 6 全清单+执行器死区；因果模板 n6/m4
+  通道冗余叙事；bus inspector）；引擎（record/applyNoise 通道差）；checks（GT r_true 1e-9、
+  conservation-meas GT=频率通道冗余一致性、新 gt-energy-consistency 含截断残差项 + gt-bat-envelope
+  ±25 kW，仅新 Run）；metrics（max_abs_f_channel_diff_Hz 置换）；UI（causal/export GT 分支）；
+  builtin-agents 零改动（155/155 复跑佐证）；新建 engine-gt.test.js **69/69**（5 Run 序列逐点
+  ±1e-9/指标/事件/scope/GT PHY/哈希）；core.test 10080/0；**引擎↔oracle ±1e-9 一致——§8
+  「逐算子复刻」定案成立，无需启用方法等价预案**。③ **V3-02 完成（O-10=a）**：
+  `NEXT/V02_UPSTREAM_ERRATA.md` v1（V0.1 四条+V0.2 三条勘误+引用规则；INPUT 冻结不动）——
+  DECISIONS §6 上游修订未完成项关闭。④ **V3-03 完成（O-11=a）**：e2e/run-g2 报告增 duration_ms、
+  `tools/perf.mjs` 门禁步；实测 7372/7556/7454 ms → **冻结阈值 E2E 主旅程 ≤15000 ms**；
+  内存/帧率无稳定载体不虚设；G5 F-5 关闭。⑤ 验证：**run-g2 21/21**（20→21 步；duration 13846 ms）、
+  copy-guard 0、qa shots 全页渲染无错（GT 信号页复核）。偏差 D-20…D-23 登记
+  （`evidence/g7/v03-closeout.md`）。CONTRACT §5.3 头注更新为 G2b 批准状态（实现完成前仍扩展预览）。
+  ⑥ 入库随批提交推送。**V0.3 剩余待批**：FL-19 增量三（HTTP 桥+UI 入口）、GT UI 正式化增补
+  （W-11+四禁词登记 D-23）、G8 发布 v0.3.0。批准人：用户（开工指令）；记录人：实现 Agent。
 
 **效力声明**：
 1. 本文件自 2026-10-27T20:35 起具有实现约束力；任何实现不得反向定义本文件。

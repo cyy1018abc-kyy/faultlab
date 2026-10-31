@@ -534,7 +534,7 @@
     shortTitle: '燃气涡轮',
     experimentCode: 'GT-001',
     experimentName: '转速传感器偏置',
-    tagline: '在 20 秒注入 +0.3 Hz 转速测量偏置，看调速器积分如何把真实频率拉到 49.7 Hz。',
+    tagline: '在 20 秒注入 +0.3 Hz 转速测量偏置，看调速器积分如何把真实频率拉到 49.7 Hz。单机等效频率响应示意（L0b），非机组/电网动态验证。',
     level: 'L0 · 行为级演示模型',
     summary: '燃气涡轮驱动同步发电机（25 kW 基准）接入 400 V 等效母线，电池缓冲提供一次调频；调速器按转速测量积分调节燃料阀，负载 30 kW。',
     questions: [
@@ -590,7 +590,7 @@
         inspector: [
           { id: 'V_bus_V', source: 'MODEL_ASSUMPTION' },
           { id: 'r_true_kW', source: 'DERIVED' },
-          { id: 'r_meas_kW', source: 'DERIVED' }
+          { id: 'f_channel_diff_Hz', source: 'DERIVED' }
         ]
       }),
       comp({
@@ -678,8 +678,8 @@
       sig({ id: 'V_bus_V', label: '母线等效电压', shortLabel: 'V_bus', unit: 'V', category: 'power', sourceKind: 'MODEL_ASSUMPTION', definition: 'AC 整流后等效母线电压，恒为 400 V（模型假设）。', formula: 'V_bus = 400 V', precision: 0, chart: { style: 'solid', colorToken: 'ink', axis: 'left', defaultVisible: false }, blindVisible: true, tableOnly: true }),
       sig({ id: 'SOC_true_pct', label: '电池真实 SOC', shortLabel: 'SOC_true', unit: '%', category: 'soc', sourceKind: 'MODEL_STATE', definition: '电池缓冲真实荷电状态。', formula: 'SOC_true = SOC0 − ∫P_bat,true dt / 40 kWh × 100%', precision: 5, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'SOC_est_pct', label: '电池估计 SOC', shortLabel: 'SOC_est', unit: '%', category: 'soc', sourceKind: 'OBSERVATION', definition: '由电池功率测量积分得到的 SOC 估计。', formula: 'SOC_est = SOC0 − ∫P_bat,meas dt / 40 kWh × 100%', precision: 5, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true }),
-      sig({ id: 'r_true_kW', label: '真实功率平衡残差（含转子项）', shortLabel: 'r_true', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '含转子惯量项的真实守恒残差，理想模型下恒为 0。', formula: 'r_true = P_gen + P_bat − P_load − P_rotor', precision: 6, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
-      sig({ id: 'r_meas_kW', label: '测量一致性残差', shortLabel: 'r_meas', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '由健康功率测量构造的残差，并扣除转子惯量项；转速偏置不进入功率测量，故 ≈ 0。', formula: 'r_meas = P_gen,meas + P_bat,meas − P_load − P_rotor', precision: 4, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true }),
+      sig({ id: 'r_true_kW', label: '真实功率平衡残差（含转子项）', shortLabel: 'r_true', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '含转子惯量项的真实守恒残差，是定义恒等式（代数一致性，不是物理验证），理想模型下恒为 0。', formula: 'r_true = P_gen + P_bat − P_load − P_rotor', precision: 6, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'f_channel_diff_Hz', label: '转速−电气频率通道不一致', shortLabel: 'f_diff', unit: 'Hz', category: 'frequency', sourceKind: 'DERIVED', exposure: 'blind_observable', definition: '转速与电气两个测量通道的频率冗余不一致（n_meas/60 − f_meas）；健康时恒为 0，转速偏置期间等于偏置量。这是测量通道偏差的直接体现，不是能量损失。', formula: 'f_channel_diff = n_meas/60 − f_meas', precision: 4, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' } }),
       sig({ id: 'valve_cmd_pct', label: '燃料阀指令开度', shortLabel: 'valve_cmd', unit: '%', category: 'actuator', sourceKind: 'CONTROLLER', definition: '由调速器功率指令换算的燃料阀指令；卡涩场景持续上升。', formula: 'valve_cmd = clamp(P_gen_cmd / 40 × 100%, 0, 100)', precision: 1, chart: { style: 'dashdot', colorToken: 'warm', axis: 'right' }, blindVisible: true }),
       sig({ id: 'valve_meas_pct', label: '燃料阀实际开度', shortLabel: 'valve_meas', unit: '%', category: 'actuator', sourceKind: 'OBSERVATION', definition: '燃料阀实际开度测量；卡涩场景为 magnitude%。', formula: 'valve_meas = valve_cmd（卡涩：magnitude%）', precision: 1, chart: { style: 'dashed', colorToken: 'obs', axis: 'right', step: true }, blindVisible: true }),
       sig({ id: 'P_gen_cap_kW', label: '发电机功率上限', shortLabel: 'P_gen,cap', unit: 'kW', category: 'actuator', sourceKind: 'FAULT_EVENT', definition: '燃料阀卡涩场景下的发电机功率上限；其他场景不可用（null）。', formula: 'P_gen,cap = 40 × magnitude%', precision: 2, chart: { style: 'dashed', colorToken: 'fault', axis: 'left', step: true } })
@@ -727,11 +727,16 @@
         { id: 'A-freq-redundant', text: '转速传感器通道与电气频率量测 f_meas 互为冗余：二者不一致（n_meas/60 − f_meas = b）是传感器故障的可检出特征。' },
         { id: 'A-gen-lag', text: '发电机功率按一阶惯性（τ_g = 2.0 s）跟随指令。' },
         { id: 'A-soc-linear', text: 'SOC 由电池功率积分线性折算，不含温度、效率与老化。' },
-        { id: 'A-l0', text: '降阶行为级模型，不含电网暂态、励磁与保护动作。' }
+        { id: 'A-l0', text: '降阶行为级模型，不含电网暂态、励磁与保护动作。' },
+        { id: 'A-gt-inertia-lin', text: '摇摆方程为 f≈f₀ 线性化（有效性边界 |Δf| ≤ 1 Hz；参数域极端 mag=1.0 Hz 时 Δf=−0.982 Hz 贴边）；线性化能量 E_lin = K_J·Δf 与二次型动能 E_kin(f) = 125·(f/50)² kW·s 之差为截断残差 K_J·Δf²/(2f₀)。' },
+        { id: 'A-gt-bat-rating', text: '电池连续额定 ±5 kW、短时额定 ±15 kW（变流器 3× 过载，假设非实测）、物理包络 ±25 kW；工作点超 ±15 kW 时依赖短时过载能力，长时运行须降额。' },
+        { id: 'A-gt-antiwindup-clamp', text: '调速器积分钳位 [0, 40] kW 为钳位式抗饱和；故障期间指令 wound-up 至上限，清除后若指令不回置，P_gen 将过冲并引起频率上摆（见局限）。' }
       ],
       limitations: [
         '单机无穷大母线等效，无电网潮流与多机交互。',
-        '不含燃烧、透平热力学、励磁调压与保护动作。',
+        '不含燃烧、透平热力学、励磁调压（AVR）、功率角稳定性、保护动作（低频减载/过频过流）、负荷频率特性（负荷自调节 D）、多机惯量分散与网损、AC/DC 整流动态、调速器死区与非线性阀特性。',
+        '执行器死区：actuator magnitude ≥62.5% 时 P_gen_cap ≥ 平衡点 25 kW，钳位不生效、故障不可观（或收紧参数域上限至 ~60%）。',
+        '本模型为单机等效频率响应的一阶/一阶跟随降阶示意（L0b），非机组/电网动态验证。',
         'L0 行为级演示模型；非实测、非 Simulink、无实测对比。'
       ],
       equations: [
@@ -1178,10 +1183,10 @@
           evidence: [{ varId: 'P_bat_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s 5.00 kW → 60.0 s {P_bat_60} kW' }]
         },
         {
-          id: 'n6', order: 6, title: '功率测量一致性保持不变', short: 'r_meas = {r_meas_peak} kW，r_true = {r_true_max}',
-          layer: 'observation', componentId: 'bus', signalIds: ['r_meas_kW', 'r_true_kW'],
-          detail: '因为功率测量通道健康，所以 r_meas = {r_meas_peak} kW、r_true = {r_true_max} kW；故障只体现在频率量测冗余不一致与真实频率偏移上。不能把频率偏差说成实际负载变化——负载始终为 {P_load_60} kW。',
-          evidence: [{ varId: 'r_meas_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '功率测量一致，异常只在频率/转速通道' }]
+          id: 'n6', order: 6, title: '频率通道冗余不一致', short: 'f_channel_diff = {f_diff_peak} Hz，r_true = {r_true_max}',
+          layer: 'observation', componentId: 'speed_sensor', signalIds: ['f_channel_diff_Hz', 'r_true_kW'],
+          detail: '因为转速与电气两个测量通道冗余，其不一致 f_channel_diff = {f_diff_peak} Hz 是测量通道偏差的直接体现（不是能量损失）；真实功率平衡含转子项恒成立（r_true = {r_true_max} kW）。不能把频率偏差说成实际负载变化——负载始终为 {P_load_60} kW。',
+          evidence: [{ varId: 'f_channel_diff_Hz', tStartOffset: 0.0, tEndOffset: 40.0, note: '通道冗余不一致 = 测量偏差，异常只在频率/转速通道' }]
         }
       ],
       edges: [
@@ -1211,10 +1216,10 @@
           evidence: [{ varId: 'f_true_Hz', tStartOffset: 0.0, tEndOffset: 40.0, note: '真实频率保持 50.0 Hz' }]
         },
         {
-          id: 'm4', order: 4, title: '功率测量一致性', short: 'r_meas = {r_meas_peak} kW',
-          layer: 'observation', componentId: 'bus', signalIds: ['r_meas_kW'],
-          detail: '因为功率测量通道健康，所以 r_meas = {r_meas_peak} kW；此次故障只影响转速量测通道，不改变功率平衡。',
-          evidence: [{ varId: 'r_meas_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '功率测量一致，异常只在转速通道' }]
+          id: 'm4', order: 4, title: '频率通道冗余不一致', short: 'f_channel_diff = {f_diff_peak} Hz',
+          layer: 'observation', componentId: 'speed_sensor', signalIds: ['f_channel_diff_Hz'],
+          detail: '因为转速与电气两个测量通道冗余，f_channel_diff = {f_diff_peak} Hz 直接暴露测量通道偏差；功率平衡不受影响。',
+          evidence: [{ varId: 'f_channel_diff_Hz', tStartOffset: 0.0, tEndOffset: 40.0, note: '通道冗余不一致 = 测量偏差，异常只在转速通道' }]
         }
       ],
       monitorEdges: [

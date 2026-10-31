@@ -319,7 +319,9 @@
   <tbody>${metricRows || '<tr><td colspan="6">不可用</td></tr>'}</tbody></table>
 
   <h2>真实/测量功率平衡</h2>
-  <div class="notice">真实残差 r_true = P_gen,true + P_bat,true − P_load 恒为 0（理想平衡）；观测一致性残差 r_meas = P_gen,true + P_bat,meas − P_load 在故障期间为测量残差（例如 +4 kW），它不是能量损失，也不是额外发电的能量。</div>
+  <div class="notice">${(() => { const sid = (trial && trial.systemId) || (baseline && baseline.systemId) || 'FL-001'; return sid === 'GT-001'
+    ? '真实残差 r_true = P_gen + P_bat − P_load − P_rotor 为定义恒等（理想模型下恒为 0，不是物理验证）；转速与电气测量通道的冗余不一致 f_channel_diff 在故障期间等于偏置量，它是测量通道偏差的直接体现，不是能量损失。'
+    : '真实残差 r_true = P_gen,true + P_bat,true − P_load 恒为 0（理想平衡）；观测一致性残差 r_meas = P_gen,true + P_bat,meas − P_load 在故障期间为测量残差（例如 +4 kW），它不是能量损失，也不是额外发电的能量。'; })()}</div>
 
   <h2>故障事件</h2>
   <table><thead><tr><th>事件</th><th>类型</th><th class="num">时刻</th><th>目标通道</th><th class="num">幅值</th><th>单位</th><th>说明</th></tr></thead><tbody>${eventRows || '<tr><td colspan="7">无故障（基准运行）</td></tr>'}</tbody></table>
