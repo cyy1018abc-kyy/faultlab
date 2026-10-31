@@ -1,4 +1,4 @@
-# FaultLab — Virtual Energy Lab · v0.3.1
+# FaultLab — Virtual Energy Lab · v0.4.0
 
 > 亲手制造故障，观察系统反应。离线可运行的能源系统故障注入与传播解释实验场。
 >
@@ -7,11 +7,14 @@
 > （`model_validation=not_performed`）、未做硬件验证（`hardware_verification=not_performed`）。
 > 所有数字带来源标签；「内部一致性检查通过」不等于模型验证，更不等于与真实设备一致。
 
-> **范围与状态（v0.3.1 补丁：2026-10-30；v0.3.0 发布：G8 关闭 2026-10-30；基线历史：G0 批准 2026-10-27 / G2 实施记录 2026-10-28 / G5 关闭 2026-10-28）**
-> - **发布版本 v0.3.1**（标签 `v0.3.1`，补丁）：GT-001 按批准规格实现（f_channel_diff_Hz 通道差改造、
->   gt001_v1 golden ±1e-9、GT PHY 检查）、FL-001 load_step 删除（O-13）、FL-19 后端对照
->   （B-1/B-5 + HTTP 桥 + 对比页「后端对照」入口，扩展预览）、上游勘误、性能门禁；发布证据
->   `evidence/g8/v031-release.md`。
+> **范围与状态（v0.4.0 minor：2026-10-31；v0.3.1 补丁：2026-10-30；v0.3.0 发布：G8 关闭 2026-10-30）**
+> - **发布版本 v0.4.0**（标签 `v0.4.0`，minor——新功能首次进入发布物）：FC-001 升正式验收
+>   （scope=approved_fc，model_version 1.1.0）、GT-001 正式化（L0b 标签、f_channel_diff 通道差、
+>   gt001_v1 golden 六 Run ±1e-9、GT PHY 检查）、FL-001 load_step 删除（O-13）、后端对照框架
+>   （B-1/B-5 Python + HTTP 桥 + 对比页入口）、FMU 准入层（Q-5）+ ctypes runner 骨架、
+>   评测轨首场次归档、上游勘误、性能门禁（E2E ≤15s）、评测协议 v2。
+> - **v0.3.1 补丁**（标签 `v0.3.1`，2026-10-30）：GT-001 实现主体 + FL-19 后端对照 + 上游勘误 +
+>   性能门禁。发布证据 `evidence/g8/v031-release.md`。
 > - **v0.3.0 基线**（标签 `v0.3.0`）：**稳定性 / 可复现性 / 可追溯性发布**——不新增产品功能、
 >   不改架构、不新增物理模型、不做 FC-001 升级、不重建单文件 `FaultLab.html`。发布门 G8 就绪检查单
 >   R-01…R-10 关闭；证据见 `FaultLab-evaluation/NEXT/evidence/g8/README.md`（证据索引）与

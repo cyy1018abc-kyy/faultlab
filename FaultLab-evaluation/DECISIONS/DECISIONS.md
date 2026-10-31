@@ -631,3 +631,18 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   extension_preview 与本条无交集——FC-001 是 JS 引擎内实现，非后端适配器）。⑤ 验证：
   `tests/engine-fc.test.js` 对新 golden 全绿（109 断言）、`verify_golden.py fc001` exit 0、
   `run-g2.mjs` 24/24 不回退。⑥ 入库随批提交推送。批准人：用户（V3-04 开工指令）；记录人：实现 Agent。
+
+- `CHG-20261031-01`：**v0.4.0 发布规划批准（六工作项授权）**。用户 2026-10-31 指令「批准」。
+  批准 `NEXT/V04_RELEASE_PLAN.md` v1 的六工作项（W-1 GT UI 深化 / W-2 FC UI 升正式 / W-3 FMU
+  ctypes runner / W-4 评测轨场次扩容 / W-5 对比页后端面板深化 / W-6 文档发布同步）与门禁结构
+  （G7 → G8 v0.4.0）。**明确不做**：FC 的 load_step/actuator 扩展（各自 G2b 未启动）、L1 数值
+  模型（Q-4）、服务端/云/排行榜（永久）、B-2/B-3 依赖 import（许可证待核实）。
+  批准人：用户；记录人：实现 Agent。
+
+- `CHG-20261031-02`：**v0.4.0 发布（G8 关闭）**。用户 2026-10-31 指令「批准」（V04_RELEASE_PLAN.md
+  六工作项全部授权）。交付：W-1 GT UI 三档标注 / W-2 FC UI 升正式标注（scope=approved_fc）/
+  W-3 FMU ctypes runner 骨架（D-28：doStep 待实际 FMU 验证）/ W-4 评测轨 --agents all +
+  接入指南 / W-5 对比页后端面板深化（run picker 后端标签 + incomparable 引导）/
+  W-6 版本号 V0.4.0 三处同步。验证：**run-g2 25/25**（含 perf 步、E2E 40 断言）、copy-guard
+  33 模式 exit 0、全测试套件 16 文件全绿。发布证据 `evidence/g7/v04-g7-evidence.md`（G7）+
+  `evidence/g8/v040-release.md`（G8）。批准人：用户；记录人：实现 Agent。

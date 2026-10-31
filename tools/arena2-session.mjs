@@ -64,7 +64,7 @@ const faultFamilies = ['sensor_drift', 'load_step', 'actuator_fault']
   .map((id) => ({ id, label: famMap[id] || id }));
 const catalog = ARENA.listAgents();
 const chosen = agentIds.length
-  ? catalog.filter((a) => agentIds.indexOf(a.id) >= 0)
+  ? (agentIds[0] === 'all' ? catalog : catalog.filter((a) => agentIds.indexOf(a.id) >= 0))
   : catalog.slice(0, 3);
 if (!chosen.length) throw new Error('没有可用参赛 Agent');
 

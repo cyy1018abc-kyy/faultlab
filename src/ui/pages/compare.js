@@ -204,8 +204,10 @@
       if (!group.items.length) return;
       const og = el('optgroup', { label: group.label });
       group.items.forEach((run) => {
+        const bk = run.manifest && run.manifest.backend;
+        const suffix = bk ? ' [后端:' + bk.id + ']' : '';
         og.appendChild(el('option', { value: run.runId, selected: run.runId === selectedId }, [
-          run.runId + ' · ' + (run.label || run.role || '')
+          run.runId + ' · ' + (run.label || run.role || '') + suffix
         ]));
       });
       select.appendChild(og);
@@ -302,6 +304,27 @@
     return out;
   }
 
+  function renderBackendNotice(data) {
+    /* 跨后端对比引导（FL-19 增量三 W-5）：engine-version 不一致时提示后端信息 */
+    const host = refs.notices;
+    const oldNotice = host.querySelector('.cp-backend-notice');
+    if (oldNotice) oldNotice.remove();
+    if (!data || !data.comparison || !data.comparison.checks) return;
+    const ev = data.comparison.checks.find(function (c) { return c.id === 'engine-version' && c.status === 'fail'; });
+    if (!ev) return;
+    const existing = host.querySelector('.cp-backend-notice');
+    if (existing) return;
+    const bk = (data.trial && data.trial.manifest && data.trial.manifest.backend) ||
+               (data.baseline && data.baseline.manifest && data.baseline.manifest.backend);
+    const notice = el('div', { class: 'notice cp-backend-notice', 'data-tone': 'warn' }, [
+      el('strong', {}, '跨实现对比不可用'),
+      el('span', {}, bk
+        ? '：试验运行为后端对照（' + bk.id + ' @ ' + bk.version + '），与 JS 引擎 Run 不可比。后端 Run 的 golden 对照走 vs_golden_tolerance 专用检查。'
+        : '：两次运行的实现版本不一致，不可比。')
+    ]);
+    host.appendChild(notice);
+  }
+
   function renderChecks(data) {
     const host = el('div', { class: 'cp-checks' });
     const comp = data.comparison;
@@ -354,6 +377,7 @@
 
   /* ------------------------------------------------------------ notices */
   function renderNotices(data) {
+    renderBackendNotice(data);
     const host = refs.notices;
     UI.clear(host);
     const comp = data.comparison;

@@ -289,6 +289,10 @@
       const def = getDef(s.id);
       const fault = firstFault(def);
       const isBaseline = s.id === 'FL-001';
+      const isApprovedFc = s.id === 'FC-001'; /* V3-04 升正式 */
+      const badgeLabel = isBaseline ? '基准实验'
+        : isApprovedFc ? '已验收（1.1.0）' : '扩展预览（L0b）';
+      const badgeTone = isBaseline ? 'acc' : isApprovedFc ? 'warm' : 'neutral';
       const card = el('button', {
         class: 'home-sys-card fl-card fl-card--hover', type: 'button',
         'aria-pressed': 'false', 'data-system': s.id,
@@ -296,9 +300,7 @@
       }, [
         el('span', { class: 'home-sys-top' }, [
           el('span', { class: 'home-sys-code mono' }, s.experimentCode || s.id),
-          isBaseline
-            ? el('span', { class: 'badge', 'data-tone': 'acc' }, '基准实验')
-            : el('span', { class: 'badge', 'data-tone': 'neutral' }, '扩展系统')
+          el('span', { class: 'badge', 'data-tone': badgeTone }, badgeLabel)
         ]),
         el('span', { class: 'home-sys-title display' }, s.title),
         el('span', { class: 'home-sys-tagline' }, s.tagline || ''),
@@ -644,7 +646,8 @@
 
   function sBaselineBadge(selected) {
     if (selected === 'FL-001') return el('span', { class: 'badge', 'data-tone': 'acc' }, '基准实验');
-    return el('span', { class: 'badge', 'data-tone': 'neutral' }, '扩展系统');
+    if (selected === 'FC-001') return el('span', { class: 'badge', 'data-tone': 'warm' }, '已验收（1.1.0）');
+    return el('span', { class: 'badge', 'data-tone': 'neutral' }, '扩展预览（L0b）');
   }
 
   function buildPrincipleDiagram(sysDef, fault) {
