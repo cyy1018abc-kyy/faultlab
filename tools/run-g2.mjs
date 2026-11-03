@@ -58,6 +58,7 @@ const STEPS = [
   { id: '① verify_golden fl001（独立 oracle → golden 容差比对）', cmd: 'python', args: ['scripts/verify_golden.py'] },
   { id: '① verify_golden fc001（P1-06 / G2b-lite）', cmd: 'python', args: ['scripts/verify_golden.py', 'fc001'] },
   { id: '① verify_golden gt001（V3-31 / G2b v1.1）', cmd: 'python', args: ['scripts/verify_golden.py', 'gt001'] },
+  { id: 'R-3 property_harness.py（模型侧三不变量 240+27 组参数扫描，DEC-E 24→25）', cmd: 'python', args: ['-I', 'tools/oracle/properties/property_harness.py'] },
   { id: '① engine.test.js（FL-001 601 点对 golden + PHY/SA）', cmd: 'node', args: ['tests/engine.test.js'] },
   { id: '① engine-fc.test.js（FC-001 601 点对 golden，P1-06）', cmd: 'node', args: ['tests/engine-fc.test.js'] },
   { id: '+ plants.test.js（I-11 plant 接口护栏，CHG-20261030-07）', cmd: 'node', args: ['tests/plants.test.js'] },
