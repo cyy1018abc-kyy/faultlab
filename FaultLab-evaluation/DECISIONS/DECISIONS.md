@@ -677,3 +677,47 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   方案设计，要长线的」。交付 `NEXT/V05_ROADMAP.md`——四条主线（模型纵深 A / 系统广度 B /
   教学场景 C / 架构演进 D）× 五版本路线（v0.5.x → v1.0.0）× 五条架构不变式（I-1…I-5）。
   本文档为战略方向锚点，**不构成实现授权**。批准人：用户（长线方案设计指令）；记录人：实现 Agent。
+- `CHG-20261102-01`：**A 线设计批准登记 + A-1 GT-001 完整摇摆方程落地（swing 双轨）**。用户 2026-11-02
+  指令「进入实现阶段」+ AskUserQuestion 答复「按推荐执行（推荐）」——ALINE_MODEL_DEPTH_DESIGN v1
+  生效为 A 线设计锚点，D-1…D-6 按推荐项执行（D-1 双轨保留 / D-2 新 id gt001_v2+v1 留档 /
+  D-3 热模型最小集待 G2b / D-4 电化学 v0.7 末裁定 / D-5 容差 T-A/T-B/T-C 制度批准 /
+  D-6 旧 golden 留档）。交付：
+  ① `NEXT/ALINE_MODEL_DEPTH_DESIGN.md`（状态 DRAFT→已授权按推荐执行，批准人：用户 2026-11-02）；
+  ② RFC 勘误——L1_FEASIBILITY_RFC §2.3 字面式在 f=f₀ 处与线性式差 50 倍，正确式
+     df/dt=(P_rotor/K_J)·(f₀/f)（二次型动能能量守恒导出），已在 RFC 内登记勘误；
+  ③ oracle `tools/oracle/gt001_oracle.py` v2——swing 更新序冻结、GS-1 重写为 swing 离散能量恒等
+     （±1e-9，判别惯量式）、GS-8 新增双轨连续性（f₀ 单步逐位一致/nadir 序/稳态差 ≤1e-4 Hz）、
+     GS-5/GS-7 锚点 swing 重冻结（nadir −0.410664、f(60) 49.9922、sensor_drift 49.70548、
+     过冲 +0.213412@36.1 s）、自检 8/8 PASS；
+  ④ golden `data/golden/gt001_v2.json`（method_id=gt001_swing_dt0.01，tier=T-A，supersedes gt001_v1；
+     最终 sha256 c50315c9…831dac）+ sidecar；**gt001_v1 字节冻结留档**（verify_golden 不再指向 v1，
+     oracle 源演进下 V-03 语义冻结于生成时版本；存档场次继续引用 v1）；
+  ⑤ 引擎 `simulateGT001` 双轨（cfg.inertia_model swing|linear，GT defaults 默认 swing；linear 分支
+     逐位保留 v1 口径）；validateConfig/normalizeConfig/defaultConfig/scenarioView/bundle 导入全链
+     接通 inertia_model；GT model_version 1.0.0→1.1.0；
+  ⑥ metrics 增 E_kin_kWh（二次型）/E_rotor_int_kWh（∫P_rotor 子步左矩形），E_rotor_kWh 标注遗留口径；
+  ⑦ checks gt-energy-consistency 按轨分派：linear 保留 G2b §3 原式；swing 为能量闭合
+     |ΔE_kin−∫P_rotor|≤1e-3 kW·s（oracle 复算上界 2.2e-4，安全系数 ≥4）；
+  ⑧ verify_golden.py gt001→gt001_v2（35/35）；engine-gt.test.js 双 golden 203/203
+     （v1 linear + v2 swing 各 6 Run ±1e-9 + 双轨分歧断言：swing nadir 严格更深、健康局逐位一致）；
+  ⑨ systems.js swing 化（A-gt-swing-full 登记、A-gt-inertia-lin 限定 linear 轨、EQ-1/EQ-6/信号公式/
+     组件描述）。措辞勘误：copy-guard 命中 2 处「实测」→「oracle 复算」已改（33 模式 0 命中）。
+  预期失效面（同 GT 目录变更先例）：GT model_version/锚点变更下，历史 GT 盲包与旧归档局重放属
+  预期失效；swing 为默认轨的行为变更由 D-1 双轨与 A-gt-swing-full 声明兜底。run-g2 复验见
+  evidence（24 步聚合）。批准人：用户（2026-11-02「进入实现阶段」+「按推荐执行」）；记录人：实现 Agent。
+
+- `CHG-20261104-01`：**开源参考轨落地方案（REFERENCE_LANDING_PLAN v1）+ REFERENCES.md 登记制度建立**。
+  用户 2026-11-04 指令「按建议走」（外部输入：《FaultLab 开源参考项目清单》v1.0，2026-11-04 生成，
+  仓库外 deepseek-harness workspace，入库与否待用户裁定）。交付：
+  ① `NEXT/REFERENCE_LANDING_PLAN_v051.md` v1——参考清单 8 步落地顺序向 v0.5.1/v0.6.0 队列的映射
+     （任务卡 R-0…R-5 + D-2 解锁登记 + 错位修正 5 处：TESPy→A-4（GT-001 现为单机频率响应模型，
+     无热力状态可对照）／FMPy 拆 R-2a 字段表与 R-2b 夹具交叉验证（R-2b 不关闭 D-28）／
+     Hypothesis 借思想不引库（stdlib 固定种子）／simbench→B-1／tep2py 提前服务 G2b 评审），
+     三口径按建议项定案（DEC-R1 目录随 A-2 评审包、草案族标「待批」／DEC-R2 R-3 限 oracle 侧
+     五不变量、verify_golden/verify_bundle 保持确定性复核／DEC-R3 D-2 排入 v0.6.0），
+     批次 0…3 排定（批次 0 为用户侧动作：A-1 commit 指令／A-2 G2b 评审批准／A-3 G2b／
+     V05_ROADMAP 正式批准）；
+  ② `docs/REFERENCES.md` v1——参考登记制度落地（借了哪个思想／未复制代码声明／许可核实日期，
+     12 项目预登记，许可待核对列空置待各卡执行时回填；GPL/AGPL/NOASSERTION 分级纪律）。
+  本 CHG 不构成批次执行授权：批次 1…3 仍逐批次逐指令派发。引擎、golden、UI 零改动。
+  批准人：用户（2026-11-04「按建议走」）；记录人：实现 Agent。

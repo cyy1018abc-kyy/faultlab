@@ -8,3 +8,6 @@ out/
 __pycache__/
 .DS_Store
 Thumbs.db
+# Simulink transient caches (models ogt001_top*.slx are local reference material)
+slprj/
+*.slxc
