@@ -533,6 +533,32 @@
       return { ok: true, run };
     },
 
+    /* 场景编排 Run 入库（C-2 编排器，V06_ROADMAP §7 S4）：与 addImportedRun 同一纪律——
+       只新增、不覆盖现有 Run；runId 冲突时追加 -S 后缀（run_hash 不含 run_id，
+       改名不影响内容校验和；metrics.source_run_ids 保留原 runId，与导入路径同一先例）。
+       不切换 activeRun / 草稿：场景页结果摘要负责展示，查看走既有 loadRun 入口。 */
+    addScenarioRuns(runs) {
+      const list = (Array.isArray(runs) ? runs : []).filter((r) => r && r.runId);
+      if (!list.length) return { ok: false };
+      const added = [];
+      list.forEach((run) => {
+        let id = run.runId;
+        while (state.runs[id]) id = id + '-S' + (added.length + 1);
+        if (id !== run.runId) {
+          const patched = JSON.parse(JSON.stringify(run));
+          patched.runId = id;
+          patched.manifest = Object.assign({}, patched.manifest, { run_id: id });
+          run = FL.registry.deepFreeze(patched);
+        }
+        state.runs[id] = run;
+        added.push(run);
+      });
+      pruneRuns();
+      persist();
+      notify('run');
+      return { ok: true, runs: added, runIds: added.map((r) => r.runId) };
+    },
+
     navigate(pageId) {
       if (state.truthSealed && ['signals', 'causal', 'compare'].indexOf(pageId) >= 0) {
         actions.toast('盲测进行中：真值相关页面已封存，比赛结束后解锁', 'warn');

@@ -877,3 +877,27 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
      草案 → S4 UI 骨架 + S6 双路评审 → S5 测试接线（run-g2 步数预算 ≤27）→ 全量门禁；
   ④ 本波零 golden 重出、零 engine.js 物理面改动；B-1 G2b 批准不在本授权内（待用户书面批准）。
   批准人：用户（2026-11-04「统一采用推荐决策」）；记录人：实现 Agent。
+
+- `CHG-20261104-09`：**v0.6.1 发布（G8）——C-2 编排器骨架 + D-1 tier 分层 + B-1 PV-001 G2b 草案与双路评审**。
+  V06_ROADMAP §7 波次（S1…S6），动态工作流并发执行（基线 5b6caac）。交付：
+  ① **C-2 场景编排骨架（DEC-1/DEC-6、I-6）**：`src/core/scenario.js`（parseScenario 封闭
+     白名单校验/scenarioHash 键序不敏感/executeScenario 经 createConfig→createRun 不新增
+     执行语义 + 三系统样例）+ `tests/scenario.test.js`（48 负例类/roundtrip/执行等价逐位
+     一致，230/230）+ UI 只读骨架（`src/ui/pages/scenario.js`+07 页接线+store.addScenarioRuns+
+     css：导入/校验/事件卡/运行/结果/导出 roundtrip；CDP 真实 Chrome 走查 17/17）+ run-g2
+     第 26 步接线（步数账 25→26，I-7 预算 ≤27 兑现）；
+  ② **D-1 tier 分层（DEC-3）**：run-g2 25 步 core 19+extended 6 标签 + `--tier` 参数（默认
+     all 步面零变化）+ 报告分层小计 + I-7 步数账护栏；评估稿 §7 实施追记；
+  ③ **B-1 PV-001 G2b 草案（DEC-2）**：`NEXT/PV001_G2B_SPEC_DRAFT.md`——L0 系统定义提案
+     （P_mpp=k·G·φ_T + MPPT τ=1.0s + 不可调度结构签名：无 load→MPPT 边）、2 故障族封闭
+     参数域、锚点解析预填（临时 Python 双口径独立复算，差 ≤8.9e-15）、golden 计划（4 Run/
+     schema v2/verify_golden 注册面勘正）、PV-G2b-01..04 排期；
+  ④ **B-1 双路独立评审**：评审人 A（物理）**PASS_WITH_CONDITIONS**（锚点全量独立复算逐项
+     复现；4 条件：Arena 注册即入池断言反向/EQ-PV-4 初值 G0 耦合→PV-DRAFT-Q2/W-m² 单位
+     字典缺口/SERIES_IDS 缺 t 列）、评审人 B（治理）**PASS_WITH_CONDITIONS**（5 条件：Arena
+     结论修正/§7 自查表 ②⑤ 开口/golden 后置偏离登记/回归面增列/措辞）——两路条件 C-1…C-7
+     处置表已登记，草案升 **v0.2**（§10 评审记录/§11 条件处置追记），**状态仍 DRAFT，
+     待用户书面批准（DEC-2）；本批准不构成 PV-001 实现授权**；
+  ⑤ 验证：run-g2 26/26 PASS 两次独立（工作流内 + 主流程复验 20474ms）；scenario 230/230
+     确定性；copy-guard 0 命中；本波零 golden 重出、零 engine.js 物理面改动（DEC-7）。
+  证据 `evidence/g8/v061-release.md`。批准人：用户（CHG-20261104-08 授权链）；记录人：实现 Agent。

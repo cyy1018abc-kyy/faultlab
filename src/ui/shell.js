@@ -12,7 +12,8 @@
     { id: 'signals', index: '03' },
     { id: 'causal', index: '04' },
     { id: 'compare', index: '05' },
-    { id: 'arena', index: '06', ext: true }
+    { id: 'arena', index: '06', ext: true },
+    { id: 'scenario', index: '07' }
   ];
   const TRUTH_PAGES = ['signals', 'causal', 'compare'];
 

@@ -1,0 +1,100 @@
+/* owner: orchestrator-ui | module: scenario page styles | contract: FaultLab-evaluation/NEXT/V06_ROADMAP.md §7 S4（C-2 UI 只读骨架，CHG-20261104-08）
+   所有选择器限定在 .pg-scenario 作用域内，复用 css/theme.css 令牌与公共类（fl-panel/badge/chip/notice/empty/btn/field）。 */
+
+.pg-scenario { display: flex; flex-direction: column; gap: 14px; }
+
+/* ---- hero ---- */
+.pg-scenario .scn-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pg-scenario .scn-hero-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.pg-scenario .scn-title { font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: .02em; color: var(--ink-0); }
+.pg-scenario .scn-title em { font-style: normal; color: var(--acc); }
+.pg-scenario .scn-sub { font-size: 12.5px; color: var(--ink-2); max-width: 72ch; line-height: 1.65; }
+.pg-scenario .scn-hero-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.pg-scenario .scn-hero-side { flex: 0 0 auto; padding-bottom: 4px; }
+
+/* ---- import ---- */
+.pg-scenario .scn-text {
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.6;
+  min-height: 148px; resize: vertical; white-space: pre; overflow: auto;
+}
+.pg-scenario .scn-import-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pg-scenario .scn-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.pg-scenario .scn-file-label { position: relative; overflow: hidden; }
+
+.pg-scenario .scn-verdict { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 18px; }
+.pg-scenario .scn-verdict-empty { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--ink-3); }
+.pg-scenario .scn-verdict-empty svg { width: 13px; height: 13px; flex: 0 0 13px; }
+
+.pg-scenario .scn-error-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.pg-scenario .scn-error-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 6px 9px; border: 1px solid rgba(255, 95, 109, .22); border-radius: var(--r-sm);
+  background: rgba(255, 95, 109, .05); font-size: 11.5px; line-height: 1.55;
+}
+.pg-scenario .scn-error-field {
+  flex: 0 0 auto; max-width: 40%; overflow-wrap: anywhere;
+  color: #ffb0b7; background: rgba(255, 95, 109, .12);
+  border-radius: 3px; padding: 1px 5px; font-size: 10.5px;
+}
+.pg-scenario .scn-error-msg { color: var(--ink-1); min-width: 0; overflow-wrap: anywhere; }
+.pg-scenario .scn-error-more { border-style: dashed; color: var(--ink-3); justify-content: center; }
+
+/* ---- sequence ---- */
+.pg-scenario .scn-seq-body { display: flex; flex-direction: column; gap: 10px; }
+.pg-scenario .scn-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pg-scenario .scn-hash { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pg-scenario .scn-hash-val { font-size: 11px; color: var(--acc-soft); overflow-wrap: anywhere; }
+.pg-scenario .scn-events { display: flex; flex-direction: column; gap: 8px; }
+
+.pg-scenario .scn-event {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 9px 11px; border: 1px solid var(--line-1); border-radius: var(--r-md);
+  background: linear-gradient(180deg, rgba(23, 30, 39, .55), rgba(17, 22, 29, .55));
+}
+.pg-scenario .scn-event-idx {
+  flex: 0 0 auto; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-2); border-radius: var(--r-sm);
+  font-size: 11px; color: var(--acc); background: var(--acc-dim);
+}
+.pg-scenario .scn-event-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; }
+.pg-scenario .scn-event-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pg-scenario .scn-event-key { font-size: 12px; color: var(--ink-0); }
+.pg-scenario .scn-event-label { font-size: 12px; color: var(--ink-1); }
+.pg-scenario .scn-event-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pg-scenario .scn-params { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+
+.pg-scenario .scn-seq-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ---- results ---- */
+.pg-scenario .scn-runs { display: flex; flex-direction: column; gap: 7px; }
+.pg-scenario .scn-run {
+  display: grid; gap: 10px; align-items: center;
+  grid-template-columns: 96px minmax(150px, 1.1fr) minmax(96px, auto) minmax(72px, auto) minmax(240px, 1.6fr) 64px auto;
+  padding: 8px 10px; border: 1px solid var(--line-1); border-radius: var(--r-md);
+  background: rgba(17, 22, 29, .6);
+}
+.pg-scenario .scn-run-id { font-size: 12px; color: var(--ink-0); }
+.pg-scenario .scn-run-id b { font-weight: 600; }
+.pg-scenario .scn-run-ev { display: flex; align-items: baseline; gap: 7px; min-width: 0; flex-wrap: wrap; }
+.pg-scenario .scn-run-key { font-size: 11px; color: var(--acc-soft); }
+.pg-scenario .scn-run-label { font-size: 11.5px; color: var(--ink-1); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-scenario .scn-run-metrics { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.pg-scenario .scn-metric { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
+.pg-scenario .scn-metric-k { font-size: 10.5px; color: var(--ink-3); }
+.pg-scenario .scn-metric-v { font-size: 11.5px; color: var(--ink-0); }
+.pg-scenario .scn-run-hash { font-size: 10.5px; color: var(--ink-3); }
+.pg-scenario .scn-run-actions { display: flex; justify-content: flex-end; }
+
+/* ---- footer ---- */
+.pg-scenario .scn-foot {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 11px; color: var(--ink-3); line-height: 1.6;
+  border-top: 1px solid var(--line-1); padding-top: 10px;
+}
+.pg-scenario .scn-foot-ver { margin-left: auto; }
+
+@media (max-width: 980px) {
+  .pg-scenario .scn-run { grid-template-columns: 84px 1fr auto; }
+  .pg-scenario .scn-run-metrics { grid-column: 1 / -1; }
+  .pg-scenario .scn-run-hash { display: none; }
+}

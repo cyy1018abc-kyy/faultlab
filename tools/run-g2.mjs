@@ -1,15 +1,23 @@
 /**
  * run-g2.mjs — G2 验收四件套聚合器（P0b-05 / G0-DEC-16；V0.3.0 T1 追溯增强）。
  *
- *   node tools/run-g2.mjs            # 全部四件套
+ *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，26 步全量）
  *   node tools/run-g2.mjs --skip-e2e # 跳过浏览器 E2E（CI 无 Chrome 时）
+ *   node tools/run-g2.mjs --tier core     # 只跑 core 层（20 步；部分运行，非全量门禁）
+ *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（6 步；部分运行）
+ *
+ * D-1 tier 分层（CHG-20261104-08 DEC-3，采纳 D1_LITE_ASSESSMENT 方案 C）：
+ *   STEPS 每步带 tier: 'core' | 'extended' 标签；--tier 仅过滤运行步面，
+ *   默认 all 时顺序与内容与历史完全一致（零变化）。部分运行（--tier core/extended，
+ *   同 --skip-e2e）不构成 G2 全量门禁通过；步数账纪律见 STEPS 尾部注释块。
  *
  * 四件套（缺一不可，任一失败 => 非零退出）：
  *   ① 数值脚本：python scripts/verify_golden.py（exit 0）+ node tests/engine.test.js
  *   ② 浏览器 E2E：node tools/e2e.mjs（PHY-08/SA-22 + 五视图 + 离线）
  *   ③ RunRegistry/规范哈希：node tests/registry.test.js
  *   ④ Schema/单位字典：node tests/schema.test.js（含导入负例 tests/bundle.test.js）
- *   附加回归：tests/event-phase.test.js、tests/core.test.js、tests/arena.test.js
+ *   附加回归：tests/event-phase.test.js、tests/core.test.js、tests/arena.test.js、
+ *             tests/scenario.test.js（C-2 场景编排，S5 第 26 步接线）
  *
  * V0.3.0 追溯增强（不改变 19 步测试、执行顺序与 PASS/FAIL 判据）：
  *   - 代码版本：commit_sha / branch / worktree_dirty（含脏文件清单）
@@ -26,9 +34,23 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const args = process.argv.slice(2);
 const skipE2e = args.indexOf('--skip-e2e') !== -1;
+/* --tier core|extended|all（D-1，CHG-20261104-08 DEC-3）：默认 all = 全量，
+   非法取值立即退出（exit 2），避免手误触发意外的部分运行或全量运行 */
+const tierIdx = args.indexOf('--tier');
+let tier = 'all';
+if (tierIdx !== -1) {
+  const tierVal = args[tierIdx + 1];
+  if (tierVal !== 'core' && tierVal !== 'extended' && tierVal !== 'all') {
+    console.error('错误：--tier 仅接受 core | extended | all（收到：' +
+      (tierVal === undefined ? '(缺参)' : tierVal) + '）。');
+    process.exit(2);
+  }
+  tier = tierVal;
+}
 const STARTED_MS = Date.now();
 const STARTED_AT = new Date().toISOString();
-const COMMAND = 'node tools/run-g2.mjs' + (skipE2e ? ' --skip-e2e' : '');
+const COMMAND = 'node tools/run-g2.mjs' + (skipE2e ? ' --skip-e2e' : '') +
+  (tier !== 'all' ? ' --tier ' + tier : '');
 
 /* ------------------------------------------------------- 追溯信息（T1） */
 function git(argsArr) {
@@ -55,32 +77,72 @@ const DIRTY_PATHS = STATUS_TRACKED ? STATUS_TRACKED.split(/\r?\n/).filter(Boolea
 const PYTHON_VERSION = pythonVersion();
 
 const STEPS = [
-  { id: '① verify_golden fl001（独立 oracle → golden 容差比对）', cmd: 'python', args: ['scripts/verify_golden.py'] },
-  { id: '① verify_golden fc001（P1-06 / G2b-lite）', cmd: 'python', args: ['scripts/verify_golden.py', 'fc001'] },
-  { id: '① verify_golden gt001（V3-31 / G2b v1.1）', cmd: 'python', args: ['scripts/verify_golden.py', 'gt001'] },
-  { id: 'R-3 property_harness.py（模型侧三不变量 240+27 组参数扫描，DEC-E 24→25）', cmd: 'python', args: ['-I', 'tools/oracle/properties/property_harness.py'] },
-  { id: '① engine.test.js（FL-001 601 点对 golden + PHY/SA）', cmd: 'node', args: ['tests/engine.test.js'] },
-  { id: '① engine-fc.test.js（FC-001 601 点对 golden，P1-06）', cmd: 'node', args: ['tests/engine-fc.test.js'] },
-  { id: '+ plants.test.js（I-11 plant 接口护栏，CHG-20261030-07）', cmd: 'node', args: ['tests/plants.test.js'] },
-  { id: '② e2e.mjs（浏览器 E2E，PHY-08/SA-22）', cmd: 'node', args: ['tools/e2e.mjs'], skip: skipE2e },
-  { id: 'V3-03 perf.mjs（E2E 主旅程时长阈值，F-5 收尾）', cmd: 'node', args: ['tools/perf.mjs'], skip: skipE2e },
-  { id: '③ registry.test.js（RunRegistry/规范哈希/不可变）', cmd: 'node', args: ['tests/registry.test.js'] },
-  { id: '④ schema.test.js（Schema/单位字典/exposure/投影）', cmd: 'node', args: ['tests/schema.test.js'] },
-  { id: '④ bundle.test.js（EvidenceBundle v1 + N-1…N-10 负例）', cmd: 'node', args: ['tests/bundle.test.js'] },
-  { id: '+ event-phase.test.js（事件相位 G0-DEC-05）', cmd: 'node', args: ['tests/event-phase.test.js'] },
-  { id: 'G4 scope-guard.test.js（SA-24 范围守卫）', cmd: 'node', args: ['tests/scope-guard.test.js'] },
-  { id: 'G4 compare.test.js（对比白名单 T-15）', cmd: 'node', args: ['tests/compare.test.js'] },
-  { id: 'G4 causal-rules.test.js（因果规则/证据链/教学卡）', cmd: 'node', args: ['tests/causal-rules.test.js'] },
-  { id: 'G4 copy-guard.mjs（禁止词扫描 §6.3）', cmd: 'node', args: ['tools/copy-guard.mjs'] },
-  { id: 'P1 report.test.js（HTML 报告验收）', cmd: 'node', args: ['tests/report.test.js'] },
-  { id: 'G6 arena-protocol-negative.test.js（盲评测协议 v2 + N-B1…B17 负例 + MVP smoke + QP-4 假候选率）', cmd: 'node', args: ['tests/arena-protocol-negative.test.js'] },
-  { id: 'FL-19 backend-admission.test.js（B-1/B-5 vs golden + 准入机检 G-1/G-2）', cmd: 'node', args: ['tests/backend-admission.test.js'] },
-  { id: 'V3-33 engine-gt.test.js（GT-001 引擎 ↔ golden ±1e-9 + GT PHY 检查）', cmd: 'node', args: ['tests/engine-gt.test.js'] },
-  { id: 'FL-19 backend-bridge.test.js（后端对照 HTTP 桥安全边界+端点）', cmd: 'node', args: ['tests/backend-bridge.test.js'] },
-  { id: 'V3-34 fmu-admission（Q-5：model_manifest 强制 + zip 结构 + 拒绝路径）', cmd: 'python', args: ['tools/backend/py/fmu_admission.py', '--self-check'] },
-  { id: '+ core.test.js（既有回归，适配新语义）', cmd: 'node', args: ['tests/core.test.js'] },
-  { id: '+ arena.test.js（既有回归）', cmd: 'node', args: ['tests/arena.test.js'] }
+  { id: '① verify_golden fl001（独立 oracle → golden 容差比对）', cmd: 'python', args: ['scripts/verify_golden.py'], tier: 'core' },
+  { id: '① verify_golden fc001（P1-06 / G2b-lite）', cmd: 'python', args: ['scripts/verify_golden.py', 'fc001'], tier: 'core' },
+  { id: '① verify_golden gt001（V3-31 / G2b v1.1）', cmd: 'python', args: ['scripts/verify_golden.py', 'gt001'], tier: 'core' },
+  { id: 'R-3 property_harness.py（模型侧三不变量 240+27 组参数扫描，DEC-E 24→25）', cmd: 'python', args: ['-I', 'tools/oracle/properties/property_harness.py'], tier: 'core' },
+  { id: '① engine.test.js（FL-001 601 点对 golden + PHY/SA）', cmd: 'node', args: ['tests/engine.test.js'], tier: 'core' },
+  { id: '① engine-fc.test.js（FC-001 601 点对 golden，P1-06）', cmd: 'node', args: ['tests/engine-fc.test.js'], tier: 'core' },
+  { id: '+ plants.test.js（I-11 plant 接口护栏，CHG-20261030-07）', cmd: 'node', args: ['tests/plants.test.js'], tier: 'core' },
+  { id: '② e2e.mjs（浏览器 E2E，PHY-08/SA-22）', cmd: 'node', args: ['tools/e2e.mjs'], skip: skipE2e, tier: 'core' },
+  { id: 'V3-03 perf.mjs（E2E 主旅程时长阈值，F-5 收尾）', cmd: 'node', args: ['tools/perf.mjs'], skip: skipE2e, tier: 'core' },
+  { id: '③ registry.test.js（RunRegistry/规范哈希/不可变）', cmd: 'node', args: ['tests/registry.test.js'], tier: 'core' },
+  { id: '④ schema.test.js（Schema/单位字典/exposure/投影）', cmd: 'node', args: ['tests/schema.test.js'], tier: 'core' },
+  { id: '④ bundle.test.js（EvidenceBundle v1 + N-1…N-10 负例）', cmd: 'node', args: ['tests/bundle.test.js'], tier: 'core' },
+  { id: '+ event-phase.test.js（事件相位 G0-DEC-05）', cmd: 'node', args: ['tests/event-phase.test.js'], tier: 'core' },
+  { id: 'G4 scope-guard.test.js（SA-24 范围守卫）', cmd: 'node', args: ['tests/scope-guard.test.js'], tier: 'core' },
+  { id: 'G4 compare.test.js（对比白名单 T-15）', cmd: 'node', args: ['tests/compare.test.js'], tier: 'core' },
+  { id: 'G4 causal-rules.test.js（因果规则/证据链/教学卡）', cmd: 'node', args: ['tests/causal-rules.test.js'], tier: 'core' },
+  { id: 'G4 copy-guard.mjs（禁止词扫描 §6.3）', cmd: 'node', args: ['tools/copy-guard.mjs'], tier: 'core' },
+  { id: 'P1 report.test.js（HTML 报告验收）', cmd: 'node', args: ['tests/report.test.js'], tier: 'extended' },
+  { id: 'G6 arena-protocol-negative.test.js（盲评测协议 v2 + N-B1…B17 负例 + MVP smoke + QP-4 假候选率）', cmd: 'node', args: ['tests/arena-protocol-negative.test.js'], tier: 'extended' },
+  { id: 'FL-19 backend-admission.test.js（B-1/B-5 vs golden + 准入机检 G-1/G-2）', cmd: 'node', args: ['tests/backend-admission.test.js'], tier: 'extended' },
+  { id: 'V3-33 engine-gt.test.js（GT-001 引擎 ↔ golden ±1e-9 + GT PHY 检查）', cmd: 'node', args: ['tests/engine-gt.test.js'], tier: 'core' },
+  { id: 'FL-19 backend-bridge.test.js（后端对照 HTTP 桥安全边界+端点）', cmd: 'node', args: ['tests/backend-bridge.test.js'], tier: 'extended' },
+  { id: 'V3-34 fmu-admission（Q-5：model_manifest 强制 + zip 结构 + 拒绝路径）', cmd: 'python', args: ['tools/backend/py/fmu_admission.py', '--self-check'], tier: 'extended' },
+  { id: '+ core.test.js（既有回归，适配新语义）', cmd: 'node', args: ['tests/core.test.js'], tier: 'core' },
+  { id: '+ arena.test.js（既有回归）', cmd: 'node', args: ['tests/arena.test.js'], tier: 'extended' },
+  { id: 'C-2 scenario.test.js（场景编排回归：负例/roundtrip/执行等价，S5 第 26 步）', cmd: 'node', args: ['tests/scenario.test.js'], tier: 'core' }
 ];
+
+/* ------------------------------------- 步数账与 tier 口径（I-7 / D-1 DEC-3） *
+ * tier 判定口径（CHG-20261104-08 DEC-3，采纳 D1_LITE_ASSESSMENT 方案 C，
+ * 与该文件「实施追记 §7」一致）：
+ *   core     = 门禁主干——verify_golden 三系统 + property_harness 模型侧不变量 +
+ *              engine/engine-fc/engine-gt 对 golden + plants/schema/registry/
+ *              bundle/event-phase/core.test/scenario.test 等核心回归 + G4 守卫族
+ *              （scope-guard/compare/causal-rules/copy-guard）+ e2e + perf
+ *              （G2 四件套之②缺一不可，随主干）；
+ *   extended = 扩展面——backend（admission/bridge）、arena（protocol-negative/
+ *              arena.test）、fmu-admission、report。
+ *   当前构成：26 步 = core 20 + extended 6。
+ * 步数账纪律（V06_ROADMAP I-7：步数增长须有预算与分层）：
+ *   1. 每步必须带合法 tier 标签（下方护栏强制），新增步须同时声明归属层与预算来源；
+ *   2. 任何增删步必须在 CHG 登记步数账（删几步/增几步/理由/归属卡），预算线沿用
+ *      DEC-E 口径（单波 ≤ +1；本波预算 ≤27，S5 已将 scenario.test.js 挂第 26 步，
+ *      core 层，CHG-20261104-08）；
+ *   3. 步数账变迁：18→19（plants，CHG-20261030-07）→24（G2b/V3 系列与回归挂入）→
+ *      25（property_harness，DEC-E 24→25）→25（D-1 分层：仅加 tier 标签与 --tier
+ *      参数，0 增步，CHG-20261104-08 DEC-3）→26（S5 测试接线：scenario.test.js
+ *      挂第 26 步、core 层，单波 +1，预算 ≤27 兑现，CHG-20261104-08）。
+ * 部分运行 ≠ 全量门禁：--tier core/extended 与 --skip-e2e 同为部分运行，不产生
+ *   「部分执行 = 门禁通过」的新路径；发布门（G7/G8）与 CHG 验收句必须引用
+ *   --tier all 全量运行（报告 tier 字段 + execution.command 可机检）。
+ * 报告分层小计（tiers）语义：tiers.<tier>.steps = STEPS 内该层步数（步数账口径，
+ *   与本次运行过滤无关）；pass / duration_ms = 本次运行该层实际执行且通过的步数
+ *   与时长合计（skipped 不计通过；未被选中运行的层记 0）。
+ */
+
+/* 步数账护栏（I-7）：任何无 tier 或非法 tier 的新步在此直接失败，防止绕过分层登记 */
+for (const s of STEPS) {
+  if (s.tier !== 'core' && s.tier !== 'extended') {
+    console.error('FATAL: STEPS 步「' + s.id + '」缺少合法 tier 标签（core|extended）——' +
+      '请先在 CHG 步数账登记分层（V06_ROADMAP I-7）。');
+    process.exit(2);
+  }
+}
+/* --tier 过滤：默认 all 直接沿用 STEPS 原数组引用（顺序与内容零变化） */
+const selectedSteps = tier === 'all' ? STEPS : STEPS.filter((s) => s.tier === tier);
 
 /* 失败时保留简短错误输出（T1）：stdout/stderr 各取末尾若干行，总长受限 */
 function shortError(res) {
@@ -100,7 +162,7 @@ function shortError(res) {
 const __t0 = Date.now();
 const results = [];
 let failed = 0;
-for (const step of STEPS) {
+for (const step of selectedSteps) {
   if (step.skip) {
     results.push({ id: step.id, status: 'skipped', reason: '--skip-e2e' });
     console.log('[SKIP] ' + step.id);
@@ -126,6 +188,25 @@ for (const step of STEPS) {
 }
 
 const generatedAt = new Date().toISOString();
+/* D-1 分层小计（CHG-20261104-08 DEC-3；只增字段）：results 与 selectedSteps 按
+   下标配对（循环每步恰 push 一条，skipped 亦然）。语义见 STEPS 尾部注释块。 */
+const tiersSummary = {};
+for (const t of ['core', 'extended']) {
+  let pass = 0;
+  let durationMs = 0;
+  selectedSteps.forEach((s, i) => {
+    if (s.tier !== t) return;
+    const r = results[i];
+    if (!r) return;
+    if (r.status === 'pass') pass++;
+    if (typeof r.duration_ms === 'number') durationMs += r.duration_ms;
+  });
+  tiersSummary[t] = {
+    steps: STEPS.filter((s) => s.tier === t).length,
+    pass,
+    duration_ms: durationMs
+  };
+}
 const report = {
   /* 原有字段（读取兼容） */
   gate: 'G2 四件套',
@@ -155,17 +236,28 @@ const report = {
     started_at: STARTED_AT,
     generated_at: generatedAt,
     duration_ms: Date.now() - STARTED_MS
-  }
+  },
+  /* D-1 tier 分层（CHG-20261104-08 DEC-3）：tier=本次运行过滤（all=全量门禁）；
+     tiers=分层小计（步数账 + 通过数 + 时长合计，语义见 STEPS 尾部注释块） */
+  tier,
+  tiers: tiersSummary
 };
 fs.mkdirSync(path.join(ROOT, 'artifacts'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'artifacts', 'run-g2-report.json'), JSON.stringify(report, null, 2));
 console.log('\n================================================');
 console.log('追溯：commit=' + (COMMIT_SHA || 'n/a').slice(0, 12) + ' branch=' + (BRANCH || 'n/a') +
   ' dirty=' + WORKTREE_DIRTY + ' node=' + process.version + ' python=' + PYTHON_VERSION +
+  (tier !== 'all' ? ' tier=' + tier : '') +
   ' 用时 ' + report.execution.duration_ms + ' ms');
 if (failed) {
   console.log('G2 聚合：' + failed + ' 项失败（详见 artifacts/run-g2-report.json）——相应门禁不得声称关闭。');
   process.exit(1);
 }
-console.log('G2 四件套聚合：全部通过（artifacts/run-g2-report.json）。');
-console.log('注意：通过项为内部一致性/可复核性证据，不构成模型验证或硬件验证。');
+if (tier === 'all') {
+  console.log('G2 四件套聚合：全部通过（artifacts/run-g2-report.json）。');
+  console.log('注意：通过项为内部一致性/可复核性证据，不构成模型验证或硬件验证。');
+} else {
+  console.log('G2 分层运行（--tier ' + tier + '，' + selectedSteps.length + ' 步）：所选层全部通过' +
+    '（artifacts/run-g2-report.json）——部分运行不构成 G2 全量门禁通过，发布门（G7/G8）与 CHG 验收须引用 --tier all 全量运行。');
+  console.log('注意：通过项为内部一致性/可复核性证据，不构成模型验证或硬件验证。');
+}

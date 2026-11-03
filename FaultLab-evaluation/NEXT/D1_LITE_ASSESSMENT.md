@@ -3,7 +3,9 @@
 > **任务卡**：V060_WAVE_DESIGN §2 W2-6（D-1-lite 评估）——「run-g2 步数预算评估稿（本波后
 > ≤25 步）：分拆 run-core/run-extended 或 Node worker 并行的建议稿（**不实施——v0.6.x 议题**）」。
 > **状态**：评估稿 v1（2026-11-04，参考轨文档撰写人）。**本稿不修改 `tools/run-g2.mjs` 任何
-> 行为、不新增/删除任何步、不构成实施授权**；任何实施均须另走 CHG + DEC 复核。
+> 行为、不新增/删除任何步、不构成实施授权**（该声明仅对 §1–§6 v1 原文有效）；任何实施均须
+> 另走 CHG + DEC 复核。**v2 追记（2026-11-04）**：DEC-3（CHG-20261104-08）已采纳本稿推荐
+> （方案 C）并实施——标签层 + 步数账 + `--tier` 参数，最终 tier 口径见 §7 实施追记。
 > **输入**：`tools/run-g2.mjs`（通读，行号引用以当前工作树为准）｜
 > `artifacts/run-g2-report.json`（最近一次全量实测：`2026-11-02T16:24:46.828Z`，
 > commit `83e782b`，ok=true failed=0，24 步）｜ `V05_ROADMAP.md` §D-1 ｜
@@ -128,5 +130,62 @@
 
 ---
 
-**文件结束**。D1_LITE_ASSESSMENT v1（2026-11-04，W2-6）。只评估不实施；推荐组合 = 方案 C
-（标签层 + 步数账），worker 并行封存至挂起条件触发。
+## 7. 实施追记（v2，2026-11-04）：方案 C 落地（CHG-20261104-08 DEC-3）
+
+V06_ROADMAP DEC-3 采纳本稿推荐（标签层 + 步数账 + `--tier` 参数），本节登记实施后的
+**最终 tier 口径**；该口径对 §4 方案 A 草案的归属示意做了细化（见 7.2）。实施改动面仅
+`tools/run-g2.mjs`：STEPS 每步 `tier: 'core' | 'extended'` 标签、`--tier core|extended|all`
+参数（默认 all）、报告 `tier`/`tiers` 字段、STEPS 尾部步数账注释块与无 tier 步护栏——
+**0 增步（步数账 25→25），默认 all 运行顺序与内容零变化**。
+
+### 7.1 最终 tier 口径（25 步 = core 19 + extended 6）
+
+| tier | 步 | 计数 |
+|---|---|---:|
+| core | verify_golden fl001/fc001/gt001、property_harness.py（模型侧不变量）、engine.test.js、engine-fc.test.js、plants.test.js、e2e.mjs、perf.mjs、registry.test.js、schema.test.js、bundle.test.js、event-phase.test.js、scope-guard.test.js、compare.test.js、causal-rules.test.js、copy-guard.mjs、engine-gt.test.js、core.test.js | 19 |
+| extended | report.test.js、arena-protocol-negative.test.js、backend-admission.test.js、backend-bridge.test.js、fmu-admission --self-check、arena.test.js | 6 |
+
+归属判据（与 `tools/run-g2.mjs` STEPS 尾部注释块一致）：
+
+- **core = 门禁主干**：verify_golden 三系统、对 golden 的引擎测试（engine/engine-fc/
+  engine-gt）、plants/schema/registry/bundle/event-phase/core.test 等核心回归、G4 守卫族
+  （scope-guard/compare/causal-rules/copy-guard）、e2e + perf（G2 四件套之②缺一不可，随主干）；
+- **extended = 扩展面**：backend（admission/bridge）、arena（protocol-negative/arena.test）、
+  fmu-admission、report。
+
+### 7.2 与 §4 方案 A 归属示意的差异（以本节为准）
+
+| 步 | §4 方案 A 示意 | 实施口径 | 理由 |
+|---|---|---|---|
+| e2e / perf | extended | **core** | G2 四件套之②（PHY-08/SA-22）与 V3-03 时长阈值属门禁主干，缺一不可 |
+| fmu-admission | core | **extended** | Q-5 准入属 backend 扩展面（FMU 样本接入为 D-3 范围） |
+| arena.test.js | core（「既有回归」整体） | **extended** | owner=arena-agents，Arena 面按归属判据归扩展层；core.test.js（owner=core-engine）仍留 core |
+| property_harness | （§4 基于 24 步，无此步） | **core** | 模型侧三不变量扫描，紧邻数值/golden 面 |
+| CLI 形态 | `--core` 过滤 | `--tier core\|extended\|all`（默认 all） | 显式三值 + 默认全量，避免「core 默认化」误读 |
+
+### 7.3 实施要点与步数账登记（I-7）
+
+- `--tier` 默认 `all`：默认运行直接沿用 STEPS 原数组（顺序与内容零变化）；非法取值
+  exit 2，不产生意外运行面；
+- 报告**只增字段**：顶层 `tier`（本次运行过滤，all=全量门禁）与 `tiers`（每层
+  steps=步数账口径的层内步数、pass=本次该层实际通过数、duration_ms=本次该层时长合计；
+  skipped 不计通过，未被选中运行的层记 0）；既有字段零改动；
+- **步数账登记（I-7）**：本次 25→25，0 增步——仅加标签与参数，无预算消耗；本波预算
+  ≤27（S5 scenario.test.js 拟挂第 26 步）继续有效；
+- **部分运行 ≠ 全量门禁**：`--tier core/extended` 与 `--skip-e2e` 同为部分运行，报告
+  `tier` 字段 + `execution.command` 可机检；G7/G8 发布门与 CHG 验收句必须引用
+  `--tier all` 全量运行；
+- **无 tier 护栏**：新增步缺合法 `tier` 标签时 run-g2 直接 FATAL（exit 2），防止绕过
+  步数账登记。
+
+### 7.4 实施验收判据（V06_ROADMAP §7 S2：「25 步分层、默认行为不变」）
+
+1. `node tools/run-g2.mjs`（默认 all）25/25 PASS，报告含 `tier: "all"` 与 `tiers` 小计
+   （core.steps=19、extended.steps=6）；
+2. `node tools/run-g2.mjs --tier core` 通过且 results 只含 core 步（19 条）；
+3. `node tools/run-g2.mjs --tier extended` 通过且 results 只含 extended 步（6 条）。
+
+---
+
+**文件结束**。D1_LITE_ASSESSMENT v2（2026-11-04，W2-6 评估 + D-1 实施追记 §7）。推荐组合 =
+方案 C（标签层 + 步数账），worker 并行封存条件不变（§4 方案 B 挂起条件）。
