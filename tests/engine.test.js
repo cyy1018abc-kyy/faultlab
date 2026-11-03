@@ -2,6 +2,8 @@
    G2 四件套①数值脚本的产品侧（I-04 / P0a-05）：引擎输出对独立解析 golden
    data/golden/fl001_v1.json 逐点比对 + PHY-01/01b/02/03/04/05 + SA-04…07/17/18/20/24/25。
    golden 由 tools/oracle/ 生成（engine 只读比对，不写 golden）。
+   Run 键面按 golden.runs 遍历（fl001_v1 3→4 Run：+actuator_closed_loop，FLEXT_G2B_SPEC_APPROVED
+   v1.1 §2 项 1 / V060_WAVE_DESIGN W2-2 测试面），并落 actuator 闭环 vs monitor 逐位等价断言。
    运行：node tests/engine.test.js；失败非零退出。 */
 'use strict';
 
@@ -32,18 +34,33 @@ function closeRel(a, b, rtol, atol, name) {
 }
 function metricOf(run, id) { return core.getMetric(run, id); }
 
-const CONFIGS = {
-  healthy: core.createConfig('FL-001', { fault: { family: 'none', faultId: null, t_start_s: 20, params: { magnitude: 0 } } }),
-  closed_loop_fault: core.createConfig('FL-001', {}),
-  monitor_only: core.createConfig('FL-001', { feedback_mode: 'monitor' })
-};
+/* Run 键面按 golden.runs 遍历（消除硬编码）：每个 golden Run 的配置由其元数据派生。
+   oracle 参数名（bias_A / magnitude_kW / magnitude_pct）→ 引擎统一参数 magnitude。 */
+function magnitudeOfGoldenFault(gFault) {
+  if (gFault.bias_A != null) return gFault.bias_A;
+  if (gFault.magnitude_kW != null) return gFault.magnitude_kW;
+  return gFault.magnitude_pct;
+}
+function configForGoldenRun(g, feedbackModeOverride) {
+  const mode = feedbackModeOverride || g.feedback_mode;
+  return g.fault
+    ? core.createConfig('FL-001', {
+      feedback_mode: mode,
+      fault: { family: g.fault.family, faultId: g.fault.fault_id, t_start_s: g.fault.t_start_s, params: { magnitude: magnitudeOfGoldenFault(g.fault) } }
+    })
+    : core.createConfig('FL-001', { feedback_mode: mode, fault: { family: 'none', faultId: null, t_start_s: 20, params: { magnitude: 0 } } });
+}
+const CONFIGS = {};
+Object.keys(golden.runs).forEach((key) => {
+  CONFIGS[key] = configForGoldenRun(golden.runs[key]);
+});
 const RUNS = {};
 Object.keys(CONFIGS).forEach((key) => {
   RUNS[key] = core.simulate(CONFIGS[key], { runId: 'GOLDEN-' + key });
 });
 
 /* ------------------------------------------------------------------ *
- * 1. SA-26 / T-01：三组 Run 601 点逐点对 golden
+ * 1. SA-26 / T-01：全部 golden Run（4 个）601 点逐点对 golden
  * ------------------------------------------------------------------ */
 const TOL = golden.tolerances.gate;
 const SERIES_TOL = {
@@ -51,6 +68,7 @@ const SERIES_TOL = {
   I_bat_true_A: { rel: TOL.I_A_rtol, abs: TOL.I_A_atol },
   I_bat_meas_A: { rel: TOL.I_A_rtol, abs: TOL.I_A_atol },
   bias_A: { rel: TOL.I_A_rtol, abs: TOL.I_A_atol },
+  I_bat_cap_A: { rel: TOL.I_A_rtol, abs: TOL.I_A_atol },
   P_bat_true_kW: { rel: TOL.P_kW_rtol, abs: TOL.P_kW_atol },
   P_bat_meas_kW: { rel: TOL.P_kW_rtol, abs: TOL.P_kW_atol },
   P_gen_true_kW: { rel: TOL.P_kW_rtol, abs: TOL.P_kW_atol },
@@ -73,6 +91,15 @@ Object.keys(RUNS).forEach((key) => {
     ok(Array.isArray(a) && Array.isArray(b) && a.length === b.length, key + ' 序列长度一致：' + sid);
     let worst = 0;
     for (let i = 0; i < a.length; i++) {
+      if (a[i] === null || b[i] === null) {
+        /* 空值严格一致（I_bat_cap_A 前置窗=null；禁止 null→0 隐式 coerce 掩盖不一致） */
+        if (a[i] !== b[i]) {
+          failures.push({ name: key + ' ' + sid + '@' + i, detail: 'null 不一致：engine=' + a[i] + ' golden=' + b[i] });
+          fail++;
+          return;
+        }
+        continue;
+      }
       const d = Math.abs(a[i] - b[i]);
       if (d > worst) worst = d;
       const lim = tol.abs != null && tol.rel != null ? Math.max(tol.abs, tol.rel * Math.abs(b[i]))
@@ -115,6 +142,30 @@ close(metricOf(mo, 'SOC_est_end_pct').value, 59.47222222222222, TOL.SOC_pp, 'SA-
 close(metricOf(mo, 'SOC_err_end_pp').value, golden.runs.monitor_only.scalars.SOC_err_end_pp, TOL.SOC_pp, 'SA-16：monitor SOC_err');
 close(metricOf(RUNS.healthy, 'E_bat_true_60s').value, golden.runs.healthy.scalars.E_bat_true_kWh, TOL.E_kWh, 'SA-17：基准 E_bat=0.16666666666666666 kWh');
 close(metricOf(RUNS.healthy, 'SOC_true_end_pct').value, 59.583333333333336, TOL.SOC_pp, 'SA-17：基准 SOC_true=59.583333333333336 %');
+
+/* 3b. 全故障 Run 指标对 golden（按 golden.runs[key].metrics 遍历；W2-2 actuator Run 数值锁定）。
+   healthy 跳过：引擎对 family=none 将 I_meas_20post_A 记为不可用（src/core/metrics.js
+   `faulted ? valueAt(...) : null`），golden 记录序列推导值 25——既有可用性语义不动，
+   healthy 已由 §1 全序列逐点 + SA-17 标量覆盖。 */
+['closed_loop_fault', 'monitor_only', 'actuator_closed_loop'].forEach((key) => {
+  const run = RUNS[key];
+  const gm = golden.runs[key].metrics;
+  Object.keys(gm).forEach((mid) => {
+    const em = run.metrics.filter((x) => x.metric_id === mid)[0];
+    ok(em, key + ' 引擎指标在场：' + mid, 'engine 未产生 metric_id ' + mid);
+    if (!em) return;
+    const gv = gm[mid].value;
+    if (gv === null || em.value === null) { eq(em.value, gv, key + ' 指标 null 一致：' + mid); return; }
+    if (typeof gv !== 'number') { eq(em.value, gv, key + ' 指标一致：' + mid); return; }
+    const isSoc = mid.indexOf('SOC') !== -1 || mid.indexOf('_pp') !== -1;
+    const lim = mid.indexOf('kWh') !== -1 ? TOL.E_kWh
+      : mid === 'max_abs_r_meas_kW' ? TOL.r_meas_kW_atol
+      : mid === 'max_abs_r_true_kW' ? TOL.r_true_kW
+      : isSoc ? TOL.SOC_pp
+      : Math.max(TOL.I_A_atol, TOL.I_A_rtol * Math.max(1, Math.abs(gv))); /* focal_change_A / I 类 → I 口径 */
+    close(em.value, gv, lim, key + ' 指标对 golden：' + mid);
+  });
+});
 
 /* 4. PHY-01 定义自洽 + PHY-01b ODE 残差（SA-25） */
 let maxRt = 0;
@@ -161,6 +212,44 @@ for (let i = 0; i < 601; i++) {
 }
 ok(monMeasOk, 'PHY-05：monitor I_meas 前 200 点=25、后 401 点=35（精确）');
 close(metricOf(mo, 'max_abs_r_meas_kW').value, 4.0, 1e-9, 'PHY-05：monitor post r_meas=+4 kW');
+
+/* 7b. FLEXT_G2B_SPEC v1.1 §2 项 1（风险 R-2 守卫）：actuator 闭环 vs monitor 逐位等价。
+   oracle self_check 内两模式共享同一解析式属恒真，检不出引擎侧非等价——等价守卫必须落在本
+   引擎测试层。actuator 无测量偏置（b≡0，钳位作用在物理执行器上），feedback_mode 不进入
+   FL-001 actuator 数值路径：两 Run 配置仅 feedback_mode 不同（monitor-actuator 不重复入
+   golden），series 全信号 + t + metrics 数值须逐位（===）一致，仅排除 run.label / run.role /
+   metrics 中 effective_mode 元数据。 */
+const actMon = core.simulate(configForGoldenRun(golden.runs.actuator_closed_loop, 'monitor'), { runId: 'GOLDEN-actuator_monitor' });
+const actCl = RUNS.actuator_closed_loop;
+function configWithoutMode(cfg) { const c = JSON.parse(JSON.stringify(cfg)); delete c.feedback_mode; return JSON.stringify(c); }
+eq(actCl.config.feedback_mode, 'closed_loop', '等价前提：actuator 闭环 Run feedback_mode=closed_loop');
+eq(actMon.config.feedback_mode, 'monitor', '等价前提：actuator monitor Run feedback_mode=monitor');
+eq(configWithoutMode(actCl.config), configWithoutMode(actMon.config), '等价前提：两配置除 feedback_mode 外逐字段一致');
+ok(actCl.label !== actMon.label && actCl.role !== actMon.role, '等价前提：两 Run 元数据确属不同模式（label/role 不同，为排除项）');
+let eqT = true;
+for (let i = 0; i < actCl.timeseries.t.length; i++) if (actCl.timeseries.t[i] !== actMon.timeseries.t[i]) eqT = false;
+ok(eqT && actCl.timeseries.t.length === actMon.timeseries.t.length, '等价：t ' + actCl.timeseries.t.length + ' 点逐位一致');
+Object.keys(actCl.timeseries.signals).forEach((sid) => {
+  const a = actCl.timeseries.signals[sid];
+  const b = actMon.timeseries.signals[sid];
+  ok(Array.isArray(b) && a.length === b.length, '等价 序列在场且等长：' + sid);
+  if (!Array.isArray(b) || a.length !== b.length) return;
+  let same = true;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) { same = false; break; }
+  ok(same, '等价 全信号逐位（===，含前置窗 null）：' + sid);
+});
+const actMonById = {};
+actMon.metrics.forEach((mm) => { actMonById[mm.metric_id] = mm; });
+ok(actMon.metrics.length === actCl.metrics.length, '等价：metric 数量一致（' + actCl.metrics.length + ' 条）');
+actCl.metrics.forEach((mm) => {
+  if (mm.metric_id === 'effective_mode') return; /* 元数据排除项 */
+  const other = actMonById[mm.metric_id];
+  ok(other && mm.value === other.value, '等价 metric 数值逐位：' + mm.metric_id,
+    other ? 'closed=' + JSON.stringify(mm.value) + ' monitor=' + JSON.stringify(other.value) : 'monitor 缺 metric ' + mm.metric_id);
+});
+const actEffCl = actCl.metrics.filter((x) => x.metric_id === 'effective_mode')[0];
+eq(actEffCl ? actEffCl.value : null, 'closed_loop', '等价排除项：闭环 Run effective_mode=closed_loop');
+eq(actMonById.effective_mode ? actMonById.effective_mode.value : null, 'monitor', '等价排除项：monitor Run effective_mode=monitor');
 
 /* 8. SA-18：focal_change（时间窗 [20,60]） */
 const focal = metricOf(cl, 'focal_change_A');
@@ -210,4 +299,4 @@ if (fail) {
   console.log('================================================');
   process.exit(1);
 }
-console.log('引擎对解析 golden 全点比对通过（三组 Run × 601 点 + 标量 + 指标 + PHY/SA）。');
+console.log('引擎对解析 golden 全点比对通过（4 Run × 601 点 + actuator 闭环/monitor 逐位等价 + 标量 + 指标 + PHY/SA）。');

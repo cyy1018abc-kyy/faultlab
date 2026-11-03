@@ -13,7 +13,7 @@
   V-01 golden 存在且可解析；V-02 sidecar SHA-256 一致；
   V-03 generated_by.oracle_source_sha256 == 当前 oracle 源码 SHA-256；
   V-03b approval 批准摘要一致（去除 generated_by/approval 后内容摘要）；
-  V-04 oracle 自检全过（fl001 SC-1…6 / fc001 SC-1…7）；
+  V-04 oracle 自检全过（fl001 SC-1…9 / fc001 SC-1…7）；
   V-05 关键点（19.9/21.5/26.0/60.0 s 的 true/meas 电流）rtol 1e-12；
   V-06 标量（E/SOC）gate 容差（±1e-6 kWh / ±1e-5 pp）；
   V-07 601 点全精度序列逐点比对；V-08 指标；V-09 事件 pre/post。
@@ -237,8 +237,23 @@ def main(argv):
                                            "status": "fail", "reason": "缺少或点数不一致"})
                 continue
             lim = series_limit(sid, g_arr, tol)
-            bad = max((abs(a - b) for a, b in zip(g_arr, f_arr)), default=0.0)
-            if bad > lim:
+            # W2-1：事件域信号（fl001 I_bat_cap_A——非执行器场景整列 null，与引擎一致）
+            # 双 null 记一致；单侧 null 记相位不一致；其余仍逐点数值差。
+            bad = 0.0
+            null_phase_fault = False
+            for a, b in zip(g_arr, f_arr):
+                if a is None and b is None:
+                    continue
+                if a is None or b is None:
+                    null_phase_fault = True
+                    continue
+                d = abs(a - b)
+                if d > bad:
+                    bad = d
+            if null_phase_fault:
+                report["problems"].append({"check": "V-07-series", "run": run_key, "signal": sid,
+                                           "status": "fail", "reason": "事件域信号单侧 null（相位不一致）"})
+            elif bad > lim:
                 report["problems"].append({"check": "V-07-series", "run": run_key, "signal": sid,
                                            "status": "fail", "observed_max_abs_diff": bad, "tolerance": lim})
         series_ok = len(report["problems"]) == series_problems_before

@@ -28,4 +28,12 @@
 4. 「待核对」回填时同时登记核实人（用户 / 实现 Agent）与核实方式（LICENSE 文件直读）；
 5. 参考清单本体更新（v1.x）时本表随 REFERENCE_LANDING_PLAN 修订走 CHG。
 
-**文件结束**。REFERENCES v1（2026-11-04）。
+## 执行记录（每卡交付时同步登记；许可列维持「待核对」不回填）
+
+| 日期 | 任务 | 交付物 | 取证方式（只读） | 许可核实 |
+|---|---|---|---|---|
+| 2026-11-04 | R-2a（FMPy） | `FaultLab-evaluation/NEXT/Q5_ADMISSION_FIELD_TABLE.md` v1（字段表 + §2 能力位 + §3 doStep 时序 + §4 对照 V312 三态表 28 条 + §5 机检落点草案） | GitHub API 直读 `CATIA-Systems/FMPy` main@`e42e288f` 三文件（`src/fmpy/model_description.py` / `validation.py` / `simulation.py`）逐行摘录；未引入代码/依赖，未执行任何 FMU | 维持待核对（旁注：GitHub API 元数据 spdx_id=NOASSERTION，非核实记录） |
+| 2026-11-04 | R-4（PowerGridworld） | `FaultLab-evaluation/NEXT/RFC_MODEL_INTERFACE_I11_APPROVED.md` §11 对照附录（接口三分法决策表 + 不借边界 + 结论：不改任何裁定） | GitHub API 直读 `NREL/PowerGridworld` main@`82ead57d`（README + `gridworld/base.py`）；未引入代码/依赖 | 维持待核对 |
+| 2026-11-04 | R-5（SKAB） | `docs/METRICS_P1.md` v1 草案（点级/区间级双口径 + 检测延迟 + 误报率 FAR/MAR；文档头显著标注「P1 才启用，不进产品」；§2 与 pre/post 事件卡口径对齐；§5 与内部一致性检查不得并列宣称） | GitHub API 直读 `waico/SKAB` README（v0.9 标签列 anomaly/changepoint、leaderboard 指标 F1/FAR/MAR、评价窗在变化点右侧）；未引入代码/依赖 | 维持待核对（旁注：GitHub API 元数据 spdx_id=GPL-3.0，非核实记录；即便属实也只借口径不复制代码） |
+
+**文件结束**。REFERENCES v1.1（2026-11-04；v1 基础上追加 R-2a/R-4/R-5 执行记录）。

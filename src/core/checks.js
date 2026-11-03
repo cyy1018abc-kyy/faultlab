@@ -135,7 +135,7 @@
       n,
       (lengthsOk && gridOk && nanCount === 0)
         ? ('601 点采样网格一致，' + Object.keys(series).length + ' 个信号等长，无 NaN/Inf' +
-          (nullOptionalCount ? ('；' + nullOptionalCount + ' 个可选限值点位为 null（非执行器故障场景）') : ''))
+          (nullOptionalCount ? ('；' + nullOptionalCount + ' 个可选限值点位为 null（cap 信号未生效时段：actuator 轨为 t < t_start 前置窗，其余场景全程未生效）') : ''))
         : ('采样检查失败：长度' + (lengthsOk ? '一致' : '不一致(' + badSignal + ')') +
           '，网格' + (gridOk ? '正确' : '错误') + '，非法数值 ' + nanCount + ' 个')
     ));

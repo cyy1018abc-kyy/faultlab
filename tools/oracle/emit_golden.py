@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fl001_oracle  # noqa: E402
 import fc001_oracle  # noqa: E402
+import oracle_base  # noqa: E402  W1-1 D-2a 机制层（W2-1 起 fl/fc 写盘/批准同构委托）
 
 ORACLES = {"fl001": fl001_oracle, "fc001": fc001_oracle}
 
@@ -43,34 +44,24 @@ def regenerate_with_provenance(oracle):
 
 
 def approval_payload_digest(golden):
-    """批准摘要 = 去除 generated_by/approval 后内容的 SHA-256（确定性；避免 generated_at 循环）。"""
-    import copy
-    payload = copy.deepcopy(golden)
-    payload.pop("generated_by", None)
-    payload.pop("approval", None)
-    text = json.dumps(payload, ensure_ascii=False, indent=2)
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    """批准摘要 = 去除 generated_by/approval 后内容的 SHA-256（确定性；避免 generated_at 循环）。
+
+    W2-1 起委托 oracle_base.approval_payload_digest（ORACLE_INTERFACE_D2.md §5.1
+    「写盘/批准改走 base 助手」；算法与原实现同构，V-03b 摘要语义不变）。"""
+    return oracle_base.approval_payload_digest(golden)
 
 
 def apply_approval(golden, approved_by):
-    golden["approval"] = {
-        "approved_by": approved_by,
-        "approved_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "approved_golden_sha256": approval_payload_digest(golden),
-    }
-    return golden
+    """approval 三字段组装委托 oracle_base.apply_approval（approved_at = utc_now_iso，
+    与原 datetime.utcnowstrftime 同格式；digest 对剥除 generated_by/approval 后内容现算）。"""
+    return oracle_base.apply_approval(golden, approved_by)
 
 
 def write_golden(golden, path):
+    """写盘委托 oracle_base.write_golden_with_sidecar（二进制 LF 钉死 + sha256sum 两空格式
+    sidecar；与原实现字节级同构，零行为差——ORACLE_INTERFACE_D2.md §6 字节规范）。"""
     os.makedirs(GOLDEN_DIR, exist_ok=True)
-    text = json.dumps(golden, ensure_ascii=False, indent=2)
-    data = text.encode("utf-8")
-    with open(path, "wb") as f:
-        f.write(data)
-    digest = hashlib.sha256(data).hexdigest()
-    with open(path + ".sha256", "w", encoding="utf-8", newline="\n") as f:
-        f.write(digest + "  " + os.path.basename(path) + "\n")
-    return digest
+    return oracle_base.write_golden_with_sidecar(golden, path)
 
 
 def deep_equal(a, b, path="$", diffs=None):

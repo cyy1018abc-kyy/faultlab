@@ -64,11 +64,13 @@ let adapter = null;
     ok(sc.ok, '自检 ' + id, sc.stderr);
   }
 
-  /* ---------- 三场景 × 双后端 golden 校验 ---------- */
+  /* ---------- 四场景 × 双后端 golden 校验（fl001_v1 3→4 Run：+actuator_closed_loop，FLEXT §2） ---------- */
   const runs = [
     ['healthy', { feedback_mode: 'closed_loop', family: 'none' }],
     ['closed_loop_fault', { feedback_mode: 'closed_loop', family: 'sensor_drift' }],
-    ['monitor_only', { feedback_mode: 'monitor', family: 'sensor_drift' }]
+    ['monitor_only', { feedback_mode: 'monitor', family: 'sensor_drift' }],
+    ['actuator_closed_loop', { feedback_mode: 'closed_loop', family: 'actuator_fault', bias_A: 0.0,
+      magnitude_pct: 55.0, tau_actuator_s: 0.4 }]
   ];
   const baseCfg = { systemId: 'FL-001', duration_s: 60.0, dt_s: 0.1, fault_time_s: 20.0, bias_A: 10.0,
     Pload_demand_kW: 30.0, SOC0_pct: 60.0, tau_s: 1.5 };
@@ -91,6 +93,37 @@ let adapter = null;
     eq(JSON.stringify(b1again), JSON.stringify(b1), '确定性 ' + runId + '（B-1 两次 produce 一致）');
   }
 
+  /* ---------- actuator 轨后端对照断言（FLEXT_G2B_SPEC_APPROVED §1.3/§2/§4，CHG-20261104-03） ---------- */
+  const cfgAct = Object.assign({}, baseCfg, { feedback_mode: 'closed_loop', family: 'actuator_fault',
+    bias_A: 0.0, magnitude_pct: 55.0, tau_actuator_s: 0.4 });
+  const b1act = adapter.produce('py-analytic-fl001', cfgAct);
+  const b5act = adapter.produce('py-rk4-fl001', cfgAct);
+  /* I_cap 列与引擎同口径（engine.js:587）：t<t_start 全 null、t≥t_start 恒 I_cap=13.75 A */
+  const kFault = 200;
+  ok(b1act.signals.I_bat_cap_A.slice(0, kFault).every((v) => v === null)
+    && b1act.signals.I_bat_cap_A.slice(kFault).every((v) => Math.abs(v - 13.75) < 1e-12),
+    'actuator：B-1 I_cap 列 t<20 全 null / t≥20 恒 13.75');
+  ok(b5act.signals.I_bat_cap_A.slice(0, kFault).every((v) => v === null)
+    && b5act.signals.I_bat_cap_A.slice(kFault).every((v) => Math.abs(v - 13.75) < 1e-12),
+    'actuator：B-5 I_cap 列 t<20 全 null / t≥20 恒 13.75');
+  /* 验收锚点（FLEXT §1.3，load0=30/mag=55）：B-1 闭式 I_true(60)=13.75 A、
+     SOC_true(60)=59.7070833…%（全窗 ∫I=25×20+13.75×40+11.25×0.4×(1−e^−100)=1054.5 A·s） */
+  ok(Math.abs(b1act.signals.I_bat_true_A[600] - 13.75) < 1e-12
+    && Math.abs(b1act.signals.SOC_true_pct[600] - 59.70708333333334) < 1e-9,
+    'actuator：B-1 锚点 I_true(60)=13.75 A / SOC_true(60)=59.7070833…%');
+  ok(Math.abs(b5act.signals.I_bat_true_A[600] - 13.75) < 1e-9
+    && Math.abs(b5act.signals.SOC_true_pct[600] - 59.70708333333334) < 1e-6,
+    'actuator：B-5 锚点在声明档内复现（rk4 求积）');
+  /* monitor 等价（b≡0 ⇒ 两模式数值同解，FLEXT §1.1；monitor-actuator 不重复入 golden）：
+     等价断言落 signals+metrics 数值面（排除 config/元数据） */
+  const cfgActMon = Object.assign({}, cfgAct, { feedback_mode: 'monitor' });
+  const b1actMon = adapter.produce('py-analytic-fl001', cfgActMon);
+  const b5actMon = adapter.produce('py-rk4-fl001', cfgActMon);
+  eq(JSON.stringify(b1actMon.signals), JSON.stringify(b1act.signals), 'actuator monitor 等价：B-1 signals 同解（b≡0）');
+  eq(JSON.stringify(b1actMon.metrics), JSON.stringify(b1act.metrics), 'actuator monitor 等价：B-1 metrics 同解');
+  eq(JSON.stringify(b5actMon.signals), JSON.stringify(b5act.signals), 'actuator monitor 等价：B-5 signals 同解（b≡0）');
+  eq(JSON.stringify(b5actMon.metrics), JSON.stringify(b5act.metrics), 'actuator monitor 等价：B-5 metrics 同解');
+
   /* 负例：B-5 不得套用解析交叉层档（rtol 1e-12）——容差档声明制 */
   const cfgF = Object.assign({}, baseCfg, { feedback_mode: 'closed_loop', family: 'sensor_drift' });
   const b5f = adapter.produce('py-rk4-fl001', cfgF);
@@ -111,6 +144,12 @@ let adapter = null;
     fault_time_s: 20.0, bias_A: 10, feedback_mode: 'closed_loop', initial: { load_kW: 30, SOC_pct: 60 },
     fault: { family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20.0 } };
   eq(FL.scope.classify(wl), 'approved_p0', 'V312 §6 断言 2：classify 对白名单场景仍判 approved_p0（组装层强制发生在增补二）');
+  /* SA-24 白名单扩展（FLEXT §4 显式 CHG 面，W2-3）：actuator 55% @20.0 s 入 approved_p0，
+     越界参数（如 60%）仍拒收 */
+  const wlAct = Object.assign({}, wl, { fault: { family: 'actuator_fault', params: { magnitude: 55 }, t_start_s: 20.0 } });
+  eq(FL.scope.classify(wlAct), 'approved_p0', 'SA-24 v1.1：classify 对 actuator 55%@20s 判 approved_p0（FLEXT §4）');
+  const wlAct60 = Object.assign({}, wl, { fault: { family: 'actuator_fault', params: { magnitude: 60 }, t_start_s: 20.0 } });
+  eq(FL.scope.classify(wlAct60), 'extension_preview', 'SA-24 v1.1：actuator 60% 越界仍 extension_preview');
 
   /* ---------- 增量二：createFromParts 组装层（scope 断言 1/3/4 + 对比闸门 + BK-E02） ---------- */
   const cfgEngine = FL.core.createConfig('FL-001', { fault: { family: 'sensor_drift' }, feedback_mode: 'closed_loop' });

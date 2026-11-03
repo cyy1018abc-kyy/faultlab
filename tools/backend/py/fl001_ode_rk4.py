@@ -4,14 +4,19 @@
 profile=fl001-rk4-dt0.1（E ±5e-4 kWh / SOC ±5e-3 pp / 逐点 rtol ≤1e-3 上限值，实测预算冻结前适用）。
 
 定位：同方程、数值积分对照——教学点为「积分口径差异」。方程与 B-1 同源
-（MODEL_VALIDATION_SPEC §1.3），实现独立编写；状态 x = [I, Q]，dI/dt=(I_ref−k_fb·b−I)/τ，
-dQ/dt = I（Q 即 ∫I dt，RK4 四阶求积同步累积）；SOC/SOC_est 由 Q（与 ∫b，梯形）派生。
+（MODEL_VALIDATION_SPEC §1.3；actuator 钳位轨 FLEXT_G2B_SPEC_APPROVED §1 EQ-A/EQ-B），
+实现独立编写；状态 x = [I, Q]，dI/dt=(target−I)/τ，dQ/dt = I（Q 即 ∫I dt，RK4 四阶求积
+同步累积）；SOC/SOC_est 由 Q（与 ∫b，梯形）派生。
+actuator 轨（b≡0）：target = min(I_ref, I_cap)，I_cap = I_ref×magnitude_pct/100（t ≥ t_start），
+τ = τ_act = 0.4 s（全轨，与引擎 isAct?0.4:1.5 同口径）；RK4 以步左沿 target 积分同一 ODE
+（t_start 栅格对齐时步内 target 恒定，与 B-1 闭式解/引擎子步在声明容差内一致）。
 积分口径体现在 backend.method_id='py_rk4_dt0.1'（metrics.method 命名按 V312 §5 由组装层裁定）。
 
 输出与 fl001_analytic.py 同 schema。仅标准库。
 """
 import argparse
 import json
+import math
 import sys
 
 BACKEND = {
@@ -25,7 +30,7 @@ BACKEND = {
     "provenance": "numerical_simulation",
     "systems": ["FL-001"],
     "signals": [
-        "I_bat_true_A", "I_bat_meas_A", "bias_A", "P_bat_true_kW", "P_bat_meas_kW",
+        "I_bat_true_A", "I_bat_meas_A", "bias_A", "I_bat_cap_A", "P_bat_true_kW", "P_bat_meas_kW",
         "P_gen_true_kW", "P_gen_meas_kW", "P_load_demand_kW", "P_load_served_kW",
         "SOC_true_pct", "SOC_est_pct", "r_true_kW"
     ],
@@ -47,14 +52,23 @@ def solve(cfg):
     tau = float(cfg["tau_s"])
     mode = cfg["feedback_mode"]
     family = cfg.get("family") or ("sensor_drift" if bias > 0 else "none")
-    if family not in ("none", "sensor_drift"):
-        raise ValueError("B-5 首批仅支持 none/sensor_drift（P0 白名单）: " + family)
+    if family not in ("none", "sensor_drift", "actuator_fault"):
+        raise ValueError("B-5 支持 none/sensor_drift/actuator_fault（P0 白名单，FLEXT §4）: " + family)
     i_ref = (load0 - 20.0) / V_KV
     k_fb = 0.0 if mode == "monitor" else 1.0
+    # actuator 钳位轨（EQ-A/EQ-B，FLEXT_G2B_SPEC_APPROVED §1）：b≡0，target=min(I_ref, I_cap)，
+    # τ_act=0.4 s（全轨，与引擎 isAct?0.4:1.5 同口径）。min 语义保证 load0≤20 退化域 no-op。
+    magnitude_pct = float(cfg.get("magnitude_pct") or 0.0)
+    tau_act = float(cfg.get("tau_actuator_s") or 0.4)
+    i_cap = i_ref * magnitude_pct / 100.0
+    tau_step = tau_act if family == "actuator_fault" else tau
 
     def target(time):
         b = bias if (family == "sensor_drift" and time >= t_start - 1e-9) else 0.0
-        return i_ref - k_fb * b, b
+        tg = i_ref - k_fb * b
+        if family == "actuator_fault" and time >= t_start - 1e-9:
+            tg = tg if tg < i_cap else i_cap  # min(controlTarget, I_cap)
+        return tg, b
 
     t = [i * dt for i in range(n + 1)]
     I = i_ref
@@ -69,8 +83,8 @@ def solve(cfg):
         tg_step, _ = target(tk)
         bias_series.append(target(t[k])[1])
 
-        def f(x, tg=tg_step):
-            return [(tg - x[0]) / tau, x[0]]
+        def f(x, tg=tg_step, ts=tau_step):
+            return [(tg - x[0]) / ts, x[0]]
 
         x = [I, Q]
         k1 = f(x)
@@ -92,6 +106,9 @@ def solve(cfg):
         "I_bat_true_A": i_true,
         "I_bat_meas_A": [a + b for a, b in zip(i_true, bias_series)],
         "bias_A": bias_series,
+        # I_cap 列与引擎同口径（engine.js:587）：仅 actuator 轨 t≥t_start 行有效，其余场景整列 null
+        "I_bat_cap_A": [(i_cap if (family == "actuator_fault" and ti >= t_start - 1e-9) else None)
+                        for ti in t],
         "P_bat_true_kW": [V_KV * a for a in i_true],
         "P_bat_meas_kW": [V_KV * (a + b) for a, b in zip(i_true, bias_series)],
         "P_gen_true_kW": [load0 - V_KV * a for a in i_true],
@@ -145,7 +162,24 @@ def self_check():
     ok &= abs(i26 - s3["I_bat_true_A"][-1]) < 1e-4
     # RK-3 网格：601 点单调
     ok &= len(t) == 601 and all(t[i] < t[i + 1] for i in range(600))
-    print("[self-check] RK-1..RK-3:", "PASS" if ok else "FAIL", file=sys.stderr)
+    # RK-4 actuator 钳位轨（FLEXT_G2B_SPEC_APPROVED §1.3 锚点）：RK4 对同一 ODE
+    # dI/dt=(I_cap−I)/τ_act（τ_act=0.4 s）的数值解在声明容差内复现闭式锚点——
+    # I_true(26)≈13.75+11.25·e^(−15)（闭式 13.750003441…）、I_true(60)→13.75（稳态）、
+    # SOC_true(60) 全窗 ∫I=1054.5 A·s → 59.7070833…（RK4 求积误差远小于 SOC ±5e-3 pp 声明档）；
+    # I_cap 列 t<t_start 全 null、t≥t_start 恒 I_cap=13.75；r_meas ≡ 0（actuator 轨 b≡0）
+    act = dict(base)
+    act["family"] = "actuator_fault"
+    act["bias_A"] = 0.0
+    act["magnitude_pct"] = 55.0
+    act["tau_actuator_s"] = 0.4
+    t_a, s_a, _, m_a = solve(act)
+    ok &= abs(m_a["I_true_26s_A"]["value"] - (13.75 + 11.25 * math.exp(-6.0 / 0.4))) < 1e-5
+    ok &= abs(s_a["I_bat_true_A"][-1] - 13.75) < 1e-9
+    ok &= abs(s_a["SOC_true_pct"][-1] - (60.0 - 100.0 * 0.4 * 1054.5 / (40.0 * 3600.0))) < 1e-6
+    k_f = int(round(20.0 / 0.1))
+    ok &= s_a["I_bat_cap_A"][k_f - 1] is None and abs(s_a["I_bat_cap_A"][k_f] - 13.75) < 1e-12
+    ok &= all(abs(v) == 0.0 for v in s_a["r_meas_kW"])
+    print("[self-check] RK-1..RK-4:", "PASS" if ok else "FAIL", file=sys.stderr)
     return 0 if ok else 1
 
 

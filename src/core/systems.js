@@ -230,7 +230,7 @@
     signals: [
       sig({ id: 'I_bat_true_A', label: '电池真实电流', shortLabel: 'I_true', unit: 'A', category: 'current', sourceKind: 'MODEL_STATE', definition: '电池实际放电电流（真值），放电为正。', formula: 'I_true', precision: 2, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'I_bat_meas_A', label: '电池测量电流', shortLabel: 'I_meas', unit: 'A', category: 'current', sourceKind: 'OBSERVATION', definition: '传感器输出 = 真实电流 + 故障偏置。', formula: 'I_meas = I_true + b(t)', precision: 2, chart: { style: 'dashed', colorToken: 'obs', axis: 'left', step: true }, blindVisible: true, noiseSigma: 0.35 }),
-      sig({ id: 'I_ref_A', label: '控制器电流目标', shortLabel: 'I_ref', unit: 'A', category: 'current', sourceKind: 'CONTROLLER', definition: '控制器下发的电池电流参考，默认 25 A（=10 kW / 0.4 kV）。', formula: 'I_ref = 25 A', precision: 2, chart: { style: 'dashdot', colorToken: 'warm', axis: 'left' }, blindVisible: true }),
+      sig({ id: 'I_ref_A', label: '控制器电流目标', shortLabel: 'I_ref', unit: 'A', category: 'current', sourceKind: 'CONTROLLER', definition: '控制器下发的电池电流参考，默认 25 A（=10 kW / 0.4 kV）。', formula: 'I_ref = (P_load − 20)/0.4', precision: 2, chart: { style: 'dashdot', colorToken: 'warm', axis: 'left' }, blindVisible: true }),
       sig({ id: 'bias_A', label: '传感器偏置', shortLabel: 'b(t)', unit: 'A', category: 'current', sourceKind: 'FAULT_EVENT', definition: '故障注入的测量偏置，阶跃信号。', formula: 'b(t)=0 (t<20 s), b(t)=+10 A (t≥20 s)', precision: 2, chart: { style: 'dashed', colorToken: 'fault', axis: 'right', step: true } }),
       sig({ id: 'I_bat_cap_A', label: '变换器电流上限', shortLabel: 'I_cap', unit: 'A', category: 'actuator', sourceKind: 'FAULT_EVENT', definition: '执行器故障场景的电流限幅；其他场景不可用（null）。', formula: 'I_cap = I_ref × magnitude%', precision: 2, chart: { style: 'dashed', colorToken: 'fault', axis: 'left', step: true } }),
       sig({ id: 'P_bat_true_kW', label: '电池真实功率', shortLabel: 'P_bat,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '电池真实功率（放电为正）。', formula: 'P_bat,true = 0.4 × I_true', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
@@ -278,13 +278,16 @@
         { id: 'A-ideal-gen', text: '发电机视为理想平衡源，瞬时补偿剩余负载功率；初始 20 kW 仅用于展示。' },
         { id: 'A-const-v', text: '电池端电压按 0.4 kV 等效恒压处理：P_kW = 0.4 × I_A。' },
         { id: 'A-soc-linear', text: 'SOC 由功率积分线性折算，不含温度、OCV-SOC 非线性与效率损耗。' },
-        { id: 'A-l0', text: '控制器为行为级一阶闭环（τ = 1.5 s），不是经过验证的设备控制器。' },
+        { id: 'A-l0', text: '控制器为行为级一阶闭环（健康/传感器轨 τ = 1.5 s、执行器限幅轨 τ = 0.4 s），不是经过验证的设备控制器。' },
+        { id: 'A-fl-clamp', text: '变流器限幅为理想钳位（min 语义）：target = min(I_ref − b(t), I_cap)，自 t_start 起生效；无恢复动态、无保护动作、无 t_clear。' },
         { id: 'A-gen-lag', text: '（仅负载阶跃场景生效）发电机按一阶惯性源 τ_gen = 2.0 s 追踪负载需求与电池功率之差。' }
       ],
       limitations: [
         '单一恒定负载、理想母线、无保护动作与故障传播。',
         '不含电池老化、热管理、变换器开关动态与电网交互。',
-        'L0 行为级演示模型；非实测、非 Simulink、无实测对比。'
+        'L0 行为级演示模型；非实测、非 Simulink、无实测对比。',
+        '退化域：load0 ≤ 20 kW 时 I_ref ≤ 0，min 钳位 no-op（故障零效果），I_bat_cap_A 显示负值；锚点数值仅对 load0 = 30 kW 成立。',
+        'normalizeConfig 不钳位 load_kW：合法域仅由 UI bounds（10…45 kW）保证，手拼配置可破 ±25 kW 包络。'
       ],
       equations: [
         { id: 'EQ-1', latex_text: 'I_meas(t) = I_true(t) + b(t)', note: '测量通道偏置叠加' },
@@ -292,7 +295,9 @@
         { id: 'EQ-3', latex_text: 'I_true(t) = 15 + 10·e^{−(t−20)/1.5} (t ≥ 20 s)', note: '默认故障后解析解' },
         { id: 'EQ-4', latex_text: 'P_bat = 0.4·I_bat, P_gen = P_load − P_bat', note: '功率换算与理想平衡' },
         { id: 'EQ-5', latex_text: 'SOC(t) = SOC0 − ∫P_bat dt / (40 kWh) × 100%', note: 'SOC 积分定义' },
-        { id: 'EQ-6', latex_text: 'r_true = P_gen + P_bat,true − P_load; r_meas = P_gen + P_bat,meas − P_load', note: '真实/测量残差定义' }
+        { id: 'EQ-6', latex_text: 'r_true = P_gen + P_bat,true − P_load; r_meas = P_gen + P_bat,meas − P_load', note: '真实/测量残差定义' },
+        { id: 'EQ-A', latex_text: 'I_cap = I_ref × magnitude/100, I_ref = (P_load − 20)/0.4; target = min(I_ref − b(t), I_cap)', note: '变流器限幅（钳位式，min 语义，自 t_start 起）；actuator 轨 b ≡ 0' },
+        { id: 'EQ-B', latex_text: 'τ·dI_true/dt + I_true = target; τ = 1.5 s（healthy/sensor 轨）、τ = 0.4 s（actuator 轨）', note: '执行器双轨一阶跟随（EQ-2 的 τ 按轨细分）' }
       ]
     },
     acceptance: {
@@ -435,7 +440,7 @@
     signals: [
       sig({ id: 'I_fc_true_A', label: '电堆真实电流', shortLabel: 'I_fc,true', unit: 'A', category: 'current', sourceKind: 'MODEL_STATE', definition: '电堆实际输出电流（真值）。', formula: 'τ_fc·dI_fc/dt + I_fc = I_fc_ref − b(t)', precision: 2, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'I_fc_meas_A', label: '电堆测量电流', shortLabel: 'I_fc,meas', unit: 'A', category: 'current', sourceKind: 'OBSERVATION', definition: '电堆电流传感器输出 = 真实电流 + 故障偏置。', formula: 'I_fc,meas = I_fc + b(t)', precision: 2, chart: { style: 'dashed', colorToken: 'obs', axis: 'left', step: true }, blindVisible: true, noiseSigma: 0.35 }),
-      sig({ id: 'I_fc_ref_A', label: '电堆电流目标', shortLabel: 'I_fc,ref', unit: 'A', category: 'current', sourceKind: 'CONTROLLER', definition: '控制器下发的电堆电流参考，默认 50 A（=20 kW / 0.4 kV）。', formula: 'I_fc_ref = 50 A', precision: 2, chart: { style: 'dashdot', colorToken: 'warm', axis: 'left' }, blindVisible: true }),
+      sig({ id: 'I_fc_ref_A', label: '电堆电流目标', shortLabel: 'I_fc,ref', unit: 'A', category: 'current', sourceKind: 'CONTROLLER', definition: '控制器下发的电堆电流参考，默认 50 A（=20 kW / 0.4 kV）。', formula: 'I_fc_ref = (P_load − 10)/0.4', precision: 2, chart: { style: 'dashdot', colorToken: 'warm', axis: 'left' }, blindVisible: true }),
       sig({ id: 'bias_A', label: '电堆电流偏置', shortLabel: 'b(t)', unit: 'A', category: 'current', sourceKind: 'FAULT_EVENT', definition: '故障注入的测量偏置，阶跃信号。', formula: 'b(t)=0 (t<20 s), b(t)=+10 A (t≥20 s)', precision: 2, chart: { style: 'dashed', colorToken: 'fault', axis: 'right', step: true } }),
       sig({ id: 'I_fc_cap_A', label: '电堆电流上限', shortLabel: 'I_fc,cap', unit: 'A', category: 'actuator', sourceKind: 'FAULT_EVENT', definition: '阀门卡涩场景下的电堆电流上限；其他场景不可用（null）。', formula: 'I_fc,cap = I_fc_ref × magnitude%', precision: 2, chart: { style: 'dashed', colorToken: 'fault', axis: 'left', step: true } }),
       sig({ id: 'P_fc_true_kW', label: '电堆真实功率', shortLabel: 'P_fc,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '电堆真实输出功率。', formula: 'P_fc,true = 0.4 × I_fc', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
@@ -472,7 +477,7 @@
         description: '负载需求阶跃 +magnitude kW；功率分配器一阶爬坡抬升电堆参考电流，电池承担瞬态。',
         params: [{ key: 'magnitude', label: '阶跃幅值', unit: 'kW', min: 5, max: 20, step: 1, default: 10, precision: 0, help: '负载需求 30 kW → 30+magnitude kW' }],
         defaultTime_s: 20, timeRange: [2, 55],
-        closedLoopEffect: '电堆出力一阶爬升，电池先补瞬态后回到 10 kW',
+        closedLoopEffect: '功率分配器以 τ_ref = 2.5 s 一阶跟随 (P_load − 10)/0.4 抬升 I_fc_ref，电堆再以 τ_fc = 1.2 s 跟随 I_fc_ref；电池先补瞬态后回到 10 kW',
         monitorEffect: '物理输入，与控制模式无关，两种模式均生效',
         causalTemplateId: 'fc-load-step'
       }),
@@ -499,19 +504,24 @@
         { id: 'A-ideal-limiter', text: '电池缓冲与 DC/DC 变换器的限幅为理想上限建模，无恢复动态、无保护动作。' },
         { id: 'A-fc-soc-est', text: '电池 SOC 估计由功率管理器按 P_load − P_fc,meas 平衡估算（EMS 级），非电池电流库仑积分；测量偏差会进入 SOC 估计。' },
         { id: 'A-fc-first-order', text: '电堆电流按一阶响应（τ_fc = 1.2 s）跟随目标，不含热管理、水管理与气体传输动态。' },
+        { id: 'A-fc-dispatcher', text: '电堆参考电流 I_fc_ref 由功率分配器以 τ_ref = 2.5 s 一阶跟随 (P_load − 10)/0.4，随负载自适应；不是阶跃设定值（仅 load_step 轨激活该动态，其余轨为恒值）。' },
         { id: 'A-l0', text: '功率控制器为行为级闭环，不是经过验证的设备控制器。' }
       ],
       limitations: [
         '不含电堆热管理、水管理、气体扩散与寿命衰减。',
         '不含 DC/DC 开关动态与效率曲线；电池缓冲视为理想源。',
-        'L0 行为级演示模型；非实测、非 Simulink、无实测对比。'
+        'L0 行为级演示模型；非实测、非 Simulink、无实测对比。',
+        '包络适用域声明：±25 kW 电池包络仅限锚点场景；load_step 幅值 > 15 kW 即越界（幅值 +20 kW → max|P_bat| = 30 kW）。',
+        '执行器轨越界域：卡涩开度 < 25% 即越界（load0 = 30 kW 时 20% → max|P_bat| = 26 kW）；开度 55% 且 load0 > 43.33 kW 时越界。',
+        '极端角点（load0 = 45 kW、load_step +20 kW）：需求 65 kW、I_fc_ref → 137.5 A、P_fc = 55 kW；电堆无功率上限建模（为 20 kW 基准的 2.75 倍）。'
       ],
       equations: [
         { id: 'EQ-1', latex_text: 'I_fc,meas = I_fc + b(t)', note: '测量通道偏置叠加' },
         { id: 'EQ-2', latex_text: 'τ_fc·dI_fc/dt + I_fc = I_fc_ref − b(t), τ_fc = 1.2 s', note: '电堆电流闭环一阶模型' },
         { id: 'EQ-3', latex_text: 'P_fc = 0.4·I_fc, P_bat = P_load − P_fc,true', note: '功率换算与电池平衡' },
         { id: 'EQ-4', latex_text: 'r_true = P_fc,true + P_bat − P_load; r_meas = P_fc,meas + P_bat,meas − P_load', note: '真实/测量残差定义' },
-        { id: 'EQ-5', latex_text: 'SOC_true = SOC0 − ∫P_bat,true dt / (40 kWh) × 100%', note: 'SOC 积分定义' }
+        { id: 'EQ-5', latex_text: 'SOC_true = SOC0 − ∫P_bat,true dt / (40 kWh) × 100%', note: 'SOC 积分定义' },
+        { id: 'EQ-6', latex_text: 'τ_ref·dI_fc_ref/dt + I_fc_ref = (P_load(t) − 10)/0.4, τ_ref = 2.5 s', note: '功率分配器级一阶跟随；仅 load_step 轨激活（其余轨 I_fc_ref = (P_load − 10)/0.4 恒值）' }
       ]
     },
     acceptance: {

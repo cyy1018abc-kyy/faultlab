@@ -114,6 +114,51 @@ try {
 } catch (e) { rejected = e; }
 ok(!!rejected && rejected.code === 'CN-E02', '越界配置拒绝创建 Run（CN-E02 中文错误）', rejected && rejected.message);
 
+/* ------------------------------------------------------------------ *
+ * 8. config_hash 键序不敏感：同一配置、不同键插入顺序 → 同 hash
+ *    （R-3 不变量④ / W2-4 / DEC-R2；canonicalize 递归键排序，hash.js:44-57）
+ * ------------------------------------------------------------------ */
+function reverseKeysDeep(o) {
+  if (Array.isArray(o)) return o.map(reverseKeysDeep);
+  if (o && typeof o === 'object') {
+    const out = {};
+    Object.keys(o).reverse().forEach((k) => { out[k] = reverseKeysDeep(o[k]); });
+    return out;
+  }
+  return o;
+}
+const cfgKoA = core.createConfig('FL-001', { fault: { family: 'sensor_drift', faultId: 'I_bat_sensor_bias', t_start_s: 20, params: { magnitude: 12 } } });
+const cfgKoB = core.createConfig('FL-001', { fault: { params: { magnitude: 12 }, t_start_s: 20, faultId: 'I_bat_sensor_bias', family: 'sensor_drift' } });
+const cfgKoC = reverseKeysDeep(JSON.parse(JSON.stringify(cfgKoA))); /* 全层级键序倒置副本 */
+const runKoA = reg.createRun({ config: cfgKoA, runId: 'RUN-G7', createdAt: '2026-10-28T00:00:00Z' });
+const runKoB = reg.createRun({ config: cfgKoB, runId: 'RUN-H8', createdAt: '2026-10-28T00:00:00Z' });
+const runKoC = reg.createRun({ config: cfgKoC, runId: 'RUN-I9', createdAt: '2026-10-28T00:00:00Z' });
+eq(runKoA.manifest.config_hash, runKoB.manifest.config_hash, '不同 override 字面量键序 → 同 config_hash');
+eq(runKoA.manifest.config_hash, runKoC.manifest.config_hash, '全层级键序倒置副本 → 同 config_hash');
+eq(runKoA.manifest.run_hash, runKoC.manifest.run_hash, '同内容不同键序 → run_hash 相同');
+eq(reg.verifyRunHash(runKoC), true, '键序倒置 Run 的哈希校验通过');
+
+/* ------------------------------------------------------------------ *
+ * 9. run_hash 冻结：Run 创建后修改 config 对象属性 → run_hash 不变
+ *    （R-3 不变量⑤ / W2-4 / DATA_CONTRACT_SPEC §4.2：改参只产生新 Run）
+ * ------------------------------------------------------------------ */
+const cfgFrozen = core.createConfig('FL-001', { fault: { family: 'sensor_drift', faultId: 'I_bat_sensor_bias', t_start_s: 20, params: { magnitude: 12 } } });
+const runFrozen = reg.createRun({ config: cfgFrozen, runId: 'RUN-J10', createdAt: '2026-10-28T00:00:00Z' });
+const frozenHash = runFrozen.manifest.run_hash;
+cfgFrozen.fault.params.magnitude = 18;      /* 创建后污染外部 config 草稿对象（多层属性） */
+cfgFrozen.fault.t_start_s = 30;
+cfgFrozen.initial.load_kW = 45;
+cfgFrozen.initial.SOC_pct = 70;
+cfgFrozen.feedback_mode = 'monitor';
+eq(runFrozen.manifest.run_hash, frozenHash, '创建后改 config 对象：run_hash 不变');
+eq(reg.verifyRunHash(runFrozen), true, '外部改参后 verifyRunHash 仍通过');
+eq(reg.computeRunHash(runFrozen), frozenHash, 'run_hash 由（冻结）内容重算不变');
+eq(runFrozen.config.fault.params.magnitude, 12, 'Run.config 不受外部污染（magnitude 保持 12）');
+eq(runFrozen.config.initial.load_kW, 30, 'Run.config.initial 不受外部污染');
+const runAfterMutate = reg.createRun({ config: cfgFrozen, runId: 'RUN-K11', createdAt: '2026-10-28T00:00:00Z' });
+ok(runAfterMutate.manifest.run_hash !== frozenHash, '污染后参数创建新 Run → run_hash 不同（改参只产生新 Run）');
+eq(runFrozen.manifest.run_hash, frozenHash, '新 Run 创建后旧 Run 哈希仍不变');
+
 /* ------------------------------------------------------------------ */
 console.log('\n================================================');
 console.log('PASS ' + pass + ' / FAIL ' + fail + (fail ? '  ✗' : '  ✓'));

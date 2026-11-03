@@ -281,3 +281,56 @@ node tools/verify-i11-bitidentity.mjs ported.json
 | 2026-10-28 | RFC 初稿编制；批准并实施 S1/S2（并行线） | 用户「批准」；CHG-20261028-01/02（备份分支） |
 | 2026-10-30 | 还原移植回 V0.3 主线；合并 `main` 并推送远端（`311d0f0`） | 用户「还原远端同步 github 仓库的进度」；CHG-20261030-07 |
 | 2026-10-30 | 本文档归档 + CHG-20261030-07 记录补齐 + README/注释引用对齐 | 用户「补齐缺失部分」；CHG-20261030-07 |
+| 2026-11-04 | 文末追加 §11 对照附录（R-4，PowerGridworld 接口三分法对照）——**补强附录，非裁定变更，不重开门禁** | REFERENCE_LANDING_PLAN_v051 §2 R-4 卡（批次 1） |
+
+## 11. 对照附录（R-4，2026-11-04）— PowerGridworld 接口三分法对照
+
+> **性质声明（先于内容）**：本附录为**已批准 RFC 的补强附录**——仅做接口思想对照，
+> **不引入任何依赖、不修改 §0–§10 任何裁定、不重开任何门禁**（R-4 卡定性原句）。
+> 如对照引出需改裁定的问题，先请示再动——**本次对照未发现需改裁定的问题**（§11.4）。
+> **对照对象**：NREL/PowerGridworld（多智能体强化学习电网环境）。外部源码取证：`main`
+> commit `82ead57d07dcfd61a26251d9e643905dea842373`（2026-11-04 经 GitHub API 直读 README 与
+> `gridworld/base.py`，未引入代码/依赖）；任务口径见《FaultLab 开源参考项目清单》v1.0 §6.1。
+> **许可**：**待核对**（未核实、不回填日期；仅思想级对照——docs/REFERENCES.md 登记行同此口径）。
+
+### 11.1 对照对象的接口形态（三分法来源）
+
+PowerGridworld 的环境基类 `ComponentEnv(gym.Env, ABC)`（base.py:12-39，`main@82ead57d`）是
+经典 Gym 三件套：
+
+- `step(action) -> (obs, reward, done, info)`（base.py:35）——控制器（RL agent）输出**动作**，
+  环境回吐**观测**；
+- `reset(**kwargs)`（base.py:29）——回合制复位；
+- 观测内容由环境自行定义并压缩（各 agent 有独立 obs/action space；多体聚合为 Dict 空间，
+  base.py:97-98）。
+
+其底层电网状态来自 pandapower 潮流计算（清单 §6.1 定位：「基于 pandapower，每个变电站一个
+agent」），由 env 打包成 observation 后对 agent 可见。
+
+### 11.2 接口边界决策表（三分法三问 × 本仓 I-11 裁定）
+
+| # | 三分法问题 | PowerGridworld 口径 | 本仓 I-11 裁定（出处） | 对照结论 |
+|---|---|---|---|---|
+| 1 | **Plant 暴露多少状态** | 全部经 env 压缩为 Gym observation；暴露面由训练目标决定，无「真值 / 观测」分层 | `Plant.signals()` 显式声明**真值 + 观测**通道（SignalDef 携带 exposure/precision/category，§2.1）；页面只见 `blind_observable`，与 Arena `blind_observable`/`truthSealed` 协议同源 | **同构点**：状态暴露是声明面，不是「实例即全量可读」。**差异点**：PGW 暴露面服务 RL 训练（agent 需要什么就给什么）；I-11 暴露面服务展示与盲测协议（可观测性 = 教学边界 + 评测边界）。**不借其观测空间设计**（清单 §6.1「别借」原句） |
+| 2 | **Sensor 是否允许直读 Plant 内部** | **无独立 Sensor 层**——env 直接从 pandapower net 读数打包为 obs（读数 = 状态，无测量链路语义） | **Sensor 是独立接口**（EQ-2 层测量通道 `bAt` / `iMeasAt`，§2.2）：测量链路与回路视图分离；monitor 模式下测量通道仍计 b（EQ-1/EQ-2）；直读 Plant 真值必须走声明通道 | I-11 **更严格且必要**：测量 = 通道声明 + 故障注入点（`sensor_drift` 挂在测量链路，§2.2）。PGW 无故障注入与证据链需求，故可合并 Sensor 入 env；本仓不能合并——「测量跳变 ≠ 物理跳变」的教学语义与因果解释都依赖该分离（I-11 §7 教训同源：monitor 语义曾因放错层而出错） |
+| 3 | **Controller 输出是动作还是设定值** | **动作（action）**：`step(action)` 直接改变环境状态；动作空间为训练定义（离散/连续，MADDPG 等） | **设定值（target）**：`Controller.target(reference, measured)` 返回「进入回路的偏置」视图（FL `targetAt`：monitor 恒 `I_ref`；FC `loopBiasAt`：monitor 恒 0，§2.2）；monitor = IdentityController | **语义不同源，不可直译**：PGW action 是对外部世界的直接干预；I-11 target 是反馈回路内的设定/偏置。对照提示（不构成裁定变更，§11.4）：未来 `actuator_fault` 家族（P1 扩展家族，§2.1 接口注）若引入「干预语义」，其挂载点是 FaultModel/事件层，**不是** Controller.target——左/右极限仍归事件层统一裁决（ADR-002） |
+| 4 | （附加）seed / 配置固化 | seed + 配置固化（清单 §6.1 旁证项） | `run_hash` 内容寻址 + §6.1 裁决「run_hash 逐位不变」（12 配置快照 §9.6） | **旁证一致**：确定性可复现是双方共同前提；本仓以 hash 断言而非 seed 声明，约束更强 |
+
+### 11.3 明确不借（对照边界，与 R-4 卡「不借」逐条对齐）
+
+1. **RL episode/reset 语义**：`reset()` 回到初始分布反复训练；本仓 Run 是单次可复现对象
+   （创建后冻结、`run_hash` 不变），无回合概念。
+2. **为训练服务的观测空间设计**（§11.2#1 差异点）。
+3. **奖励 / done 语义**：`step` 返回 reward/done——本仓无奖励函数（教学演示非决策优化），
+   Run 终止由时间窗与事件定义，不由回报驱动。
+
+### 11.4 对照结论
+
+1. 三分法三问在 I-11 既有裁定（§2.1/§2.2、§6 裁决 1–3）中均有明确答案；与 PGW 的取舍差异
+   全部可由目标差（**展示与证据链 vs RL 训练**）解释——**本附录不修改任何裁定**。
+2. 唯一新提示（登记性质，不动裁定）：§11.2#3 的 action/target 映射提醒——`actuator_fault`
+   的「干预语义」落点在 FaultModel/事件层而非 Controller（与 §2.2 派发边界及 LOAD_STEP_RULING_MEMO
+   的事件层裁决方向一致）；该提示供 S3/家族扩展时复核，不产生新门禁。
+3. 对标来源构成说明：本 RFC 文档头「对标来源：PyBaMM + python-microgrid」**不变**；
+   PowerGridworld 为同问题第二解法的**旁证**（经本附录登记），不进入对标来源主列表。
+

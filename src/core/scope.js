@@ -1,14 +1,19 @@
 /* owner: core-contract | module: scope | contract: BACKLOG_APPROVED §1.5 / MODEL_VALIDATION_SPEC SA-24 / G0-DEC-14
    批准范围守卫（P0b-07 / I-10）：P0 验收只认 FL-001 × 固定白名单场景；
    白名单外的 Run/导出一律标 scope='extension_preview'（扩展预览·未评审），
-   不得进入 P0 验收或 golden 比对。纯函数、零 DOM。 */
+   不得进入 P0 验收或 golden 比对。纯函数、零 DOM。
+   SA-24 白名单扩展（FLEXT_G2B_SPEC_APPROVED §4 显式 CHG 面 / CHG-20261104-03）：
+   FL-001 families 增 actuator_fault（converter_current_limit，限幅 55% @20.0 s），
+   actuator 物理规格见 FLEXT_G2B_SPEC_APPROVED §1（EQ-A/EQ-B，双轨 τ=1.5/0.4 s）；
+   FC-001 approved_fc 族条件同步扩为 none/sensor_drift/load_step/actuator_fault
+   （FCEXT_G2B_SPEC_APPROVED §5：FC 新族入 approved_fc）。 */
 (function () {
   'use strict';
 
   var FL = window.FL = window.FL || {};
   FL.core = FL.core || {};
 
-  /* SA-24 白名单：P0 唯一允许的场景集合 */
+  /* SA-24 白名单：P0 唯一允许的场景集合（v1.1 增 actuator_fault：FLEXT_G2B_SPEC_APPROVED §4） */
   var APPROVED = {
     systemId: 'FL-001',
     modelId: 'fl001',
@@ -17,7 +22,8 @@
     dt_s: 0.1,
     fault_time_s: 20.0,
     bias_A: 10,
-    families: ['none', 'sensor_drift'],
+    actuator_magnitude_pct: 55,
+    families: ['none', 'sensor_drift', 'actuator_fault'],
     feedback_modes: ['closed_loop', 'monitor'],
     initial_load_kW: 30,
     initial_SOC_pct: 60
@@ -30,13 +36,16 @@
   /* classify(config) -> 'approved_p0' | 'approved_fc' | 'extension_preview'
      config 为实现配置（systemId/fault/initial/noise...）或已 ScenarioConfig 化对象均可。
      FC-001 approved_fc（V3-04 / CHG-20261030-12）：G2b-lite 闭环 + 升正式；
-     SA-24 白名单仍不含 FC-001（不进入 P0 验收路径，验收口径独立成表）。 */
+     SA-24 白名单仍不含 FC-001（不进入 P0 验收路径，验收口径独立成表）。
+     FC 族条件 v1.1 扩为 none/sensor_drift/load_step/actuator_fault
+     （FCEXT_G2B_SPEC_APPROVED §5：FC 新族入 approved_fc）。 */
   function classify(config) {
     if (!config || typeof config !== 'object') return 'extension_preview';
     if (config.systemId === 'FC-001' && config.modelId === 'fc.pem.l0'
       && config.modelVersion === '1.1.0'
       && config.duration_s === 60 && config.dt_s === 0.1
-      && config.fault && (config.fault.family === 'none' || config.fault.family === 'sensor_drift')
+      && config.fault && (config.fault.family === 'none' || config.fault.family === 'sensor_drift'
+        || config.fault.family === 'load_step' || config.fault.family === 'actuator_fault')
       && config.initial && config.initial.load_kW === 30 && config.initial.SOC_pct === 60
       && !(config.noise && (config.noise.enabled === true || (config.noise.seed != null && config.noise.level > 0)))) {
       return 'approved_fc';
@@ -56,6 +65,9 @@
     var load = config.initial ? config.initial.load_kW : config.initial_load_kW;
     var soc = config.initial ? config.initial.SOC_pct : config.initial_SOC_pct;
     var noiseOn = !!(config.noise && (config.noise.enabled === true || (config.noise.seed != null && config.noise.level > 0)));
+    /* 参数钉扎按族取锚（FLEXT_G2B_SPEC_APPROVED §4）：sensor_drift 钉 bias_A=+10 A，
+       actuator_fault 钉限幅比例 55%（I_cap = I_ref × 55% = 13.75 A @ load0=30）。 */
+    var magnitudeAnchor = family === 'actuator_fault' ? APPROVED.actuator_magnitude_pct : APPROVED.bias_A;
 
     var ok = systemId === APPROVED.systemId
       && modelId === APPROVED.modelId
@@ -66,7 +78,7 @@
       && isNumEq(config.duration_s, APPROVED.duration_s)
       && isNumEq(config.dt_s, APPROVED.dt_s)
       && !noiseOn
-      && (!faulted || (isNumEq(Number(tStart), APPROVED.fault_time_s) && isNumEq(Number(magnitude), APPROVED.bias_A)));
+      && (!faulted || (isNumEq(Number(tStart), APPROVED.fault_time_s) && isNumEq(Number(magnitude), magnitudeAnchor)));
     return ok ? 'approved_p0' : 'extension_preview';
   }
 
@@ -89,7 +101,7 @@
       throw errB;
     }
     if (!isApprovedP0(configOrRun)) {
-      var err = new Error('[SCOPE] 该场景超出 G0 批准范围（扩展预览·未评审）：P0 验收仅接受 FL-001 × sensor_drift/无故障 × +10 A @20.0 s × 30 kW/60% × 60 s/0.1 s。');
+      var err = new Error('[SCOPE] 该场景超出 G0 批准范围（扩展预览·未评审）：P0 验收仅接受 FL-001 × 无故障/sensor_drift(+10 A)/actuator_fault(限幅 55%) × @20.0 s × 30 kW/60% × 60 s/0.1 s。');
       err.name = 'ScopeError';
       err.code = 'SCOPE-E01';
       err.next = '改用批准白名单内的配置，或将该 Run 标注为扩展预览且不进入 P0 验收';

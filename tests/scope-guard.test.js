@@ -19,18 +19,24 @@ function ok(cond, name, detail) {
 function eq(a, b, name) { ok(a === b, name, 'expected ' + JSON.stringify(b) + '，actual ' + JSON.stringify(a)); }
 
 /* ------------------------------------------------------------------ *
- * 1. 白名单内场景（SA-24）：FL-001 × {none, sensor_drift +10@20} × 双模式
+ * 1. 白名单内场景（SA-24 v1.1）：FL-001 × {none, sensor_drift +10@20,
+ *    actuator_fault 限幅 55%@20} × 双模式（FLEXT_G2B_SPEC_APPROVED §4 / CHG-20261104-03）
  * ------------------------------------------------------------------ */
 const cfgFault = core.createConfig('FL-001', {});
 const cfgBase = core.createConfig('FL-001', { fault: { family: 'none', faultId: null, t_start_s: 20, params: { magnitude: 0 } } });
 const cfgMon = core.createConfig('FL-001', { feedback_mode: 'monitor' });
+const cfgAct = core.createConfig('FL-001', { fault: { family: 'actuator_fault', faultId: 'converter_current_limit', t_start_s: 20, params: { magnitude: 55 } } });
+const cfgActMon = core.createConfig('FL-001', { fault: { family: 'actuator_fault', faultId: 'converter_current_limit', t_start_s: 20, params: { magnitude: 55 } }, feedback_mode: 'monitor' });
 eq(scope.classify(cfgFault), 'approved_p0', '白名单：FL-001 closed_loop sensor_drift +10@20');
 eq(scope.classify(cfgBase), 'approved_p0', '白名单：FL-001 无故障基准');
 eq(scope.classify(cfgMon), 'approved_p0', '白名单：FL-001 monitor');
+eq(scope.classify(cfgAct), 'approved_p0', '白名单 v1.1：FL-001 actuator_fault 限幅 55%@20（FLEXT §4）');
+eq(scope.classify(cfgActMon), 'approved_p0', '白名单 v1.1：FL-001 actuator_fault monitor 模式');
 ok(scope.isApprovedP0(cfgFault), 'isApprovedP0 通过');
+ok(scope.isApprovedP0(cfgAct), 'isApprovedP0 通过（actuator 白名单 v1.1）');
 
 /* ------------------------------------------------------------------ *
- * 2. 白名单外场景：全部 extension_preview
+ * 2. 白名单外场景：全部 extension_preview（actuator 族已放行，越界参数仍拒收）
  * ------------------------------------------------------------------ */
 function mk(patch) { return core.createConfig('FL-001', patch); }
 eq(scope.classify(mk({ fault: { family: 'sensor_drift', faultId: 'I_bat_sensor_bias', t_start_s: 20, params: { magnitude: 12 } } })),
@@ -39,8 +45,12 @@ eq(scope.classify(mk({ fault: { family: 'sensor_drift', faultId: 'I_bat_sensor_b
   'extension_preview', '故障时刻 30 s 超白名单（P0 冻结 20.0）');
 eq(scope.classify(mk({ fault: { family: 'load_step', faultId: 'load_step_10kW', t_start_s: 20, params: { magnitude: 10 } } })),
   'extension_preview', 'load_step 族不在 P0（G0-DEC-15：删除或重写）');
-eq(scope.classify(mk({ fault: { family: 'actuator_fault', faultId: 'converter_current_limit', t_start_s: 20, params: { magnitude: 55 } } })),
-  'extension_preview', 'actuator_fault 族不在 P0（未评审）');
+eq(scope.classify(mk({ fault: { family: 'actuator_fault', faultId: 'converter_current_limit', t_start_s: 20, params: { magnitude: 60 } } })),
+  'extension_preview', 'actuator 限幅 60% 超白名单（P0 冻结 55%）');
+eq(scope.classify(mk({ fault: { family: 'actuator_fault', faultId: 'converter_current_limit', t_start_s: 30, params: { magnitude: 55 } } })),
+  'extension_preview', 'actuator 故障时刻 30 s 超白名单（P0 冻结 20.0）');
+eq(scope.classify(mk({ fault: { family: 'actuator_fault', faultId: 'converter_current_limit', t_start_s: 20, params: { magnitude: 55 } }, initial: { load_kW: 35, SOC_pct: 60 } })),
+  'extension_preview', 'actuator + 负载 35 kW 仍超白名单');
 eq(scope.classify(mk({ initial: { load_kW: 35, SOC_pct: 60 } })), 'extension_preview', '负载 35 kW 超白名单');
 eq(scope.classify(mk({ initial: { load_kW: 30, SOC_pct: 60 }, noise: { enabled: true, seed: 1, level: 0.5 } })),
   'extension_preview', '开启噪声超白名单（P0 noise=null）');
@@ -77,10 +87,11 @@ ok(filesA['manifest.json'].indexOf('"scope": "approved_p0"') !== -1, 'approved R
 
 /* ------------------------------------------------------------------ *
  * 5. golden 比对路径仅覆盖 approved Run（engine.test 已仅用白名单配置；
- *    此处验证三组固定 Run 的 scope 全为 approved_p0，防止白名单漂移）
+ *    此处验证四组固定 Run（fl001_v1 3→4 Run，FLEXT §2）的 scope 全为 approved_p0，
+ *    防止白名单漂移）
  * ------------------------------------------------------------------ */
-[cfgBase, cfgFault, cfgMon].forEach((c, i) => {
-  ok(scope.isApprovedP0(c), '三组固定 Run 配置 ' + (i + 1) + ' 在 P0 白名单内（防止白名单漂移）');
+[cfgBase, cfgFault, cfgMon, cfgAct].forEach((c, i) => {
+  ok(scope.isApprovedP0(c), '四组固定 Run 配置 ' + (i + 1) + ' 在 P0 白名单内（防止白名单漂移）');
 });
 
 /* ------------------------------------------------------------------ */
