@@ -805,3 +805,59 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   ④ **CHG-20261104-06（波次 1）/-07（波次 2）预留**；golden approval 重签引用号预分配：
      fc001_v1→-06、fl001_v1→-07。
   批准人：用户（2026-11-04「统一采用推荐决策」）；记录人：实现 Agent。
+
+- `CHG-20261104-06`：**v0.5.1 发布（G8）——D-2a oracle 统一接口（DEC-A 分层）+ FC 扩展 golden 链 + C-1 对外场次指南**。
+  V060_WAVE_DESIGN 波次 1（W1-1/W1-2/W1-3 数值面/W1-4），动态工作流并发子智能体执行
+  （dwfrun-76ed11ef）。交付：
+  ① `tools/oracle/oracle_base.py`——OracleInterface 归一契约 + approval 三字段/sidecar/emit
+     助手（V-03 语义=oracle 文件自身字节 sha 写入 docstring）+ 契约自检 T-1..T-8；
+  ② `NEXT/ORACLE_INTERFACE_D2.md`——golden schema v2 规格 + 三 oracle 事实差异清单 F-1..F-8 +
+     GT-001 文档化符合/迁移挂起裁定（DEC-A：不动 gt001_oracle.py，gt001_v2 sha c50315c9… 零变更）；
+  ③ FC-G2b-02 落地：`fc001_oracle.py` load_step 级联子步递推（foStep 逐字复刻，连续闭式禁用——
+     尾差实测 5.4e-6/2.8e-6 在 ≤6e-6 域）+ actuator 闭式、RUNS 3→5、SERIES_IDS 增四信号
+     （I_fc_cap_A 不入 golden series——V-07 对 null 列崩溃，按 gt001 先例剔除，钳位值留 fault 块）、
+     SC-8/9/10、model_version 1.1.0、method analytic_flux.2、**approval 重签引本 CHG**；
+     **fc001_v1 重出 5 Run**（sha256 b073d2df…c79d1e0；旧 f518c7bc… 退役；V-03b 批准摘要
+     af93e5aa…——按既有 emit 语义为剥离 generated_by/approval 后内容摘要，非文件字节自引用）；
+  ④ `tests/engine-fc.test.js` Run 键面按 golden.runs 遍历扩 5 Run（126→294 断言）+ 批准引用
+     断言同步 CHG-20261028-04→本 CHG（golden 元数据断言，重签必要同步）；
+  ⑤ `NEXT/EVAL_TRACK_GUIDE.md` v2——§6 对外公开场次（reveal 管理/报名/盲包/score_hash 公示/
+     成绩单导入导出/归档规范），命令与 arena2-* 实跑核对；
+  ⑥ 验证：run-g2 全量 PASS（工作流内 + 主流程复验 17198ms 两次独立）；verify_golden
+     fc001 5 Run 全过/fl001 20/20/gt001 35/35；老 3 Run 与备份逐位一致（备份 f518c7bc… 留档
+     Temp）；新增 Run 与引擎 diff=0；老 Run 对引擎 worst 3.9e-13（plant 路径 fp 噪声基线即如此，
+     rtol 1e-12 内）。覆盖口径：本 tag 树=基线 f1e5e78+FC 数值链+基座+指南（FC-G2b-04
+     systems.js 登记面因文件纠缠随 -07），FC 新族 classify 仍扩展预览（证据
+     `evidence/g8/v051-release.md` §3）。
+  批准人：用户（CHG-20261104-05 授权链）；记录人：实现 Agent。
+
+- `CHG-20261104-07`：**v0.6.0 发布（G8）——FL actuator 全链 + 白名单显式扩大（DEC-C）+ R-3 property + 参考轨 + FC/FL 正式化登记**。
+  V060_WAVE_DESIGN 波次 2（W2-1…W2-6）+ W1-3 登记面（文件纠缠归并），同一工作流执行。交付：
+  ① FL-G2b-01/02：`fl001_oracle.py` actuator 闭式（SOC 全窗 1054.5 A·s→59.7070833%）+
+     monitor family 守卫（修正既有 :82-83 无条件 25A 陷阱）、RUNS 3→4（+actuator_closed_loop）、
+     SERIES_IDS 增 I_bat_cap_A（null 列）、SC-7/8/9、EV-001 actuator_limit 事件入 golden、
+     **approval 重签引本 CHG**；**fl001_v1 重出 4 Run**（sha256 f4e852aa…afbe25；旧 6a0c751f…
+     退役；V-03b 摘要 538b4412…）；`emit_golden.py` 委托 oracle_base（字节级等价探针）；
+     `scripts/verify_golden.py` null 感知最小修补（V-07 对 null 列 TypeError——双 null 一致/
+     单侧失配；fc001/gt001 回归零扰动。DEC-R2「不 property 化」不适用于此修补，登记为勘误）；
+  ② 登记面：`systems.js`（FC EQ-6/A-fc-dispatcher/级联措辞/越界域；FL A-fl-clamp/A-l0 双轨 τ/
+     EQ-A/EQ-B/退化域）+ `checks.js:138` 双分支订正 + `docs/FAULT_CATALOG.md` v1.1
+     （scope 按代码快照+勘误表）；
+  ③ **SA-24 白名单显式扩大（DEC-C，CHG-20261104-03 §4 预留的实现期裁定在此执行）**：
+     `scope.js` APPROVED.families 增 actuator_fault（magnitude=55 钉扎）、FC approved_fc 分支
+     扩四族；后端 B-1 actuator 闭式（对 golden max|Δ|=0.0）、B-5 RK4（1.66e-4 ≪ rtol 1e-3
+     声明档）、双后端自检 +AC-5/RK-4；scope-guard/backend-admission 测试同步（4 Run+越界负例仍拒收）；
+  ④ 测试：`tests/engine.test.js` 4 Run + **actuator 闭环 vs monitor 逐位等价断言**（FLEXT §2
+     项 1 落地，339 断言）+ `tests/registry.test.js` §8/§9（config_hash 键序/run_hash 冻结）；
+  ⑤ R-3 property：`tools/oracle/properties/property_harness.py`（stdlib 固定种子；能量平衡/
+     r_true≡0/事件相位三不变量，FL 240 组+FC 27 组，ddmin-lite 最小化+检测力阴性自检，
+     运行前后 oracle 文件 sha 不变、无 src 导入自证）；
+  ⑥ 参考轨：Q5_ADMISSION_FIELD_TABLE（R-2a，FMPy 源码逐行核对×V312 三态 28 条）、
+     RFC I-11 §11 对照附录（R-4）、METRICS_P1（R-5，P1 隔离）、D1_LITE_ASSESSMENT（W2-6）、
+     REFERENCES 执行记录；
+  ⑦ 验证：run-g2 全量 PASS（两次独立运行）；全库 16 测试文件全绿；引擎 4 Run vs golden
+     worst 2.58e-15；actuator 闭环/monitor 逐位一致（仅元数据差）；property harness ok。
+  已知事项登记：verify_golden null 修补（①）、FL healthy I_meas_20post_A 可用性语义差异
+  （基线即如此）、fl001_oracle --self-check GBK 控制台编码遗留（待清）、FC E_bat_est 指标
+  无引擎对应（测试注释声明）。证据 `evidence/g8/v060-release.md`。
+  批准人：用户（CHG-20261104-05 授权链 + CHG-20261104-03 §4 白名单裁定）；记录人：实现 Agent。
