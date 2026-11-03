@@ -721,3 +721,71 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
      12 项目预登记，许可待核对列空置待各卡执行时回填；GPL/AGPL/NOASSERTION 分级纪律）。
   本 CHG 不构成批次执行授权：批次 1…3 仍逐批次逐指令派发。引擎、golden、UI 零改动。
   批准人：用户（2026-11-04「按建议走」）；记录人：实现 Agent。
+
+- `CHG-20261104-02`：**A-1 提交落库 + R-1 故障族目录 + A-2 FC 扩展 G2b 双路评审与批准**。
+  用户 2026-11-04 /goal 四步指令（第 1/2 步）：「A-1 commit 指令……A-2 FC 扩展 G2b 双路评审 +
+  批准（届时附 R-1 目录）」。
+  ① **A-1 提交落库**：两笔提交推送 origin main（83e782b→3806e18）——8ca8543（A-1 swing 双轨
+     16 路径：src/core ×6、verify_golden、gt001_oracle、engine-gt.test、gt001_v2 golden+sidecar、
+     GT001_G2B_SPEC §12 追记、RFC 勘误、ALINE_MODEL_DEPTH_DESIGN、artifacts 报告）+
+     3806e18（参考轨：REFERENCE_LANDING_PLAN、docs/REFERENCES.md、DECISIONS 留痕、
+     .gitignore 补 slprj//*.slxc）。提交前复验 verify_golden fl001 20/20、fc001 20/20、
+     gt001 35/35、copy-guard 0 命中；
+  ② **R-1 目录落地（DEC-R1 执行）**：`docs/FAULT_CATALOG.md` v1——三系统 9 族全量登记
+     （tep2py 式表格化字段：id/家族/类型/作用位置/幅值参数/默认时刻/授权状态/golden/因果模板）
+     + 时间尺度隔离声明 + SCOPE_SPLIT_MEMO 逐族 scope 映射表 + §5 状态勘误表制度；
+  ③ **A-2 双路独立评审**（G2b 治理 §8.2，独立上下文并行）：评审人 A（物理/数值）——锚点
+     三法交叉复算（引擎逐位复刻/RK4/级联闭式解）全部成立（load_step 75.00/10.00/20.00、
+     actuator 27.50/19.00/19.00、r_true≡0、SOC 差 0），信号引用全为 FC 自有，
+     verdict=PASS_WITH_CONDITIONS（级联机制改写/包络参数域/实现同步 3 条件）；
+     评审人 B（治理/口径/回归面）——目录 9 行字段逐项核实一致，verdict=PASS_WITH_CONDITIONS
+     （fc001_v1 工件元数据与 CHG-20261030-12 ② 失同步 P1/copy-guard 全库口径/L0 标签/
+     预期失效面等 5 条件）；
+  ④ **批准与条件处置**：`NEXT/FCEXT_G2B_SPEC_APPROVED.md` v1.1（更名自 DRAFT，旧文件删除）
+     ——级联定案（I_fc_ref 经 τ_ref=2.5 s 分配器跟随 (P_load−10)/0.4，非阶跃；EQ-6 新增登记；
+     actuator 轨 τ=1.5 s 显式声明）、±25 kW 包络限定锚点场景并登记参数域越界清单
+     （+20 kW→30 kW 等，禁全域硬检查）、golden 扩展轮重写（oracle 侧为主：级联/钳位解析解、
+     3→5 Run、SERIES_IDS 扩展、元数据落齐、verify_golden 无需改动）、基座勘误登记
+     （fc001_v1 元数据 1.0.0/analytic_flux.1 系重出未落地，不回溯改工件，FC-G2b-02 一次性落齐）、
+     copy-guard 全库口径与 L0 标签订正、预期失效面声明（对齐 CHG-20261102-01 先例）。
+     两路条件全部修订进 v1.1，FC 侧同步实现项归 FC-G2b-04；
+  ⑤ **范围声明**：本批准=规格层（G2b 门）；实现（FC-G2b-02/04：oracle 扩展、golden 增 Run、
+     systems.js 文案/假设/EQ-6 登记）待 v0.6.0 队列另行指令派发，实现前 FC load_step/valve_stuck
+     仍不在验收路径（Q-4 守卫）。FAULT_CATALOG §2/§5 状态已挂载。
+  批准人：用户（2026-11-04 /goal 四步指令）；记录人：实现 Agent。
+
+- `CHG-20261104-03`：**A-3 FL-001 actuator_fault G2b 草案、双路独立评审与批准（FLEXT v1.1）**。
+  用户 2026-11-04 /goal 四步指令（第 3 步）「A-3 FL-001 actuator G2b」。
+  ① **草案起草**：`NEXT/FLEXT_G2B_SPEC_DRAFT.md` v1——FL-001 actuator_fault（变流器电流限幅，
+     SCOPE §2「不追认、冻结」解冻路径，V05_ROADMAP A-3）：机制定案（I_cap=I_ref×magnitude%，
+     target=min(controlTarget, I_cap)、双轨 τ 0.4/1.5 s、无 t_clear、monitor 物理等价）、
+     EQ-A/EQ-B 登记、锚点解析预填、golden 扩展轮（fl001_v1 3→4 Run）、scope 裁定、实现排期；
+  ② **双路独立评审**（独立上下文）：评审人 A（物理/数值）verdict=PASS_WITH_CONDITIONS
+     （4 条件）——机制与实现逐行吻合、锚点实机+闭式双证，**SOC 锚点漏积故障前段
+     （59.8459722→59.7070833%，偏差 139× 容差，P1 批准级修正）**、等价断言落点错误
+     （oracle 自检恒真，须落 tests/engine.test.js 逐位层，P1）、load0≤20 钳位退化域、
+     I_ref_A formula 过期、oracle monitor 分支陷阱；评审人 B（治理/口径/回归面）
+     verdict=PASS_WITH_CONDITIONS（5 条件）——**eval-session-001 实含 3/6 actuator 轮**
+     （草案「sensor_drift 场次」前提错误，P1）、**Arena 族池按目录派生自 O-13 起已含
+     actuator**（「扩容待 CHG」前提错误，P1）、族级标签与 classify 二值实现不对应、
+     A-l0 拟议措辞含禁词子串、SA-24 红线三路径（assertApprovedP0/后端硬限/golden 比对）
+     核实守住；
+  ③ **批准与条件处置**：`NEXT/FLEXT_G2B_SPEC_APPROVED.md` v1.1（更名自 DRAFT）——两路 9 条件
+     全部修订（SOC 全窗积分锚点冻结预填、等价断言落引擎测试层并排除 label/role/
+     effective_mode 元数据、UI 域 load_kW∈[10,45] 与退化域声明、A-l0「经过验证」句式、
+     评测轨事实重写：**Arena 族池现状追认 + 归档局 3 actuator 轮追认**、approval 三字段
+     重签口径、I_ref_A 一般式化与 checks.js 采样文案订正入排期）；
+  ④ **范围声明**：本批准=规格层（G2b 门解除，Q-4 第三守卫）；实现（FLEXT-G2b-01/02/04：
+     oracle 解析段、fl001_v1 增 Run 4、systems.js 登记、白名单显式 CHG 如执行）待 v0.6.0
+     队列另行指令派发；SA-24 白名单不扩大红线维持——scope.js `APPROVED.families` 与后端
+     可服务域扩展须实现期显式 CHG。FAULT_CATALOG §1/§4/§5 状态已挂载。
+  批准人：用户（2026-11-04 /goal 四步指令）；记录人：实现 Agent。
+
+- `CHG-20261104-04`：**V05_ROADMAP v1 正式批准（v0.5→v1.0 方向锚点生效）**。
+  用户 2026-11-04 /goal 四步指令（第 4 步）「V05_ROADMAP 正式批准」。
+  交付：`NEXT/V05_ROADMAP.md` 头部批准记录 + 批准时点进度追记（A-1 已落地 CHG-20261102-01／
+  A-2/A-3 G2b 门已批准 CHG-20261104-02/03、实现待 v0.6.0 队列／v0.5.1 剩余=FC 扩展实现+
+  评测轨对外场次指南／D-2 解锁／参考轨锚点 REFERENCE_LANDING_PLAN CHG-20261104-01）+
+  尾部生效声明。本文档为战略方向锚点，不构成实现授权；版本内容仍逐 CHG + 门禁推进。
+  至此 /goal 四步（A-1 commit／A-2 G2b／A-3 G2b／ROADMAP 批准）全部关闭。
+  批准人：用户（2026-11-04 /goal 四步指令）；记录人：实现 Agent。

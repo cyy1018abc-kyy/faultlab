@@ -9,6 +9,9 @@
 > **输入**：参考清单 v1.0 ｜ `V05_ROADMAP.md` §2/§3/§5 ｜ `DECISIONS.md` CHG-20261102-01
 > （A-1 完成 → D-2 依赖消除）｜ `V312_BACKEND_ADMISSION_CHECKLIST.md` ｜
 > `RFC_MODEL_INTERFACE_I11_APPROVED.md` ｜ `FCEXT_G2B_SPEC_DRAFT.md` ｜ `SCOPE_SPLIT_MEMO.md`。
+> **状态更新（2026-11-04，CHG-20261104-02）**：A-2 批准——`FCEXT_G2B_SPEC_DRAFT.md` 已更名
+> `FCEXT_G2B_SPEC_APPROVED.md`（v1.1，正文引用旧名处均为历史记录）；R-1 `docs/FAULT_CATALOG.md`
+> 已落地并随批准包冻结（FL/FC 待批族状态见目录 §5 勘误表）。
 
 ---
 
