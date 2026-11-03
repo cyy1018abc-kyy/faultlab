@@ -1,13 +1,20 @@
 # -*- coding: utf-8 -*-
-"""gt001_oracle.py — GT-001 独立数值 oracle（V3-31 / G2b v1.1 §8 / CHG-20261030-06 批准口径）。
+"""gt001_oracle.py — GT-001 独立数值 oracle（V3-31 / G2b v1.1 §8 / CHG-20261030-06 批准口径；
+A-1 swing 双轨扩展 per ALINE_MODEL_DEPTH_DESIGN v1 §4 / CHG-20261102-01）。
 
 独立性声明：
   1. 不 import src/**（引擎 JS）；按 GT001_G2B_SPEC_APPROVED §3/§4/§8 的规范更新序独立编写；
   2. 不共享 FL-001 oracle 的公式常量模块（本文件自含）；
-  3. 自检独立（GS-1…GS-6，不复用 SC 条目）；
+  3. 自检独立（GS-1…GS-8，不复用 SC 条目）；
   4. golden 由本 oracle 只读生成，engine 只读比对（G0-DEC-16）。
 
-更新序（G2b v1.1 §8 冻结——逐算子复刻引擎 simulateGT001，每子步 dt=0.01）：
+惯性双轨（A-1，D-1 定案双轨保留）：
+  swing（默认，gt001_v2）：完整摇摆方程 df/dt = (P_rotor/K_J)·(f₀/f)
+    ——由二次型动能 E_kin(f) = (K_J·f₀/2)·(f/f₀)² 能量守恒导出（ALINE §4.1 勘误式，
+       f=f₀ 处精确退化为线性式；L1_FEASIBILITY_RFC §2.3 字面式已勘误）。
+  linear（遗留轨，gt001_v1 冻结口径）：df/dt = P_rotor/K_J（f≈f₀ 线性化）。
+
+更新序（G2b v1.1 §8 冻结 + A-1 swing 变体——逐算子复刻引擎 simulateGT001，每子步 dt=0.01）：
   pBat     = P_BAT_REF − K_BAT·(f − 50)
   residual = P_gen + pBat − demand                      # 用更新前 P_gen
   fGov     = f            （monitor ∧ sensor_drift）
@@ -15,10 +22,13 @@
   cmdNext  = clamp(P_gen_cmd + KI·(50 − fGov)·dt, 0, 40)
   P_gen    = foStep(P_gen, cmdNext, τ_g, dt)            # 精确指数
   if actuator ∧ t ≥ t_start: P_gen = min(P_gen, P_GEN_CAP)
-  f       += residual / K_J·dt                          # 前向 Euler，residual 用更新前值
-  梯形积分（P_gen/P_bat）与左矩形残差累积随子步推进。
+  swing :  f += residual / K_J * (f₀ / f_before) * dt   # f_before 为更新前值（本子步未动 f）
+  linear:  f += residual / K_J * dt                     # 前向 Euler（遗留轨，v1 逐位口径）
+  梯形积分（P_gen/P_bat）与左矩形残差累积随子步推进；swing 另累计
+  intEkinCheck = Σ residual·dt·(f_new+f_before)/(2·f_before)（离散能量恒等校验量，
+  代数上 ≡ ΔE_kin telescoping，经由 residual 重算——判别惯量式是否正确）。
 
-容差定案（§8 v1.1）：oracle 逐算子复刻引擎更新序 → gate f_Hz ±1e-9；
+容差定案（§8 v1.1 / ALINE §3 T-A）：oracle 逐算子复刻引擎更新序 → gate f_Hz ±1e-9；
 若实测跨实现散差超限，按方法等价 ~1e-4 Hz 重定并登记（G2b 评审预案）。
 
 仅标准库；无网络。
@@ -46,25 +56,30 @@ DURATION_S = 60.0
 N_SAMPLES = 601
 F0 = 50.0
 
-METHOD_ID = "gt001_euler_dt0.01"
-GOLDEN_ID = "gt001_v1"
+METHOD_ID = "gt001_swing_dt0.01"
+GOLDEN_ID = "gt001_v2"
 
 T_START = 20.0
 
 RUNS = [
     {"key": "healthy", "role": "baseline", "feedback_mode": "closed_loop",
-     "family": "none", "faulted": False, "magnitude": 0.0, "unit": ""},
+     "family": "none", "faulted": False, "magnitude": 0.0, "unit": "",
+     "inertia_model": "swing"},
     {"key": "closed_loop_fault", "role": "fault", "feedback_mode": "closed_loop",
-     "family": "sensor_drift", "faulted": True, "magnitude": 0.3, "unit": "Hz"},
+     "family": "sensor_drift", "faulted": True, "magnitude": 0.3, "unit": "Hz",
+     "inertia_model": "swing"},
     {"key": "monitor_only", "role": "monitor", "feedback_mode": "monitor",
-     "family": "sensor_drift", "faulted": True, "magnitude": 0.3, "unit": "Hz"},
+     "family": "sensor_drift", "faulted": True, "magnitude": 0.3, "unit": "Hz",
+     "inertia_model": "swing"},
     {"key": "load_step", "role": "fault", "feedback_mode": "closed_loop",
-     "family": "load_step", "faulted": True, "magnitude": 10.0, "unit": "kW"},
+     "family": "load_step", "faulted": True, "magnitude": 10.0, "unit": "kW",
+     "inertia_model": "swing"},
     {"key": "actuator_fault", "role": "fault", "feedback_mode": "closed_loop",
-     "family": "actuator_fault", "faulted": True, "magnitude": 50.0, "unit": "%"},
+     "family": "actuator_fault", "faulted": True, "magnitude": 50.0, "unit": "%",
+     "inertia_model": "swing"},
     {"key": "actuator_clear", "role": "fault", "feedback_mode": "closed_loop",
      "family": "actuator_fault", "faulted": True, "magnitude": 50.0, "unit": "%",
-     "t_clear_s": 35.0},
+     "t_clear_s": 35.0, "inertia_model": "swing"},
 ]
 
 
@@ -91,8 +106,14 @@ def build_time_grid():
     return [i * DT_S for i in range(N_SAMPLES)]
 
 
-def simulate_run(spec):
-    """按规范更新序仿真一轮；输出 series/integrals/metrics/scalars/events。"""
+def simulate_run(spec, inertia=None):
+    """按规范更新序仿真一轮；输出 series/integrals/metrics/scalars/events。
+    inertia：None → 取 spec["inertia_model"]（缺省 swing）；显式 "linear"/"swing" 覆盖
+    （自检 GS-8 双轨对照用）。"""
+    if inertia is None:
+        inertia = spec.get("inertia_model", "swing")
+    if inertia not in ("swing", "linear"):
+        raise ValueError("未知 inertia_model: %r" % (inertia,))
     family = spec["family"]
     faulted = spec["faulted"]
     monitor = spec["feedback_mode"] == "monitor"
@@ -128,6 +149,7 @@ def simulate_run(spec):
     int_pgen = 0.0
     int_demand = 0.0
     int_residual = 0.0
+    int_ekin_check = 0.0
 
     def record(k):
         time = t[k]
@@ -175,7 +197,13 @@ def simulate_run(spec):
             if cap_active:
                 p_gen = min(p_gen, p_gen_cap)
 
-            f += residual / KJ * DT_INT
+            # 惯性双轨（A-1）：swing 用更新前 f 作因子；linear 逐位保留 v1 口径
+            f_before = f
+            if inertia == "swing":
+                f += residual / KJ * (F0 / f_before) * DT_INT
+                int_ekin_check += residual * DT_INT * (f + f_before) / (2.0 * f_before)
+            else:
+                f += residual / KJ * DT_INT
 
             p_bat_end = P_BAT_REF - K_BAT * (f - 50.0)
             int_pgen += 0.5 * (gen_before + p_gen) * DT_INT
@@ -191,6 +219,7 @@ def simulate_run(spec):
         "E_bat": int_pbat,
         "E_rotor": KJ * (f - 50.0),
         "intResidual": int_residual,
+        "intEkinCheck": int_ekin_check,
     }
 
     # ---- 指标（与引擎 metrics.js 同名子集；E 用积分/3600）----
@@ -198,11 +227,15 @@ def simulate_run(spec):
     soc_est_end = series["SOC_est_pct"][-1]
     max_r_true = max(abs(v) for v in series["r_true_kW"])
     max_fd = max(abs(v) for v in series["f_channel_diff_Hz"])
+    f_end = series["f_true_Hz"][-1]
     metrics = {
         "E_load_kWh": {"value": integrals["E_load"] / 3600.0, "unit": "kWh", "method": METHOD_ID},
         "E_source_kWh": {"value": integrals["E_source"] / 3600.0, "unit": "kWh", "method": METHOD_ID},
         "E_bat_kWh": {"value": integrals["E_bat"] / 3600.0, "unit": "kWh", "method": METHOD_ID},
         "E_rotor_kWh": {"value": integrals["E_rotor"] / 3600.0, "unit": "kWh", "method": METHOD_ID},
+        "E_kin_kWh": {"value": (KJ * F0 / 2.0) * ((f_end / F0) ** 2 - 1.0) / 3600.0,
+                      "unit": "kWh", "method": METHOD_ID},
+        "E_rotor_int_kWh": {"value": int_residual / 3600.0, "unit": "kWh", "method": METHOD_ID},
         "SOC_true_end_pct": {"value": soc_true_end, "unit": "%", "method": METHOD_ID},
         "SOC_est_end_pct": {"value": soc_est_end, "unit": "%", "method": METHOD_ID},
         "SOC_err_pp": {"value": soc_est_end - soc_true_end, "unit": "pp", "method": METHOD_ID},
@@ -292,7 +325,7 @@ def simulate_run(spec):
 
 
 def self_check():
-    """独立自检 GS-1…GS-6（不复用 FL-001 oracle 的 SC 条目）。"""
+    """独立自检 GS-1…GS-8（不复用 FL-001 oracle 的 SC 条目；GS-1/GS-5/GS-7/GS-8 为 A-1 swing 重冻结）。"""
     checks = []
 
     def rec(cid, ok, observed, tolerance, note):
@@ -304,16 +337,15 @@ def self_check():
     fresh = simulate_run(spec_sensor)
     f_end = fresh["series"]["f_true_Hz"][-1]
 
-    # GS-1 线性化能量恒等（含截断残差项；v1.1 §3）：
-    #   ΔE_kin − E_lin − K_J·Δf²/(2f₀) ≡ 0（E_lin = ∫P_rotor 左矩形 = K_J·Δf 精确 telescoping）
-    df = f_end - 50.0
+    # GS-1 swing 离散能量恒等（A-1 重写；ALINE §4.1/§4.3）：
+    #   Σ residual·dt·(f_new+f_before)/(2·f_before) ≡ ΔE_kin(f_end)（代数恒等，非物理验证）。
+    #   经由 residual 重算 → 判别性：若实现误用线性式，差 ~1.7e-4 ≫ 1e-9
+    #   （linear 更新下恒等分母为 2f₀ 而非 2f_before）。
     d_ekin = (KJ * F0 / 2.0) * ((f_end / F0) ** 2 - 1.0)
-    e_rotor_kws = fresh["integrals"]["E_rotor"]
-    trunc = KJ * df * df / (2.0 * F0)
-    resid = abs(d_ekin - e_rotor_kws - trunc)
-    ok1 = resid <= 1e-9
-    rec("GS-1-linearized-energy-identity", ok1, resid, 1e-9,
-        "ΔE_kin − ∫P_rotor(左矩形) − K_J·Δf²/(2f₀)（代数恒等回归，非物理验证）")
+    resid1 = abs(d_ekin - fresh["integrals"]["intEkinCheck"])
+    ok1 = resid1 <= 1e-9
+    rec("GS-1-swing-energy-identity", ok1, resid1, 1e-9,
+        "SUM r*dt*(f_new+f_before)/(2*f_before) vs dE_kin（swing 离散能量恒等回归，判别惯量式正确性）")
 
     # GS-2 钳位边界：actuator 50% 时指令 wound-up 至 40 kW（钳位生效证据）
     fresh_act = simulate_run(RUNS[4])
@@ -334,18 +366,20 @@ def self_check():
            and all(abs(t[i] - i * DT_S) <= 1e-12 for i in range(601)))
     rec("GS-4-grid", ok4, len(t), 601, "601 点、单调、t[i]=i·dt")
 
-    # GS-5 验收锚点（G2b v1.1 §4，独立复算值）：nadir / f(60) / sensor_drift f(60)
+    # GS-5 验收锚点（A-1 swing 重冻结，oracle 复算 CHG-20261102-01；
+    #   linear 定案值 nadir −0.4105/f(60)=49.992/49.7055 在同容差内不冲突）
     fresh_load = simulate_run(RUNS[3])
     nadir = min(fresh_load["series"]["f_true_Hz"][int(round(T_START / DT_S)):])
     f60_load = fresh_load["series"]["f_true_Hz"][-1]
-    ok5 = (abs(nadir - (50.0 - 0.4105)) <= 0.01 and abs(f60_load - 49.992) <= 0.01
-           and abs(f_end - 49.7055) <= 0.005)
+    ok5 = (abs(nadir - (50.0 - 0.410664)) <= 0.01 and abs(f60_load - 49.9922) <= 0.01
+           and abs(f_end - 49.70548) <= 0.005)
     rec("GS-5-anchors", ok5,
-        "nadir=%.4f f60_load=%.4f f60_sensor=%.4f" % (nadir, f60_load, f_end),
-        "±0.01/±0.01/±0.005 Hz", "load_step nadir −0.4105@21.1 s、f(60)=49.992、sensor_drift 49.7055")
+        "nadir=%.6f f60_load=%.6f f60_sensor=%.6f" % (nadir, f60_load, f_end),
+        "±0.01/±0.01/±0.005 Hz",
+        "swing：load_step nadir −0.410664@21.1 s、f(60)=49.9922、sensor_drift 49.70548")
 
-    # GS-7 清除恢复（G2b v1.1 §9 扩展轮）：t_clear=35 后钳位释放——
-    #   如实测得指令 wound-up → P_gen 过冲 → 频率上摆；恢复锚点由本 oracle 实测后冻结进规格 §9 追记。
+    # GS-7 清除恢复（G2b v1.1 §9 扩展轮；A-1 swing 重测冻结）：
+    #   t_clear=35 后钳位释放 → 指令 wound-up → P_gen 过冲 → 频率上摆（方案 a 如实声明）。
     fresh_clr = simulate_run(RUNS[5])
     f_arr_c = fresh_clr["series"]["f_true_Hz"][int(round(35.0 / DT_S)):]
     overshoot = max(f_arr_c) - 50.0
@@ -354,10 +388,29 @@ def self_check():
         if abs(fv - 50.0) <= 0.05:
             t_back05 = 35.0 + idx * DT_S
             break
-    ok7 = overshoot > 0.05 and t_back05 is not None
+    ok7 = abs(overshoot - 0.213412) <= 0.01 and t_back05 == 36.1
     rec("GS-7-clear-recovery", ok7,
-        "过冲 +%.3f Hz，回 |Δf|≤0.05 @ %.1f s" % (overshoot, t_back05 if t_back05 else -1),
-        "过冲 >0.05 Hz 且可恢复", "钳位式抗饱和的清除瞬态（方案 a 如实声明）")
+        "过冲 +%.4f Hz，回 |Δf|≤0.05 @ %.1f s" % (overshoot, t_back05 if t_back05 else -1),
+        "过冲 0.213412 ±0.01 Hz、t_back05=36.1 s",
+        "swing 重冻结（linear 定案 +0.213/36.1 在同容差内；钳位式抗饱和方案 a）")
+
+    # GS-8 双轨连续性（A-1 新增；ALINE §4.1 勘误式连续性）：
+    #  (a) f₀ 处单步增量逐位一致（因子 F0/f = 50/50 = 1.0，residual 取 −10 kW 非零激励）；
+    #  (b) 瞬态序：load_step 下 swing nadir ≤ linear nadir（同参数，动态略深）；
+    #  (c) 稳态目标不变：sensor_drift 两轨 f(60) 差 ≤ 1e-4 Hz（离散化修正量级；
+    #      稳态 f* = 50 − b 由 f_gov→50 决定，与惯量形式无关）。
+    sw0 = -10.0 / KJ * (F0 / 50.0) * DT_INT
+    ln0 = -10.0 / KJ * DT_INT
+    fresh_ln = simulate_run(spec_sensor, "linear")
+    f_ln = fresh_ln["series"]["f_true_Hz"]
+    fresh_load_ln = simulate_run(RUNS[3], "linear")
+    nadir_ln = min(fresh_load_ln["series"]["f_true_Hz"][int(round(T_START / DT_S)):])
+    steady_gap = abs(f_end - f_ln[-1])
+    ok8 = (sw0 == ln0) and (nadir <= nadir_ln + 1e-12) and (steady_gap <= 1e-4)
+    rec("GS-8-swing-continuity", ok8,
+        "f0增量逐位=%s nadir序=%s 稳态差=%.2e Hz" % (sw0 == ln0, nadir <= nadir_ln + 1e-12, steady_gap),
+        "f₀ 单步逐位一致；nadir_swing ≤ nadir_linear；|f(60) 差| ≤1e-4 Hz",
+        "完整摇摆方程在 f₀ 处退化为线性式；稳态与惯量形式无关")
 
     # GS-6 健康局：f ≡ 50、通道差 ≡ 0、r_true ≡ 0
     fresh_h = simulate_run(RUNS[0])
@@ -371,13 +424,15 @@ def self_check():
 
 
 def build_golden():
-    """golden 结构对齐 fl001_v1（G2b v1.1 §8 字段面清单）；approval 摘要同 fl001 约定。"""
+    """golden 结构对齐 gt001_v1（G2b v1.1 §8 字段面清单）+ A-1 双轨字段（D-1/D-2/D-5 定案）；
+    approval 摘要同 fl001 约定。gt001_v1（linear）字节冻结留档，本 golden 为 swing 轨。"""
     runs = {}
     for spec in RUNS:
         fresh = simulate_run(spec)
         runs[spec["key"]] = {
             "role": spec["role"],
             "feedback_mode": spec["feedback_mode"],
+            "inertia_model": spec.get("inertia_model", "swing"),
             "fault": {"family": spec["family"], "fault_id": spec.get("fault_id"),
                       "t_start_s": T_START if spec["faulted"] else None,
                       "bias_A": spec["magnitude"] if spec["family"] == "sensor_drift" else None},
@@ -391,29 +446,37 @@ def build_golden():
         "golden_schema_version": "v1",
         "golden_id": GOLDEN_ID,
         "model_id": "GT-001",
-        "model_version": "1.0.0",
+        "model_version": "1.1.0",
         "schema_version": "1.0.0",
         "engine_baseline": None,
+        "supersedes": "gt001_v1（linear 遗留轨，字节冻结留档；存档场次继续引用 v1）",
         "method_id": METHOD_ID,
-        "method_version": "1",
+        "method_version": "2",
+        "inertia_model": "swing",
         "units": {"I": "A", "P": "kW", "E": "kWh", "t": "s", "SOC": "%", "SOC_err": "pp",
                   "f": "Hz", "n": "rpm"},
         "config": {"duration_s": 60.0, "dt_s": 0.1, "fault_time_s": 20.0,
                    "bias_A": 0.3, "Vdc_V": 400.0, "Pload_demand_kW": 30.0,
                    "Ebat_nominal_kWh": 40.0, "SOC0_pct": 60.0,
                    "K_J": KJ, "K_bat": K_BAT, "Ki": KI, "tau_g": TAU_G,
+                   "inertia_model": "swing",
                    "feedback_modes": ["closed_loop", "monitor"],
-                   "note": "输出网格 dt=0.1/601 点；Euler 积分子步 0.01（G2b v1.1 §4 口径澄清）"},
+                   "note": "输出网格 dt=0.1/601 点；Euler 积分子步 0.01（G2b v1.1 §4 口径澄清）；"
+                           "A-1 swing：df/dt=(P_rotor/K_J)·(f₀/f)（完整摇摆方程，"
+                           "由 E_kin=(K_J·f₀/2)·(f/f₀)² 能量守恒导出，ALINE_MODEL_DEPTH_DESIGN §4.1）"},
         "sampling": {"n": N_SAMPLES, "dt_s": DT_S, "i_f": 200, "t_0": 0.0, "t_end": 60.0},
         "event_encoding_version": 1,
         "tolerances": {
-            "gate": {"E_kWh": 1e-6, "SOC_pp": 1e-5, "I_A_rtol": 1e-12, "I_A_atol": 1e-15,
+            "gate": {"tier": "T-A",
+                     "E_kWh": 1e-6, "SOC_pp": 1e-5, "I_A_rtol": 1e-12, "I_A_atol": 1e-15,
                      "P_kW_rtol": 1e-12, "P_kW_atol": 1e-15, "r_true_kW": 1e-9,
                      "f_Hz_atol": 1e-9, "n_rpm_atol": 1e-9, "t_s": 1e-9}
         },
         "runs": runs,
         "metrics_note": "golden 指标为独立可算子集（能量/SOC/极值/锚点）；引擎其余派生指标"
-                        "（fault_*、effective_mode、focal_change、f_recovery_s）不在比对面",
+                        "（fault_*、effective_mode、focal_change、f_recovery_s）不在比对面；"
+                        "E_rotor_kWh 为线性化口径（遗留，K_J·Δf），E_kin_kWh 为二次型动能口径，"
+                        "E_rotor_int_kWh 为 ∫P_rotor 子步左矩形（三者定义见 systems.js assumptions）",
     }
     return golden
 
@@ -436,7 +499,8 @@ def emit(golden_path):
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
     }
     golden["approval"] = {
-        "approved_by": "user（G2b 批准 CHG-20261030-06；V3-31 开工指令 2026-10-30）",
+        "approved_by": "user（A-1 授权 2026-11-02「进入实现阶段」——ALINE_MODEL_DEPTH_DESIGN v1 "
+                       "按推荐项执行，D-1 双轨/D-2 新 id gt001_v2；CHG-20261102-01）",
         "approved_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "approved_golden_sha256": _approval_digest(golden),
     }
@@ -450,6 +514,11 @@ def emit(golden_path):
 
 
 def main(argv):
+    # GBK 控制台兼容：自检 JSON 含数学符号（−/₀ 等），统一 UTF-8 输出（仅影响人类可读路径）
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass
     if "--self-check" in argv:
         ok, checks = self_check()
         print(json.dumps({"ok": ok, "checks": checks}, ensure_ascii=False, indent=2))
@@ -460,7 +529,7 @@ def main(argv):
             print(json.dumps({"ok": False, "checks": checks}, ensure_ascii=False, indent=2))
             return 2
         path = emit(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
-            os.path.abspath(__file__)))), "data", "golden", "gt001_v1.json"))
+            os.path.abspath(__file__)))), "data", "golden", "gt001_v2.json"))
         print(json.dumps({"ok": True, "written": path,
                           "sha256": hashlib.sha256(open(path, "rb").read()).hexdigest()}, ensure_ascii=False))
         return 0

@@ -172,6 +172,10 @@
     if (out.duration_s === undefined || out.duration_s === null) out.duration_s = system.duration_s;
     if (out.dt_s === undefined || out.dt_s === null) out.dt_s = system.dt_s;
     if (!out.feedback_mode) out.feedback_mode = system.defaults.feedback_mode;
+    /* A-1：声明了惯性双轨的系统补默认轨（swing） */
+    if (system.defaults && system.defaults.inertia_model && !out.inertia_model) {
+      out.inertia_model = system.defaults.inertia_model;
+    }
 
     var dInitial = deepClone(system.defaults.initial);
     out.initial = deepMerge(dInitial, isPlainObject(out.initial) ? out.initial : {});
@@ -271,6 +275,13 @@
     /* 控制模式 */
     if (config.feedback_mode !== 'closed_loop' && config.feedback_mode !== 'monitor') {
       push('feedback_mode', '必须为 closed_loop 或 monitor（当前 ' + String(config.feedback_mode) + '）');
+    }
+
+    /* 惯性双轨（A-1，仅声明了 defaults.inertia_model 的系统） */
+    if (system.defaults && system.defaults.inertia_model) {
+      if (config.inertia_model !== 'swing' && config.inertia_model !== 'linear') {
+        push('inertia_model', '必须为 swing 或 linear（当前 ' + String(config.inertia_model) + '）');
+      }
     }
 
     var durForFault = (typeof duration === 'number' && isFinite(duration)) ? duration : system.duration_s;
@@ -801,6 +812,11 @@
     var P_bat_ref = 5;
     var Ki = 2.0;
     var tau_g = 2.0;
+    /* A-1 惯性双轨（ALINE_MODEL_DEPTH_DESIGN §4 / CHG-20261102-01；D-1 定案双轨）：
+       swing（默认）= 完整摇摆方程 df/dt = (P_rotor/K_J)·(f₀/f)，由二次型动能
+       E_kin(f) = (K_J·f₀/2)·(f/f₀)² 能量守恒导出，f=f₀ 处精确退化为线性式；
+       linear = f≈f₀ 线性化（遗留轨，gt001_v1 golden 逐位口径）。 */
+    var inertia = cfg.inertia_model === 'linear' ? 'linear' : 'swing';
     var family = cfg.fault.family;
     var faulted = family !== 'none';
     var tStart = faulted ? cfg.fault.t_start_s : null;
@@ -872,7 +888,13 @@
         P_gen = genStep.y;
         if (isAct && tStart != null && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9)) P_gen = Math.min(P_gen, P_gen_cap);
 
-        f += residual / KJ * DT_INT;
+        /* 惯性双轨（A-1）：swing 因子用更新前 f；linear 分支逐位保留 gt001_v1 口径。
+           oracle 对应实现：tools/oracle/gt001_oracle.py simulate_run（更新序冻结）。 */
+        if (inertia === 'swing') {
+          f += residual / KJ * (50 / f) * DT_INT;
+        } else {
+          f += residual / KJ * DT_INT;
+        }
 
         var pbatEnd = P_bat_ref - K_bat * (f - 50);
         intPgen += 0.5 * (genBefore + P_gen) * DT_INT;
@@ -889,6 +911,8 @@
         E_load: intDemand,
         E_source: intPgen,
         E_bat: intPbat,
+        /* E_rotor = K_J·Δf 为线性化能量口径（遗留定义，两种惯性轨同式可算）；
+           swing 轨的二次型动能口径 E_kin 与 ∫P_rotor（intResidual）由 metrics.js 承载 */
         E_rotor: KJ * (f - 50),
         intResidual: intResidual
       }

@@ -355,7 +355,22 @@
         null, {
           source_signal_ids: ['f_true_Hz'],
           blindSafe: false,
-          definition: 'K_J × (f_end − f_start) / 3600，K_J = 5.0 kW·s/Hz'
+          definition: 'K_J × (f_end − f_start) / 3600，K_J = 5.0 kW·s/Hz（线性化能量口径 E_lin = K_J·Δf，遗留定义——两种惯性轨同式可算；A-gt-inertia-lin）'
+        });
+      /* A-1（CHG-20261102-01）：二次型动能口径 + ∫P_rotor 左矩形口径 */
+      var eKin = (isNum(fLast)) ? (5.0 * 50 / 2) * ((fLast / 50) * (fLast / 50) - 1) / 3600 : null;
+      mk('E_kin_kWh', '转子动能变化（二次型）', eKin, 'kWh', 6,
+        null, {
+          source_signal_ids: ['f_true_Hz'],
+          blindSafe: false,
+          definition: '(K_J·f₀/2)·((f_end/f₀)² − 1)/3600，二次型动能 E_kin 口径（K_J·f₀/2 = 125 kW·s；swing 轨物理能量）'
+        });
+      var eRotorInt = (integrals && isNum(integrals.intResidual)) ? integrals.intResidual / 3600 : null;
+      mk('E_rotor_int_kWh', '∫P_rotor（子步左矩形）', eRotorInt, 'kWh', 6,
+        null, {
+          source_signal_ids: ['P_rotor_kW'],
+          blindSafe: false,
+          definition: '∫P_rotor dt（积分子步左矩形，与 f 更新同式离散）/ 3600；swing 轨下与 E_kin 之差为离散化残差（gt-energy-consistency 承载）'
         });
       void fMin;
       void noiseEnabled;

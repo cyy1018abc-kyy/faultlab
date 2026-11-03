@@ -58,6 +58,7 @@ MODELS = {
     },
     "gt001": {
         "oracle": gt001_oracle,
+        "golden_file": "gt001_v2.json",  # A-1：gt001 校验指向 swing 轨 golden（v1 linear 字节冻结留档）
         "i_true": "f_true_Hz", "i_meas": "n_meas_rpm",
         "event_tol": "f_Hz_atol",
         "scalars": [
@@ -124,7 +125,7 @@ def main(argv):
     model = args[0] if args and args[0] in MODELS else "fl001"
     cfg = MODELS[model]
     oracle = cfg["oracle"]
-    golden_path = os.path.join(ROOT, "data", "golden", model + "_v1.json")
+    golden_path = os.path.join(ROOT, "data", "golden", cfg.get("golden_file", model + "_v1.json"))
     sidecar = golden_path + ".sha256"
 
     report = {"python_version": platform.python_version(), "model": model,

@@ -547,6 +547,9 @@
     topologyViewBox: [0, 0, 1000, 620],
     defaults: {
       feedback_mode: 'closed_loop',
+      /* A-1 惯性双轨（ALINE_MODEL_DEPTH_DESIGN §4，CHG-20261102-01）：
+         swing=完整摇摆方程（默认）；linear=f≈f₀ 线性化（遗留轨，gt001_v1 口径） */
+      inertia_model: 'swing',
       initial: { load_kW: 30, SOC_pct: 60 },
       noise: { enabled: false, seed: 12345, level: 0 }
     },
@@ -575,7 +578,7 @@
       }),
       comp({
         id: 'generator', label: '同步发电机', kind: 'generator', role: '25 kW 基准 · K_J = 5 kW·s/Hz',
-        description: '同步发电机与转子等效惯量；频率状态 f 由功率不平衡驱动：df/dt = (P_gen + P_bat − P_load)/K_J。',
+        description: '同步发电机与转子等效惯量；频率状态 f 由完整摇摆方程驱动：df/dt = (P_gen + P_bat − P_load)/K_J × (f₀/f)。',
         x: 480, y: 60, w: 190, h: 96, faultable: false,
         inspector: [
           { id: 'P_gen_true_kW', source: 'MODEL_STATE' },
@@ -664,7 +667,7 @@
       { id: 'actuator', label: '执行器' }
     ],
     signals: [
-      sig({ id: 'f_true_Hz', label: '真实频率', shortLabel: 'f_true', unit: 'Hz', category: 'frequency', sourceKind: 'MODEL_STATE', definition: '同步发电机真实电频率（转子惯量状态）。', formula: 'df/dt = (P_gen + P_bat − P_load) / K_J, K_J = 5 kW·s/Hz', precision: 4, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'f_true_Hz', label: '真实频率', shortLabel: 'f_true', unit: 'Hz', category: 'frequency', sourceKind: 'MODEL_STATE', definition: '同步发电机真实电频率（转子惯量状态，完整摇摆方程）。', formula: 'df/dt = (P_gen + P_bat − P_load)/K_J × (f₀/f), K_J = 5 kW·s/Hz, f₀ = 50 Hz', precision: 4, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'f_meas_Hz', label: '电气频率量测', shortLabel: 'f_meas', unit: 'Hz', category: 'frequency', sourceKind: 'OBSERVATION', definition: '同步发电机电气频率量测（健康通道，= 真实频率），供 Agent 与转速通道做冗余交叉校验。', formula: 'f_meas = f_true', precision: 4, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true, noiseSigma: 0.01 }),
       sig({ id: 'n_meas_rpm', label: '转速传感器读数', shortLabel: 'n_meas', unit: 'rpm', category: 'frequency', sourceKind: 'OBSERVATION', definition: '故障转速传感器输出（同步机 2 极等价）：n_meas = 60 × (f_true + b(t))；调速器使用 n_meas/60 作为反馈频率。', formula: 'n_meas = 60 × (f_true + b(t))', precision: 1, chart: { style: 'dashed', colorToken: 'obs', axis: 'right', step: true }, blindVisible: true, noiseSigma: 0.6 }),
       sig({ id: 'P_gen_true_kW', label: '发电机真实功率', shortLabel: 'P_gen,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '发电机真实出力，一阶跟随调速器指令。', formula: 'τ_g·dP_gen/dt + P_gen = P_gen_cmd, τ_g = 2.0 s', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
@@ -674,7 +677,7 @@
       sig({ id: 'P_bat_meas_kW', label: '电池测量功率', shortLabel: 'P_bat,meas', unit: 'kW', category: 'power', sourceKind: 'OBSERVATION', definition: '电池功率测量（健康通道）。', formula: 'P_bat,meas = P_bat,true', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true, noiseSigma: 0.15 }),
       sig({ id: 'P_load_demand_kW', label: '负载需求功率', shortLabel: 'P_load', unit: 'kW', category: 'power', sourceKind: 'CONFIG', definition: '负载需求功率；load_step 场景在故障时刻阶跃。', formula: 'P_load = 30 kW（load_step: +magnitude）', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left', step: true }, blindVisible: true }),
       sig({ id: 'P_load_served_kW', label: '负载实际获得功率', shortLabel: 'P_served', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '负载实际获得的功率。', formula: 'P_load,served = P_load,demand', precision: 2, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
-      sig({ id: 'P_rotor_kW', label: '转子惯量功率', shortLabel: 'P_rotor', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '转子释放/吸收的惯量功率 = K_J × df/dt；真实守恒含该项。', formula: 'P_rotor = P_gen + P_bat − P_load = K_J × df/dt', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_rotor_kW', label: '转子惯量功率', shortLabel: 'P_rotor', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '转子释放/吸收的惯量功率；真实守恒含该项。', formula: 'P_rotor = P_gen + P_bat − P_load = K_J·(f/f₀)·df/dt', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'V_bus_V', label: '母线等效电压', shortLabel: 'V_bus', unit: 'V', category: 'power', sourceKind: 'MODEL_ASSUMPTION', definition: 'AC 整流后等效母线电压，恒为 400 V（模型假设）。', formula: 'V_bus = 400 V', precision: 0, chart: { style: 'solid', colorToken: 'ink', axis: 'left', defaultVisible: false }, blindVisible: true, tableOnly: true }),
       sig({ id: 'SOC_true_pct', label: '电池真实 SOC', shortLabel: 'SOC_true', unit: '%', category: 'soc', sourceKind: 'MODEL_STATE', definition: '电池缓冲真实荷电状态。', formula: 'SOC_true = SOC0 − ∫P_bat,true dt / 40 kWh × 100%', precision: 5, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'SOC_est_pct', label: '电池估计 SOC', shortLabel: 'SOC_est', unit: '%', category: 'soc', sourceKind: 'OBSERVATION', definition: '由电池功率测量积分得到的 SOC 估计。', formula: 'SOC_est = SOC0 − ∫P_bat,meas dt / 40 kWh × 100%', precision: 5, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true }),
@@ -718,17 +721,19 @@
     ],
     model: {
       model_id: 'gt.sync.l0',
-      model_version: '1.0.0',
+      /* A-1（CHG-20261102-01）：swing 双轨落地，model_version 1.0.0 → 1.1.0 */
+      model_version: '1.1.0',
       assumptions: [
         { id: 'A-ideal-bus', text: 'AC 整流后母线按 400 V 等效理想处理，无母线动态。' },
-        { id: 'A-lumped-inertia', text: '转子等效惯量集中参数 K_J = 5.0 kW·s/Hz：df/dt = (P_gen + P_bat − P_load)/K_J。' },
+        { id: 'A-lumped-inertia', text: '转子等效惯量集中参数 K_J = 5.0 kW·s/Hz；完整摇摆方程（swing 轨）：df/dt = (P_gen + P_bat − P_load)/K_J × (f₀/f)，由二次型动能能量守恒导出。' },
         { id: 'A-droop', text: '电池一次调频为线性下垂：P_bat = 5 − 24 × (f_meas − 50) kW，使用健康电气频率量测 f_meas；无死区、无延迟。' },
         { id: 'A-gov-integral', text: '调速器为积分控制：dP_gen_cmd/dt = 2.0 × (50 − f_gov)，f_gov = n_meas/60 来自故障转速传感器通道；指令钳位 [0, 40] kW。' },
         { id: 'A-freq-redundant', text: '转速传感器通道与电气频率量测 f_meas 互为冗余：二者不一致（n_meas/60 − f_meas = b）是传感器故障的可检出特征。' },
         { id: 'A-gen-lag', text: '发电机功率按一阶惯性（τ_g = 2.0 s）跟随指令。' },
         { id: 'A-soc-linear', text: 'SOC 由电池功率积分线性折算，不含温度、效率与老化。' },
         { id: 'A-l0', text: '降阶行为级模型，不含电网暂态、励磁与保护动作。' },
-        { id: 'A-gt-inertia-lin', text: '摇摆方程为 f≈f₀ 线性化（有效性边界 |Δf| ≤ 1 Hz；参数域极端 mag=1.0 Hz 时 Δf=−0.982 Hz 贴边）；线性化能量 E_lin = K_J·Δf 与二次型动能 E_kin(f) = 125·(f/50)² kW·s 之差为截断残差 K_J·Δf²/(2f₀)。' },
+        { id: 'A-gt-swing-full', text: '完整摇摆方程（swing 轨，A-1 起默认）：df/dt = (P_rotor/K_J)·(f₀/f)，由 E_kin(f) = (K_J·f₀/2)·(f/f₀)² = 125·(f/50)² kW·s 能量守恒 dE_kin/dt = P_rotor 导出；f = f₀ 处精确退化为线性式。稳态与惯量形式无关（由 f_gov→50 决定），瞬态较线性轨加深（load_step 默认参数 nadir −0.41066 vs −0.41050 Hz）。' },
+        { id: 'A-gt-inertia-lin', text: '【仅 inertia_model=linear 遗留轨适用】摇摆方程为 f≈f₀ 线性化 df/dt = P_rotor/K_J（有效性边界 |Δf| ≤ 1 Hz；参数域极端 mag=1.0 Hz 时 Δf=−0.982 Hz 贴边）；线性化能量 E_lin = K_J·Δf 与二次型动能 E_kin 之差为截断残差 K_J·Δf²/(2f₀)。swing 轨下该截断不存在（能量守恒精确成立）。' },
         { id: 'A-gt-bat-rating', text: '电池连续额定 ±5 kW、短时额定 ±15 kW（变流器 3× 过载，假设非实测）、物理包络 ±25 kW；工作点超 ±15 kW 时依赖短时过载能力，长时运行须降额。' },
         { id: 'A-gt-antiwindup-clamp', text: '调速器积分钳位 [0, 40] kW 为钳位式抗饱和；故障期间指令 wound-up 至上限，清除后若指令不回置，P_gen 将过冲并引起频率上摆（见局限）。' }
       ],
@@ -740,12 +745,12 @@
         'L0 行为级演示模型；非实测、非 Simulink、无实测对比。'
       ],
       equations: [
-        { id: 'EQ-1', latex_text: 'df/dt = (P_gen + P_bat − P_load) / K_J, K_J = 5.0 kW·s/Hz', note: '转子等效惯量方程' },
+        { id: 'EQ-1', latex_text: 'df/dt = (P_gen + P_bat − P_load)/K_J × (f₀/f), K_J = 5.0 kW·s/Hz, f₀ = 50 Hz', note: '完整摇摆方程（swing 轨默认；线性轨遗留式 df/dt = ΔP/K_J 在 f=f₀ 处退化一致）' },
         { id: 'EQ-2', latex_text: 'P_bat = P_bat,ref − K_bat·(f_meas − 50), K_bat = 24 kW/Hz', note: '电池一次调频' },
         { id: 'EQ-3', latex_text: 'dP_gen,cmd/dt = Ki·(50 − f_meas), Ki = 2.0 kW/(Hz·s)', note: '调速器积分（含抗积分饱和钳位）' },
         { id: 'EQ-4', latex_text: 'τ_g·dP_gen/dt + P_gen = P_gen,cmd, τ_g = 2.0 s', note: '发电机一阶跟随' },
         { id: 'EQ-5', latex_text: 'f_meas = f (健康电气量测); n_meas = 60·(f + b(t)); f_gov = n_meas/60', note: '双通道频率测量与偏置' },
-        { id: 'EQ-6', latex_text: 'P_rotor = K_J·df/dt = P_gen + P_bat − P_load', note: '转子惯量功率（守恒含该项）' }
+        { id: 'EQ-6', latex_text: 'P_rotor = P_gen + P_bat − P_load = K_J·(f/f₀)·df/dt', note: '转子惯量功率（守恒含该项；linear 遗留轨为 K_J·df/dt）' }
       ]
     },
     acceptance: {
@@ -1399,7 +1404,7 @@
   function defaultConfig(systemId) {
     var s = requireSystem(systemId);
     var f = s.faults[0];
-    return {
+    var cfg = {
       schemaVersion: 1,
       systemId: s.id,
       modelId: s.model.model_id,
@@ -1416,6 +1421,9 @@
       initial: clone(s.defaults.initial),
       noise: clone(s.defaults.noise)
     };
+    /* A-1：声明了惯性双轨的系统（GT-001）携带默认轨；未声明的系统不产生该字段 */
+    if (s.defaults.inertia_model) cfg.inertia_model = s.defaults.inertia_model;
+    return cfg;
   }
 
   function causalTemplate(systemId, faultFamily) {

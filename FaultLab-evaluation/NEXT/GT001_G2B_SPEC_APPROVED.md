@@ -205,3 +205,54 @@ oracle 更新序伪代码冻结 + 容差定案 + gt001_v1 字段面 + golden run
 exposure + 计算点 + r_true 名称裁定保留、checks.js/因果模板/metrics/测试涟漪补全、输出网格与
 子步口径澄清、30.1 s 统一、执行器死区声明、新检查仅新 Run 生效、规模重估增量明示。
 **批准记录（2026-10-30，CHG-20261030-06）**：用户批准，**G2b 关闭**；§9 抗饱和定案 (a)（现状钳位+清除瞬态如实声明）、§4 网格定案保留 60 s；文档更名 GT001_G2B_SPEC_APPROVED.md；V3-31/V3-33 待逐次开工指令。**文件结束**。
+
+---
+
+## 12. A-1 追记（swing 双轨，2026-11-02，CHG-20261102-01；不改本规格已批物理边界）
+
+> 授权链：V05_ROADMAP 主线 A → `NEXT/ALINE_MODEL_DEPTH_DESIGN.md` §4（用户 2026-11-02「进入实现阶段」
+> + AskUserQuestion「按推荐执行」）→ 本追记。**层内近似替换（§1.2 规则第一行：方程集仍是摇摆方程，
+> 去掉 f≈f₀ 近似）→ 不重开 G2b**；本节冻结 swing 变体的更新序与锚点，linear 变体沿用本规格
+> §3/§4/§8/§9 已批口径不动。
+
+### 12.1 方程勘误与 swing 式
+
+`L1_FEASIBILITY_RFC §2.3` 字面式 `2(H·S/f₀)·f·df/dt = ΔP` 在 f=f₀ 处与现行线性式差 f₀=50 倍
+（连续性缺陷，已在 RFC 内登记勘误）。swing 式由本规格 §3 已批二次型动能能量守恒导出：
+
+```text
+df/dt = (P_rotor/K_J)·(f₀/f)     [f=f₀ 处精确退化为 df/dt = P_rotor/K_J ✓]
+```
+
+稳态不变（由 f_gov→50 决定，与惯量形式无关——actuator 稳态 f=49.791666… 两轨逐位一致）。
+
+### 12.2 更新序变体（§8 冻结序仅一行变化）
+
+每子步 dt=0.01：`f += residual/K_J·(f₀/f_before)·dt`（f_before 为更新前值；其余算子逐字不动）。
+oracle `gt001_oracle.py` v2 与引擎 `simulateGT001` 双侧同序；linear 分支保留 §8 原式逐位不动。
+oracle 自检 GS-1 重写为 swing 离散能量恒等（Σ r·dt·(f₊+f₋)/(2f₋) ≡ ΔE_kin，±1e-9，判别惯量式），
+GS-8 新增双轨连续性（f₀ 单步增量逐位一致 / load_step nadir 序 / 稳态差 ≤1e-4 Hz），自检 8/8。
+
+### 12.3 golden 与锚点（D-2 定案：新 id + v1 留档）
+
+- **gt001_v2**（swing 轨，method_id=gt001_swing_dt0.01，tolerances.gate 增 tier=T-A，字段
+  supersedes=gt001_v1）：6 Run 同集；锚点 swing 重冻结（oracle 复算）：load_step nadir
+  **50−0.410664 @21.1 s**、f(60)=**49.9922**、sensor_drift f(60)=**49.70548**、清除过冲
+  **+0.213412**、回 |Δf|≤0.05 @ **36.1 s**（§9 定案值 +0.213/36.1 在同容差带内不冲突）。
+- **gt001_v1 字节冻结留档**：`data/golden/gt001_v1.json` 不修改、不删除；verify_golden 的 gt001
+  入口改指 v2（oracle 源已演进，v1 的 V-03 oracle 源哈希语义冻结于生成时版本）；已归档评测场次
+  继续引用 v1；linear 变体 Run 由 engine-gt.test.js 持续对 v1 比对（cfg.inertia_model='linear'）。
+- 新增指标：`E_kin_kWh`（二次型）、`E_rotor_int_kWh`（∫P_rotor 子步左矩形）；`E_rotor_kWh`
+  保留为线性化口径遗留定义（两轨同式可算，标注见 metrics）。
+
+### 12.4 检查分派与涟漪
+
+`gt-energy-consistency` 按 cfg.inertia_model 分派：linear 保留本规格 §3 原式；swing 为
+`|ΔE_kin − ∫P_rotor| ≤ 1e-3 kW·s`（oracle 复算上界 2.2e-4，安全系数 ≥4）。其余涟漪（双轨配置面
+validate/normalize/scenarioView/bundle 导入、assumptions A-gt-swing-full 登记 + A-gt-inertia-lin
+限定 linear 轨、EQ-1/EQ-6/信号公式/组件描述 swing 化、model_version 1.0.0→1.1.0、copy-guard
+「实测」→「oracle 复算」2 处）由 CHG-20261102-01 执行，全量测试与 run-g2 24 步复验通过
+（engine-gt 双 golden 203/203；verify_golden gt001 35/35）。
+
+**预期失效面**：GT 目录/锚点/model_version 变更下，历史 GT 盲包与旧归档局重放属预期失效
+（§10 Arena 盲测池先例）；swing 为默认轨的行为变更由 D-1 双轨 + A-gt-swing-full 声明兜底。

@@ -352,6 +352,10 @@
       noise: sc.noise ? { enabled: true, seed: sc.noise.seed, level: sc.noise.level }
         : { enabled: false, seed: 12345, level: 0 }
     };
+    /* A-1 惯性双轨：新导出包携带 inertia_model；旧包缺省 → normalizeConfig 补系统默认轨 */
+    if (sc.inertia_model !== undefined && sc.inertia_model !== null) {
+      cfg.inertia_model = sc.inertia_model;
+    }
     var ts = { t: csv.t, signals: csv.signals };
     FL.contract.validateTimeSeries(ts, cfg).forEach(function (e) { throw e; });
 

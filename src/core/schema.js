@@ -118,6 +118,8 @@
       feedback_mode: cfg.feedback_mode,
       initial_SOC_pct: cfg.initial && cfg.initial.SOC_pct,
       initial_load_kW: cfg.initial && cfg.initial.load_kW,
+      /* A-1 惯性双轨（GT-001 声明；其他系统 undefined → 不进入投影/哈希） */
+      inertia_model: cfg.inertia_model,
       noise: (cfg.noise && cfg.noise.enabled) ? { seed: cfg.noise.seed, level: cfg.noise.level } : null
     };
   }
@@ -158,6 +160,11 @@
     }
     if (sc.feedback_mode !== 'closed_loop' && sc.feedback_mode !== 'monitor') {
       bad('feedback_mode', 'feedback_mode 必须为 closed_loop 或 monitor', '检查配置');
+    }
+    /* A-1 惯性双轨：可缺省（GT-001 之外的系统/旧导出包无此字段），出现时必须合法 */
+    if (sc.inertia_model !== undefined && sc.inertia_model !== null &&
+        sc.inertia_model !== 'swing' && sc.inertia_model !== 'linear') {
+      bad('inertia_model', 'inertia_model 必须为 swing 或 linear', '检查配置');
     }
     if (!isNum(sc.initial_SOC_pct) || sc.initial_SOC_pct < 0 || sc.initial_SOC_pct > 100) {
       bad('initial_SOC_pct', 'initial_SOC_pct 必须在 0–100 之间', '检查配置');

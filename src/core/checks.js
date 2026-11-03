@@ -209,14 +209,15 @@
     ));
     }
 
-    /* ---- GT 专属 PHY（G2b v1.1 §3/§5；CHG-20261030-06 批准口径）---- */
+    /* ---- GT 专属 PHY（G2b v1.1 §3/§5；CHG-20261030-06 批准口径；A-1 双轨分派 CHG-20261102-01）---- */
     if (system.id === 'GT-001') {
-      /* gt-energy-consistency：线性化能量离散自洽（代数恒等，非物理验证）。
-         ∫P_rotor 取子步左矩形（与 f 更新同式，= K_J·Δf 精确 telescoping，经 E_rotor 指标承载）；
-         二次型 ΔE_kin 与线性化能量之差 = 线性化截断残差 K_J·Δf²/(2f₀)（恒正）。 */
+      var inertiaGt = (cfg && cfg.inertia_model === 'linear') ? 'linear' : 'swing';
       var fArrGt = series.f_true_Hz;
       var fEndGt = fArrGt && fArrGt.length ? fArrGt[fArrGt.length - 1] : null;
-      if (fEndGt !== null) {
+      if (fEndGt !== null && inertiaGt === 'linear') {
+        /* linear 遗留轨：线性化能量离散自洽（代数恒等，非物理验证）。
+           ∫P_rotor 取子步左矩形（与 f 更新同式，= K_J·Δf 精确 telescoping，经 E_rotor 指标承载）；
+           二次型 ΔE_kin 与线性化能量之差 = 线性化截断残差 K_J·Δf²/(2f₀)（恒正）。 */
         var dfGt = fEndGt - 50;
         var dEkGt = (5.0 * 50 / 2) * ((fEndGt / 50) * (fEndGt / 50) - 1); /* kW·s */
         var eLinGt = null;
@@ -227,11 +228,31 @@
         var eResid = (eLinGt !== null && !isNaN(eLinGt)) ? Math.abs(dEkGt - eLinGt - truncGt) : null;
         var eOk = eResid !== null && eResid <= 1e-6;
         quality.push(check(
-          'gt-energy-consistency', '线性化能量离散自洽（含截断残差项）',
+          'gt-energy-consistency', '线性化能量离散自洽（含截断残差项，linear 轨）',
           eOk ? 'pass' : 'fail', 'numeric',
           eResid,
           'ΔE_kin − ∫P_rotor − K_J·Δf²/(2f₀) = ' + (eResid === null ? '不可用' : eResid.toExponential(2)) +
             ' kW·s（代数恒等回归：验证离散自洽与线性化截断项量级，不是物理验证）'
+        ));
+      } else if (fEndGt !== null) {
+        /* swing 轨（A-1，ALINE §4.3）：能量闭合 |ΔE_kin − ∫P_rotor(子步左矩形)| ≤ tol。
+           tol 由 oracle 复算分布冻结（CHG-20261102-01）：六 Run 全参数域复算上界
+           2.2e-4 kW·s（load_step），取 1e-3（安全系数 ≥4）。线性轨下该差为截断+离散化
+           相消的代数恒等（~0），swing 轨下为真实离散化残差——本检查验证量级正确性；
+           判别性恒等式（Σ r·dt·(f₊+f₋)/(2f₋) ≡ ΔE_kin，±1e-9）由 oracle GS-1 承载。 */
+        var dEkSwGt = (5.0 * 50 / 2) * ((fEndGt / 50) * (fEndGt / 50) - 1); /* kW·s */
+        var eIntSwGt = null;
+        (metrics || []).forEach(function (m) {
+          if (m.metric_id === 'E_rotor_int_kWh' && m.value != null) eIntSwGt = m.value * 3600;
+        });
+        var eResidSw = (eIntSwGt !== null && !isNaN(eIntSwGt)) ? Math.abs(dEkSwGt - eIntSwGt) : null;
+        var eOkSw = eResidSw !== null && eResidSw <= 1e-3;
+        quality.push(check(
+          'gt-energy-consistency', '摇摆方程能量闭合（swing 轨，离散化残差量级）',
+          eOkSw ? 'pass' : 'fail', 'numeric',
+          eResidSw,
+          '|ΔE_kin − ∫P_rotor| = ' + (eResidSw === null ? '不可用' : eResidSw.toExponential(2)) +
+            ' kW·s（≤1e-3 oracle 复算冻结；离散化残差量级验证，非物理验证）'
         ));
       }
       /* gt-bat-envelope：变流器物理包络 ±25 kW（合法参数域内恒过；±15 kW 短时额定为假设/UI 警示） */
