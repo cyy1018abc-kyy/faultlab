@@ -952,3 +952,32 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   建议 PV-G2b-04c）；schema 导出面 initial_SOC_pct 缺口（CN-E02，R-8 显式 CHG）；home/compare/
   causal/scenario 静态文案与指标组缺口清单；signals.js 既有 display 残留缺陷（非本波引入）。
   证据 `evidence/g8/v070-release.md`。批准人：用户（CHG-20261104-10 授权链）；记录人：实现 Agent。
+
+- `CHG-20261104-12`：**A-4a GT-L1 G2b 批准登记（GTL1-G2b-02 闭合）+ GTL1-G2b-01/03/04 实现波授权**。
+  用户 2026-11-05 指令「按照2执行」（对上轮呈交的 GT-L1 批准决策点之书面批复；沿用既定
+  「统一采用推荐决策 + 并发子智能体」授权模式）。
+  ① **GTL1-G2b-02 闭合**：GTL1_G2B_SPEC_DRAFT v0.2（双路评审 PASS_WITH_CONDITIONS×2 +
+     条件 A-1…A-3/B-1…B-4 处置登记 §11-a）经用户指令授权链批准；
+  ② **GTL1-DRAFT-Q1…Q5 全按推荐定案**：Q1 P_rotor 保留 L0b 定义恒等（P_gen=η_m·(P_turb−
+     P_comp)）/ Q2 三轨 inertia_model: swing|linear|thermo / Q3 gt001_oracle.py 迁移债重新
+     定性为**冻结归档债**（v2/v1 存档期间 oracle 源字节同步冻结；仅当 v2 自身须重出才物理
+     迁移；gt001_l1_oracle 出生即 oracle_base）/ Q4 **翻转 thermo 为默认轨**（A-1 先例；
+     已归档场次携带已解析 cfg 键重放稳定）/ Q5 P_gen_cap_kW 保留指令域口径；
+  ③ **批准前七条件修订授权（GTL1-G2b-01）**：A-1 常量表按精确解 ≥13 位登记（k_f=
+     4.070531454334211、ṁ_a=0.144299140389011、C_3=0.335983796442745）并同步 GL-1/GL-3
+     措辞 / A-2+B-4 sensor+1.0 暂态 oracle 域扫描冻结为 emit 条件 / A-3 §3.2 分歧表逐行
+     口径标注 / B-1 八个热力信号补 exposure/sourceKind 列（裁定：盲包观测面不扩——热力
+     信号非盲显，登记 GTL1-G2b-04）/ B-2 **scenario schema v1 增可选 inertia_model 键**
+     （显式 CHG=本条；默认随 Q4 翻转，场景可显式钉轨实现跨深度对比）+ §2.4 勘正 /
+     B-3 Q3 重定性同轮处置 ORACLE_INTERFACE_D2 §5.2 迁移触发条件 1（由 gt001_v3 新 id
+     满足）与 2（tier 参数化仅 gt001_l1 注册行，gt001_v2 条目不动）/ 修订后更名
+     `GTL1_G2B_SPEC_APPROVED.md` v1.0；
+  ④ **实现波授权（并发子智能体）**：GTL1-G2b-03（gt001_l1_oracle RK4 dt0.01 + gt001_v3
+     6 Run emit + 域扫描冻结 + verify_golden gt001_l1 注册与 T-B tier 参数化分派）+
+     GTL1-G2b-04（systems.js GT model_version 1.2.0 + 八热力信号 + 三轨 engine + metrics
+     + UNIT_DICT K/kPa + 文案终稿 + L1 徽章）；engine-gt.test.js 三轨对 golden（linear→v1/
+     swing→v2/thermo→v3）并入现有步；**步数账：verify_golden gt001 重指向 gt001_v3，
+     28 步不变，预算 ≤29**（IMP-Q1）；既有 gt001_v1/v2 字节冻结留档、supersedes 链
+     v3→v2→v1、预期失效面（历史 GT 盲包 fail V-05 属预期，GT §10 先例）；
+  ⑤ **CHG-20261104-13 预留**（v0.7.1 发布：A-4a 补齐）。
+  批准人：用户（2026-11-05「按照2执行」）；记录人：实现 Agent。
