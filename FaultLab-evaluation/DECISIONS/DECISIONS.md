@@ -901,3 +901,23 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   ⑤ 验证：run-g2 26/26 PASS 两次独立（工作流内 + 主流程复验 20474ms）；scenario 230/230
      确定性；copy-guard 0 命中；本波零 golden 重出、零 engine.js 物理面改动（DEC-7）。
   证据 `evidence/g8/v061-release.md`。批准人：用户（CHG-20261104-08 授权链）；记录人：实现 Agent。
+
+- `CHG-20261104-10`：**V070_WAVE_DESIGN v1 批准（v0.7.0 实现波）+ PV-001 G2b 批准登记**。
+  用户 2026-11-04 指令「设计下一轮的长期方案，统一采用推荐决策，采用并发多个子智能体来加速
+  任务」（对上轮呈交的 PV-001 批准决策点之书面批复）。
+  ① `NEXT/V070_WAVE_DESIGN.md` v1 生效——DEC-1…8 全采推荐项：DEC-1 PV-001 按授权链批准
+     （PV-DRAFT-Q1 定案=EQ-PV-3 定案机制 MPPT 目标=k·G_meas·φ_T；PV-DRAFT-Q2 定案=
+     **P_pv(0)=k·G0·φ_T**；PV-G2b-01 条件修订随本轮落正文并更名 APPROVED）/ DEC-2 Arena
+     (a) 显式排除 / DEC-3 pv001_v1 4 Run schema v2 T-A、oracle 复刻 foStep 更新序 /
+     DEC-4 A-4a 本波草案+双路评审（批准下轮）/ DEC-5 C-3 教学路径最小形态 / DEC-6 C-4
+     排行榜最小形态 / DEC-7 D-4 实测基线×安全系数 / DEC-8 步数账 26→28（预算 ≤29）；
+  ② **PV-001 G2b 批准（PV-G2b-02 闭合）**：PV001_G2B_SPEC_DRAFT v0.2（双路评审
+     PASS_WITH_CONDITIONS×2 + 条件 C-1…C-7 处置登记）经用户指令授权链批准；本波内
+     PV-G2b-01 修订正文（Q1/Q2 定案+C-1…C-7）后更名 `PV001_G2B_SPEC_APPROVED.md` v1.0；
+     scope=extension_preview（classify fall-through 零改动）；Arena 显式排除（DEC-2）；
+  ③ 实现波授权（并发子智能体，五阶段 12 路）：PV 全链（T1 规格修订→T2 oracle+golden→
+     T3 engine/systems→T4 测试交叉→T5 接线）+ C-3/C-4/D-4 + A-4a 草案与双路评审；
+     engine.js 改动面显式开放仅限 PV 新轨+分派分支+PV metrics（三系统物理面零触碰）；
+  ④ **CHG-20261104-11 预留**（v0.7.0 发布）；既有 4 golden 字节零变更维持；A-4a 批准
+     不在本授权内（下轮）。
+  批准人：用户（2026-11-04「统一采用推荐决策」）；记录人：实现 Agent。
