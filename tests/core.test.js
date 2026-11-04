@@ -644,9 +644,13 @@ eq(gtLoad.causal.nodes.length, 6, 'GT load_step 因果链 6 节点');
 
 const gtAct = makeRun('GT-001', { fault: { family: 'actuator_fault' } });
 assertRunShape(gtAct, 'GT-001 actuator', 'GT-001');
-close(at(gtAct, 'P_gen_true_kW', 60), 20, 1e-6, 'GT actuator P_gen 钳位 20 kW');
+/* Q4/Q5 定案（GTL1_G2B_SPEC_APPROVED v1.0 §1.2/§2.4/§3.2）：默认轨已翻转 thermo——
+   50% 钳位作用于燃料指令域（P_gen_cap = 20 kW 不变，见下行指令域断言），
+   实际 P_gen 由热力链给出 ≈ 18.27 kW ≠ 20.00（钳位域差异 = 跨深度教学点，§3.2 预填 18.266）；
+   L0b 功率域钳位（P_gen 恰 = 20 kW）由 engine-gt.test.js 钉轨 swing/linear golden 比对承载。 */
+close(at(gtAct, 'P_gen_true_kW', 60), 18.266, 0.05, 'GT actuator（thermo 默认轨）P_gen 稳态 18.266 kW（燃料域钳位 50% → 链上值，Q5 教学点）');
 between(at(gtAct, 'f_true_Hz', 60), 49.6, 49.9, 'GT actuator 频率稳态 49.6–49.9 Hz');
-between(at(gtAct, 'P_bat_true_kW', 60), 9.5, 10.5, 'GT actuator 电池长期≈10 kW');
+between(at(gtAct, 'P_bat_true_kW', 60), 11.2, 12.2, 'GT actuator 电池长期支撑≈11.73 kW（thermo 轨，P_gen 18.27 → 电池补差；§3.2）');
 close(at(gtAct, 'P_gen_cap_kW', 30), 20, 1e-9, 'GT actuator P_gen_cap=20 kW');
 eq(at(gtAct, 'P_gen_cap_kW', 19.9), null, 'GT actuator 故障前 P_gen_cap=null');
 close(at(gtAct, 'valve_meas_pct', 60), 50, 1e-9, 'GT actuator valve_meas=50%');

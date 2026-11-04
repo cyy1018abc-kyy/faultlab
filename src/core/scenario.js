@@ -7,6 +7,7 @@
        { scenario_id?: string, version: 1, label?: string, system: 'FL-001'|'FC-001'|'GT-001',
          events: [ { key: string(唯一), label?: string, family: string, params: object,
                      t_start_s: number, t_clear_s?: number|null(仅 GT-001×actuator_fault),
+                     inertia_model?: 'swing'|'linear'|'thermo'(仅 GT-001，缺省解析为系统默认轨),
                      feedback_mode: 'closed_loop'|'monitor' } ] }；
    - 事实源：src/core/systems.js（faults 目录 = family/params min-max-step/timeRange/defaultTime_s）
      + docs/FAULT_CATALOG.md（授权状态：非「已删除」方可准入）；
@@ -29,7 +30,11 @@
   var FIXED_DT_S = 0.1;
 
   var TOP_KEYS = ['scenario_id', 'version', 'label', 'system', 'events'];
-  var EVENT_KEYS = ['key', 'label', 'family', 'params', 't_start_s', 't_clear_s', 'feedback_mode'];
+  var EVENT_KEYS = ['key', 'label', 'family', 'params', 't_start_s', 't_clear_s', 'inertia_model', 'feedback_mode'];
+  /* 事件级模型深度轨（B-2 定案，CHG-20261104-12 ③）：枚举三值；缺省解析为系统默认轨
+     （defaults.inertia_model，GT-001 = thermo，Q4 定案）；scenarioHash 含解析后的轨。
+     跨深度对比场景（A 线教学 payoff）经该键显式钉轨。 */
+  var INERTIA_MODELS = ['swing', 'linear', 'thermo'];
 
   /* 授权状态守卫（准入条件：非「已删除」）：事实源 docs/FAULT_CATALOG.md §1/§4。
      FL-001 load_step 已按 O-13（CHG-20261030-06）删除——systems.js 目录已不含该族，
@@ -130,13 +135,14 @@
     /* system：systems.js 注册目录 + schema v1 固定运行网格守卫 */
     var system = null;
     if (input.system === undefined) {
-      errors.push({ field: 'system', message: '缺少 system（FL-001 / FC-001 / GT-001）' });
+      errors.push({ field: 'system', message: '缺少 system（FL-001 / FC-001 / GT-001 / PV-001）' });
     } else if (typeof input.system !== 'string') {
       errors.push({ field: 'system', message: '必须是字符串（收到 ' + typeName(input.system) + '）' });
     } else {
       system = getSystem(input.system);
       if (!system) {
-        errors.push({ field: 'system', message: '未知系统 ' + input.system + '（可用：FL-001 / FC-001 / GT-001）' });
+        /* v0.7 残留清算：可用系统列表补 PV-001（PV-G2b-04b 注册遗漏的错误文案面） */
+        errors.push({ field: 'system', message: '未知系统 ' + input.system + '（可用：FL-001 / FC-001 / GT-001 / PV-001）' });
       } else if (system.duration_s !== FIXED_DURATION_S || system.dt_s !== FIXED_DT_S) {
         errors.push({ field: 'system', message: '系统运行网格必须为 ' + FIXED_DURATION_S + ' s / ' + FIXED_DT_S + ' s（当前 ' + system.duration_s + ' s / ' + system.dt_s + ' s）' });
       }
@@ -322,6 +328,25 @@
       }
     }
 
+    /* inertia_model（B-2 定案，CHG-20261104-12 ③；可选事件级模型深度轨）：
+       语义 = 「模型深度轨」而非字面惯量形式（swing|linear|thermo）。缺省（不提供）解析为
+       系统默认轨（defaults.inertia_model，GT-001 = thermo，Q4 定案）；未知值拒绝入结构化
+       错误；未声明该轨的系统（FL/FC/PV）上出现即拒绝（封闭白名单，t_clear_s 先例同构）。
+       解析结果写入归一化事件并进入 scenarioHash（既有 GT 场景哈希变化 = 预期失效面）。 */
+    var inertia = null;
+    var declaresInertia = !!(system && system.defaults && system.defaults.inertia_model);
+    if (ev.inertia_model !== undefined) {
+      if (!declaresInertia) {
+        errors.push({ field: at + '.inertia_model', message: '系统 ' + (system ? system.id : '?') + ' 未声明模型深度轨（inertia_model 仅适用于声明该轨的系统）' });
+      } else if (INERTIA_MODELS.indexOf(ev.inertia_model) === -1) {
+        errors.push({ field: at + '.inertia_model', message: '必须为 swing / linear / thermo（收到 ' + String(ev.inertia_model) + '）' });
+      } else {
+        inertia = ev.inertia_model;
+      }
+    } else if (declaresInertia) {
+      inertia = system.defaults.inertia_model;
+    }
+
     /* feedback_mode */
     var mode = null;
     if (ev.feedback_mode === undefined) {
@@ -337,6 +362,7 @@
     var out = { key: key, family: ev.family, params: params, t_start_s: tStart, feedback_mode: mode };
     if (label !== null) out.label = label;
     if (tClear !== null) out.t_clear_s = tClear;
+    if (inertia !== null) out.inertia_model = inertia; /* 解析后的轨（缺省 = 系统默认轨）入归一化面与哈希 */
     return out;
   }
 
@@ -354,9 +380,11 @@
   }
 
   /* 哈希投影：只含执行相关内容（version/system/事件序/key/family/已补齐 params/
-     t_start_s/t_clear_s/feedback_mode）；scenario_id 与 label 为元数据不入哈希。
-     经 FL.core.hashObjectStrict（canonicalize v1 严格模式：对象键排序、数组保序、
-     数字最短往返）→ 键序不敏感、无随机、确定性（registry.js:3 canonical 口径）。 */
+     t_start_s/t_clear_s/inertia_model(解析后的轨)/feedback_mode）；scenario_id 与 label
+     为元数据不入哈希。经 FL.core.hashObjectStrict（canonicalize v1 严格模式：对象键排序、
+     数组保序、数字最短往返）→ 键序不敏感、无随机、确定性（registry.js:3 canonical 口径）。
+     inertia_model 缺省（FL/FC/PV 事件）为 undefined，canonicalize 按不存在处理——
+     既有 FL/FC/PV 场景哈希不变；GT 事件解析轨入哈希（B-2 定案的预期失效面）。 */
   function hashProjection(s) {
     return {
       version: s.version,
@@ -368,6 +396,7 @@
           params: e.params,
           t_start_s: e.t_start_s,
           t_clear_s: e.t_clear_s, /* 缺省/无清除为 undefined，canonicalize 按不存在处理 */
+          inertia_model: e.inertia_model, /* 解析后的模型深度轨（缺省系统为 undefined） */
           feedback_mode: e.feedback_mode
         };
       })
@@ -393,11 +422,14 @@
   function buildRunConfig(systemId, ev) {
     var fault = { family: ev.family, t_start_s: ev.t_start_s, params: ev.params };
     if (typeof ev.t_clear_s === 'number') fault.t_clear_s = ev.t_clear_s;
-    return FL.core.createConfig(systemId, {
+    var patch = {
       feedback_mode: ev.feedback_mode,
       fault: fault,
       noise: { enabled: false }
-    });
+    };
+    /* 解析后的模型深度轨透传（B-2）：缺省轨已由 normalizeConfig 盖章，显式值仅覆盖时传入 */
+    if (ev.inertia_model) patch.inertia_model = ev.inertia_model;
+    return FL.core.createConfig(systemId, patch);
   }
 
   /* 编排执行：按 events 顺序逐事件构造标准 Run 配置，经 FL.registry.createRun

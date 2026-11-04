@@ -60,6 +60,28 @@ pvCat.forEach((s) => {
 });
 
 /* ------------------------------------------------------------------ *
+ * 1c. GT-001 SignalCatalog + UNIT_DICT K/kPa 扩展（GTL1-IMP-Q2，CHG-20261104-12；
+ *     GTL1_G2B_SPEC_APPROVED v1.0 §4 项 7——schema.js UNIT_DICT 纯增项 'K'/'kPa'，
+ *     PV001 C-3/C-6 同款先例）
+ * ------------------------------------------------------------------ */
+eq(contract.UNIT_DICT['K'], 'temperature', "UNIT_DICT 增 'K' → temperature（GT-001 L1 thermo 轨纯增项）");
+eq(contract.UNIT_DICT['kPa'], 'pressure', "UNIT_DICT 增 'kPa' → pressure（GT-001 L1 thermo 轨纯增项）");
+const gtSys001 = FL.systems._raw.get('GT-001');
+const gtCat = gtSys001.signals.map((s) => Object.assign({}, s));
+eq(contract.validateSignalCatalog(gtCat).length, 0, 'GT-001 SignalCatalog 校验通过（K/kPa 通道过 CN-E02）');
+const gtK = gtCat.filter((s) => s.unit === 'K').map((s) => s.id);
+const gtKpa = gtCat.filter((s) => s.unit === 'kPa').map((s) => s.id);
+eq(gtK.join(','), 'T3_out_K,T2_out_K,T4_out_K', "GT-001 K 温度信号 3 项（T3/T2/T4）");
+eq(gtKpa.join(','), 'p2_out_kPa', "GT-001 kPa 压力信号 1 项（p2）");
+eq(gtCat.filter((s) => s.category === 'thermal').length, 8, 'GT-001 thermal 类信号 8 项（L1 §1.2）');
+gtCat.forEach((s) => {
+  ok(contract.UNIT_DICT[s.unit] !== undefined, 'GT 信号 ' + s.id + ' 单位在字典内（' + s.unit + '）');
+  ok(contract.EXPOSURES.indexOf(s.exposure) !== -1, 'GT 信号 ' + s.id + ' exposure 合法（' + s.exposure + '）');
+});
+code(contract.validateSignalCatalog([Object.assign({}, gtCat[0], { unit: '°F' })]), 'CN-E02',
+  '未知温度单位仍拒绝（K/kPa 为纯增项，非单位面放开）');
+
+/* ------------------------------------------------------------------ *
  * 2. ScenarioConfig §2.1 视图与校验（T-07 负例子集）
  * ------------------------------------------------------------------ */
 const cfgFault = core.createConfig('FL-001', {});

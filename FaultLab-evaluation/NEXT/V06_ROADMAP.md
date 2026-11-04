@@ -77,7 +77,7 @@ run-g2 25 步（tier 分层候选）。
 | D-3 | 样本到即插 | FMU ctypes doStep（fmu_runner 端到端 + /fmu 端点；R-2b 夹具可先行去风险） | Q-5/V312 |
 | D-4 | v0.7.0 | 性能基线扩展（内存上限 + 帧率下限） | G7 |
 | D-5 | v0.8.0 | 插件架构评估（SystemDef/ScenarioTemplate/EvalAgent 可注册化；仅评估） | RFC |
-| D-GT | 挂起 | gt001_oracle 迁移 oracle_base（触发条件=GT golden 下次重出；ORACLE_INTERFACE_D2 §5.1） | 随轮 |
+| D-GT | **冻结归档债**（GTL1-G2b-03 重定性，CHG-20261104-12 Q3；原「挂起」） | gt001_oracle.py 物理迁移挂起至 gt001_v2/v1 自身重出时点（届时走 ORACLE_INTERFACE_D2 §5.2 清偿动作清单）；其 GTL1-G2b-03 触发处置已登记：迁移触发条件 1 由 gt001_v3 新 id（新文件 gt001_l1_oracle.py 出生即 oracle_base 接入，不触碰旧源）满足、条件 2 由 verify_golden MODELS["gt001"] 重指向注册行 + T-B tier 参数化承接（ORACLE_INTERFACE_D2 §5.2 GTL1-G2b-03 触发处置登记） | 随轮（v2/v1 重出时点） |
 
 ## 3. 版本路线
 

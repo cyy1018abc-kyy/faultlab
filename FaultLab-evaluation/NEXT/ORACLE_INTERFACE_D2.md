@@ -250,6 +250,38 @@ backend 字段助手（§3.4）。**不 import**：src/**、三个 oracle 模块
   `write_golden_with_sidecar`（LF）→ build_golden 补 generated_by 占位或改 emit 脚手架
   一段式 → 自检与 golden 数值逐位不变（V-01…V-09 + engine-gt 双 golden 复验绿）。
 - **迁移债**：一项，低（V060 §3 DEC-A「后悔成本」原文：GT 迁移债一项，登记在案）。
+  〔**GTL1-G2b-03 重定性（2026-11-05，CHG-20261104-12 Q3）**：本迁移债重新定性为
+  **冻结归档债**，处置见下方触发处置登记。〕
+
+- **GTL1-G2b-03 触发处置登记（2026-11-05，CHG-20261104-12 批准链；B-3 同轮登记声明，
+  权威规格 = GTL1_G2B_SPEC_APPROVED v1.0 §4 项 9）**：GTL1-G2b-03 轮形式上同时触发
+  上列迁移触发条件 1 与 2，处置如下——
+  - **触发条件 1**（GT-001 模型/方法变更 → 新 golden_id，与重出同轮）：**已触发，由
+    gt001_v3 新 id 承接**——GT-001 L1 热力学轨（GTL1_G2B_SPEC_APPROVED v1.0）→ 新
+    golden `gt001_v3.json`（schema v2、method_id=gt001_l1_rk4_dt0.01、supersedes=
+    gt001_v2、6 Run 全 inertia_model=thermo、gate tier=T-B 库内首个），由**新文件**
+    `tools/oracle/gt001_l1_oracle.py` **出生即 oracle_base 接入**产出（resolve_run_spec /
+    write_golden_with_sidecar LF 钉死 / apply_approval 三字段首签 / SERIES_IDS 模块常量
+    含 "t" 列）——上表差异豁免清单四项（归一签名/返回面/SERIES_IDS/写盘换行）在新
+    oracle 上**全部不适用**；**不触碰 gt001_oracle.py**（V-03 字节语义下 gt001_v2 冻结
+    锚点与 sidecar c50315c9… 保持有效）。
+  - **触发条件 2**（verify_golden tier 参数化波及 gt001 条目）：**已触发，由本注册行 +
+    T-B tier 参数化承接**——`scripts/verify_golden.py` 的 `MODELS["gt001"]` 注册行重指向
+    `gt001_v3.json` + `import gt001_l1_oracle` + tier 分派（`gate.tier == "T-B"` 时
+    V-05 关键点 / series_limit / metric_within 走 T-B 键面 f_Hz_atol/n_rpm_atol/T_K_atol/
+    p_kPa_atol/P_kW_*/E_kWh/SOC_pp/r_true_kW/t_s）；**T-A 既有路径与 fl001/fc001/pv001
+    条目零改动**（三系统回归 exit 0 佐证，2026-11-05）。登记注：注册行形态 = gt001 条目
+    重指向（GTL1-G2b-03 工作面任务书口径）；GTL1_G2B_SPEC_APPROVED §4 项 7「新增
+    gt001_l1 注册行、gt001_v2 条目不动」的意图（参数化与注册同轮落地、旧 golden 治理面
+    不重出）由本形态实现——gt001_v2 的 verify_golden 直验面随重指向让位于 engine-gt 双
+    golden 比对面（linear→v1 / swing→v2 / thermo→v3，GTL1-G2b-04 面）+ oracle_base 契约
+    探针（documented 模式，`import gt001_oracle` 维持在 verify_golden 顶部）。
+  - **触发条件 3**（D 线显式要求）：未触发。
+  - **物理迁移裁定（Q3 定案，CHG-20261104-12）**：gt001_oracle.py 迁移债重新定性为
+    **冻结归档债**——gt001_v2/v1 存档期间其 oracle 源字节同步冻结（物理文件零触碰），
+    仅当 v2/v1 自身须重出时才物理迁移（届时执行本节清偿动作清单）；本处置与本节
+    「文档化符合、迁移挂起（DEC-A）」登记**不矛盾**——物理迁移=清偿动作，挂起至
+    v2/v1 自身重出时点；L1 新 id 路线由新 oracle 承接，无需动旧源。
 
 ---
 

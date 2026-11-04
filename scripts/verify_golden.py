@@ -4,7 +4,8 @@
 用法：
   python scripts/verify_golden.py                # fl001（默认）
   python scripts/verify_golden.py fc001          # FC-001（P1-06 / G2b-lite）
-  python scripts/verify_golden.py gt001          # GT-001（V3-31 / G2b v1.1）
+  python scripts/verify_golden.py gt001          # GT-001（V3-31 / G2b v1.1；GTL1-G2b-03 起
+                                                 #  重指向 gt001_v3 L1 thermo 轨，tier T-B）
   python scripts/verify_golden.py pv001          # PV-001（PV-G2b-03 / v0.7，CHG-20261104-10 批准链）
   python scripts/verify_golden.py --json out.json
 
@@ -14,10 +15,16 @@
   V-01 golden 存在且可解析；V-02 sidecar SHA-256 一致；
   V-03 generated_by.oracle_source_sha256 == 当前 oracle 源码 SHA-256；
   V-03b approval 批准摘要一致（去除 generated_by/approval 后内容摘要）；
-  V-04 oracle 自检全过（fl001 SC-1…9 / fc001 SC-1…7 / gt001 GS-1…8 / pv001 PS-1…7）；
-  V-05 关键点（19.9/21.5/26.0/60.0 s 的 true/meas 电流）rtol 1e-12；
+  V-04 oracle 自检全过（fl001 SC-1…9 / fc001 SC-1…7 / gt001_l1 GL-1…8 / pv001 PS-1…7）；
+  V-05 关键点（19.9/21.5/26.0/60.0 s 的 true/meas 对）——tier 分派：T-A rtol 1e-12
+       （I_A 键，既有路径零改动）/ T-B 按 series_limit 序列容差键（GTL1-G2b-03 参数化）；
   V-06 标量（E/SOC）gate 容差（±1e-6 kWh / ±1e-5 pp）；
   V-07 601 点全精度序列逐点比对；V-08 指标；V-09 事件 pre/post。
+
+tier 分派（GTL1-G2b-03，GTL1_G2B_SPEC_APPROVED §4 项 7「参数化与注册行同轮落地」）：
+  golden.tolerances.gate.tier == "T-B" 时，V-05/series_limit/metric_within 走 T-B 键面
+  （f_Hz_atol/n_rpm_atol/T_K_atol/p_kPa_atol/P_kW_*/E_kWh/SOC_pp/r_true_kW/t_s）；
+  其余（T-A 既有三模型 + 默认路径）行为逐字节不变。
 
 本脚本不 import 产品 engine；golden 由 oracle 只读生成。
 """
@@ -36,7 +43,9 @@ ORACLE_DIR = os.path.join(ROOT, "tools", "oracle")
 sys.path.insert(0, ORACLE_DIR)
 import fl001_oracle  # noqa: E402
 import fc001_oracle  # noqa: E402
-import gt001_oracle  # noqa: E402
+import gt001_oracle  # noqa: E402  （swing/linear 冻结归档轨：verify_golden 注册面已重指向
+                     #   gt001_l1_oracle；本 import 维持 oracle_base 契约探针与历史可比性）
+import gt001_l1_oracle  # noqa: E402  GT-001 L1 thermo 轨（GTL1-G2b-03 / CHG-20261104-12 批准链）
 import pv001_oracle  # noqa: E402  PV-001（PV-G2b-03 / CHG-20261104-10 批准链；PV001_G2B_SPEC_APPROVED §4 项 7）
 
 MODELS = {
@@ -59,13 +68,20 @@ MODELS = {
         ],
     },
     "gt001": {
-        "oracle": gt001_oracle,
-        "golden_file": "gt001_v2.json",  # A-1：gt001 校验指向 swing 轨 golden（v1 linear 字节冻结留档）
+        # GTL1-G2b-03（CHG-20261104-12）：gt001 校验重指向 L1 thermo 轨 golden gt001_v3
+        # （库内首个 T-B golden；oracle=gt001_l1_oracle 出生接入 oracle_base，规格 §4 项 7）。
+        # gt001_v2/v1 字节冻结留档（Q3 冻结归档债，gt001_oracle.py 物理文件零触碰）：
+        # 其 verify_golden 直验面随重指向让位于 engine-gt 双 golden 比对面
+        # （linear→v1 / swing→v2 / thermo→v3，GTL1-G2b-04 面）+ oracle_base 契约探针。
+        "oracle": gt001_l1_oracle,
+        "golden_file": "gt001_v3.json",
         "i_true": "f_true_Hz", "i_meas": "n_meas_rpm",
-        "event_tol": "f_Hz_atol",
+        "event_tol": "n_rpm_atol",  # 事件快照相位变量 = n_meas_rpm（T-B gate 键面）
         "scalars": [
-            ("E_source_kWh", "kWh"), ("E_bat_kWh", "kWh"), ("E_load_kWh", "kWh"), ("E_rotor_kWh", "kWh"),
+            ("E_source_kWh", "kWh"), ("E_bat_kWh", "kWh"), ("E_load_kWh", "kWh"),
+            ("E_rotor_kWh", "kWh"), ("E_fuel_kWh", "kWh"),
             ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
+            ("eta_cycle_end_pct", "%"),
         ],
     },
     "pv001": {
@@ -102,6 +118,26 @@ def _amax(arr):
 def series_limit(sid, arr, tol):
     if sid == "t":
         return tol["t_s"]
+    if tol.get("tier") == "T-B":
+        # GTL1-G2b-03 T-B 分派（golden.tolerances.gate 驱动；量纲族键面见 golden
+        # gt001_v3 gate 块；T-A 既有路径不经过本分支，零改动）。
+        if sid.endswith("_Hz"):
+            return tol["f_Hz_atol"]
+        if sid.endswith("_rpm"):
+            return tol["n_rpm_atol"]
+        if sid.endswith("_K"):
+            return tol["T_K_atol"]
+        if sid.endswith("_kPa"):
+            return tol["p_kPa_atol"]
+        if sid.endswith("_kW"):
+            return max(tol["P_kW_atol"], tol["P_kW_rtol"] * max(1.0, _amax(arr)))
+        if sid.startswith("SOC"):
+            return tol["SOC_pp"]
+        if sid.endswith("_pct"):
+            return tol["SOC_pp"]
+        if "r_true" in sid:
+            return tol["r_true_kW"]
+        return tol["f_Hz_atol"]
     if sid.endswith("_Hz"):
         return tol.get("f_Hz_atol", 1e-9)
     if sid.endswith("_rpm"):
@@ -118,6 +154,23 @@ def series_limit(sid, arr, tol):
 
 
 def metric_within(mid, unit, fv, gv, tol):
+    if tol.get("tier") == "T-B":
+        # GTL1-G2b-03 T-B 分派（键序镜像 T-A 的 mid 优先序 + T-B 量纲族扩展）。
+        if unit == "kWh":
+            return close_within(fv, gv, 1e-12, tol["E_kWh"])
+        if unit in ("pp", "%"):
+            return close_within(fv, gv, 1e-12, tol["SOC_pp"])
+        if mid.startswith("max_abs_r_true"):
+            return abs(fv - gv) <= tol["r_true_kW"]
+        if mid.startswith("max_abs_f_channel_diff"):
+            return abs(fv - gv) <= tol["f_Hz_atol"]
+        if unit == "Hz":
+            return abs(fv - gv) <= tol["f_Hz_atol"]
+        if unit == "rpm":
+            return abs(fv - gv) <= tol["n_rpm_atol"]
+        if unit == "kW":
+            return abs(fv - gv) <= max(tol["P_kW_atol"], tol["P_kW_rtol"] * abs(gv))
+        return close_within(fv, gv, 1e-12, tol["SOC_pp"])
     if unit == "kWh":
         return close_within(fv, gv, 1e-12, tol["E_kWh"])
     if unit in ("pp", "%"):
@@ -211,19 +264,24 @@ def main(argv):
             continue
         fresh = oracle.simulate_run(spec)
 
-        # V-05 关键点（true/meas 电流对）
+        # V-05 关键点（true/meas 对；tier 分派：T-A I_A 键 / T-B 序列容差键）
         kp_ok = True
         for tt in KEY_POINTS:
             idx = int(round(tt / golden["sampling"]["dt_s"]))
             for sid in (cfg["i_true"], cfg["i_meas"]):
                 gv = g_run["series"][sid][idx]
                 fv = fresh["series"][sid][idx]
-                if not close_within(fv, gv, tol["I_A_rtol"], tol["I_A_atol"]):
+                if tol.get("tier") == "T-B":
+                    kp_in = abs(fv - gv) <= series_limit(sid, g_run["series"][sid], tol)
+                else:
+                    kp_in = close_within(fv, gv, tol["I_A_rtol"], tol["I_A_atol"])
+                if not kp_in:
                     kp_ok = False
                     report["problems"].append({"check": "V-05-keypoint", "run": run_key,
                                                "t": tt, "signal": sid, "golden": gv, "fresh": fv})
         rec("V-05-keypoints-%s" % run_key, kp_ok,
-            "19.9/21.5/26.0/60.0 s 的 %s/%s 逐点" % (cfg["i_true"], cfg["i_meas"]))
+            "19.9/21.5/26.0/60.0 s 的 %s/%s 逐点（tier=%s）"
+            % (cfg["i_true"], cfg["i_meas"], tol.get("tier", "T-A")))
         all_ok = all_ok and kp_ok
 
         # V-06 标量（gate 容差）

@@ -981,3 +981,45 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
      v3→v2→v1、预期失效面（历史 GT 盲包 fail V-05 属预期，GT §10 先例）；
   ⑤ **CHG-20261104-13 预留**（v0.7.1 发布：A-4a 补齐）。
   批准人：用户（2026-11-05「按照2执行」）；记录人：实现 Agent。
+
+- `CHG-20261104-13`：**v0.7.1 发布（G8）——A-4a GT-L1 落地（gt001_v3 + 三轨 + T-B 容差制度）**。
+  CHG-20261104-12 波次（T1…T5，动态工作流 dwfrun-20a5779d，五阶段 7 路）。交付：
+  ① **GTL1-G2b-01**：`GTL1_G2B_SPEC_APPROVED.md` v1.0（七条件+Q1…Q5 定案落正文；
+     A-1 方案 a 常量 15 位精确登记，修订人独立复算残差 5.7e-14 kW 与评审 4.3e-14 同量级
+     并存登记）；
+  ② **GTL1-G2b-03**：`tools/oracle/gt001_l1_oracle.py`（出生即 oracle_base、RK4 y=[f,T3]
+     h=0.01 冻结更新序、GL-1…GL-8 全过：设计点 P_gen=25/残差 4.263e-14 kW、18 锚点、
+     半步长 1.082e-06 Hz）+ **gt001_v3 golden 6 Run 首签**（全 thermo、schema v2、
+     method gt001_l1_rk4_dt0.01、model_version 1.2.0、supersedes=gt001_v2、gate T-B 终值
+     按双实现散差×≥10 冻结——真实引擎交叉 27 列+指标逐位 series-exact）+ **域扫描冻结
+     （A-2/B-4 硬条件闭合）**：mag=1.0 角点 max|Δf|=0.997996<1.0 未越界（§3.3.1）+
+     `verify_golden.py` MODELS["gt001"] 重指向 gt001_v3 + **T-B tier 参数化分派**（T-A
+     默认路径零改动）+ ORACLE_INTERFACE_D2 §5.2 触发处置（B-3）+ V06_ROADMAP D-GT 行
+     重定性 + FAULT_CATALOG GT-001 更新；
+  ③ **GTL1-G2b-04**：`engine.js` simulateGT001Thermo（RK4 冻结分区更新序）+ 显式三分派
+     （R-8 守卫）+ **thermo 默认翻转（Q4）**；`systems.js` model_version 1.2.0 + EQ-GTL1-1…12
+     + A-gtl1-* + level 'L1 · 热力学耦合频率响应演示（G2b 已批准）' + 八热力信号（B-1
+     非盲显）+ Q5 指令域口径 + UNITS K/kPa；`scenario.js` 事件级可选 inertia_model 键
+     （B-2，scenarioHash 含解析轨）+ schema 三枚举；`metrics.js` thermo 门控标量；
+     `checks.js` sampling 可选轨规则 + gt-energy-consistency thermo 分支（EQ-GTL1-12，
+     容差 1e-3 kWh=实测上界 ×12）；
+  ④ **三轨测试守卫**：`tests/engine-gt.test.js` **203→451 断言**（linear→v1/swing→v2 逐位
+     保留 + thermo→v3 T-B 逐点 + mag=1.0 角点断言 + **L0b↔L1 分歧断言** §3.2 八行 v1.0
+     口径 + 钉轨回归 + **B-1 盲面源级+运行时守卫**）；scenario.test.js 285→321（inertia_model
+     键面）；schema.test.js 152→213（K/kPa）；
+  ⑤ **步数账（IMP-Q1）**：run-g2 **28 步不变**（verify_golden gt001 重指向 v3、engine-gt
+     并入三轨），预算 ≤29 兑现；步 ① 标签更新（GTL1-G2b-03 / gt001_v3 T-B，本 CHG 内一行订正）；
+  ⑥ 验证：run-g2 28/28 PASS 两次独立（工作流内 + 主流程复验 34059ms）；**既有 5 golden
+     字节零变更**（gt001_v1/v2/fl001_v1/fc001_v1/pv001_v1 冻结留档，supersedes 链
+     v3→v2→v1）；引擎↔gt001_v3 全 6 Run 27 列+指标逐位 series-exact（T2）与散差 5.684e-13
+     （T3）双证；钉轨 swing/linear 对 v2/v1 max|Δ|=0（遗留轨零漂移）；21 测试文件全过；
+     copy-guard 0 命中；
+  ⑦ 登记事项（诚实口径）：MODELS 重指向 vs 规格「gt001_l1 注册行」形态偏离（等价性登记
+     D2 §5.2）；gate 形制补键 n_rpm_atol/p_kPa_atol（PV001 C-3 先例）；GL-2/GL-6 按实测
+     上界冻结；eta_cycle 双口径分列；v2 EV-002 event_id 冻结笔误不复制；A-1 复算双值并存；
+     未实施留待：TESPy 对照算例（旁证）、causalTemplates thermo 扩展、UI 跨深度对比卡
+     （v0.7.x 清算清单）。
+  预期失效面：thermo 默认翻转（Q4）→未钉轨 GT 新 Run 走 thermo、既有场景哈希变化（B-2
+  登记）、历史 GT 盲包 fail V-05（GT §10 先例）、盲包观测面不扩（B-1）；FL/FC/PV 物理面
+  零触碰（149/339/294 全绿佐证）。证据 `evidence/g8/v071-release.md`。
+  批准人：用户（CHG-20261104-12 授权链）；记录人：实现 Agent。

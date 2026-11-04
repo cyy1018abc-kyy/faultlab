@@ -107,7 +107,8 @@
   var UNITS = {
     time: 's', power: 'kW', current: 'A', voltage: 'V',
     soc: '%', energy: 'kWh', frequency: 'Hz', speed: 'rpm', ratio: '%',
-    irradiance: 'W/m²' /* PV-001 新轨（PV001_G2B_SPEC_APPROVED v1.0 §8 C-3/C-6）：纯增项 */
+    irradiance: 'W/m²', /* PV-001 新轨（PV001_G2B_SPEC_APPROVED v1.0 §8 C-3/C-6）：纯增项 */
+    temperature: 'K', pressure: 'kPa' /* GT-001 L1 thermo 轨（GTL1-IMP-Q2，CHG-20261104-12）：纯增项 */
   };
 
   /* ================================================================== */
@@ -546,9 +547,9 @@
     shortTitle: '燃气涡轮',
     experimentCode: 'GT-001',
     experimentName: '转速传感器偏置',
-    tagline: '在 20 秒注入 +0.3 Hz 转速测量偏置，看调速器积分如何把真实频率拉到 49.7 Hz。单机等效频率响应示意（L0b），非机组/电网动态验证。',
-    level: 'L0b · 单机等效频率响应示意（G2b 已批准）',
-    summary: '燃气涡轮驱动同步发电机（25 kW 基准）接入 400 V 等效母线，电池缓冲提供一次调频；调速器按转速测量积分调节燃料阀，负载 30 kW。单机等效频率响应示意（L0b），非机组/电网动态验证。',
+    tagline: '在 20 秒注入 +0.3 Hz 转速测量偏置，看调速器积分如何把真实频率拉到 49.7 Hz。热力学耦合频率响应演示（L1 · thermo 默认轨；swing/linear 遗留轨），非机组/电网动态验证。',
+    level: 'L1 · 热力学耦合频率响应演示（G2b 已批准）',
+    summary: '燃气涡轮驱动同步发电机（25 kW 基准）接入 400 V 等效母线，电池缓冲提供一次调频；调速器按转速测量积分调节燃料指令，经压气机-燃烧室-透平效率链与燃烧室集总热惯性给出电功率，负载 30 kW。三轨 inertia_model：thermo（默认）/ swing / linear（遗留轨）。GT-001 L1 热力学耦合频率响应演示获用户书面批准（G2b，GTL1_G2B_SPEC_APPROVED v1.0，CHG-20261104-12）；非机组/电网动态验证。',
     questions: [
       '转速测量偏高时，调速器为什么会让真实频率偏低？',
       '频率偏差下电池一次调频与发电机出力如何重分配？',
@@ -559,9 +560,10 @@
     topologyViewBox: [0, 0, 1000, 620],
     defaults: {
       feedback_mode: 'closed_loop',
-      /* A-1 惯性双轨（ALINE_MODEL_DEPTH_DESIGN §4，CHG-20261102-01）：
-         swing=完整摇摆方程（默认）；linear=f≈f₀ 线性化（遗留轨，gt001_v1 口径） */
-      inertia_model: 'swing',
+      /* A-1 双轨 → L1 三轨（GTL1_G2B_SPEC_APPROVED v1.0 §2.4 Q2/Q4 定案，CHG-20261104-12）：
+         thermo=L1 热力链轨（默认，Q4 翻转定案）；swing=完整摇摆方程（遗留轨，gt001_v2 口径）；
+         linear=f≈f₀ 线性化（遗留轨，gt001_v1 口径）。已归档场次携带已解析 cfg 键、重放稳定。 */
+      inertia_model: 'thermo',
       initial: { load_kW: 30, SOC_pct: 60 },
       noise: { enabled: false, seed: 12345, level: 0 }
     },
@@ -674,6 +676,7 @@
     signalCategories: [
       { id: 'frequency', label: '频率' },
       { id: 'power', label: '功率' },
+      { id: 'thermal', label: '热力' },
       { id: 'soc', label: 'SOC' },
       { id: 'residual', label: '残差' },
       { id: 'actuator', label: '执行器' }
@@ -682,9 +685,9 @@
       sig({ id: 'f_true_Hz', label: '真实频率', shortLabel: 'f_true', unit: 'Hz', category: 'frequency', sourceKind: 'MODEL_STATE', definition: '同步发电机真实电频率（转子惯量状态，完整摇摆方程）。', formula: 'df/dt = (P_gen + P_bat − P_load)/K_J × (f₀/f), K_J = 5 kW·s/Hz, f₀ = 50 Hz', precision: 4, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'f_meas_Hz', label: '电气频率量测', shortLabel: 'f_meas', unit: 'Hz', category: 'frequency', sourceKind: 'OBSERVATION', definition: '同步发电机电气频率量测（健康通道，= 真实频率），供 Agent 与转速通道做冗余交叉校验。', formula: 'f_meas = f_true', precision: 4, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true, noiseSigma: 0.01 }),
       sig({ id: 'n_meas_rpm', label: '转速传感器读数', shortLabel: 'n_meas', unit: 'rpm', category: 'frequency', sourceKind: 'OBSERVATION', definition: '故障转速传感器输出（同步机 2 极等价）：n_meas = 60 × (f_true + b(t))；调速器使用 n_meas/60 作为反馈频率。', formula: 'n_meas = 60 × (f_true + b(t))', precision: 1, chart: { style: 'dashed', colorToken: 'obs', axis: 'right', step: true }, blindVisible: true, noiseSigma: 0.6 }),
-      sig({ id: 'P_gen_true_kW', label: '发电机真实功率', shortLabel: 'P_gen,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '发电机真实出力，一阶跟随调速器指令。', formula: 'τ_g·dP_gen/dt + P_gen = P_gen_cmd, τ_g = 2.0 s', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_gen_true_kW', label: '发电机真实功率', shortLabel: 'P_gen,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '发电机真实出力；thermo 轨（L1）由热力链给出 P_gen = η_m·(P_turb − P_comp)，swing/linear 遗留轨一阶跟随调速器指令。', formula: 'thermo: P_gen = η_m·(P_turb − P_comp)（EQ-GTL1-6）；swing/linear: τ_g·dP_gen/dt + P_gen = P_gen_cmd, τ_g = 2.0 s', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'P_gen_meas_kW', label: '发电机测量功率', shortLabel: 'P_gen,meas', unit: 'kW', category: 'power', sourceKind: 'OBSERVATION', definition: '发电机功率测量（健康通道）。', formula: 'P_gen,meas = P_gen,true', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true, noiseSigma: 0.15 }),
-      sig({ id: 'P_gen_cmd_kW', label: '调速器功率指令', shortLabel: 'P_gen,cmd', unit: 'kW', category: 'power', sourceKind: 'CONTROLLER', definition: '调速器积分输出的功率指令，钳位 [0, 40] kW。', formula: 'dP_gen,cmd/dt = Ki × (50 − f_meas), Ki = 2.0 kW/(Hz·s)', precision: 3, chart: { style: 'dashdot', colorToken: 'warm', axis: 'left' }, blindVisible: true }),
+      sig({ id: 'P_gen_cmd_kW', label: '调速器功率指令', shortLabel: 'P_gen,cmd', unit: 'kW', category: 'power', sourceKind: 'CONTROLLER', definition: '调速器积分输出的指令，钳位 [0, 40] kW；thermo 轨语义 = 调速器燃料指令（等效功率指令域 kW_eq），swing/linear 遗留轨为功率指令。', formula: 'dP_gen,cmd/dt = Ki × (50 − f_meas), Ki = 2.0 kW/(Hz·s)', precision: 3, chart: { style: 'dashdot', colorToken: 'warm', axis: 'left' }, blindVisible: true }),
       sig({ id: 'P_bat_true_kW', label: '电池真实功率', shortLabel: 'P_bat,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '电池一次调频真实功率（放电为正）。', formula: 'P_bat = 5 − 24 × (f_meas − 50) kW', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'P_bat_meas_kW', label: '电池测量功率', shortLabel: 'P_bat,meas', unit: 'kW', category: 'power', sourceKind: 'OBSERVATION', definition: '电池功率测量（健康通道）。', formula: 'P_bat,meas = P_bat,true', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true, noiseSigma: 0.15 }),
       sig({ id: 'P_load_demand_kW', label: '负载需求功率', shortLabel: 'P_load', unit: 'kW', category: 'power', sourceKind: 'CONFIG', definition: '负载需求功率；load_step 场景在故障时刻阶跃。', formula: 'P_load = 30 kW（load_step: +magnitude）', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left', step: true }, blindVisible: true }),
@@ -697,7 +700,19 @@
       sig({ id: 'f_channel_diff_Hz', label: '转速−电气频率通道不一致', shortLabel: 'f_diff', unit: 'Hz', category: 'frequency', sourceKind: 'DERIVED', exposure: 'blind_observable', definition: '转速与电气两个测量通道的频率冗余不一致（n_meas/60 − f_meas）；健康时恒为 0，转速偏置期间等于偏置量。这是测量通道偏差的直接体现，不是能量损失。', formula: 'f_channel_diff = n_meas/60 − f_meas', precision: 4, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' } }),
       sig({ id: 'valve_cmd_pct', label: '燃料阀指令开度', shortLabel: 'valve_cmd', unit: '%', category: 'actuator', sourceKind: 'CONTROLLER', definition: '由调速器功率指令换算的燃料阀指令；卡涩场景持续上升。', formula: 'valve_cmd = clamp(P_gen_cmd / 40 × 100%, 0, 100)', precision: 1, chart: { style: 'dashdot', colorToken: 'warm', axis: 'right' }, blindVisible: true }),
       sig({ id: 'valve_meas_pct', label: '燃料阀实际开度', shortLabel: 'valve_meas', unit: '%', category: 'actuator', sourceKind: 'OBSERVATION', definition: '燃料阀实际开度测量；卡涩场景为 magnitude%。', formula: 'valve_meas = valve_cmd（卡涩：magnitude%）', precision: 1, chart: { style: 'dashed', colorToken: 'obs', axis: 'right', step: true }, blindVisible: true }),
-      sig({ id: 'P_gen_cap_kW', label: '发电机功率上限', shortLabel: 'P_gen,cap', unit: 'kW', category: 'actuator', sourceKind: 'FAULT_EVENT', definition: '燃料阀卡涩场景下的发电机功率上限；其他场景不可用（null）。', formula: 'P_gen,cap = 40 × magnitude%', precision: 2, chart: { style: 'dashed', colorToken: 'fault', axis: 'left', step: true } })
+      sig({ id: 'P_gen_cap_kW', label: '发电机功率上限（燃料指令域上限）', shortLabel: 'P_gen,cap', unit: 'kW', category: 'actuator', sourceKind: 'FAULT_EVENT', definition: '燃料阀卡涩场景下的指令域上限 = u_cap = 40 × magnitude%（Q5 定案：thermo 轨实际 P_gen 由热力链给出，actuator 稳态 18.27 kW ≠ 20.00——钳位域差异为跨深度教学点；swing/linear 遗留轨为功率域钳位、P_gen 恰等于该值）。其他场景不可用（null）。', formula: 'u_cap = 40 × magnitude%（燃料指令域）', precision: 2, chart: { style: 'dashed', colorToken: 'fault', axis: 'left', step: true } }),
+      /* GT-001 L1 八新热力信号（GTL1_G2B_SPEC_APPROVED v1.0 §1.2；B-1 定案：sourceKind
+         前四 = MODEL_STATE、后四 = DERIVED，两值默认映射均落 public_demo——全非盲显，
+         不设置 blindVisible/exposure 覆盖，盲包观测面不扩）。仅 thermo 轨填充数值，
+         swing/linear 遗留轨全程 null（无热力面）。 */
+      sig({ id: 'T3_out_K', label: '燃烧室出口温度', shortLabel: 'T3', unit: 'K', category: 'thermal', sourceKind: 'MODEL_STATE', definition: '燃烧室出口/透平进口温度（L1 新动态状态，ODE 状态向量 y=[f,T3] 之二；swing/linear 遗留轨无热力面，全程 null）。', formula: 'C_3·dT3/dt = η_b·Q_f − ṁ_g·cp_g·(T3 − T2), C_3 = 0.335983796442745 kJ/K, T3(0) = 1173 K', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } }),
+      sig({ id: 'T2_out_K', label: '压气机出口温度', shortLabel: 'T2', unit: 'K', category: 'thermal', sourceKind: 'MODEL_STATE', definition: '压气机出口温度（ε_c 效率链代数输出；swing/linear 遗留轨全程 null）。', formula: 'T2 = T1·(1 + (π_c^a_c − 1)/ε_c), T1 = 288.15 K, ε_c = 0.82', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } }),
+      sig({ id: 'p2_out_kPa', label: '压气机出口压力', shortLabel: 'p2', unit: 'kPa', category: 'thermal', sourceKind: 'MODEL_STATE', definition: '压气机出口压力（压比-转速耦合面 π_c·p1；swing/linear 遗留轨全程 null）。', formula: 'p2 = π_c·p1, π_c = π_c0·(f/f₀)², π_c0 = 8.0, p1 = 101.325 kPa', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } }),
+      sig({ id: 'T4_out_K', label: '透平出口温度（EGT）', shortLabel: 'T4', unit: 'K', category: 'thermal', sourceKind: 'MODEL_STATE', definition: '透平出口温度/排气温度 EGT（ε_t 效率链代数输出；swing/linear 遗留轨全程 null）。', formula: 'T4 = T3·(1 − ε_t·(1 − π_t^(−a_t))), π_t = (1−β_b)·p2/p1, ε_t = 0.86', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } }),
+      sig({ id: 'Q_fuel_kW', label: '燃料功率', shortLabel: 'Q_f', unit: 'kW', category: 'thermal', sourceKind: 'DERIVED', definition: '燃料功率（k_f·u_eff；执行器激活窗内取指令域钳位后的 u_eff）；swing/linear 遗留轨全程 null。', formula: 'Q_f = k_f·u_eff, k_f = 4.070531454334211 kW_eq/单位指令', precision: 3, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } }),
+      sig({ id: 'P_comp_kW', label: '压气机耗功', shortLabel: 'P_comp', unit: 'kW', category: 'thermal', sourceKind: 'DERIVED', definition: '压气机耗功（效率链代数输出；swing/linear 遗留轨全程 null）。', formula: 'P_comp = ṁ_a·cp_a·(T2 − T1), ṁ_a = 0.144299140389011 kg/s, cp_a = 1.005 kJ/(kg·K)', precision: 3, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } }),
+      sig({ id: 'P_turb_kW', label: '透平出功', shortLabel: 'P_turb', unit: 'kW', category: 'thermal', sourceKind: 'DERIVED', definition: '透平出功（效率链代数输出；swing/linear 遗留轨全程 null）。', formula: 'P_turb = ṁ_g·cp_g·(T3 − T4), cp_g = 1.148 kJ/(kg·K)', precision: 3, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } }),
+      sig({ id: 'eta_cycle_pct', label: '循环折算效率', shortLabel: 'η_cycle', unit: '%', category: 'thermal', sourceKind: 'DERIVED', definition: '模型口径燃料-电功率折算比（教学口径，不对应任何设备热耗率；设计点 24.57%；swing/linear 遗留轨全程 null）。', formula: 'η_cycle = P_gen/Q_f（EQ-GTL1-12）', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } })
     ],
     faults: [
       fault({
@@ -733,36 +748,69 @@
     ],
     model: {
       model_id: 'gt.sync.l0',
-      /* A-1（CHG-20261102-01）：swing 双轨落地，model_version 1.0.0 → 1.1.0 */
-      model_version: '1.1.0',
+      /* A-1（CHG-20261102-01）：swing 双轨落地，model_version 1.0.0 → 1.1.0；
+         L1 thermo 轨（GTL1_G2B_SPEC_APPROVED v1.0，CHG-20261104-12 批准）：1.1.0 → 1.2.0 */
+      model_version: '1.2.0',
       assumptions: [
         { id: 'A-ideal-bus', text: 'AC 整流后母线按 400 V 等效理想处理，无母线动态。' },
         { id: 'A-lumped-inertia', text: '转子等效惯量集中参数 K_J = 5.0 kW·s/Hz；完整摇摆方程（swing 轨）：df/dt = (P_gen + P_bat − P_load)/K_J × (f₀/f)，由二次型动能能量守恒导出。' },
         { id: 'A-droop', text: '电池一次调频为线性下垂：P_bat = 5 − 24 × (f_meas − 50) kW，使用健康电气频率量测 f_meas；无死区、无延迟。' },
         { id: 'A-gov-integral', text: '调速器为积分控制：dP_gen_cmd/dt = 2.0 × (50 − f_gov)，f_gov = n_meas/60 来自故障转速传感器通道；指令钳位 [0, 40] kW。' },
         { id: 'A-freq-redundant', text: '转速传感器通道与电气频率量测 f_meas 互为冗余：二者不一致（n_meas/60 − f_meas = b）是传感器故障的可检出特征。' },
-        { id: 'A-gen-lag', text: '发电机功率按一阶惯性（τ_g = 2.0 s）跟随指令。' },
+        { id: 'A-gen-lag', text: '发电机功率按一阶惯性（τ_g = 2.0 s）跟随指令（swing/linear 遗留轨）。' },
         { id: 'A-soc-linear', text: 'SOC 由电池功率积分线性折算，不含温度、效率与老化。' },
         { id: 'A-l0', text: '降阶行为级模型，不含电网暂态、励磁与保护动作。' },
-        { id: 'A-gt-swing-full', text: '完整摇摆方程（swing 轨，A-1 起默认）：df/dt = (P_rotor/K_J)·(f₀/f)，由 E_kin(f) = (K_J·f₀/2)·(f/f₀)² = 125·(f/50)² kW·s 能量守恒 dE_kin/dt = P_rotor 导出；f = f₀ 处精确退化为线性式。稳态与惯量形式无关（由 f_gov→50 决定），瞬态较线性轨加深（load_step 默认参数 nadir −0.41066 vs −0.41050 Hz）。' },
+        { id: 'A-gt-swing-full', text: '【仅 inertia_model=swing 遗留轨适用（L1 thermo 起为遗留轨声明，gt001_v2 口径）】完整摇摆方程：df/dt = (P_rotor/K_J)·(f₀/f)，由 E_kin(f) = (K_J·f₀/2)·(f/f₀)² = 125·(f/50)² kW·s 能量守恒 dE_kin/dt = P_rotor 导出；f = f₀ 处精确退化为线性式。稳态与惯量形式无关（由 f_gov→50 决定），瞬态较线性轨加深（load_step 默认参数 nadir −0.41066 vs −0.41050 Hz）。' },
         { id: 'A-gt-inertia-lin', text: '【仅 inertia_model=linear 遗留轨适用】摇摆方程为 f≈f₀ 线性化 df/dt = P_rotor/K_J（有效性边界 |Δf| ≤ 1 Hz；参数域极端 mag=1.0 Hz 时 Δf=−0.982 Hz 贴边）；线性化能量 E_lin = K_J·Δf 与二次型动能 E_kin 之差为截断残差 K_J·Δf²/(2f₀)。swing 轨下该截断不存在（能量守恒精确成立）。' },
         { id: 'A-gt-bat-rating', text: '电池连续额定 ±5 kW、短时额定 ±15 kW（变流器 3× 过载，假设非实测）、物理包络 ±25 kW；工作点超 ±15 kW 时依赖短时过载能力，长时运行须降额。' },
-        { id: 'A-gt-antiwindup-clamp', text: '调速器积分钳位 [0, 40] kW 为钳位式抗饱和；故障期间指令 wound-up 至上限，清除后若指令不回置，P_gen 将过冲并引起频率上摆（见局限）。' }
+        { id: 'A-gt-antiwindup-clamp', text: '调速器积分钳位 [0, 40] kW 为钳位式抗饱和；故障期间指令 wound-up 至上限，清除后若指令不回置，P_gen 将过冲并引起频率上摆（见局限）。' },
+        /* GT-001 L1 thermo 轨 assumptions（GTL1_G2B_SPEC_APPROVED v1.0 §6.2 八条，CHG-20261104-12 批准） */
+        { id: 'A-gtl1-idealgas', text: '【thermo 轨】理想气体、定比热近似（cp_a=1.005、cp_g=1.148 kJ/(kg·K)，γ_a=1.4、γ_g=4/3 常数）；变比热与燃气成分变化未建模（见局限）。' },
+        { id: 'A-gtl1-chain-qs', text: '【thermo 轨】压气机/透平为拟稳态效率链（ε_c=0.82、ε_t=0.86 常数效率）；动态仅存在于燃烧室集总热容与转子惯量；η_m=0.95 为机械+发电机集总效率。' },
+        { id: 'A-gtl1-combustor-lump', text: '【thermo 轨】燃烧室能量平衡 + 集总热容 C_3：τ_3 = 2.0 s 为教学整定等效时间常数（假设非实测参数），与 L0b τ_g 同值为有意的同尺度对照设计——跨深度分歧来自链非线性与回路增益（1.332 vs 1.0），不来自时间常数。' },
+        { id: 'A-gtl1-fuel-map', text: '【thermo 轨】燃料指令 u（等效功率指令域，钳位 [0,40]）线性映射燃料功率 Q_f = k_f·u；k_f 与 ṁ_a 由设计点双条件（u=25 ⇔ P_gen=25 kW ∧ T3=1173 K）闭合导出（设计点标定，非设备参数辨识）；无阀门非线性/死区（沿袭 L0b 执行器面）。' },
+        { id: 'A-gtl1-speed-coupling', text: '【thermo 轨】压比-转速耦合为二次线性化 π_c = π_c0·(f/f₀)²（单轴同速假设）；有效性域 |Δf| ≤ 1 Hz（默认参数预填场景最大 0.41 Hz；sensor +1.0 稳态角点恰在边界，贴边声明）；空气流量 ṁ_a 常数（流量-转速耦合未建模）。|Δf| ≤ 1 Hz 系承袭 A-gt-inertia-lin 2% 口径（f₀=50 Hz 下 |Δf| ≤ 1 Hz）的假设性声明、非本链自有推导，据此登记为假设而非推导结论；sensor_drift mag=1.0 暂态最小 f 由 gt001_l1 oracle 域扫描冻结（越界则回改本条或限制幅值域）。' },
+        { id: 'A-gtl1-rotor-balance', text: '【thermo 轨】转子平衡保留 L0b 定义恒等：P_rotor = P_gen + P_bat − P_load（r_true 检查面零涟漪）；P_gen = η_m·(P_turb − P_comp) 由热力链给出。' },
+        { id: 'A-gtl1-actuator-cmd-domain', text: '【thermo 轨】执行器与调速器钳位作用于燃料指令域（u_cap = 40·magnitude%）；实际电功率由热力链给出，与 L0b 功率域钳位（P_gen = 40·magnitude% 精确值）不同——P_gen 物理包络 [−8.3, +45.0] kW 超出 L0b [0,40]。' },
+        { id: 'A-gtl1-l1', text: '【thermo 轨】热力链为教学尺度降阶循环模型，不是经过验证的设备控制器或机组热力学模型。' }
       ],
       limitations: [
         '单机无穷大母线等效，无电网潮流与多机交互。',
-        '不含燃烧、透平热力学、励磁调压（AVR）、功率角稳定性、保护动作（低频减载/过频过流）、负荷频率特性（负荷自调节 D）、多机惯量分散与网损、AC/DC 整流动态、调速器死区与非线性阀特性。',
+        '不含励磁调压（AVR）、功率角稳定性、保护动作（低频减载/过频过流）、负荷频率特性（负荷自调节 D）、多机惯量分散与网损、AC/DC 整流动态、调速器死区与非线性阀特性（燃烧/透平最小热力链见 thermo 轨 L1 局限条目）。',
         '执行器死区：actuator magnitude ≥62.5% 时 P_gen_cap ≥ 平衡点 25 kW，钳位不生效、故障不可观（或收紧参数域上限至 ~60%）。',
-        '本模型为单机等效频率响应的一阶/一阶跟随降阶示意（L0b），非机组/电网动态验证。',
-        'L0 行为级演示模型；非实测、非 Simulink、无实测对比。'
+        'swing/linear 遗留轨（L0b）为单机等效频率响应的一阶/一阶跟随降阶示意；thermo 轨（L1）为教学尺度降阶热力链示意，非机组/电网动态验证。',
+        'L0 行为级演示模型；非实测、非 Simulink、无实测对比。',
+        /* GT-001 L1 thermo 轨未建模项（GTL1_G2B_SPEC_APPROVED v1.0 §6.1，L1 新增 8 项 + 定位句） */
+        '【thermo 轨】压气机特性图（喘振/堵塞边界、变工况效率）未建模——仅 π_c = π_c0·(f/f₀)² 二次线性化；流量-转速耦合未建模（ṁ_a 常数）。',
+        '【thermo 轨】变比热 cp(T)/γ(T) 未建模（定比热豁免）；燃气成分随燃料比的变化仅以 cp_g/γ_g 常数近似——η_cycle 为模型内部折算比，与任何真实循环热效率数字不可互比。',
+        '【thermo 轨】透平冷却气量、叶顶间隙与性能老化未建模。',
+        '【thermo 轨】燃烧动态（点火延迟、熄火边界、贫富油极限）未建模；燃烧室金属热容与燃气热容不分离（C_3 为集总等效）。',
+        '【thermo 轨】进排气压力损失/环境动态未建模（T1/p1 为 ISO 常数；高度/气温修正未建模；排气 p4 = p1 无损失豁免）。',
+        '【thermo 轨】轴系扭转模态、轴承摩擦未建模（η_m 为机械+电气集总效率）。',
+        '【thermo 轨】发电机电磁暂态、励磁/AVR、功率角稳定性未建模（沿袭 L0b 未建模清单）。',
+        '【thermo 轨】保护系统未建模扩展到热力面：超温（T3 上限）、超速、喘振、熄火保护均不动作——注册域内 T3 峰值 1524.9 K / 清除过冲 +0.32 Hz 为合法演示值。',
+        '【thermo 轨】零燃料停机/盘车工况未建模：u=0 时压气机耗功 > 无燃烧透平功，负净功为模型外推伪影（物理对应停机）；注册域内 u_min = 6.98（sensor +1.0 角点）不可达；如未来开放燃料配置须先立钳位。'
       ],
       equations: [
         { id: 'EQ-1', latex_text: 'df/dt = (P_gen + P_bat − P_load)/K_J × (f₀/f), K_J = 5.0 kW·s/Hz, f₀ = 50 Hz', note: '完整摇摆方程（swing 轨默认；线性轨遗留式 df/dt = ΔP/K_J 在 f=f₀ 处退化一致）' },
         { id: 'EQ-2', latex_text: 'P_bat = P_bat,ref − K_bat·(f_meas − 50), K_bat = 24 kW/Hz', note: '电池一次调频' },
         { id: 'EQ-3', latex_text: 'dP_gen,cmd/dt = Ki·(50 − f_meas), Ki = 2.0 kW/(Hz·s)', note: '调速器积分（含抗积分饱和钳位）' },
-        { id: 'EQ-4', latex_text: 'τ_g·dP_gen/dt + P_gen = P_gen,cmd, τ_g = 2.0 s', note: '发电机一阶跟随' },
+        { id: 'EQ-4', latex_text: 'τ_g·dP_gen/dt + P_gen = P_gen,cmd, τ_g = 2.0 s', note: '发电机一阶跟随（swing/linear 遗留轨）' },
         { id: 'EQ-5', latex_text: 'f_meas = f (健康电气量测); n_meas = 60·(f + b(t)); f_gov = n_meas/60', note: '双通道频率测量与偏置' },
-        { id: 'EQ-6', latex_text: 'P_rotor = P_gen + P_bat − P_load = K_J·(f/f₀)·df/dt', note: '转子惯量功率（守恒含该项；linear 遗留轨为 K_J·df/dt）' }
+        { id: 'EQ-6', latex_text: 'P_rotor = P_gen + P_bat − P_load = K_J·(f/f₀)·df/dt', note: '转子惯量功率（守恒含该项；linear 遗留轨为 K_J·df/dt）' },
+        /* GT-001 L1 thermo 轨方程（GTL1_G2B_SPEC_APPROVED v1.0 §2.2 EQ-GTL1-1…12，CHG-20261104-12 批准） */
+        { id: 'EQ-GTL1-1', latex_text: 'π_c = π_c0·(f/f₀)²; p2 = π_c·p1, π_c0 = 8.0, p1 = 101.325 kPa', note: '压比-转速耦合（单轴同速假设的二次线性化；有效性域 |Δf| ≤ 1 Hz 系承袭 A-gtl1-speed-coupling 假设性声明）' },
+        { id: 'EQ-GTL1-2', latex_text: 'T2 = T1·(1 + (π_c^a_c − 1)/ε_c), T1 = 288.15 K, a_c = 2/7, ε_c = 0.82', note: '压气机效率链（isen 温差/ε_c）' },
+        { id: 'EQ-GTL1-3', latex_text: 'Q_f = k_f·u_eff, k_f = 4.070531454334211; ṁ_f = Q_f/LHV, LHV = 50000 kJ/kg; ṁ_g = ṁ_a + ṁ_f, ṁ_a = 0.144299140389011 kg/s', note: '燃料映射与燃气流量（k_f/ṁ_a 为设计点导出常量，15 位有效数字登记）' },
+        { id: 'EQ-GTL1-4', latex_text: 'C_3·dT3/dt = η_b·Q_f − ṁ_g·cp_g·(T3 − T2), C_3 = 0.335983796442745 kJ/K, η_b = 0.99, cp_g = 1.148 kJ/(kg·K)', note: '燃烧室能量平衡 + 集总热容（新动态状态 T3，T3(0) = 1173 K）' },
+        { id: 'EQ-GTL1-5', latex_text: 'p3 = (1−β_b)·p2, β_b = 0.04; π_t = p3/p1; T4 = T3·(1 − ε_t·(1 − π_t^(−a_t))), ε_t = 0.86, a_t = 1/4', note: '透平效率链（EGT）' },
+        { id: 'EQ-GTL1-6', latex_text: 'P_comp = ṁ_a·cp_a·(T2−T1); P_turb = ṁ_g·cp_g·(T3−T4); P_gen = η_m·(P_turb − P_comp), η_m = 0.95', note: '功率链（L0b 的 τ_g 一阶跟随由 T3 惯性 + 代数链替代）' },
+        { id: 'EQ-GTL1-7', latex_text: 'df/dt = (P_rotor/K_J)·(f₀/f); P_rotor = P_gen + P_bat − P_load', note: '摇摆方程保留为机械接口（Q1 定案：P_rotor 定义恒等式，r_true 检查面零涟漪）' },
+        { id: 'EQ-GTL1-8', latex_text: 'P_bat = P_bat_ref − K_bat·(f − 50), P_bat_ref = 5, K_bat = 24', note: '电池下垂原样（真值 f）' },
+        { id: 'EQ-GTL1-9', latex_text: 'f_gov = (monitor ∧ sensor_drift) ? f : f + b; u_next = clamp(u + Ki·(50 − f_gov)·h, 0, 40), Ki = 2.0', note: '调速器积分原样（仅输出语义改为燃料指令域）' },
+        { id: 'EQ-GTL1-10', latex_text: '执行器激活窗内 u_eff = min(u, u_cap), u_cap = 40·magnitude%；清除（t_clear）后 u_eff = u', note: '指令域钳位（L0b 钳 P_gen 功率域 → L1 钳燃料指令域；Q5 定案：P_gen_cap_kW 保留指令域口径）' },
+        { id: 'EQ-GTL1-11', latex_text: '设计点闭合：u=25 ∧ f=50 ∧ 稳态 ⇒ P_gen = 25.000000 kW ∧ T3 = 1173.000 K（双条件联立导出 k_f 与 ṁ_a）', note: '设计点标定条件（k_f/ṁ_a 按评审 A 独立精确解 15 位登记：燃烧室平衡残差 4.3e-14 kW、P_gen 误差 0）' },
+        { id: 'EQ-GTL1-12', latex_text: 'C_3·(T3(t)−T3(0)) ≡ ∫₀ᵗ(η_b·Q_f − ṁ_g·cp_g·(T3−T2))dt（检查式，RK4 离散自洽）; E_fuel = ∫Q_f dt; η_cycle = E_gen/E_fuel', note: '能量恒等检查与新指标（设计点 η_cycle = 24.57%；gt-energy-consistency thermo 分支承载）' }
       ]
     },
     acceptance: {

@@ -64,16 +64,26 @@ systems.js 登记现状（FCEXT_G2B_SPEC_APPROVED §1.2/§1.4）：assumption `A
 `src/core/plants/fc001.js` 数值子步路径（I-11 S2 移植），load_step/actuator 走内联路径——
 扩展轮新 Run 走内联路径，存量 Run 走 plant 路径（口径一致性由 oracle 对照兜底）。
 
-## 3. GT-001 燃气涡轮（L0b，scope=extension_preview）
+## 3. GT-001 燃气涡轮（L0b swing / linear + L1 thermo 三轨，scope=extension_preview）
 
 | fault id | 家族 | 类型 | 作用位置 | 幅值参数 | 默认时刻 | 授权状态 | golden | 因果模板 |
 |---|---|---|---|---|---|---|---|---|
-| `speed_sensor_bias` | sensor_drift | 测量阶跃偏置（等效频率） | speed_sensor（转速传感器） | +0.05…1.0 Hz，默认 +0.3 Hz | t=20 s（域 [2,55]） | **extension_preview**（GT G2b 已批准，`GT001_G2B_SPEC_APPROVED.md`） | gt001_v1/v2（6 Run） | gt-sensor-drift |
-| `load_step_10kW` | load_step | 功率阶跃 | load | +5…20 kW，默认 +10 kW | t=20 s（域 [2,55]） | **extension_preview**（同上） | gt001_v1/v2（同上） | gt-load-step |
-| `fuel_valve_stuck` | actuator_fault | 执行器卡涩（比例钳位） | valve（燃料阀） | P_gen,cap = 40 kW × magnitude%，20…85%，默认 50%（→20 kW） | t=20 s（域 [2,55]） | **extension_preview**（同上） | gt001_v1/v2（含 actuator_clear t_clear=35） | gt-valve-stuck |
+| `speed_sensor_bias` | sensor_drift | 测量阶跃偏置（等效频率） | speed_sensor（转速传感器） | +0.05…1.0 Hz，默认 +0.3 Hz | t=20 s（域 [2,55]） | **extension_preview**（GT G2b 已批准，`GT001_G2B_SPEC_APPROVED.md`；L1 热力轨 G2b 已批准，`GTL1_G2B_SPEC_APPROVED.md`） | gt001_v1/v2/v3（各 6 Run；v3 = L1 thermo 轨，supersedes 链 v3→v2→v1） | gt-sensor-drift |
+| `load_step_10kW` | load_step | 功率阶跃 | load | +5…20 kW，默认 +10 kW | t=20 s（域 [2,55]） | **extension_preview**（同上） | gt001_v1/v2/v3（同上） | gt-load-step |
+| `fuel_valve_stuck` | actuator_fault | 执行器卡涩（比例钳位） | valve（燃料阀） | thermo 轨：u_cap = 40 kW_eq × magnitude%（燃料指令域钳位，Q5 定案；实际 P_gen 由热力链给出——50% 稳态 18.27 kW ≠ 20.00）；swing/linear 轨：P_gen,cap = 40 kW × magnitude%（功率域），20…85%，默认 50% | t=20 s（域 [2,55]） | **extension_preview**（同上） | gt001_v1/v2/v3（含 actuator_clear t_clear=35） | gt-valve-stuck |
 
-**实现事实**：swing 双轨默认（CHG-20261102-01，cfg.inertia_model=swing；linear 遗留轨逐位保留）；
-执行器死区边界：magnitude ≥62.5% 时钳位不生效（GT001_G2B_SPEC 限制项）；
+**实现事实**：三轨 inertia_model = **thermo（默认**，Q4 翻转定案 CHG-20261104-12，
+systems.js defaults 已随 GTL1-G2b-04 落地）**/ swing（遗留轨，gt001_v2 逐位口径，
+CHG-20261102-01）/ linear（遗留轨，gt001_v1 逐位保留）；golden supersedes 链
+gt001_v3（L1 thermo 轨：schema v2、method_id=gt001_l1_rk4_dt0.01、gate tier T-B、
+oracle `tools/oracle/gt001_l1_oracle.py` 出生即 oracle_base 接入）→ gt001_v2（swing
+L0b）→ gt001_v1（linear）；v1/v2 字节冻结留档、gt001_oracle.py **冻结归档债**零触碰
+（CHG-20261104-12 Q3；ORACLE_INTERFACE_D2 §5.2 GTL1-G2b-03 触发处置登记）；引擎↔golden
+比对面 thermo→v3 / swing→v2 / linear→v1。sensor_drift mag 全域 [0.05…1.0] 暂态
+max|Δf| = 0.998 Hz（thermo 轨 oracle 域扫描冻结，GTL1_G2B_SPEC_APPROVED §3.3.1，
+\|Δf\| ≤ 1 Hz 有效性域内）。
+执行器死区边界：magnitude ≥62.5% 时钳位不生效（GT001_G2B_SPEC 限制项；thermo 轨为
+指令域钳位语义，A-gtl1-actuator-cmd-domain）；
 t_clear 清除支持已实现（actuator_clear 场景）。
 
 ## 4. scope 映射表（逐族回答 SCOPE_SPLIT_MEMO）
@@ -86,7 +96,7 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | FC sensor_drift | §4 修复清单关闭 + G2b-lite（V3-04） | approved_fc | FC-001 分支前置返回（classify） |
 | FC load_step | §4 条目 6「扩展故障族未评审→冻结」→ G2b 解冻并实现落地（2026-11-04） | G2b 已批准并实现落地（CHG-20261104-02） | FC 族条件扩为 none/sensor_drift/load_step/actuator_fault（FCEXT §5）：锚定条件 classify=approved_fc，白名单外仍 extension_preview |
 | FC actuator_fault | 同上 | G2b 已批准并实现落地（同上） | 同上 |
-| GT sensor_drift / load_step / actuator_fault | §3.3 恢复条件清单 9 项全闭（GT G2b） | extension_preview | GT001_G2B_SPEC_APPROVED + golden gt001_v2 |
+| GT sensor_drift / load_step / actuator_fault | §3.3 恢复条件清单 9 项全闭（GT G2b）+ L1 热力轨 G2b 批准（GTL1_G2B_SPEC_APPROVED v1.0，CHG-20261104-12） | extension_preview | GT001_G2B_SPEC_APPROVED + GTL1_G2B_SPEC_APPROVED + golden gt001_v2/v3（thermo 默认轨 → v3；swing/linear 遗留轨 → v2/v1 字节冻结留档） |
 | PV `G_sensor_bias` / `shading_step` | §8.2 新系统 G2b（PV001_G2B_SPEC_APPROVED，CHG-20261104-10 批准链） | extension_preview | PV001_G2B_SPEC_APPROVED + golden pv001_v1；SA-24 不动（scope.js 对 PV-001 全场景 fall-through 返回 extension_preview 即正确语义，classify/assertApprovedP0 零改动） |
 
 ## 5. 状态勘误表（冻结时点后的授权状态变化登记于此）
@@ -98,6 +108,7 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | 2026-11-04 | FL-001 converter_current_limit | G2b 已批准 → **实现已落地**（FLEXT-G2b-01/02/04：A-fl-clamp 登记 + A-l0 双轨 τ 修订、EQ-A/EQ-B 登记、I_ref_A formula 一般式化、limitations 退化域与手拼配置声明、checks.js 前置窗 null 文案订正；golden fl001_v1 4 Run 重出，approval CHG-20261104-07；系统 scope 维持 approved_p0、族级白名单按 FLEXT §4 显式 CHG 扩展——锚定场景 classify=approved_p0） | FLEXT_G2B_SPEC_APPROVED v1.1 §1.2/§3/§4 + V060_WAVE_DESIGN（CHG-20261104-05） |
 | 2026-11-04 | FC-001 load_step_10kW / valve_stuck | G2b 已批准 → **实现已落地**（FC-G2b-02/04：A-fc-dispatcher + EQ-6 登记、I_fc_ref_A formula 一般式化、closedLoopEffect 级联措辞、limitations 包络越界域声明；golden fc001_v1 5 Run 重出（method_version analytic_flux.2、model_version 1.1.0），approval CHG-20261104-06；系统 scope 维持 approved_fc、FC 族条件扩为四族——锚定条件 classify=approved_fc） | FCEXT_G2B_SPEC_APPROVED v1.1 §1.2/§1.4/§3/§5 + V060_WAVE_DESIGN（CHG-20261104-05） |
 | 2026-11-04 | PV-001 `G_sensor_bias` / `shading_step` | **新系统登记（新增 §6 节）→ extension_preview**（PV G2b 批准 CHG-20261104-10；oracle `tools/oracle/pv001_oracle.py` + golden pv001_v1 4 Run 首签（schema v2、method pv001_analytic、gate T-A，approval=CHG-20261104-10 批准链）+ verify_golden 注册行落地，PV-G2b-03；引擎 PV 轨/systems.js 由 PV-G2b-04 同波接入） | PV001_G2B_SPEC_APPROVED v1.0 §2/§4 + V070_WAVE_DESIGN DEC-1/DEC-3（CHG-20261104-10） |
+| 2026-11-05 | GT-001 sensor_drift / load_step / actuator_fault（三族） | **L1 热力轨（thermo）G2b 批准并实现落地 → 三轨制 + thermo 默认**（§3 节更新：golden 增 gt001_v3 6 Run——schema v2、method gt001_l1_rk4_dt0.01、gate tier T-B（库内首个）、oracle `tools/oracle/gt001_l1_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261104-12 批准链首签；supersedes 链 v3→v2→v1，v1/v2 字节冻结留档、gt001_oracle.py 冻结归档债零触碰；verify_golden gt001 注册行重指向 gt001_v3 + T-B tier 参数化分派，fl001/fc001/pv001 T-A 路径零改动回归 exit 0；默认轨 swing→thermo 翻转（Q4 定案）；授权状态维持 extension_preview 不变、族白名单零改动） | GTL1_G2B_SPEC_APPROVED v1.0 §2/§3.3.1/§4 + ORACLE_INTERFACE_D2 §5.2 GTL1-G2b-03 触发处置登记 + CHG-20261104-12（Q1…Q5 定案） |
 
 ## 6. PV-001 光伏逆变器（L0，scope=extension_preview）
 
@@ -135,7 +146,8 @@ assertApprovedP0 对 PV 配置抛 SCOPE-E01（验收路径关闭，规格 §5）
 
 ---
 
-**文件结束**。FAULT_CATALOG v1.2（2026-11-04：v1.1 实现落地更新见 §5；新增 §6 PV-001 节
-（PV-G2b-03，CHG-20261104-10 批准链，系统级/族级 scope=extension_preview）；冻结时点 =
-A-2/A-3 评审包提交时）。
+**文件结束**。FAULT_CATALOG v1.3（2026-11-05：GT-001 L1 thermo 轨三轨制更新见 §3/§4/§5
+（GTL1-G2b-03，CHG-20261104-12 批准链，系统级/族级 scope=extension_preview 维持）；v1.2 =
+2026-11-04 v1.1 实现落地更新 + 新增 §6 PV-001 节（PV-G2b-03，CHG-20261104-10 批准链）；
+冻结时点 = A-2/A-3 评审包提交时）。
 维护规则：族增删/参数域变更/授权状态变化 → 先更本目录 §5 勘误表并登记 CHG，再动 systems.js。

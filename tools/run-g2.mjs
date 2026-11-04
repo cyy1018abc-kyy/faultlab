@@ -82,7 +82,7 @@ const PYTHON_VERSION = pythonVersion();
 const STEPS = [
   { id: '① verify_golden fl001（独立 oracle → golden 容差比对）', cmd: 'python', args: ['scripts/verify_golden.py'], tier: 'core' },
   { id: '① verify_golden fc001（P1-06 / G2b-lite）', cmd: 'python', args: ['scripts/verify_golden.py', 'fc001'], tier: 'core' },
-  { id: '① verify_golden gt001（V3-31 / G2b v1.1）', cmd: 'python', args: ['scripts/verify_golden.py', 'gt001'], tier: 'core' },
+  { id: '① verify_golden gt001（GTL1-G2b-03 / gt001_v3 T-B）', cmd: 'python', args: ['scripts/verify_golden.py', 'gt001'], tier: 'core' },
   { id: 'R-3 property_harness.py（模型侧三不变量 240+27 组参数扫描，DEC-E 24→25）', cmd: 'python', args: ['-I', 'tools/oracle/properties/property_harness.py'], tier: 'core' },
   { id: '① engine.test.js（FL-001 601 点对 golden + PHY/SA）', cmd: 'node', args: ['tests/engine.test.js'], tier: 'core' },
   { id: '① engine-fc.test.js（FC-001 601 点对 golden，P1-06）', cmd: 'node', args: ['tests/engine-fc.test.js'], tier: 'core' },
@@ -125,15 +125,19 @@ const STEPS = [
  * 步数账纪律（V06_ROADMAP I-7：步数增长须有预算与分层）：
  *   1. 每步必须带合法 tier 标签（下方护栏强制），新增步须同时声明归属层与预算来源；
  *   2. 任何增删步必须在 CHG 登记步数账（删几步/增几步/理由/归属卡），预算线沿用
- *      DEC-E 口径（单波 ≤ +1；CHG-20261104-08 预算 ≤27 已兑现，当前波
- *      V070_WAVE_DESIGN / CHG-20261104-10 登记 26→28，预算 ≤29）；
+ *      DEC-E 口径（单波 ≤ +1；CHG-20261104-08 预算 ≤27 已兑现，CHG-20261104-10
+ *      登记 26→28、预算 ≤29 已兑现；当前波 CHG-20261104-12（GT-L1 实现轮，
+ *      GTL1-IMP-Q1）0 增步维持 28，预算 ≤29 沿用）；
  *   3. 步数账变迁：18→19（plants，CHG-20261030-07）→24（G2b/V3 系列与回归挂入）→
  *      25（property_harness，DEC-E 24→25）→25（D-1 分层：仅加 tier 标签与 --tier
  *      参数，0 增步，CHG-20261104-08 DEC-3）→26（S5 测试接线：scenario.test.js
  *      挂第 26 步、core 层，单波 +1，预算 ≤27 兑现，CHG-20261104-08）→
  *      28（PV-001 接线：verify_golden pv001 挂第 27 步、engine-pv.test.js 挂
  *      第 28 步，均 core 层，单波 +2（V070_WAVE_DESIGN 登记），预算 ≤29 兑现，
- *      CHG-20261104-10）。
+ *      CHG-20261104-10）→28（GT-L1 实现轮：verify_golden gt001 步 id 不变、
+ *      oracle/golden 重指向 gt001_l1_oracle/gt001_v3（T-B），engine-gt thermo
+ *      变体并入既有 engine-gt.test.js 步——0 增步，28 维持，预算 ≤29 沿用
+ *      （GTL1-IMP-Q1，优先并入现有步），CHG-20261104-12）。
  * 部分运行 ≠ 全量门禁：--tier core/extended 与 --skip-e2e 同为部分运行，不产生
  *   「部分执行 = 门禁通过」的新路径；发布门（G7/G8）与 CHG 验收句必须引用
  *   --tier all 全量运行（报告 tier 字段 + execution.command 可机检）。

@@ -115,8 +115,16 @@
       Math.abs((t[1] - t[0]) - dt) < 1e-9;
     var nanCount = 0;
     var nullOptionalCount = 0;
+    /* GT-001 L1 thermo 轨专属热力信号（GTL1_G2B_SPEC_APPROVED v1.0 §1.2 八信号）：
+       swing/linear 遗留轨无热力面——八信号全程 null 属结构性缺席（与 golden gt001_v1/v2
+       SERIES_IDS 不含热力面一致），非 thermo 运行不计为 NaN 违规。 */
+    var THERMO_ONLY_SIGNALS = {
+      T3_out_K: 1, T2_out_K: 1, p2_out_kPa: 1, T4_out_K: 1,
+      Q_fuel_kW: 1, P_comp_kW: 1, P_turb_kW: 1, eta_cycle_pct: 1
+    };
     Object.keys(series).forEach(function (id) {
-      var isOptional = /(_cap_A|_cap_kW)$/.test(id);
+      var isOptional = /(_cap_A|_cap_kW)$/.test(id) ||
+        (THERMO_ONLY_SIGNALS[id] && !(cfg && cfg.inertia_model === 'thermo'));
       var arr = series[id] || [];
       for (var i = 0; i < arr.length; i++) {
         var v = arr[i];
@@ -135,7 +143,7 @@
       n,
       (lengthsOk && gridOk && nanCount === 0)
         ? ('601 点采样网格一致，' + Object.keys(series).length + ' 个信号等长，无 NaN/Inf' +
-          (nullOptionalCount ? ('；' + nullOptionalCount + ' 个可选限值点位为 null（cap 信号未生效时段：actuator 轨为 t < t_start 前置窗，其余场景全程未生效）') : ''))
+          (nullOptionalCount ? ('；' + nullOptionalCount + ' 个可选点位为 null（cap 信号未生效时段：actuator 轨为 t < t_start 前置窗，其余场景全程未生效；thermo 专属热力信号在 swing/linear 遗留轨全程为 null——无热力面）') : ''))
         : ('采样检查失败：长度' + (lengthsOk ? '一致' : '不一致(' + badSignal + ')') +
           '，网格' + (gridOk ? '正确' : '错误') + '，非法数值 ' + nanCount + ' 个')
     ));
@@ -209,12 +217,38 @@
     ));
     }
 
-    /* ---- GT 专属 PHY（G2b v1.1 §3/§5；CHG-20261030-06 批准口径；A-1 双轨分派 CHG-20261102-01）---- */
+    /* ---- GT 专属 PHY（G2b v1.1 §3/§5；CHG-20261030-06 批准口径；A-1 双轨分派 CHG-20261102-01；
+         L1 thermo 分派 GTL1-G2b-04 / CHG-20261104-12）---- */
     if (system.id === 'GT-001') {
-      var inertiaGt = (cfg && cfg.inertia_model === 'linear') ? 'linear' : 'swing';
+      var inertiaGt = (cfg && cfg.inertia_model === 'linear') ? 'linear'
+        : (cfg && cfg.inertia_model === 'thermo') ? 'thermo' : 'swing';
       var fArrGt = series.f_true_Hz;
       var fEndGt = fArrGt && fArrGt.length ? fArrGt[fArrGt.length - 1] : null;
-      if (fEndGt !== null && inertiaGt === 'linear') {
+      if (fEndGt !== null && inertiaGt === 'thermo') {
+        /* thermo 轨（GTL1_G2B_SPEC_APPROVED v1.0 §2.2 EQ-GTL1-12 检查式）：燃烧室离散能量恒等
+           C_3·(T3_end − T3_0) ≡ ∫(η_b·Q_f − ṁ_g·cp_g·(T3−T2))dt（右侧引擎子步左矩形经
+           E_comb_net_kWh 承载；RK4 离散自洽回归，不是物理验证）。容差按引擎四场景复算上界
+           登记（GTL1-G2b-04 临时脚本复算，安全系数 ≥10；终值随 gt001_v3 oracle GL-2 复算
+           分布对齐——GTL1-G2b-03）。 */
+        var t3ArrGt = series.T3_out_K;
+        var t3FirstGt = t3ArrGt && isNum(t3ArrGt[0]) ? t3ArrGt[0] : null;
+        var t3LastGt = t3ArrGt && t3ArrGt.length ? t3ArrGt[t3ArrGt.length - 1] : null;
+        var eCombGt = metricValue(metrics, 'E_comb_net_kWh');
+        var residThGt = (t3FirstGt !== null && t3LastGt !== null && eCombGt !== null)
+          ? Math.abs(0.335983796442745 * (t3LastGt - t3FirstGt) / 3600 - eCombGt) : null;
+        /* 容差 1e-3 kWh：GTL1-G2b-04 引擎复算上界 8.256e-5 kWh（六场景含 load+20 角点；
+           复算证实残差 ∝ h——左矩形一阶离散残差；安全系数 ≥12）。终值随 gt001_v3 oracle
+           GL-2 复算分布对齐（GTL1-G2b-03）。 */
+        var okThGt = residThGt !== null && residThGt <= 1e-3;
+        quality.push(check(
+          'gt-energy-consistency', '燃烧室能量恒等闭合（thermo 轨，EQ-GTL1-12 检查式）',
+          okThGt ? 'pass' : 'fail', 'numeric',
+          residThGt,
+          '|C_3·ΔT3 − ∫(η_b·Q_f − ṁ_g·cp_g·(T3−T2))dt| = ' +
+            (residThGt === null ? '不可用' : residThGt.toExponential(2)) +
+            ' kWh（≤1e-3，复算上界 8.3e-5 ×≥12；左矩形一阶离散残差回归，非物理验证）'
+        ));
+      } else if (fEndGt !== null && inertiaGt === 'linear') {
         /* linear 遗留轨：线性化能量离散自洽（代数恒等，非物理验证）。
            ∫P_rotor 取子步左矩形（与 f 更新同式，= K_J·Δf 精确 telescoping，经 E_rotor 指标承载）；
            二次型 ΔE_kin 与线性化能量之差 = 线性化截断残差 K_J·Δf²/(2f₀)（恒正）。 */

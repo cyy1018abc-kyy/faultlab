@@ -372,6 +372,33 @@
           blindSafe: false,
           definition: '∫P_rotor dt（积分子步左矩形，与 f 更新同式离散）/ 3600；swing 轨下与 E_kin 之差为离散化残差（gt-energy-consistency 承载）'
         });
+      /* ---- L1 thermo 轨标量（GTL1_G2B_SPEC_APPROVED v1.0 §4 项 7：E_fuel_kWh /
+         eta_cycle_end_pct 注册名；GTL1-G2b-04，CHG-20261104-12）。名称与 gt001_v3 golden
+         scalars 注册表对齐（T2 冻结时逐名核对）。swing/linear 遗留轨无热力面 → 不产生
+         这三项（遗留 Run 的 metrics 面零漂移）。 ---- */
+      if (cfg.inertia_model === 'thermo' && integrals) {
+        mk('E_fuel_kWh', '燃料电能（输入）', isNum(integrals.E_fuel) ? integrals.E_fuel / 3600 : null, 'kWh', 7,
+          null, {
+            source_signal_ids: ['Q_fuel_kW'],
+            blindSafe: false,
+            definition: '∫ Q_f dt / 3600（子步左矩形，EQ-GTL1-12；Q_f = k_f·u_eff，执行器窗内取指令域钳位后指令）'
+          });
+        var eFuelKwh = integrals.E_fuel;
+        var etaEnd = (isNum(eFuelKwh) && isNum(integrals.E_source) && eFuelKwh > 0)
+          ? integrals.E_source / eFuelKwh * 100 : null;
+        mk('eta_cycle_end_pct', '循环折算效率（末值，能量口径）', etaEnd, '%', 4,
+          null, {
+            source_signal_ids: ['P_gen_true_kW', 'Q_fuel_kW'],
+            blindSafe: false,
+            definition: 'η_cycle = E_gen/E_fuel × 100（EQ-GTL1-12 能量口径末值；模型内部折算比，不对应任何设备热耗率；设计点 24.57%）'
+          });
+        mk('E_comb_net_kWh', '燃烧室净通量积分（检查式）', isNum(integrals.intComb) ? integrals.intComb / 3600 : null, 'kWh', 9,
+          null, {
+            source_signal_ids: ['T3_out_K', 'Q_fuel_kW'],
+            blindSafe: false,
+            definition: '∫(η_b·Q_f − ṁ_g·cp_g·(T3−T2)) dt / 3600（子步左矩形，EQ-GTL1-12 检查式右侧；与 C_3·ΔT3 之差 = 燃烧室离散能量恒等残差，gt-energy-consistency thermo 分支承载）'
+          });
+      }
       void fMin;
       void noiseEnabled;
     }

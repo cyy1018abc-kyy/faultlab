@@ -429,6 +429,79 @@ const pvMag = clone(PV_SENSOR);
 pvMag.events[0].params.magnitude = 200;
 ok(SC.scenarioHash(pvMag) !== SC.scenarioHash(PV_SENSOR), 'PV 参数不同 → 哈希不同');
 
+/* ------------------------------------------------------------------ *
+ * 7. 事件级 inertia_model 键（B-2 定案，CHG-20261104-12 ③；GTL1_G2B_SPEC_APPROVED
+ *    v1.0 §2.4：枚举三值 / 缺省解析为系统默认轨（GT-001=thermo，Q4）/ scenarioHash
+ *    含解析后的轨——既有 GT 场景哈希变化属预期失效面；未声明该轨的系统出现即拒绝）
+ * ------------------------------------------------------------------ */
+const GT_TRACK_EV = { key: 'ev1', family: 'sensor_drift', params: { magnitude: 0.3 }, t_start_s: 20, feedback_mode: 'closed_loop' };
+
+/* 合法三值：显式钉轨保留进归一化事件 */
+['swing', 'linear', 'thermo'].forEach((track) => {
+  const p = SC.parseScenario(scen('GT-001', [Object.assign(clone(GT_TRACK_EV), { inertia_model: track })]));
+  ok(p.ok && p.scenario.events[0].inertia_model === track,
+    'GT 事件 inertia_model=' + track + ' 解析通过并保留（合法三值枚举）', JSON.stringify(p.errors));
+});
+
+/* 缺省（不提供）解析为系统默认轨（GT-001 = thermo，Q4 定案） */
+const pGtDefault = SC.parseScenario(scen('GT-001', [clone(GT_TRACK_EV)]));
+ok(pGtDefault.ok && pGtDefault.scenario.events[0].inertia_model === 'thermo',
+  'GT 事件缺省 inertia_model 解析为系统默认轨 thermo（Q4 定案）', JSON.stringify(pGtDefault.errors));
+
+/* 未声明该轨的系统（FL/FC/PV）上出现即拒绝（封闭白名单，t_clear_s 先例同构） */
+neg(scen('FL-001', [ev({ inertia_model: 'thermo' })]),
+  'N49 FL 事件带 inertia_model（系统未声明模型深度轨）', 'events[0].inertia_model', '未声明模型深度轨');
+neg(scen('FC-001', [ev({ inertia_model: 'swing' })]),
+  'N50 FC 事件带 inertia_model', 'events[0].inertia_model', '未声明模型深度轨');
+neg(scen('PV-001', [{ key: 'a', family: 'sensor_drift', params: { magnitude: 100 }, t_start_s: 20, feedback_mode: 'closed_loop', inertia_model: 'thermo' }]),
+  'N51 PV 事件带 inertia_model', 'events[0].inertia_model', '未声明模型深度轨');
+
+/* 非法值拒绝（枚举三值之外 / 非字符串） */
+neg(scen('GT-001', [Object.assign(clone(GT_TRACK_EV), { inertia_model: 'dual_shaft' })]),
+  'N52 GT inertia_model 非法值（枚举外）', 'events[0].inertia_model', 'swing / linear / thermo');
+neg(scen('GT-001', [Object.assign(clone(GT_TRACK_EV), { inertia_model: 42 })]),
+  'N53 GT inertia_model 非字符串', 'events[0].inertia_model', 'swing / linear / thermo');
+
+/* scenarioHash 含解析后的轨：缺省解析轨与显式 thermo 同哈希；三轨互异 */
+const hGtDefault = SC.scenarioHash(scen('GT-001', [clone(GT_TRACK_EV)]));
+const hGtThermo = SC.scenarioHash(scen('GT-001', [Object.assign(clone(GT_TRACK_EV), { inertia_model: 'thermo' })]));
+const hGtSwing = SC.scenarioHash(scen('GT-001', [Object.assign(clone(GT_TRACK_EV), { inertia_model: 'swing' })]));
+const hGtLinear = SC.scenarioHash(scen('GT-001', [Object.assign(clone(GT_TRACK_EV), { inertia_model: 'linear' })]));
+eq(hGtDefault, hGtThermo, 'scenarioHash：缺省解析轨与显式 thermo 同哈希（缺省=thermo 入哈希）');
+ok(hGtThermo !== hGtSwing && hGtThermo !== hGtLinear && hGtSwing !== hGtLinear,
+  'scenarioHash：解析轨入哈希——三轨互异（既有 GT 场景哈希变化=预期失效面，B-2）');
+eq(SC.scenarioHash(reverseKeysDeep(scen('GT-001', [Object.assign(clone(GT_TRACK_EV), { inertia_model: 'swing' })]))), hGtSwing,
+  'GT 钉轨场景键序倒置 → 同 scenarioHash');
+const pGtIdem = SC.parseScenario(pGtDefault.scenario);
+ok(pGtIdem.ok && SC.scenarioHash(pGtIdem.scenario) === hGtDefault, 'GT 归一化场景（缺省轨已解析）再哈希幂等');
+ok(!('inertia_model' in pFL.scenario.events[0]),
+  'FL 事件归一化后无 inertia_model 键（canonicalize 按不存在处理——既有 FL/FC/PV 场景哈希不变）');
+
+/* executeScenario：解析轨透传引擎配置；跨深度对比场景经显式钉轨可达（A 线教学 payoff） */
+const GT_TRACKS = scen('GT-001', [
+  Object.assign(clone(GT_TRACK_EV), { key: 'ev-thermo' }),
+  Object.assign(clone(GT_TRACK_EV), { key: 'ev-swing', inertia_model: 'swing' }),
+  Object.assign(clone(GT_TRACK_EV), { key: 'ev-linear', inertia_model: 'linear' })
+]);
+const gtTrackRes = SC.executeScenario(GT_TRACKS, { runIdPrefix: 'GT-TRACK', createdAt: TS });
+eq(gtTrackRes.runs.length, 3, 'GT 三轨场景执行 3 Run');
+eq(gtTrackRes.runs[0].config.inertia_model, 'thermo', 'GT Run1（缺省）config.inertia_model=thermo（解析轨透传引擎）');
+eq(gtTrackRes.runs[1].config.inertia_model, 'swing', 'GT Run2（显式钉轨）config.inertia_model=swing');
+eq(gtTrackRes.runs[2].config.inertia_model, 'linear', 'GT Run3（显式钉轨）config.inertia_model=linear');
+eq(gtTrackRes.scenarioHash, SC.scenarioHash(GT_TRACKS), 'GT 三轨场景 scenarioHash 与独立计算一致');
+ok(gtTrackRes.runs[0].manifest.config_hash !== gtTrackRes.runs[1].manifest.config_hash &&
+  gtTrackRes.runs[1].manifest.config_hash !== gtTrackRes.runs[2].manifest.config_hash,
+  'GT 三 Run config_hash 互异（per-Run config 哈希含解析轨）');
+gtTrackRes.runs.forEach((run, i) => {
+  eq(FL.registry.verifyRunHash(run), true, 'GT 三轨 Run ' + (i + 1) + ' run_hash 自校验通过');
+});
+ok(gtTrackRes.runs[0].timeseries.signals.T3_out_K.every((v) => v !== null),
+  'GT Run1（thermo）热力信号面填充');
+ok(gtTrackRes.runs[1].timeseries.signals.T3_out_K.every((v) => v === null) &&
+  gtTrackRes.runs[2].timeseries.signals.T3_out_K.every((v) => v === null),
+  'GT Run2/3（swing/linear 钉轨）无热力面（跨深度对比经钉轨可达）');
+eq(gtTrackRes.runs[1].role, 'fault', 'GT 钉轨 swing 闭环 Run role=fault（轨不影响 role 派生）');
+
 
 console.log('\n================================================');
 console.log('PASS ' + pass + ' / FAIL ' + fail + (fail ? '  ✗' : '  ✓'));
