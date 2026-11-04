@@ -921,3 +921,34 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   ④ **CHG-20261104-11 预留**（v0.7.0 发布）；既有 4 golden 字节零变更维持；A-4a 批准
      不在本授权内（下轮）。
   批准人：用户（2026-11-04「统一采用推荐决策」）；记录人：实现 Agent。
+
+- `CHG-20261104-11`：**v0.7.0 发布（G8）——PV-001 全链 + C-3 教学路径 + C-4 排行榜 + D-4 性能基线 + A-4a GT-L1 草案轮**。
+  V070_WAVE_DESIGN 波次（T1…T10，动态工作流 dwfrun-c8e209c4 五阶段 13 路，配额中断一次恢复续跑零损失）。
+  交付：
+  ① **PV-001 全链（PV-G2b-01→04）**：规格更名 `PV001_G2B_SPEC_APPROVED.md` v1.0（C-1…C-7+
+     Q1/Q2 定案落正文）；`tools/oracle/pv001_oracle.py` + **pv001_v1 golden 4 Run 首签**
+     （sha df944f13…、schema v2、gate T-A+形制补键同值 gt001_v2 先例）+ verify_golden 纯追加
+     注册行 + FAULT_CATALOG §6；`systems.js` PV-001 SystemDef（17 信号/2 族/EQ-PV-1..7 含 Q2/
+     PV-IMP-Q1 钳 0）+ `engine.js` simulatePV001 与**分派链显式 PV 分支（R-4 守卫）**+
+     metrics 四标量 + UNIT_DICT W/m²；`tests/engine-pv.test.js` 149 断言（T-A 逐点/A/B/C 锚点/
+     shading 两模式逐位等价/**GT 分派守卫**/**Arena DEC-2 源级守卫**）；四场景锚点与规格全一致、
+     golden 交叉 128/128 零漂移、CDP 走查 17/17 零 console error；
+  ② **C-3 教学路径（DEC-5）**：`teaching.js` 3 路径×5 步预设 + 校验/导出信封 + `teaching` 08 页
+     （步骤卡/深链/评测场景草稿→scenario 页最小读取）+ 测试 **161/161**（33 模式子串自检+探针反证）；
+  ③ **C-4 排行榜（DEC-6）**：`tools/leaderboard.mjs`（三层 id 解析/4 类跳过计数/确定性排序）+
+     `leaderboard` 09 页（EXT，文件导入只读渲染）+ 测试 **78/78**；真实场次实跑与归档 README 一致；
+  ④ **D-4 性能基线（DEC-7）**：perf.mjs CDP 采样旅程（rAF 帧窗+堆峰值）→ 基线 3 轮
+     （17.52/19.81/19.06 MB、fps 59.9）→ 阈值冻结 heap ≤120 MB/fps ≥41.93 → 两轮复测稳定定稿；
+     报告 perf.baseline 只增字段；不可测降级路径（gated=false+WARN）就绪；
+  ⑤ **A-4a GT-L1 草案轮（DEC-4）**：`GTL1_G2B_SPEC_DRAFT.md` v0.2（EQ-GTL1-1…12 效率链+
+     三轨推荐+分歧预期表+gt001_v3/T-B 计划+TESPy 对照轨道）；双路评审
+     **A/B 均 PASS_WITH_CONDITIONS**（A：§2.1 常数精度矛盾 P2 等 3 条件；B：新信号盲包面/
+     Q4×scenario 交互/Q3×D-GT 触发条件/速度耦合域依据 4 条件）——7 条件处置登记 §11-a，
+     **状态仍 DRAFT，批准与实现下轮（DEC-4）**；gt001_v2/oracle 零变更维持；
+  ⑥ 步数账（I-7）：run-g2 26→**28**（+verify_golden pv001 + engine-pv，core 层），预算 ≤29 兑现；
+  ⑦ 验证：run-g2 28/28 PASS 两次独立（工作流内 + 主流程复验 31479ms）；既有 4 golden 字节
+     零变更；既有三系统 Run 数值逐位不变（339/294/203 全绿）；copy-guard 0 命中。
+  残留观察（诚实登记）：PV quality 检查 soc-bounds/energy-balance 锁定态 fail（checks.js 开放面外，
+  建议 PV-G2b-04c）；schema 导出面 initial_SOC_pct 缺口（CN-E02，R-8 显式 CHG）；home/compare/
+  causal/scenario 静态文案与指标组缺口清单；signals.js 既有 display 残留缺陷（非本波引入）。
+  证据 `evidence/g8/v070-release.md`。批准人：用户（CHG-20261104-10 授权链）；记录人：实现 Agent。

@@ -18,7 +18,8 @@
   var UNIT_DICT = {
     'A': 'current', 'kW': 'power', 'kWh': 'energy', 'V': 'voltage',
     's': 'time', '%': 'percent', 'pp': 'percent_point',
-    'Hz': 'frequency', 'rpm': 'speed'
+    'Hz': 'frequency', 'rpm': 'speed',
+    'W/m²': 'irradiance' /* PV-001 新轨（PV001_G2B_SPEC_APPROVED v1.0 §8 C-3/C-6）：纯增项 */
   };
   var P0_UNITS = ['A', 'kW', 'kWh', 'V', 's', '%', 'pp'];
 

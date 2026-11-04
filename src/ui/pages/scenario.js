@@ -9,7 +9,10 @@
      「载入查看」复用既有 loadRun 入口（系统页打开，曲线/因果/对比共享同一 Run）；
    - 导出：归一化场景 JSON（再解析幂等，roundtrip 内容哈希一致）；
    - 不做：拖拽编辑（规划于 v0.7）、localStorage 以外的持久化、云/账户（I-1）；
-   - 文案护栏：UI_COPY_GUARDRAILS §6 禁词 / §7 空态不放假数据。
+   - 文案护栏：UI_COPY_GUARDRAILS §6 禁词 / §7 空态不放假数据；
+   - [登记·UI 接线路 CHG-20261104-10 最小改动] 教学路径草稿读取入口
+    （maybeConsumeTeachingDraft / TEACHING_DRAFT_KEY，见函数处注释）：只新增「读 sessionStorage
+     草稿→填入导入框→走既有 parseCurrent」一条通路，不触碰解析/运行/导出语义。
    ========================================================================= */
 (function () {
   'use strict';
@@ -17,6 +20,8 @@
   const pages = FL.pages = FL.pages || {};
 
   const MODE_LABEL = { closed_loop: '闭环反馈', monitor: '仅监测' };
+  /* 教学路径草稿键（与 src/ui/pages/teaching.js DRAFT_KEY 同一字面量镜像，改动须两处同步） */
+  const TEACHING_DRAFT_KEY = 'faultlab.teaching.scenarioDraft.v1';
   /* 每 Run 摘要行展示的关键指标（按系统选取；数值一律来自 run.metrics） */
   const METRIC_PICK = {
     'FL-001': ['focal_change_A', 'SOC_err_end_pp', 'E_bat_true_60s'],
@@ -37,7 +42,9 @@
     exec: null,          // 最近一次运行 { runs, scenarioHash, at }
     execError: '',
     execSeq: 0,
-    hasText: false
+    hasText: false,
+    teachingDraftText: '',        // 最近一次从教学草稿自动填入的原文（重复点击可覆盖）
+    teachingDraftNotifiedAt: null // 已就「导入框被占用」提示过一次的草稿 at 标记
   };
 
   function fmt() { return (api && api.fmt) ? api.fmt : FL.protocol.fmt; }
@@ -127,6 +134,7 @@
 
     local.built = true;
     syncAll(api.getState(), 'mount');
+    maybeConsumeTeachingDraft();
   }
 
   function buildHero() {
@@ -326,6 +334,47 @@
       ui.icon('warning', { size: 14 }),
       h('span', {}, msg)
     ]));
+  }
+
+  /* ===================================================================
+     教学路径草稿读取入口（最小改动，登记见文件头）
+     =================================================================== */
+  /* src/ui/pages/teaching.js 第⑤步「生成评测场景」把 scenarioSpec 写入 sessionStorage
+     （TEACHING_DRAFT_KEY）；本函数在挂载与每次非时间轴状态更新时检查一次：
+     - 草稿合法且导入框为空（或仍为本页上次自动填入的原文）→ 填入并走既有 parseCurrent，
+       随后删除草稿键（消费一次即失效，不反复打扰）；
+     - 导入框已有用户内容 → 绝不覆盖，草稿保留；对同一份草稿只提示一次「待填入」；
+     - 草稿不合法 → 直接删除，不解析不报错（生成方负责其正确性）。
+     只新增填入通路，不改变解析/运行/导出语义。 */
+  function maybeConsumeTeachingDraft() {
+    let raw = null;
+    try { raw = sessionStorage.getItem(TEACHING_DRAFT_KEY); } catch (e) { raw = null; }
+    if (!raw) return;
+    let payload = null;
+    try { payload = JSON.parse(raw); } catch (e) { payload = null; }
+    if (!payload || payload.kind !== 'faultlab-teaching-scenario-draft' || !payload.spec) {
+      try { sessionStorage.removeItem(TEACHING_DRAFT_KEY); } catch (e2) { /* ignore */ }
+      return;
+    }
+    const current = String(refs.text.value || '');
+    const isEmpty = current.trim().length === 0;
+    const sameAsLastFill = local.teachingDraftText !== '' && current === local.teachingDraftText;
+    if (!isEmpty && !sameAsLastFill) {
+      if (payload.at && local.teachingDraftNotifiedAt !== payload.at) {
+        local.teachingDraftNotifiedAt = payload.at;
+        api.actions.toast('教学路径场景草稿待填入：导入框当前有内容未被覆盖；清空后再次从教学页生成即可填入', 'info', 6000);
+      }
+      return;
+    }
+    const specText = JSON.stringify(payload.spec, null, 2);
+    refs.text.value = specText;
+    local.teachingDraftText = specText;
+    onTextChanged();
+    parseCurrent();
+    try { sessionStorage.removeItem(TEACHING_DRAFT_KEY); } catch (e3) { /* ignore */ }
+    const okFilled = !!(local.parsed && local.parsed.ok);
+    api.actions.toast('已从教学路径载入评测场景草稿（' + (payload.scenarioId || payload.pathId || 'teaching') + '）'
+      + (okFilled ? '，校验通过' : '，校验未通过：请查看错误列表'), okFilled ? 'ok' : 'warn', 6000);
   }
 
   /* ===================================================================
@@ -596,6 +645,8 @@
     if (!local.built) return;
     // 场景页不依赖全局仿真时间；播放/时间/全局 toast 更新时跳过，避免每帧重排 DOM。
     if (reason === 'time' || reason === 'playback' || reason === 'toast') return;
+    // 教学路径草稿读取入口（登记见文件头）：在导航/草稿等非时间轴更新时检查一次。
+    maybeConsumeTeachingDraft();
     syncAll(state, reason || 'update');
   }
 

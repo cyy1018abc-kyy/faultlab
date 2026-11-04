@@ -87,6 +87,7 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | FC load_step | §4 条目 6「扩展故障族未评审→冻结」→ G2b 解冻并实现落地（2026-11-04） | G2b 已批准并实现落地（CHG-20261104-02） | FC 族条件扩为 none/sensor_drift/load_step/actuator_fault（FCEXT §5）：锚定条件 classify=approved_fc，白名单外仍 extension_preview |
 | FC actuator_fault | 同上 | G2b 已批准并实现落地（同上） | 同上 |
 | GT sensor_drift / load_step / actuator_fault | §3.3 恢复条件清单 9 项全闭（GT G2b） | extension_preview | GT001_G2B_SPEC_APPROVED + golden gt001_v2 |
+| PV `G_sensor_bias` / `shading_step` | §8.2 新系统 G2b（PV001_G2B_SPEC_APPROVED，CHG-20261104-10 批准链） | extension_preview | PV001_G2B_SPEC_APPROVED + golden pv001_v1；SA-24 不动（scope.js 对 PV-001 全场景 fall-through 返回 extension_preview 即正确语义，classify/assertApprovedP0 零改动） |
 
 ## 5. 状态勘误表（冻结时点后的授权状态变化登记于此）
 
@@ -96,8 +97,45 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | 2026-11-04 | FL-001 converter_current_limit | 未评审冻结 → **G2b 已批准**（实现待 FLEXT-G2b-01/02/04，v0.6.0 队列） | FLEXT_G2B_SPEC_APPROVED v1.1（CHG-20261104-03） |
 | 2026-11-04 | FL-001 converter_current_limit | G2b 已批准 → **实现已落地**（FLEXT-G2b-01/02/04：A-fl-clamp 登记 + A-l0 双轨 τ 修订、EQ-A/EQ-B 登记、I_ref_A formula 一般式化、limitations 退化域与手拼配置声明、checks.js 前置窗 null 文案订正；golden fl001_v1 4 Run 重出，approval CHG-20261104-07；系统 scope 维持 approved_p0、族级白名单按 FLEXT §4 显式 CHG 扩展——锚定场景 classify=approved_p0） | FLEXT_G2B_SPEC_APPROVED v1.1 §1.2/§3/§4 + V060_WAVE_DESIGN（CHG-20261104-05） |
 | 2026-11-04 | FC-001 load_step_10kW / valve_stuck | G2b 已批准 → **实现已落地**（FC-G2b-02/04：A-fc-dispatcher + EQ-6 登记、I_fc_ref_A formula 一般式化、closedLoopEffect 级联措辞、limitations 包络越界域声明；golden fc001_v1 5 Run 重出（method_version analytic_flux.2、model_version 1.1.0），approval CHG-20261104-06；系统 scope 维持 approved_fc、FC 族条件扩为四族——锚定条件 classify=approved_fc） | FCEXT_G2B_SPEC_APPROVED v1.1 §1.2/§1.4/§3/§5 + V060_WAVE_DESIGN（CHG-20261104-05） |
+| 2026-11-04 | PV-001 `G_sensor_bias` / `shading_step` | **新系统登记（新增 §6 节）→ extension_preview**（PV G2b 批准 CHG-20261104-10；oracle `tools/oracle/pv001_oracle.py` + golden pv001_v1 4 Run 首签（schema v2、method pv001_analytic、gate T-A，approval=CHG-20261104-10 批准链）+ verify_golden 注册行落地，PV-G2b-03；引擎 PV 轨/systems.js 由 PV-G2b-04 同波接入） | PV001_G2B_SPEC_APPROVED v1.0 §2/§4 + V070_WAVE_DESIGN DEC-1/DEC-3（CHG-20261104-10） |
+
+## 6. PV-001 光伏逆变器（L0，scope=extension_preview）
+
+> 新增节（2026-11-04，PV-G2b-03，V070_WAVE_DESIGN T2）。规格权威文本 =
+> `NEXT/PV001_G2B_SPEC_APPROVED.md` v1.0（CHG-20261104-10 批准链，PV-DRAFT-Q1/Q2 定案
+> 已落正文）。时间尺度沿用 §0（采样 0.1 s、仿真窗 60 s、默认注入 t=20 s、601 点网格）。
+> PV-001 为**不可调度电源**（无 load→MPPT 信号边、无储能/无 SOC 键），负载恒定 30 kW、
+> 无 load_step 族（A-pv-const-load）；测量冗余特征由一致性残差 d_pv 承载
+> （r_meas ≡ 0，与 FL-001 的 r_meas = 0.4·b 教学对照）。
+
+| fault id | 家族 | 类型 | 作用位置 | 幅值参数 | 默认时刻 | 授权状态 | golden | 因果模板 |
+|---|---|---|---|---|---|---|---|---|
+| `G_sensor_bias` | sensor_drift | 测量阶跃偏置（辐照度） | sensor（辐照度传感器） | +20…300 W/m²，step 10，默认 +100 W/m² | t=20 s（域 [2,55]） | **extension_preview**（PV G2b 已批准，`PV001_G2B_SPEC_APPROVED.md`） | pv001_v1（4 Run：healthy + closed_loop_fault + monitor_only + shading_closed_loop；schema v2、approval CHG-20261104-10 批准链首签） | pv-sensor-drift |
+| `shading_step` | shading_step | 物理输入阶跃（有效辐照度全平面均匀骤降） | pv_array（非阵列局部遮挡） | 50…300 W/m²，step 25，默认 300 W/m²（G0 1000→700） | t=20 s（域 [2,55]） | **extension_preview**（同上） | pv001_v1（同上；shading 仅监测轨与闭环逐位同解（物理输入与控制模式无关，PS-5 实证 0 差），不重复入 golden） | pv-shading-step |
+
+**实现事实（PV-G2b-03，2026-11-04 本波落地；引擎轨见下）**：独立 oracle
+`tools/oracle/pv001_oracle.py`（方程唯一权威 = 规格 §1.3 EQ-PV-1…7；不 import src/**、
+不与 FL/FC/GT oracle 共享公式常量；fo_step 与 engine.js:443-450 foStep 逐字同构、更新序
+冻结，分段常值目标 → 段长一次闭式调用，双口径交叉差 ≤8.9e-15 kW / ≤2.7e-12 kW·s；
+自检 PS-1…PS-7）；golden pv001_v1（schema v2：golden_schema_version="v2"、
+model_version="1.0.0"、method_id="pv001_analytic"、engine_baseline/backend=null、
+generated_by 一段式、approval 三字段非 null；gate T-A = E_kWh 1e-9 / P_kW
+rtol 1e-12 atol 1e-15 / d_pv_atol 1e-9 / r_true_kW 1e-12 / t_s 1e-9；SERIES_IDS =
+t + §1.2 全表 17 信号 = 18 项，无事件域 null 列）；verify_golden 注册行已追加
+（scalars：E_pv_true/E_pv_est/E_pv_err/E_grid/E_load_kWh；i_true/i_meas =
+P_pv_true_kW/P_pv_meas_kW；event_tol=P_kW_atol——verify_golden 参数化逻辑零改动）。
+**引擎/systems.js**：simulatePV001 新轨 + systems.js PV001 SystemDef + UI 接线为
+PV-G2b-04 显式工作面（engine.js 分派链 engine.js:1421-1423 现 else→GT001 兜底，
+须显式插 PV 分支），本波 v0.7 内落地。
+**scope 现状**：系统级与族级均 extension_preview——scope.js `classify` 对 systemId ≠
+'FL-001' 配置 fall-through 返回 extension_preview（scope.js:82 现状即正确语义，零改动）；
+assertApprovedP0 对 PV 配置抛 SCOPE-E01（验收路径关闭，规格 §5）。
+
+
 
 ---
 
-**文件结束**。FAULT_CATALOG v1.1（2026-11-04 实现落地更新，见 §5；冻结时点 = A-2/A-3 评审包提交时）。
+**文件结束**。FAULT_CATALOG v1.2（2026-11-04：v1.1 实现落地更新见 §5；新增 §6 PV-001 节
+（PV-G2b-03，CHG-20261104-10 批准链，系统级/族级 scope=extension_preview）；冻结时点 =
+A-2/A-3 评审包提交时）。
 维护规则：族增删/参数域变更/授权状态变化 → 先更本目录 §5 勘误表并登记 CHG，再动 systems.js。

@@ -86,10 +86,17 @@
     }
     return FALLBACK_AGENTS;
   }
+  /* Arena 盲测池显式排除 PV-001（PV001_G2B_SPEC_APPROVED v1.0 §5 / DEC-2，CHG-20261104-10）：
+     PV-001 已注册进 systems.js 全注册表（systems.list() 默认返回 4 系统），但 Arena 盲测
+     依赖既有 blind_observable 三值映射面，PV 的 d_pv/P_pv,est 等盲包可见性裁定（exposure
+     三值映射验证轮）未做——入池须显式 CHG 并同步 blind_observable 通道面裁定，此前在此过滤。 */
   function systemList() {
+    /* 守卫（DEC-2 / CHG-20261104-10；PV001_G2B_SPEC_APPROVED §5）：
+       PV-001 显式排除 Arena 盲测池——依据见本函数上方注释块。 */
+    const ARENA_EXCLUDED = ['PV-001'];
     try {
       const list = api.systems && api.systems.list ? api.systems.list() : [];
-      if (list && list.length) return list;
+      if (list && list.length) return list.filter((s) => ARENA_EXCLUDED.indexOf(s.id) === -1);
     } catch (e) { /* ignore */ }
     return [
       { id: 'FL-001', title: '电池储能系统', shortTitle: '电池储能', experimentCode: 'FL-001' },

@@ -294,6 +294,9 @@
       /* 健康基准运行：无需故障参数 */
     } else {
       var allowed = ['sensor_drift', 'load_step', 'actuator_fault'];
+      /* PV-001 新轨（PV001_G2B_SPEC_APPROVED v1.0 §2）：shading_step 为 PV 专属物理输入族，
+         按系统显式追加；FL/FC/GT 的家族分派面零改动 */
+      if (system.id === 'PV-001') allowed = allowed.concat(['shading_step']);
       if (allowed.indexOf(fcfg.family) === -1) {
         push('fault.family', '必须为 none / sensor_drift / load_step / actuator_fault（当前 ' + String(fcfg.family) + '）');
       } else {
@@ -362,13 +365,29 @@
       else if (load < bounds.load_kW.min - 1e-9 || load > bounds.load_kW.max + 1e-9) {
         push('initial.load_kW', '必须在 ' + bounds.load_kW.min + '–' + bounds.load_kW.max + ' kW 之间（收到 ' + load + '）');
       }
-      var soc = init.SOC_pct;
-      if (typeof soc !== 'number' || !isFinite(soc)) push('initial.SOC_pct', '必须是数字（单位 %）');
-      else if (soc < bounds.SOC_pct.min - 1e-9 || soc > bounds.SOC_pct.max + 1e-9) {
-        push('initial.SOC_pct', '必须在 ' + bounds.SOC_pct.min + '–' + bounds.SOC_pct.max + ' % 之间（收到 ' + soc + '）');
+      /* SOC 初值仅对声明 bounds.SOC_pct 的系统校验（PV-001 无储能、initial 无 SOC 键，
+         PV001_G2B_SPEC_APPROVED §1.1 / R-8 键面分支）；FL/FC/GT 的 bounds 均含 SOC_pct，
+         键面与告警零改动。 */
+      if (bounds.SOC_pct) {
+        var soc = init.SOC_pct;
+        if (typeof soc !== 'number' || !isFinite(soc)) push('initial.SOC_pct', '必须是数字（单位 %）');
+        else if (soc < bounds.SOC_pct.min - 1e-9 || soc > bounds.SOC_pct.max + 1e-9) {
+          push('initial.SOC_pct', '必须在 ' + bounds.SOC_pct.min + '–' + bounds.SOC_pct.max + ' % 之间（收到 ' + soc + '）');
+        }
       }
+      /* PV-001 新轨：G0_W_m2 初始有效辐照度（W/m²，域 [300,1000]，PV001_G2B_SPEC_APPROVED §1.1） */
+      if (system.id === 'PV-001') {
+        var g0Init = init.G0_W_m2;
+        if (typeof g0Init !== 'number' || !isFinite(g0Init)) push('initial.G0_W_m2', '必须是数字（单位 W/m²）');
+        else if (g0Init < bounds.G0_W_m2.min - 1e-9 || g0Init > bounds.G0_W_m2.max + 1e-9) {
+          push('initial.G0_W_m2', '必须在 ' + bounds.G0_W_m2.min + '–' + bounds.G0_W_m2.max + ' W/m² 之间（收到 ' + g0Init + '）');
+        }
+      }
+      /* 已知初始条件键面按 bounds 派生：FL/FC/GT 的 bounds = {load_kW, SOC_pct}，
+         与原硬编码键面等价；PV-001 为 {load_kW, G0_W_m2} */
+      var knownInitKeys = Object.keys(bounds);
       Object.keys(init).forEach(function (k) {
-        if (k !== 'load_kW' && k !== 'SOC_pct') warnings.push('initial.' + k + ' 不是已知初始条件，计算时忽略');
+        if (knownInitKeys.indexOf(k) === -1) warnings.push('initial.' + k + ' 不是已知初始条件，计算时忽略');
       });
       if (isPlainObject(config.fault) && config.fault.family === 'load_step' && isPlainObject(config.fault.params) &&
         typeof load === 'number' && typeof config.fault.params.magnitude === 'number' && load + config.fault.params.magnitude > 55) {
@@ -919,6 +938,95 @@
     };
   }
 
+  /* ---------------- PV-001 光伏并网等效 ---------------- */
+  /* PV001_G2B_SPEC_APPROVED v1.0 §1.3 EQ-PV-1..7（PV-G2b-04a / CHG-20261104-10 批准）。
+     数值口径：foStep 同构复刻（SUB×DT_INT 子步精确指数）——PV 各轨事件后目标恒定 →
+     分段精确指数无离散误差；EQ-PV-4 初值 P_pv(0)=k·G0·φ_T（PV-DRAFT-Q2 定案）；
+     EQ-PV-3 monitor 语义 = 偏置不进入物理回路（与 FL-001 同构）；
+     PV-IMP-Q1：手拼配置有效辐照度 < 0 时引擎侧钳 0（批准域内为 no-op）。 */
+  function simulatePV001(system, cfg, t) {
+    var n = t.length - 1;
+    var dt = cfg.dt_s;
+    var K = 0.01;      // EQ-PV-2：k = P_STC/G_STC = 10/1000 kW/(W/m²)
+    var PHI_T = 1.0;   // A-pv-temp-const：T_cell ≡ 25 °C → φ_T = 1（γ_T = −0.004 /°C 登记不激活）
+    var TAU = 1.0;     // EQ-PV-4：τ_mppt
+    var family = cfg.fault.family;
+    var faulted = family !== 'none';
+    var tStart = faulted ? cfg.fault.t_start_s : null;
+    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
+    var monitor = cfg.feedback_mode === 'monitor';
+    var load0 = cfg.initial.load_kW;
+    var G0 = cfg.initial.G0_W_m2;
+    var isSensor = family === 'sensor_drift';
+    var isShading = family === 'shading_step';
+
+    /* EQ-PV-1：输入与测量通道（t0 处右极限，post 采样行语义，同 FL/FC bAt 口径） */
+    function bAt(time) { return (isSensor && tStart != null && time >= tStart - 1e-9) ? magnitude : 0; }
+    function dgAt(time) { return (isShading && tStart != null && time >= tStart - 1e-9) ? magnitude : 0; }
+    /* PV-IMP-Q1 钳位：G_true < 0 → 0（批准参数域 G0∈[300,1000]、ΔG≤300 内恒不触发） */
+    function gTrueAt(time) { return Math.max(G0 - dgAt(time), 0); }
+    function gMeasAt(time) { return gTrueAt(time) + bAt(time); }
+    /* EQ-PV-3：G_loop = G_meas（closed_loop）/ G_true（monitor） */
+    function gLoopAt(time) { return monitor ? gTrueAt(time) : gMeasAt(time); }
+
+    var series = makeSeries(system, n);
+    var P_pv = K * G0 * PHI_T;   /* EQ-PV-4（v1.0 Q2 定案）：P_pv(0) = k·G0·φ_T */
+    var intPpv = 0;              /* ∫P_pv,true dt（kW·s，子步解析积分） */
+    var intPpvEst = 0;           /* ∫P_pv,est dt（kW·s，分段常值左缘矩形 = 事件感知解析积分） */
+    var intDemand = 0;           /* ∫P_load dt（kW·s） */
+
+    function record(k) {
+      var time = t[k];
+      var gTrue = gTrueAt(time);
+      var gMeas = gMeasAt(time);
+      var b = bAt(time);
+      var pPv = P_pv;
+      var pAc = pPv;
+      var pGrid = load0 - pPv;
+      var pPvEst = K * gMeas * PHI_T;   /* A-pv-est-channel：恒用测量辐照度 */
+      series.G_true_W_m2[k] = gTrue;
+      series.G_meas_W_m2[k] = gMeas;
+      series.bias_W_m2[k] = b;
+      series.P_mpp_true_kW[k] = K * gTrue * PHI_T;
+      series.P_mpp_ref_kW[k] = K * gLoopAt(time) * PHI_T;
+      series.P_pv_true_kW[k] = pPv;
+      series.P_pv_meas_kW[k] = pPv;     /* 健康通道 */
+      series.P_pv_est_kW[k] = pPvEst;
+      series.d_pv_kW[k] = pPv - pPvEst; /* EQ-PV-6：代数恒等 */
+      series.P_ac_kW[k] = pAc;
+      series.P_grid_true_kW[k] = pGrid;
+      series.P_grid_meas_kW[k] = pGrid; /* 健康通道 */
+      series.P_load_demand_kW[k] = load0;
+      series.P_load_served_kW[k] = load0;
+      series.V_bus_V[k] = 400;
+      series.r_true_kW[k] = pPv + pGrid - load0;        /* ≡ 0（定义恒等） */
+      series.r_meas_kW[k] = pPv + pGrid - load0;        /* ≡ 0（全功率通道健康） */
+    }
+
+    record(0);
+    for (var k = 1; k <= n; k++) {
+      for (var j = 0; j < SUB; j++) {
+        var time = (k - 1) * SUB * DT_INT + j * DT_INT;
+        intDemand += load0 * DT_INT;
+        intPpvEst += K * gMeasAt(time) * PHI_T * DT_INT;
+        var target = K * gLoopAt(time) * PHI_T;   /* EQ-PV-3：事件后目标恒定 → 精确指数 */
+        var step = foStep(P_pv, target, TAU, DT_INT);   /* EQ-PV-4：一阶跟随 */
+        P_pv = step.y;
+        intPpv += step.integral;
+      }
+      record(k);
+    }
+    return {
+      series: series,
+      integrals: {
+        E_load: intDemand,
+        E_pv_true: intPpv,
+        E_pv_est: intPpvEst,
+        E_grid: intDemand - intPpv   /* EQ-PV-5/EQ-PV-7 定义恒等：E_pv + E_grid = E_load */
+      }
+    };
+  }
+
   /* ================================================================== */
   /* 观测噪声（仅 OBSERVATION 通道，确定性；默认关闭）                     */
   /* ================================================================== */
@@ -956,17 +1064,29 @@
       for (k = 0; k < series.f_meas_Hz.length; k++) {
         series.f_channel_diff_Hz[k] = series.n_meas_rpm[k] / 60 - series.f_meas_Hz[k];
       }
+    } else if (system.id === 'PV-001') {
+      /* PV-001 新轨：EMS 估计恒用（含噪声的）测量辐照度，d_pv/r_meas 随测量通道重算
+         （与 FL/FC 的测量链 fixup 同构；A-pv-est-channel） */
+      var Kpv = 0.01;   /* EQ-PV-2 k（φ_T = 1，A-pv-temp-const） */
+      for (k = 0; k < series.G_meas_W_m2.length; k++) {
+        series.P_pv_est_kW[k] = Kpv * series.G_meas_W_m2[k];
+        series.d_pv_kW[k] = series.P_pv_meas_kW[k] - series.P_pv_est_kW[k];
+        series.r_meas_kW[k] = series.P_pv_meas_kW[k] + series.P_grid_meas_kW[k] - series.P_load_served_kW[k];
+      }
     }
   }
 
   /* ================================================================== */
   /* 事件 / 快照 / 真值                                                  */
   /* ================================================================== */
-  var EVENT_TYPE = { sensor_drift: 'sensor_bias', load_step: 'load_step', actuator_fault: 'actuator_limit' };
+  var EVENT_TYPE = { sensor_drift: 'sensor_bias', load_step: 'load_step', actuator_fault: 'actuator_limit', shading_step: 'shading_step' };
   var TARGET_SIGNAL = {
     'FL-001': { sensor_drift: 'bias_A', load_step: 'P_load_demand_kW', actuator_fault: 'I_bat_cap_A' },
     'FC-001': { sensor_drift: 'bias_A', load_step: 'P_load_demand_kW', actuator_fault: 'I_fc_cap_A' },
-    'GT-001': { sensor_drift: 'n_meas_rpm', load_step: 'P_load_demand_kW', actuator_fault: 'P_gen_cap_kW' }
+    'GT-001': { sensor_drift: 'n_meas_rpm', load_step: 'P_load_demand_kW', actuator_fault: 'P_gen_cap_kW' },
+    /* PV-001 新轨（PV001_G2B_SPEC_APPROVED §2）：sensor_drift 注入点为辐照度偏置，
+       shading_step 为物理输入阶跃（有效真实辐照度） */
+    'PV-001': { sensor_drift: 'bias_W_m2', shading_step: 'G_true_W_m2' }
   };
 
   function buildLabel(system, cfg) {
@@ -1259,6 +1379,31 @@
       facts.E_gen = metricFmt('E_source_kWh', 5);
       facts.E_bat = metricFmt('E_bat_kWh', 5);
       facts.E_rotor = metricFmt('E_rotor_kWh', 5);
+    } else if (system.id === 'PV-001') {
+      /* PV-001 新轨（PV001_G2B_SPEC_APPROVED §6.4 模板占位符面；信号全部 PV 自有） */
+      facts.G_true_pre = at('G_true_W_m2', tStart - 0.1, 1);
+      facts.G_true_post = at('G_true_W_m2', tStart, 1);
+      facts.G_meas_pre = at('G_meas_W_m2', tStart - 0.1, 1);
+      facts.G_meas_post = at('G_meas_W_m2', tStart, 1);
+      facts.P_ref_pre = at('P_mpp_ref_kW', tStart - 0.1, 2);
+      facts.P_ref_post = at('P_mpp_ref_kW', tStart, 2);
+      facts.P_mpp_true_60 = at('P_mpp_true_kW', dur, 2);
+      facts.P_pv_pre = at('P_pv_true_kW', tStart, 2);
+      facts.P_pv_60 = at('P_pv_true_kW', dur, 2);
+      facts.P_grid_pre = at('P_grid_true_kW', tStart - 0.1, 2);
+      facts.P_grid_60 = at('P_grid_true_kW', dur, 2);
+      facts.P_load_pre = at('P_load_demand_kW', tStart - 0.1, 2);
+      facts.P_load_post = at('P_load_demand_kW', tStart, 2);
+      facts.P_load_60 = at('P_load_demand_kW', dur, 2);
+      facts.d_pv_peak = fmtVal(maxAbsFrom('d_pv_kW', tStart), 2);
+      facts.d_pv_60 = at('d_pv_kW', dur, 2);
+      facts.r_true_max = fmtVal(maxAbsFrom('r_true_kW', 0), 2);
+      facts.r_meas_max = fmtVal(maxAbsFrom('r_meas_kW', 0), 2);
+      facts.E_pv = metricFmt('E_pv_true_kWh', 7);
+      facts.E_pv_est = metricFmt('E_pv_est_kWh', 7);
+      facts.E_pv_err = metricFmt('E_pv_err_kWh', 7);
+      facts.E_grid = metricFmt('E_grid_kWh', 7);
+      facts.E_load = metricFmt('E_load_kWh', 5);
     }
     return facts;
   }
@@ -1420,6 +1565,9 @@
     var sim;
     if (system.id === 'FL-001') sim = simulateFL001(system, cfg, t);
     else if (system.id === 'FC-001') sim = simulateFC001(system, cfg, t);
+    /* PV-001 新轨（PV001_G2B_SPEC_APPROVED §8 PV-G2b-04a / R-4 守卫）：显式分支必须置于
+       else→GT001 兜底之前，禁止 PV-001 静默落入 GT 物理；三系统既有分支零改动。 */
+    else if (system.id === 'PV-001') sim = simulatePV001(system, cfg, t);
     else sim = simulateGT001(system, cfg, t);
 
     var series = sim.series;

@@ -13,7 +13,11 @@
     { id: 'causal', index: '04' },
     { id: 'compare', index: '05' },
     { id: 'arena', index: '06', ext: true },
-    { id: 'scenario', index: '07' }
+    { id: 'scenario', index: '07' },
+    /* v0.7.0 C-3/C-4 UI 接线（CHG-20261104-10）：教学路径 + 本地排行榜；
+       页面键变更须同步 src/core/teaching.js SHELL_PAGE_KEYS 镜像表（tests/teaching.test.js A 节交叉核对）。 */
+    { id: 'teaching', index: '08' },
+    { id: 'leaderboard', index: '09', ext: true }
   ];
   const TRUTH_PAGES = ['signals', 'causal', 'compare'];
 

@@ -44,6 +44,22 @@ code(contract.validateSignalCatalog([Object.assign({}, cat[0], { exposure: 'blin
   'blindVisible 与 exposure 不一致拒绝（派生字段禁止独立设置）');
 
 /* ------------------------------------------------------------------ *
+ * 1b. PV-001 SignalCatalog + UNIT_DICT W/m² 扩展（C-3/C-6，PV001_G2B_SPEC_APPROVED
+ *     §8 PV-G2b-03；PV-G2b-04b 回归面——schema.js UNIT_DICT 纯增项 'W/m²'）
+ * ------------------------------------------------------------------ */
+eq(contract.UNIT_DICT['W/m²'], 'irradiance', "UNIT_DICT 增 'W/m²' → irradiance（PV-001 纯增项）");
+const pvSys = FL.systems._raw.get('PV-001');
+const pvCat = pvSys.signals.map((s) => Object.assign({}, s));
+eq(pvCat.length, 17, 'PV-001 信号目录 17 项（规格 §1.2）');
+eq(contract.validateSignalCatalog(pvCat).length, 0, 'PV-001 SignalCatalog 校验通过（W/m² 通道过 CN-E02）');
+const pvWm2 = pvCat.filter((s) => s.unit === 'W/m²').map((s) => s.id);
+eq(pvWm2.join(','), 'G_true_W_m2,G_meas_W_m2,bias_W_m2', "PV-001 W/m² 信号 3 项（辐照度通道）");
+pvCat.forEach((s) => {
+  ok(contract.UNIT_DICT[s.unit] !== undefined, 'PV 信号 ' + s.id + ' 单位在字典内（' + s.unit + '）');
+  ok(contract.EXPOSURES.indexOf(s.exposure) !== -1, 'PV 信号 ' + s.id + ' exposure 合法（' + s.exposure + '）');
+});
+
+/* ------------------------------------------------------------------ *
  * 2. ScenarioConfig §2.1 视图与校验（T-07 负例子集）
  * ------------------------------------------------------------------ */
 const cfgFault = core.createConfig('FL-001', {});

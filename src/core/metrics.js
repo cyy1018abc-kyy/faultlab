@@ -13,7 +13,7 @@
   FL.core = FL.core || {};
 
   var CAP_KWH = 40;
-  var FOCAL_SIGNAL = { 'FL-001': 'I_bat_true_A', 'FC-001': 'I_fc_true_A', 'GT-001': 'P_gen_true_kW' };
+  var FOCAL_SIGNAL = { 'FL-001': 'I_bat_true_A', 'FC-001': 'I_fc_true_A', 'GT-001': 'P_gen_true_kW', 'PV-001': 'P_pv_true_kW' };
   var SOURCE_SIGNAL = { 'FL-001': 'P_gen_true_kW', 'FC-001': 'P_fc_true_kW', 'GT-001': 'P_gen_true_kW' };
   var P0_ANALYTIC = 'analytic_flux';
   var P0_ANALYTIC_VERSION = 'analytic_flux.1';
@@ -374,6 +374,36 @@
         });
       void fMin;
       void noiseEnabled;
+    }
+
+    /* ---- PV-001 专属：能量账本（EQ-PV-7；与 verify_golden pv001 scalars 注册表同名）---- */
+    if (system.id === 'PV-001') {
+      var pvInt = integrals || {};
+      mk('E_pv_true_kWh', '光伏阵列真实电能', isNum(pvInt.E_pv_true) ? pvInt.E_pv_true / 3600 : null, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_pv_true_kW'],
+          blindSafe: false,
+          definition: '∫ P_pv,true dt / 3600（EQ-PV-7；MPPT 一阶跟随的真实能量口径）'
+        });
+      mk('E_pv_est_kWh', 'EMS 辐照度折算估计电能', isNum(pvInt.E_pv_est) ? pvInt.E_pv_est / 3600 : null, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_pv_est_kW'],
+          blindSafe: true,
+          definition: '∫ P_pv,est dt / 3600（恒用测量辐照度 G_meas，A-pv-est-channel；本系统无 SOC，SOC_est 通道的功能位承担者）'
+        });
+      var pvErr = (isNum(pvInt.E_pv_est) && isNum(pvInt.E_pv_true)) ? (pvInt.E_pv_est - pvInt.E_pv_true) / 3600 : null;
+      mk('E_pv_err_kWh', '估计−真实电能差（ΔE_pv）', pvErr, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_pv_est_kW', 'P_pv_true_kW'],
+          blindSafe: false,
+          definition: 'ΔE_pv = E_pv,est − E_pv,true（EQ-PV-7；正 = 估计偏多，含 MPPT 滞后缺口或测量偏置的贡献）'
+        });
+      mk('E_grid_kWh', '馈线受电电能', isNum(pvInt.E_grid) ? pvInt.E_grid / 3600 : null, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_grid_true_kW'],
+          blindSafe: false,
+          definition: '∫ P_grid,true dt / 3600（受电为正；E_pv + E_grid = E_load 为定义恒等）'
+        });
     }
 
     return metrics;

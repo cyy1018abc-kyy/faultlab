@@ -1,0 +1,76 @@
+/* owner: teaching-ui | module: teaching page styles | contract: FaultLab-evaluation/NEXT/V070_WAVE_DESIGN.md DEC-5（C-3 UI 接线，CHG-20261104-10）
+   所有选择器限定在 .pg-teaching 作用域内，复用 css/theme.css 令牌与公共类
+  （fl-panel/fl-card/badge/chip/notice/empty/btn/hint-row）。 */
+
+.pg-teaching { display: flex; flex-direction: column; gap: 14px; }
+
+/* ---- hero ---- */
+.pg-teaching .tea-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pg-teaching .tea-hero-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.pg-teaching .tea-title { font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: .02em; color: var(--ink-0); }
+.pg-teaching .tea-title em { font-style: normal; color: var(--acc); }
+.pg-teaching .tea-sub { font-size: 12.5px; color: var(--ink-2); max-width: 76ch; line-height: 1.65; }
+.pg-teaching .tea-hero-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.pg-teaching .tea-hero-side { flex: 0 0 auto; padding-bottom: 4px; }
+
+.pg-teaching .tea-module-notice { display: flex; flex-direction: column; gap: 8px; }
+.pg-teaching .tea-module-notice:empty { display: none; }
+
+/* ---- path cards ---- */
+.pg-teaching .tea-paths { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.pg-teaching .tea-path-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.pg-teaching .tea-path-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pg-teaching .tea-path-title { font-family: var(--font-display); font-size: 14.5px; font-weight: 600; color: var(--ink-0); letter-spacing: .02em; }
+.pg-teaching .tea-path-goal { font-size: 12px; color: var(--ink-1); line-height: 1.6; }
+.pg-teaching .tea-path-prereq { display: flex; align-items: flex-start; gap: 8px; font-size: 11px; color: var(--ink-3); line-height: 1.55; }
+.pg-teaching .tea-path-prereq .eyebrow { flex: 0 0 auto; margin-top: 1px; }
+.pg-teaching .tea-path-cta { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--acc); margin-top: auto; padding-top: 2px; }
+.pg-teaching .tea-path-cta svg { width: 12px; height: 12px; }
+
+/* ---- steps ---- */
+.pg-teaching .tea-steps-body { display: flex; flex-direction: column; gap: 10px; }
+.pg-teaching .tea-steps-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pg-teaching .tea-steps { display: flex; flex-direction: column; gap: 10px; }
+
+.pg-teaching .tea-step {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 11px 13px; border: 1px solid var(--line-1); border-radius: var(--r-md);
+  background: linear-gradient(180deg, rgba(23, 30, 39, .55), rgba(17, 22, 29, .55));
+}
+.pg-teaching .tea-step--eval { border-color: rgba(200, 244, 90, .3); }
+.pg-teaching .tea-step-head { display: flex; align-items: center; gap: 10px; }
+.pg-teaching .tea-step-idx {
+  flex: 0 0 auto; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-2); border-radius: var(--r-sm);
+  font-size: 11px; color: var(--acc); background: var(--acc-dim);
+}
+.pg-teaching .tea-step-head-main { min-width: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pg-teaching .tea-step-title { font-family: var(--font-display); font-size: 13.5px; font-weight: 600; color: var(--ink-0); letter-spacing: .02em; }
+.pg-teaching .tea-step-id { font-size: 10.5px; color: var(--ink-3); }
+.pg-teaching .tea-narrative { margin: 0; font-size: 12.5px; line-height: 1.7; color: var(--ink-1); }
+
+.pg-teaching .tea-focus .tea-focus-k { font-weight: 600; color: var(--ink-2); margin-right: 6px; }
+.pg-teaching .tea-focus .tea-focus-text { color: var(--ink-3); }
+
+.pg-teaching .tea-compare {
+  border-left: 2px solid var(--acc); padding: 6px 10px;
+  background: rgba(200, 244, 90, .045); border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.pg-teaching .tea-compare-label { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--acc); }
+.pg-teaching .tea-compare-label svg { width: 12px; height: 12px; flex: 0 0 12px; }
+.pg-teaching .tea-compare-text { margin: 0; font-size: 11.5px; line-height: 1.65; color: var(--ink-2); }
+
+.pg-teaching .tea-step-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ---- footer ---- */
+.pg-teaching .tea-foot {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 11px; color: var(--ink-3); line-height: 1.6;
+  border-top: 1px solid var(--line-1); padding-top: 10px;
+}
+.pg-teaching .tea-foot-ver { margin-left: auto; }
+
+@media (max-width: 980px) {
+  .pg-teaching .tea-paths { grid-template-columns: 1fr; }
+}

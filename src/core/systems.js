@@ -1,6 +1,7 @@
 /* owner: core-engine | module: systems | contract: docs/CONTRACT.md */
-/* 三系统 SystemDef（FL-001 / FC-001 / GT-001）：拓扑、信号元数据、故障目录、模型假设、因果模板。
-   纯数据 + 查询 API，挂在 FL.systems；不依赖 DOM / FL.protocol。 */
+/* 四系统 SystemDef（FL-001 / FC-001 / GT-001 / PV-001）：拓扑、信号元数据、故障目录、模型假设、因果模板。
+   纯数据 + 查询 API，挂在 FL.systems；不依赖 DOM / FL.protocol。
+   PV-001 = PV001_G2B_SPEC_APPROVED v1.0 实现（PV-G2b-04a / CHG-20261104-10 批准）。 */
 (function () {
   'use strict';
 
@@ -105,7 +106,8 @@
 
   var UNITS = {
     time: 's', power: 'kW', current: 'A', voltage: 'V',
-    soc: '%', energy: 'kWh', frequency: 'Hz', speed: 'rpm', ratio: '%'
+    soc: '%', energy: 'kWh', frequency: 'Hz', speed: 'rpm', ratio: '%',
+    irradiance: 'W/m²' /* PV-001 新轨（PV001_G2B_SPEC_APPROVED v1.0 §8 C-3/C-6）：纯增项 */
   };
 
   /* ================================================================== */
@@ -776,6 +778,220 @@
   };
 
   /* ================================================================== */
+  /* PV-001 光伏并网等效系统（PV001_G2B_SPEC_APPROVED v1.0，CHG-20261104-10 批准；
+     实现 = PV-G2b-04a/V070 §2 T3。§1 全量：拓扑 / 17 信号 / EQ-PV-1..7 / 2 故障族） */
+  /* ================================================================== */
+  var PV001 = {
+    id: 'PV-001',
+    title: '光伏并网等效系统',
+    shortTitle: '光伏并网',
+    experimentCode: 'PV-001',
+    experimentName: '辐照度传感器偏置',
+    tagline: '在 20 秒注入 +100 W/m² 辐照度测量偏置，看 MPPT 如何把测量偏差变成真实出力偏移。光伏 L0 行为演示，不含电化学/气象/效率模型。',
+    level: 'L0 · 光伏并网等效演示（G2b 已批准）',
+    summary: '光伏阵列经 MPPT 与理想逆变器接入 400 V 等效母线，与理想平衡馈线共同为 30 kW 恒定负载供电；MPPT 按辐照度测量通道解析计算目标功率，阵列一阶跟随。光伏为不可调度电源：出力由环境辐照度与 MPPT 决定，不响应负载指令（拓扑上无 load→MPPT 信号边）。G2b 规格已批准（PV001_G2B_SPEC_APPROVED v1.0）。',
+    questions: [
+      '辐照度测量偏高时，MPPT 为什么会把真实出力抬高？',
+      '闭环为什么能把测量故障吸收进自洽（d_pv 稳态归零），仅监测为什么能让它持续暴露？',
+      '真实电能与基于辐照度估计的电能如何分离（ΔE_pv 承担 SOC_est 的功能位）？'
+    ],
+    duration_s: 60,
+    dt_s: 0.1,
+    topologyViewBox: [0, 0, 1000, 620],
+    defaults: {
+      feedback_mode: 'closed_loop',
+      /* PV-001 无储能：initial 无 SOC 键（与 FL/FC/GT 的键面差异点，规格 §1.1） */
+      initial: { load_kW: 30, G0_W_m2: 1000 },
+      noise: { enabled: false, seed: 12345, level: 0 }
+    },
+    bounds: {
+      load_kW: { min: 10, max: 45 },
+      G0_W_m2: { min: 300, max: 1000 }
+    },
+    components: [
+      comp({
+        id: 'pv_array', label: '光伏阵列', kind: 'pv_array', role: '10 kW 基准（STC）· 解析 P_mpp',
+        description: '光伏阵列（L0 解析最大功率 P_mpp = k·G·φ_T，无 I-V 曲线）；shading_step 场景有效辐照度全平面均匀阶跃下降。',
+        x: 60, y: 60, w: 190, h: 96, faultable: true,
+        inspector: [
+          { id: 'P_pv_true_kW', source: 'MODEL_STATE' },
+          { id: 'P_mpp_true_kW', source: 'MODEL_STATE' },
+          { id: 'G_true_W_m2', source: 'MODEL_STATE' }
+        ]
+      }),
+      comp({
+        id: 'mppt', label: 'MPPT 控制器', kind: 'controller', role: '测量辐照度→目标功率→一阶跟随',
+        description: '行为级一阶跟随（τ=1.0 s）：按测量辐照度解析计算目标功率；不是经过验证的设备控制器。',
+        x: 300, y: 250, w: 190, h: 100, faultable: false,
+        inspector: [
+          { id: 'P_mpp_ref_kW', source: 'CONTROLLER' },
+          { id: 'G_meas_W_m2', source: 'OBSERVATION' }
+        ]
+      }),
+      comp({
+        id: 'inverter', label: '逆变器', kind: 'converter', role: '理想 DC→AC 功率传递',
+        description: '理想逆变器：P_ac = P_pv，无开关动态、无效率曲线、无无功控制。',
+        x: 310, y: 60, w: 170, h: 96, faultable: false,
+        inspector: [
+          { id: 'P_ac_kW', source: 'MODEL_STATE' },
+          { id: 'P_pv_true_kW', source: 'MODEL_STATE' }
+        ]
+      }),
+      comp({
+        id: 'bus', label: '等效母线', kind: 'bus', role: '400 V 等效（功率平衡抽象）',
+        description: '400 V 等效母线：功率平衡的抽象等效，不是电网模型；无电压/频率动态、无功与网损。',
+        x: 540, y: 60, w: 160, h: 96, faultable: false,
+        inspector: [
+          { id: 'V_bus_V', source: 'MODEL_ASSUMPTION' },
+          { id: 'r_true_kW', source: 'DERIVED' },
+          { id: 'r_meas_kW', source: 'DERIVED' }
+        ]
+      }),
+      comp({
+        id: 'grid', label: '电网馈线（理想平衡源）', kind: 'grid', role: '理想双向补差源 · 初始 20 kW 展示',
+        description: '理想平衡功率馈线，瞬时吸收/补齐母线剩余功率；初始 20 kW 仅用于展示，不代表真实电网侧动态。',
+        x: 760, y: 60, w: 190, h: 96, faultable: false,
+        inspector: [
+          { id: 'P_grid_true_kW', source: 'MODEL_STATE' },
+          { id: 'P_grid_meas_kW', source: 'OBSERVATION' }
+        ]
+      }),
+      comp({
+        id: 'load', label: '负载', kind: 'load', role: '恒定 30 kW',
+        description: '恒定功率负载；PV-001 无 load_step 族（负载恒定是结构设定，不可调度电源的教学对照面）。',
+        x: 760, y: 250, w: 190, h: 96, faultable: false,
+        inspector: [
+          { id: 'P_load_demand_kW', source: 'CONFIG' },
+          { id: 'P_load_served_kW', source: 'MODEL_STATE' }
+        ]
+      }),
+      comp({
+        id: 'sensor', label: '辐照度传感器', kind: 'sensor', role: '辐照度测量 · 故障注入点',
+        description: '辐照度测量通道（与阵列同平面采样）；sensor_drift 场景注入阶跃偏置，MPPT 按错误辐照度重算目标。',
+        x: 60, y: 250, w: 180, h: 88, faultable: true,
+        inspector: [
+          { id: 'G_true_W_m2', source: 'MODEL_STATE' },
+          { id: 'bias_W_m2', source: 'FAULT_EVENT' },
+          { id: 'G_meas_W_m2', source: 'OBSERVATION' }
+        ]
+      })
+    ],
+    edges: [
+      { id: 'pv_array->inverter', from: 'pv_array', to: 'inverter', kind: 'power', label: '直流功率' },
+      { id: 'inverter->bus', from: 'inverter', to: 'bus', kind: 'power', label: '交流馈入' },
+      { id: 'grid->bus', from: 'grid', to: 'bus', kind: 'power', label: '补偿功率' },
+      { id: 'bus->load', from: 'bus', to: 'load', kind: 'power', label: '30 kW 需求' },
+      { id: 'pv_array->sensor', from: 'pv_array', to: 'sensor', kind: 'measurement', label: '辐照度采样（与阵列同平面）' },
+      { id: 'sensor->mppt', from: 'sensor', to: 'mppt', kind: 'measurement', label: 'G_meas' },
+      /* 刻意无 load→mppt 边：不可调度电源的结构声明（规格 §1.1） */
+      { id: 'mppt->pv_array', from: 'mppt', to: 'pv_array', kind: 'signal', label: 'MPPT 目标功率' }
+    ],
+    faultAnchors: { sensor_drift: 'sensor', shading_step: 'pv_array' },
+    signalCategories: [
+      { id: 'irradiance', label: '辐照度' },
+      { id: 'power', label: '功率' },
+      { id: 'residual', label: '残差' }
+    ],
+    signals: [
+      sig({ id: 'G_true_W_m2', label: '有效真实辐照度', shortLabel: 'G_true', unit: 'W/m²', category: 'irradiance', sourceKind: 'MODEL_STATE', definition: 'PV 阵列平面有效真实辐照度（遮挡为全平面均匀阶跃，非局部遮挡）。', formula: 'G_true = G0 − ΔG·1(t≥t0)', precision: 1, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'G_meas_W_m2', label: '辐照度测量', shortLabel: 'G_meas', unit: 'W/m²', category: 'irradiance', sourceKind: 'OBSERVATION', definition: '辐照度传感器输出 = 真实辐照度 + 传感器偏置。', formula: 'G_meas = G_true + b(t)', precision: 1, chart: { style: 'dashed', colorToken: 'obs', axis: 'left', step: true }, exposure: 'blind_observable', noiseSigma: 2.0 }),
+      sig({ id: 'bias_W_m2', label: '辐照度传感器偏置', shortLabel: 'b(t)', unit: 'W/m²', category: 'irradiance', sourceKind: 'FAULT_EVENT', definition: '故障注入的辐照度测量偏置，阶跃信号。', formula: 'b(t)=0 (t<20 s), b(t)=+100 W/m² (t≥20 s)', precision: 1, chart: { style: 'dashed', colorToken: 'fault', axis: 'right', step: true } }),
+      sig({ id: 'P_mpp_true_kW', label: '理论最大功率', shortLabel: 'P_mpp,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '当前有效辐照度下的理论最大功率（L0 解析，无 I-V 曲线与工作点约束）。', formula: 'P_mpp,true = k·G_true·φ_T, k = 0.01 kW/(W/m²)', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_mpp_ref_kW', label: 'MPPT 目标功率', shortLabel: 'P_mpp,ref', unit: 'kW', category: 'power', sourceKind: 'CONTROLLER', definition: 'MPPT 按辐照度通道解析计算的目标功率：闭环用测量辐照度，仅监测用真实辐照度。', formula: 'P_mpp,ref = k·G_loop·φ_T；G_loop = G_meas（闭环）/ G_true（仅监测）', precision: 3, chart: { style: 'dashdot', colorToken: 'warm', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'P_pv_true_kW', label: '阵列真实出力', shortLabel: 'P_pv,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '阵列真实输出功率（受控功率源以 τ_mppt = 1.0 s 一阶跟随 MPPT 目标）。', formula: 'τ_mppt·dP_pv/dt + P_pv = P_mpp,ref, τ_mppt = 1.0 s', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_pv_meas_kW', label: '阵列测量功率', shortLabel: 'P_pv,meas', unit: 'kW', category: 'power', sourceKind: 'OBSERVATION', definition: '阵列功率测量（健康通道，= 真实出力）。', formula: 'P_pv,meas = P_pv,true', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable', noiseSigma: 0.15 }),
+      sig({ id: 'P_pv_est_kW', label: 'EMS 辐照度折算估计', shortLabel: 'P_pv,est', unit: 'kW', category: 'power', sourceKind: 'DERIVED', definition: 'EMS 按测量辐照度折算的阵列功率估计；恒用测量辐照度，不随运行模式切换。', formula: 'P_pv,est = k·G_meas·φ_T', precision: 3, chart: { style: 'dotted', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'd_pv_kW', label: 'MPPT 一致性残差', shortLabel: 'd_pv', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '阵列测量功率与 EMS 估计之差（代数恒等，不是能量损失）；sensor_drift 闭环稳态归零、仅监测恒为 −0.01·b。', formula: 'd_pv = P_pv,meas − P_pv,est', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'P_ac_kW', label: '逆变器交流出力', shortLabel: 'P_ac', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '逆变器交流输出功率（理想逆变 P_ac = P_pv）。', formula: 'P_ac = P_pv,true', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_grid_true_kW', label: '馈线真实功率', shortLabel: 'P_grid,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '电网馈线真实功率（受电为正；理想双向补差，倒送为负且不建模约束）。', formula: 'P_grid = P_load − P_pv,true', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_grid_meas_kW', label: '馈线测量功率', shortLabel: 'P_grid,meas', unit: 'kW', category: 'power', sourceKind: 'OBSERVATION', definition: '馈线功率测量（健康通道）。', formula: 'P_grid,meas = P_grid,true', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable', noiseSigma: 0.15 }),
+      sig({ id: 'P_load_demand_kW', label: '负载需求功率', shortLabel: 'P_load', unit: 'kW', category: 'power', sourceKind: 'CONFIG', definition: '恒定功率负载；PV-001 无 load_step 族（负载恒定是结构设定，不可调度电源的教学对照面）。', formula: 'P_load = 30 kW', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'P_load_served_kW', label: '负载实际获得功率', shortLabel: 'P_served', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '负载实际获得的功率（理想母线即需求功率）。', formula: 'P_load,served = P_load,demand', precision: 2, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'V_bus_V', label: '等效母线电压', shortLabel: 'V_bus', unit: 'V', category: 'power', sourceKind: 'MODEL_ASSUMPTION', definition: '400 V 等效母线电压（功率平衡抽象的模型假设，不是仿真状态）。', formula: 'V_bus = 400 V', precision: 0, chart: { style: 'solid', colorToken: 'ink', axis: 'left', defaultVisible: false }, exposure: 'blind_observable', tableOnly: true }),
+      sig({ id: 'r_true_kW', label: '真实功率平衡残差', shortLabel: 'r_true', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '真实功率守恒残差，理想模型下恒为 0。', formula: 'r_true = P_pv,true + P_grid,true − P_load,served', precision: 6, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'r_meas_kW', label: '测量一致性残差', shortLabel: 'r_meas', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '由测量构造的功率平衡残差；全部功率测量通道健康，恒为 0（与 FL-001 传感器偏置的 +4 kW 测量残差形成教学对照）。', formula: 'r_meas = P_pv,meas + P_grid,meas − P_load,served', precision: 2, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable' })
+    ],
+    faults: [
+      fault({
+        id: 'G_sensor_bias', family: 'sensor_drift', label: '辐照度传感器偏置', shortLabel: '传感器漂移',
+        target: 'sensor',
+        description: '辐照度测量通道注入阶跃偏置，MPPT 按错误测量值重算目标功率，阵列真实出力跟随测量值偏移。',
+        params: [{ key: 'magnitude', label: '偏置幅值', unit: 'W/m²', min: 20, max: 300, step: 10, default: 100, precision: 0, help: '正偏置使 MPPT 高估辐照度，闭环下真实出力跟随测量值上升' }],
+        defaultTime_s: 20, timeRange: [2, 55],
+        closedLoopEffect: 'MPPT 目标由 10 kW 升至 k·(G0+b)（默认 11.00 kW），阵列 τ=1.0 s 跟随，馈线 20→19 kW；d_pv 瞬态 −1.00 kW 后归零（稳态自洽，测量冗余失效）',
+        monitorEffect: '真实出力不变；G_meas 与 P_pv,est 跳变，d_pv ≡ −0.01·b = −1.00 kW，ΔE_pv = +0.0111 kWh（估计偏多）',
+        causalTemplateId: 'pv-sensor-drift'
+      }),
+      fault({
+        /* fault id 与 pv001_v1 golden runs.shading_closed_loop.fault.fault_id 一致（T2 oracle 冻结面） */
+        id: 'shading_step', family: 'shading_step', label: '遮挡阶跃（辐照度骤降）', shortLabel: '遮挡阶跃',
+        target: 'pv_array',
+        description: '有效辐照度全平面均匀阶跃下降（物理输入，与控制模式无关）；MPPT 重算目标，阵列一阶跟随下行。',
+        params: [{ key: 'magnitude', label: '遮挡降幅', unit: 'W/m²', min: 50, max: 300, step: 25, default: 300, precision: 0, help: '有效辐照度阶跃下降，MPPT 重算目标，阵列一阶跟随；两模式同生效' }],
+        defaultTime_s: 20, timeRange: [2, 55],
+        closedLoopEffect: '物理输入，与控制模式无关：P_mpp,ref 10→7 kW，阵列跟随，馈线 20→23 kW；d_pv 瞬态 +3.00 kW（估计先跳、真实滞后）后归零',
+        monitorEffect: '同闭环（物理输入，逐位同解——PV001_G2B_SPEC_APPROVED §3.2 复算实证）',
+        causalTemplateId: 'pv-shading-step'
+      })
+    ],
+    model: {
+      model_id: 'pv.pv.l0',
+      model_version: '1.0.0',
+      assumptions: [
+        { id: 'A-pv-ideal-bus', text: '母线 400 V 等效理想，无电压/频率动态、无功与网损；等效母线是功率平衡抽象，不是电网模型。' },
+        { id: 'A-pv-ideal-inv', text: '逆变器理想功率传递（P_ac = P_dc），无开关动态、无效率曲线、无无功控制。' },
+        { id: 'A-pv-mppt-firstorder', text: 'MPPT 为行为级一阶跟随（τ_mppt = 1.0 s，教学尺度等效常数，非实测参数）。' },
+        { id: 'A-pv-mppt-est', text: 'MPPT 目标功率由辐照度测量通道解析计算（P_mpp,ref = k·G_meas·φ_T）；阵列按行为级受控功率源建模，不建模 I-V 工作点对目标超出理论最大功率的限制（正偏置闭环的真实出力可高于同辐照理论最大功率——该结构的直接推论，见 limitations）。' },
+        { id: 'A-pv-temp-const', text: '电池温度 T_cell ≡ 25 °C（STC 常温口径）；温度系数 γ_T = −0.004 /°C 登记为常量、常温下不激活；不建模温度动态与热平衡。' },
+        { id: 'A-pv-ideal-feeder', text: '电网馈线为理想双向平衡源：P_grid = P_load − P_pv，瞬时补差，无爬坡限制、无额定约束、无倒送约束。' },
+        { id: 'A-pv-const-load', text: '负载恒定 30 kW；PV-001 无 load_step 族（负载恒定是结构设定，不可调度电源的教学对照面）。' },
+        { id: 'A-pv-est-channel', text: 'P_pv,est 为 EMS 级辐照度折算估计，恒用测量辐照度 G_meas（不随运行模式切换）；d_pv 是测量链一致性残差（代数恒等），不是能量损失。' },
+        { id: 'A-pv-l0', text: 'MPPT 控制为行为级闭环，不是经过验证的设备控制器。' }
+      ],
+      limitations: [
+        'MPPT 扫描/扰动观察动态、追踪效率损失、多峰与部分遮挡空间分布（本模型遮挡为全平面均匀辐照度阶跃，非阵列局部遮挡）。',
+        '温度系数激活（T_cell 恒 25 °C，γ_T 不激活）、温度动态与热平衡。',
+        '逆变器效率曲线与开关动态、无功/电压控制、直流母线电容动态。',
+        'I-V 曲线工作点约束（阵列输出可高于同辐照理论最大功率——A-pv-mppt-est 声明的结构推论；正偏置角点 G0=300、b=+300 时 P_pv=6.00 kW = 同辐照理论最大功率 3.00 kW 的 2 倍）。',
+        '孤岛保护、低电压穿越、频率/电压穿越、防雷接地等并网保护面（无频率/电压概念）。',
+        '云层/天气连续动态（仅阶跃输入）、季节与日出日落轨迹；倒送域（load < P_pv 时 P_grid < 0）为理想双向馈线的合法工作区，不建模倒送约束。',
+        'L0 行为级演示模型；非实测、非 Simulink、无实测对比。',
+        'PV-IMP-Q1 钳位声明（实现期定案）：normalizeConfig 无跨参数校验（FL-001 同款先例），手拼配置可致有效辐照度为负；引擎侧对有效辐照度钳 0（G_true < 0 → 0），批准参数域（G0 ∈ [300,1000]、ΔG ≤ 300）内钳位不生效。'
+      ],
+      equations: [
+        { id: 'EQ-PV-1', latex_text: 'G_true(t) = G0 − ΔG·1(t ≥ t0); G_meas(t) = G_true(t) + b(t), b(t) = b0·1(t ≥ t0)', note: '输入与测量通道（t0 处右极限，post 采样行语义）' },
+        { id: 'EQ-PV-2', latex_text: 'P_mpp,true(t) = k·G_true·φ_T; k = P_STC/G_STC = 10/1000 = 0.01 kW/(W/m²), φ_T = 1 + γ_T·(T_cell − 25), T_cell ≡ 25 °C, γ_T = −0.004 /°C', note: '解析最大功率（L0 简化：无 I-V 曲线；γ_T 登记常量，常温下 φ_T = 1 不激活）' },
+        { id: 'EQ-PV-3', latex_text: 'P_mpp,ref(t) = k·G_loop·φ_T; G_loop = G_meas（closed_loop）/ G_true（monitor）', note: 'MPPT 目标；monitor 语义与 FL-001 同构（偏置不进入物理回路）' },
+        { id: 'EQ-PV-4', latex_text: 'τ_mppt·dP_pv/dt + P_pv = P_mpp,ref, τ_mppt = 1.0 s, P_pv(0) = k·G0·φ_T; t0 后 P_pv(t) = P_ref(t0+) + (P_pv(t0−) − P_ref(t0+))·e^(−(t−t0)/τ)', note: 'MPPT 一阶跟随（分段常值目标，精确指数；初值 P_pv(0)=k·G0·φ_T 为 PV-DRAFT-Q2 定案，G0=1000 时全部锚点不变）' },
+        { id: 'EQ-PV-5', latex_text: 'P_ac = P_pv,true; P_grid = P_load − P_pv,true; P_load = 30 kW', note: '理想逆变与理想瞬时平衡（馈线补差，A-pv-ideal-feeder）' },
+        { id: 'EQ-PV-6', latex_text: 'r_true ≡ 0; r_meas ≡ 0（定义恒等）; d_pv = P_pv,meas − P_pv,est = P_pv,true − k·G_meas·φ_T', note: '残差与一致性通道；sensor_drift 闭环稳态 d_pv → 0、仅监测 d_pv ≡ −0.01·b；shading d_pv 瞬态指数衰减归零' },
+        { id: 'EQ-PV-7', latex_text: 'E_x = ∫P_x dt（kW·s，÷3600 → kWh）; E_pv,est = ∫P_pv,est dt（事件感知解析积分）; ΔE_pv = E_pv,est − E_pv,true', note: '能量口径（本系统无 SOC——SOC_est 通道的功能位由 P_pv,est/ΔE_pv 承担）' }
+      ]
+    },
+    acceptance: {
+      reference: 'PV001_G2B_SPEC_APPROVED v1.0 §3（解析锚点，独立复算冻结；容差 P ±0.05 kW / E ±0.0005 kWh / d_pv(60) ≤1e-9 kW / r ≤1e-12 kW）',
+      exactness: 'PV-001 事件后目标恒定 → 分段精确指数（引擎 foStep 同构），解析锚点在表列容差内一致',
+      keyValues: {
+        r_true_kW: 0, r_meas_kW: 0,
+        A_sensor_drift_closed_loop: {
+          P_pv_true_60_kW: 11.0, P_grid_true_60_kW: 19.0, P_mpp_true_60_kW: 10.0, P_mpp_ref_60_kW: 11.0,
+          d_pv_60_kW: 0, max_abs_d_pv_kW: 1.0,
+          E_pv_true_kWh: 0.1775, E_pv_est_kWh: 0.1777778, E_pv_err_kWh: 0.0002778,
+          E_grid_kWh: 0.3225, E_load_kWh: 0.5
+        },
+        B_sensor_drift_monitor: {
+          P_pv_true_60_kW: 10.0, P_grid_true_60_kW: 20.0, d_pv_60_kW: -1.0,
+          E_pv_true_kWh: 0.1666667, E_pv_est_kWh: 0.1777778, E_pv_err_kWh: 0.0111111
+        },
+        C_shading_step_closed_loop: {
+          P_pv_true_60_kW: 7.0, P_grid_true_60_kW: 23.0, max_abs_d_pv_kW: 3.0,
+          E_pv_true_kWh: 0.1341667, E_pv_est_kWh: 0.1333333, E_pv_err_kWh: -0.0008333
+        }
+      }
+    }
+  };
+
+  /* ================================================================== */
   /* 因果模板（engine 用数值证据填充；页面只渲染 run.causal）              */
   /* layer: config = 配置事实 / mechanism = 模型机制 / observation = 数值观测 */
   /* 占位符：{t0} {mag} {unit} {sign} + engine 计算的观测事实               */
@@ -1348,7 +1564,164 @@
     }
   };
 
-  var ALL = [FL001, FC001, GT001];
+  PV001.causalTemplates = {
+    sensor_drift: {
+      id: 'pv-sensor-drift',
+      headline: 't={t0} s，{faultLabel}：{sign}{mag} {unit} 注入辐照度测量通道',
+      /* PV001_G2B_SPEC_APPROVED §6.4：核心教学点 = 「闭环把测量故障藏进自洽」；
+         r_meas ≡ 0（全功率测量通道健康）与 FL-001 的 +4 kW 测量残差形成教学对照。 */
+      mechanismSummary: '偏置污染辐照度测量通道 → MPPT 按测量值重算目标功率 → 阵列真实出力跟随测量值上升 → 馈线补差减少。闭环把测量故障吸收进自洽：一致性残差 d_pv 瞬态 {d_pv_peak} kW 后稳态归零（测量冗余在稳态对被吸收的偏置不敏感）；r_meas ≡ 0 与 FL-001 传感器偏置的 +4 kW 测量残差形成教学对照。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '偏置注入', short: '辐照度偏置 {sign}{mag} {unit}',
+          layer: 'config', componentId: 'sensor', signalIds: ['bias_W_m2'],
+          detail: '因为 {t0} s 在{targetComponent}的测量通道注入了 {sign}{mag} {unit} 阶跃偏置（{t0} s 前为 0），所以测量辐照度的生成规则变为 G_meas = G_true + b(t)。这是配置定义的故障事实，不是测量噪声，也不是模型推断。',
+          evidence: [{ varId: 'bias_W_m2', tStartOffset: -0.1, tEndOffset: 0.1, note: '事件前 b(t)=0，{t0} s 起 b(t)={sign}{mag} {unit}' }]
+        },
+        {
+          id: 'n2', order: 2, title: '测量辐照度偏高', short: 'G_meas {G_meas_pre} → {G_meas_post} W/m²',
+          layer: 'observation', componentId: 'sensor', signalIds: ['G_meas_W_m2', 'G_true_W_m2'],
+          detail: '因为偏置直接叠加在测量通道上，所以测量辐照度在 {t0} s 由 {G_meas_pre} W/m² 跳到 {G_meas_post} W/m²；此时真实辐照度仍为 {G_true_post} W/m²，理论最大功率 P_mpp,true 保持 {P_mpp_true_60} kW。',
+          evidence: [{ varId: 'G_meas_W_m2', tStartOffset: -0.1, tEndOffset: 0.1, note: '19.9 s {G_meas_pre} W/m² → 20.0 s {G_meas_post} W/m²' }]
+        },
+        {
+          id: 'n3', order: 3, title: 'MPPT 按测量值重算目标', short: 'P_mpp,ref {P_ref_pre} → {P_ref_post} kW',
+          layer: 'mechanism', componentId: 'mppt', signalIds: ['P_mpp_ref_kW', 'G_meas_W_m2'],
+          detail: '因为模型规定 MPPT 目标功率按辐照度测量通道解析计算（P_mpp,ref = k·G_meas·φ_T，EQ-PV-3），而测量辐照度被抬高 {mag} {unit}，所以目标功率从 {P_ref_pre} kW 升为 {P_ref_post} kW。MPPT 本身并不知道传感器存在偏置；真实辐照度未变，理论最大功率仍为 {P_mpp_true_60} kW。',
+          evidence: [{ varId: 'P_mpp_ref_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: 'P_mpp,ref 保持 {P_ref_post} kW 不变，被污染的是辐照度输入通道' }]
+        },
+        {
+          id: 'n4', order: 4, title: '阵列真实出力跟随上升', short: 'P_pv {P_pv_pre} → {P_pv_60} kW',
+          layer: 'observation', componentId: 'pv_array', signalIds: ['P_pv_true_kW', 'P_pv_meas_kW'],
+          detail: '因为阵列按受控功率源以 τ_mppt = 1.0 s 一阶跟随新目标 {P_ref_post} kW，所以真实出力从 {P_pv_pre} kW 升到 {P_pv_60} kW。闭环正偏置下真实出力高于同辐照理论最大功率 {P_mpp_true_60} kW——这是 A-pv-mppt-est 声明的结构推论（本模型不建模 I-V 工作点上限，见 limitations）。',
+          evidence: [{ varId: 'P_pv_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障时刻后真实出力一阶上升：20.0 s {P_pv_pre} kW → 60.0 s {P_pv_60} kW' }]
+        },
+        {
+          id: 'n5', order: 5, title: '馈线补差减少', short: 'P_grid {P_grid_pre} → {P_grid_60} kW',
+          layer: 'observation', componentId: 'grid', signalIds: ['P_grid_true_kW'],
+          detail: '因为负载恒定 {P_load_60} kW 且阵列多发了功率，所以理想馈线的补差功率由 {P_grid_pre} kW 降到 {P_grid_60} kW（受电为正，瞬时补差）。',
+          evidence: [{ varId: 'P_grid_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s {P_grid_pre} kW → 60.0 s {P_grid_60} kW' }]
+        },
+        {
+          /* ⑥ 一致性残差：代数恒等（PV001_G2B_SPEC_APPROVED §6.4 / UI_COPY_GUARDRAILS §3.3 口径）。
+             d_pv 是测量链一致性的代数恒等，不是能量损失，也不是 ⑤ 的结果。 */
+          id: 'n6', order: 6, title: 'MPPT 一致性残差', short: 'd_pv 瞬态 {d_pv_peak} kW → 稳态 {d_pv_60} kW；r_meas = {r_meas_max}',
+          layer: 'observation', componentId: 'bus', signalIds: ['d_pv_kW', 'r_meas_kW', 'r_true_kW'],
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: 'd_pv = P_pv,meas − P_pv,est = P_pv,true − k·G_meas·φ_T（代数恒等，不是能量损失）。估计通道按瞬时跳变、真实出力按 τ = 1.0 s 滞后，故 {t0} s 处 d_pv = {d_pv_peak} kW，随后随真实出力跟上而稳态归零（{d_pv_60} kW）——闭环把测量故障吸收进自洽，测量冗余在稳态对被吸收的偏置不敏感。r_meas = {r_meas_max} kW：全部功率测量通道健康，与 FL-001 传感器偏置的 +4 kW 测量残差形成教学对照；r_true = {r_true_max} kW。能量账本：E_pv = {E_pv} kWh、E_pv,est = {E_pv_est} kWh、ΔE_pv = {E_pv_err} kWh（MPPT 滞后缺口）。',
+          evidence: [{ varId: 'd_pv_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障后 d_pv 从 {d_pv_peak} kW 指数回归 0（稳态自洽）' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '注入测量通道' },
+        { from: 'n2', to: 'n3', label: '进入 MPPT 目标' },
+        { from: 'n3', to: 'n4', label: '阵列一阶跟随' },
+        { from: 'n4', to: 'n5', label: '馈线补差变化' },
+        /* ⑥ 不挂在 ⑤ 下游：从 ② 测量通道分支以虚线接入（G0-DEC-13 同构） */
+        { from: 'n2', to: 'n6', label: '测量通道偏差的代数当量', dashed: true }
+      ],
+      monitorNodes: [
+        {
+          id: 'm1', order: 1, title: '偏置注入', short: '辐照度偏置 {sign}{mag} {unit}',
+          layer: 'config', componentId: 'sensor', signalIds: ['bias_W_m2'],
+          detail: '因为 {t0} s 在{targetComponent}的测量通道注入了 {sign}{mag} {unit} 阶跃偏置，所以测量辐照度规则变为 G_meas = G_true + b(t)。本次运行是仅监测模式：偏置不进入物理回路，不影响真实出力。',
+          evidence: [{ varId: 'bias_W_m2', tStartOffset: -0.1, tEndOffset: 0.1, note: '事件前 b(t)=0，{t0} s 起 b(t)={sign}{mag} {unit}' }]
+        },
+        {
+          id: 'm2', order: 2, title: '测量辐照度偏高', short: 'G_meas {G_meas_pre} → {G_meas_post} W/m²',
+          layer: 'observation', componentId: 'sensor', signalIds: ['G_meas_W_m2', 'G_true_W_m2'],
+          detail: '因为偏置叠加在测量通道，所以测量辐照度由 {G_meas_pre} W/m² 跳到 {G_meas_post} W/m²；仅监测模式下真实辐照度保持 {G_true_post} W/m²，测量与真实分离。',
+          evidence: [{ varId: 'G_meas_W_m2', tStartOffset: -0.1, tEndOffset: 0.1, note: '19.9 s {G_meas_pre} W/m² → 20.0 s {G_meas_post} W/m²' }]
+        },
+        {
+          id: 'm3', order: 3, title: '真实出力保持不变', short: 'P_pv ≡ {P_pv_pre} kW',
+          layer: 'mechanism', componentId: 'pv_array', signalIds: ['P_pv_true_kW'],
+          detail: '因为仅监测模式下 MPPT 目标改用真实辐照度（G_loop = G_true，EQ-PV-3 的 monitor 语义），所以阵列真实出力恒为 {P_pv_pre} kW、馈线恒为 {P_grid_60} kW；故障只改变测量与估计，不改变物理状态。',
+          evidence: [{ varId: 'P_pv_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障期间真实出力保持 {P_pv_pre} kW' }]
+        },
+        {
+          id: 'm4', order: 4, title: '一致性残差持续暴露', short: 'd_pv ≡ {d_pv_60} kW',
+          layer: 'observation', componentId: 'bus', signalIds: ['d_pv_kW'],
+          detail: '因为估计通道恒用测量辐照度（P_pv,est = k·G_meas·φ_T，不随运行模式切换），所以 d_pv = P_pv,true − k·G_meas·φ_T 在故障期间恒为 {d_pv_60} kW（= −0.01·b，代数恒等，不是能量损失）；与闭环稳态归零形成对照——仅监测让测量故障持续可见。',
+          evidence: [{ varId: 'd_pv_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障期间 d_pv 恒为 {d_pv_60} kW' }]
+        },
+        {
+          id: 'm5', order: 5, title: '估计电能偏多', short: 'ΔE_pv = {E_pv_err} kWh',
+          layer: 'observation', componentId: 'pv_array', signalIds: ['P_pv_est_kW'],
+          detail: '因为估计按被抬高的测量辐照度积分，所以 E_pv,est = {E_pv_est} kWh 高于真实 E_pv = {E_pv} kWh，ΔE_pv = {E_pv_err} kWh（估计偏多）；本系统无 SOC，SOC_est 通道的功能位由 P_pv,est/ΔE_pv 承担，真实电能与无故障基准相同。',
+          evidence: [{ varId: 'P_pv_est_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '估计功率阶跃后保持 {P_ref_post} kW，与真实出力分离' }]
+        }
+      ],
+      monitorEdges: [
+        { from: 'm1', to: 'm2', label: '注入测量通道' },
+        { from: 'm1', to: 'm3', label: '不进入物理回路' },
+        { from: 'm2', to: 'm4', label: '估计通道读测量值' },
+        { from: 'm3', to: 'm5', label: '真实能量不变，仅估计偏移' }
+      ],
+      assumptions: ['A-pv-ideal-bus', 'A-pv-ideal-feeder', 'A-pv-mppt-est', 'A-pv-est-channel', 'A-pv-l0'],
+      limitations: ['τ_mppt = 1.0 s 为行为级等效时间常数，非实测参数。', '闭环正偏置下真实出力可高于同辐照理论最大功率（A-pv-mppt-est 结构推论）。', 'L0 演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若为仅监测模式', text: '偏置不进入物理回路，真实出力保持 10 kW，只有测量辐照度、估计功率与 d_pv = −0.01·b 暴露故障；ΔE_pv = +0.0111 kWh（默认参数，估计偏多）。' }]
+    },
+    shading_step: {
+      id: 'pv-shading-step',
+      headline: 't={t0} s，{faultLabel}：有效辐照度下降 {mag} {unit}',
+      mechanismSummary: '遮挡是物理输入阶跃，与控制模式无关：有效辐照度骤降 → MPPT 重算目标 → 阵列一阶跟随下行 → 馈线补差上升。d_pv 出现瞬态 {d_pv_peak} kW（估计先跳、真实滞后）后归零。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '遮挡阶跃注入', short: 'G_true {G_true_pre} → {G_true_post} W/m²',
+          layer: 'config', componentId: 'pv_array', signalIds: ['G_true_W_m2'],
+          detail: '因为 {t0} s 有效辐照度从 {G_true_pre} W/m² 阶跃下降 {mag} {unit} 到 {G_true_post} W/m²（全平面均匀遮挡，非局部遮挡），所以阵列的物理输入发生阶跃。这是配置定义的物理输入事实，与控制模式无关。',
+          evidence: [{ varId: 'G_true_W_m2', tStartOffset: -0.1, tEndOffset: 0.1, note: '19.9 s {G_true_pre} W/m² → 20.0 s {G_true_post} W/m²' }]
+        },
+        {
+          id: 'n2', order: 2, title: '两模式同生效', short: '物理输入：闭环与仅监测同解',
+          layer: 'mechanism', componentId: 'mppt', signalIds: ['P_mpp_true_kW', 'G_true_W_m2'],
+          detail: '因为遮挡作用于物理输入而非测量通道，所以两种运行模式下物理过程完全相同（PV001_G2B_SPEC_APPROVED §3.2 复算实证：全序列最大差 0）；理论最大功率同步由 {P_ref_pre} kW 量级降为 {P_mpp_true_60} kW（t≥{t0} s）。',
+          evidence: [{ varId: 'P_mpp_true_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: '理论最大功率随有效辐照度同步阶跃' }]
+        },
+        {
+          id: 'n3', order: 3, title: 'MPPT 目标重算', short: 'P_mpp,ref {P_ref_pre} → {P_ref_post} kW',
+          layer: 'mechanism', componentId: 'mppt', signalIds: ['P_mpp_ref_kW'],
+          detail: '因为 MPPT 按辐照度通道解析计算目标功率（P_mpp,ref = k·G_loop·φ_T，EQ-PV-3），而有效辐照度已阶跃下降，所以目标功率从 {P_ref_pre} kW 降为 {P_ref_post} kW（闭环与仅监测同值）。',
+          evidence: [{ varId: 'P_mpp_ref_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: '19.9 s {P_ref_pre} kW → 20.0 s {P_ref_post} kW' }]
+        },
+        {
+          id: 'n4', order: 4, title: '阵列一阶跟随下行', short: 'P_pv {P_pv_pre} → {P_pv_60} kW',
+          layer: 'observation', componentId: 'pv_array', signalIds: ['P_pv_true_kW'],
+          detail: '因为阵列按受控功率源以 τ_mppt = 1.0 s 一阶跟随新目标 {P_ref_post} kW，所以真实出力从 {P_pv_pre} kW 降到 {P_pv_60} kW（指数衰减，无超调）。',
+          evidence: [{ varId: 'P_pv_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障时刻后真实出力一阶下降：20.0 s {P_pv_pre} kW → 60.0 s {P_pv_60} kW' }]
+        },
+        {
+          id: 'n5', order: 5, title: '馈线补差上升', short: 'P_grid {P_grid_pre} → {P_grid_60} kW',
+          layer: 'observation', componentId: 'grid', signalIds: ['P_grid_true_kW'],
+          detail: '因为负载恒定 {P_load_60} kW 且阵列少发了功率，所以理想馈线的补差功率由 {P_grid_pre} kW 升到 {P_grid_60} kW（受电为正，瞬时补差）。',
+          evidence: [{ varId: 'P_grid_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s {P_grid_pre} kW → 60.0 s {P_grid_60} kW' }]
+        },
+        {
+          id: 'n6', order: 6, title: '一致性残差瞬态', short: 'd_pv 瞬态 +{d_pv_peak} kW → {d_pv_60} kW',
+          layer: 'observation', componentId: 'bus', signalIds: ['d_pv_kW', 'r_true_kW', 'r_meas_kW'],
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: '遮挡时刻估计先跳（P_pv,est = k·G_meas·φ_T 立即下降）、真实出力滞后（τ_mppt = 1.0 s），d_pv = P_pv,meas − P_pv,est 出现 {d_pv_peak} kW 瞬态后随真实出力跟上而归零（{d_pv_60} kW；代数恒等，不是能量损失）。r_true = {r_true_max} kW、r_meas = {r_meas_max} kW 恒为零。能量账本：E_pv = {E_pv} kWh、E_pv,est = {E_pv_est} kWh、ΔE_pv = {E_pv_err} kWh（真实滞后缺口，估计按瞬时跳变）。',
+          evidence: [{ varId: 'd_pv_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障后 d_pv 从 {d_pv_peak} kW 指数回归 0' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '物理输入阶跃' },
+        { from: 'n2', to: 'n3', label: '目标重算' },
+        { from: 'n3', to: 'n4', label: '一阶跟随' },
+        { from: 'n4', to: 'n5', label: '馈线补差变化' },
+        { from: 'n3', to: 'n6', label: '估计通道瞬时跳变', dashed: true },
+        { from: 'n4', to: 'n6', label: '真实出力滞后' }
+      ],
+      assumptions: ['A-pv-ideal-bus', 'A-pv-ideal-feeder', 'A-pv-mppt-firstorder', 'A-pv-est-channel', 'A-pv-l0'],
+      limitations: ['遮挡为全平面均匀辐照度阶跃，非阵列局部遮挡与 MPPT 扫描动态。', 'τ_mppt = 1.0 s 为行为级等效时间常数，非实测参数。', 'L0 演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若遮挡发生在测量通道而非物理面', text: '那将成为 sensor_drift 类故障：闭环会把测量偏差变成真实出力偏移，仅监测则保持真实状态不变——与本物理输入阶跃（两模式同解）形成教学对照。' }]
+    }
+  };
+
+  var ALL = [FL001, FC001, GT001, PV001];
   var BY_ID = {};
   ALL.forEach(function (s) { BY_ID[s.id] = s; });
 

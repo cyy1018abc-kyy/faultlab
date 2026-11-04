@@ -5,6 +5,7 @@
   python scripts/verify_golden.py                # fl001（默认）
   python scripts/verify_golden.py fc001          # FC-001（P1-06 / G2b-lite）
   python scripts/verify_golden.py gt001          # GT-001（V3-31 / G2b v1.1）
+  python scripts/verify_golden.py pv001          # PV-001（PV-G2b-03 / v0.7，CHG-20261104-10 批准链）
   python scripts/verify_golden.py --json out.json
 
 退出码：0=全部通过；1=数值/容差不通过（或 golden/oracle 缺失损坏）；2=oracle 内部自检失败。
@@ -13,7 +14,7 @@
   V-01 golden 存在且可解析；V-02 sidecar SHA-256 一致；
   V-03 generated_by.oracle_source_sha256 == 当前 oracle 源码 SHA-256；
   V-03b approval 批准摘要一致（去除 generated_by/approval 后内容摘要）；
-  V-04 oracle 自检全过（fl001 SC-1…9 / fc001 SC-1…7）；
+  V-04 oracle 自检全过（fl001 SC-1…9 / fc001 SC-1…7 / gt001 GS-1…8 / pv001 PS-1…7）；
   V-05 关键点（19.9/21.5/26.0/60.0 s 的 true/meas 电流）rtol 1e-12；
   V-06 标量（E/SOC）gate 容差（±1e-6 kWh / ±1e-5 pp）；
   V-07 601 点全精度序列逐点比对；V-08 指标；V-09 事件 pre/post。
@@ -36,6 +37,7 @@ sys.path.insert(0, ORACLE_DIR)
 import fl001_oracle  # noqa: E402
 import fc001_oracle  # noqa: E402
 import gt001_oracle  # noqa: E402
+import pv001_oracle  # noqa: E402  PV-001（PV-G2b-03 / CHG-20261104-10 批准链；PV001_G2B_SPEC_APPROVED §4 项 7）
 
 MODELS = {
     "fl001": {
@@ -64,6 +66,15 @@ MODELS = {
         "scalars": [
             ("E_source_kWh", "kWh"), ("E_bat_kWh", "kWh"), ("E_load_kWh", "kWh"), ("E_rotor_kWh", "kWh"),
             ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
+        ],
+    },
+    "pv001": {
+        "oracle": pv001_oracle,
+        "event_tol": "P_kW_atol",  # PV gate 无 I_A_atol：事件快照相位值按 P_kW_atol 判
+        "i_true": "P_pv_true_kW", "i_meas": "P_pv_meas_kW",
+        "scalars": [
+            ("E_pv_true_kWh", "kWh"), ("E_pv_est_kWh", "kWh"), ("E_pv_err_kWh", "kWh"),
+            ("E_grid_kWh", "kWh"), ("E_load_kWh", "kWh"),
         ],
     },
 }

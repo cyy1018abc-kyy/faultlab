@@ -239,8 +239,11 @@ eq(FL.rng.gauss(FL.rng.mulberry32(5)), FL.rng.gauss(FL.rng.mulberry32(5)), 'rng.
 /* 1. SystemDef 元数据完整性                                           */
 /* ================================================================== */
 const sysList = systems.list();
-eq(sysList.length, 3, 'systems.list 返回三个系统');
-eq(sysList.map((s) => s.id).join(','), 'FL-001,FC-001,GT-001', 'systems.list 顺序稳定');
+/* PV-001 注册（PV001_G2B_SPEC_APPROVED v1.0 / CHG-20261104-10）：注册表 3→4，
+   系统卡自动注册为 V070_WAVE_DESIGN §3 预期失效面；本两条仅随注册表键面演进，
+   三系统物理/数值断言零改动 */
+eq(sysList.length, 4, 'systems.list 返回四个系统');
+eq(sysList.map((s) => s.id).join(','), 'FL-001,FC-001,GT-001,PV-001', 'systems.list 顺序稳定');
 sysList.forEach((item) => {
   ok(item.experimentCode && item.title && item.shortTitle && item.tagline && item.level, 'systems.list 字段齐备（' + item.id + '）');
   eq(item.available, true, 'systems.list available（' + item.id + '）');

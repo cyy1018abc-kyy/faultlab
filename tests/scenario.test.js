@@ -121,7 +121,10 @@ neg(scen('FL-001', [ev()], { version: 2 }), 'N06 version=2', 'version', '只支�
 neg(scen('FL-001', [ev()], { version: '1' }), 'N07 version 类型错误（字符串）', 'version');
 
 /* system（3 类） */
-neg(scen('PV-001', [ev()]), 'N08 未知 system（PV-001）', 'system', '未知系统');
+/* PV-001 已注册进 systems.js 目录（PV001_G2B_SPEC_APPROVED v1.0 / CHG-20261104-10；
+   V070 §3 预期失效面：PV 族随 systems.js 目录入编排）——N08 负例改用未注册 id，
+   保留「未知 system → 未知系统」断言意图 */
+neg(scen('XX-999', [ev()]), 'N08 未知 system（XX-999 未注册）', 'system', '未知系统');
 neg(scen(42, [ev()]), 'N09 system 非字符串', 'system');
 const noSystem = { version: 1, events: [ev()] };
 neg(noSystem, 'N10 缺 system', 'system');
@@ -341,7 +344,92 @@ eq(samples['GT-001'].events[0].t_clear_s, 35, 'GT 样例含 t_clear_s=35（GT �
   eq(FL.registry.verifyRunHash(r.runs[0]), true, '内置样例 ' + sid + ' run_hash 自校验通过');
 });
 
-/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ *
+ * 6. PV-001 编排（DEC-6：族随 systems.js 目录自动入编排白名单；
+ *    PV001_G2B_SPEC_APPROVED v1.0 / CHG-20261104-10，PV-G2b-04b 回归面）
+ * ------------------------------------------------------------------ */
+const pvSystem = FL.systems.get('PV-001');
+eq(pvSystem.duration_s, 60, 'PV-001 运行网格 60 s（schema v1 固定面）');
+eq(pvSystem.dt_s, 0.1, 'PV-001 运行网格 0.1 s');
+eq(pvSystem.faults.map((f) => f.family).join(','), 'sensor_drift,shading_step',
+  'PV-001 故障目录两族（DEC-6 白名单事实源 = systems.js 目录）');
+
+const PV_SENSOR = {
+  scenario_id: 'pv001-sensor-drift-cl',
+  version: 1,
+  label: 'PV-001 辐照度传感器偏置（闭环，+100 W/m² @ 20 s）',
+  system: 'PV-001',
+  events: [
+    { key: 'pv-bias', label: '辐照度传感器偏置', family: 'sensor_drift', params: { magnitude: 100 }, t_start_s: 20, feedback_mode: 'closed_loop' }
+  ]
+};
+const pPv = SC.parseScenario(PV_SENSOR);
+ok(pPv.ok === true, 'PV sensor_drift 事件 parse 通过（族随目录自动入编排白名单，DEC-6）', JSON.stringify(pPv.errors));
+eq(pPv.scenario && pPv.scenario.events[0].params.magnitude, 100, 'PV 事件 params 显式值保留');
+ok(pPv.scenario && !('t_clear_s' in pPv.scenario.events[0]), 'PV 事件归一化后无 t_clear_s 键');
+
+const pPvShade = SC.parseScenario(scen('PV-001', [{ key: 'pv-shade', family: 'shading_step', params: {}, t_start_s: 20, feedback_mode: 'monitor' }]));
+ok(pPvShade.ok && pPvShade.scenario.events[0].params.magnitude === 300,
+  'PV shading_step 事件 parse 通过（params 置空 → 目录默认 −300 W/m² 补齐）', JSON.stringify(pPvShade.errors));
+
+/* PV 负例（目录面守卫）：未知族 / 越域 / t_clear_s 非 GT-执行器拒绝 */
+neg(scen('PV-001', [ev({ key: 'a', family: 'load_step', params: {}, t_start_s: 20, feedback_mode: 'closed_loop' })]),
+  'PV-001 目录不含 load_step', 'events[0].family', '故障目录不含');
+neg(scen('PV-001', [{ key: 'a', family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop' }]),
+  'PV sensor_drift 越下界（10 < 20 W/m²）', 'events[0].params.magnitude', '之间');
+neg(scen('PV-001', [ev({ key: 'a', family: 'shading_step', params: { magnitude: 300 }, t_start_s: 20, t_clear_s: 35, feedback_mode: 'closed_loop' })]),
+  'PV 事件带 t_clear_s（仅 GT-001 × actuator_fault）', 'events[0].t_clear_s', '仅 GT-001 × actuator_fault');
+
+/* executeScenario 冒烟：PV 双事件场景（闭环 sensor_drift + 仅监测 shading） */
+const PV2 = {
+  version: 1,
+  system: 'PV-001',
+  label: 'PV-001 双事件',
+  events: [
+    { key: 'pv-cl', family: 'sensor_drift', params: { magnitude: 100 }, t_start_s: 20, feedback_mode: 'closed_loop' },
+    { key: 'pv-mon', family: 'shading_step', params: { magnitude: 300 }, t_start_s: 20, feedback_mode: 'monitor' }
+  ]
+};
+const pv2Before = JSON.stringify(PV2);
+const pvRes = SC.executeScenario(PV2, { runIdPrefix: 'PV-SCEN', createdAt: TS });
+eq(JSON.stringify(PV2), pv2Before, 'executeScenario 不改写输入 JSON（PV 纯函数面）');
+eq(pvRes.runs.length, 2, 'PV 场景执行 2 Run');
+eq(pvRes.scenarioHash, SC.scenarioHash(PV2), 'executeScenario.scenarioHash 与独立计算一致（PV）');
+pvRes.runs.forEach((run, i) => {
+  const evSpec = PV2.events[i];
+  const tag = 'PV Run ' + (i + 1) + '（' + evSpec.key + '）';
+  eq(run.runId, 'PV-SCEN-' + String(i + 1).padStart(2, '0'), tag + ' runId 前缀生效');
+  eq(run.status, 'completed', tag + ' status=completed');
+  eq(run.systemId, 'PV-001', tag + ' systemId');
+  eq(run.config.duration_s, 60, tag + ' duration 60 s');
+  eq(run.config.dt_s, 0.1, tag + ' dt 0.1 s');
+  eq(run.config.initial.load_kW, 30, tag + ' initial 用系统默认 load 30 kW');
+  ok(!('SOC_pct' in run.config.initial), tag + ' initial 无 SOC 键（PV 无储能键面，规格 §1.1）');
+  eq(run.config.noise.enabled, false, tag + ' noise 关闭');
+  eq(run.config.feedback_mode, evSpec.feedback_mode, tag + ' feedback_mode 透传');
+  eq(run.config.fault.family, evSpec.family, tag + ' fault.family');
+  eq(run.config.fault.t_start_s, 20, tag + ' fault.t_start_s');
+  eq(run.config.fault.params.magnitude, evSpec.params.magnitude, tag + ' fault.params.magnitude');
+  eq(FL.registry.verifyRunHash(run), true, tag + ' run_hash 自校验通过');
+  ok(run.timeseries.signals.P_pv_true_kW && run.timeseries.signals.P_pv_true_kW.length === 601,
+    tag + ' P_pv 信号面在场（PV 轨，601 点）');
+});
+eq(pvRes.runs[0].role, 'fault', 'PV 闭环轨 role=fault');
+eq(pvRes.runs[1].role, 'contrast', 'PV 仅监测轨 role=contrast');
+eq(pvRes.runs[0].label, 'PV-001 双事件 · pv-cl', 'PV 无 label 事件回退 key（可追溯）');
+ok(Math.abs(pvRes.runs[0].timeseries.signals.P_pv_true_kW[600] - 11.0) <= 0.05,
+  'PV Run1 P_pv(60)→11.00 kW（PV 物理，非 GT 兜底面）', String(pvRes.runs[0].timeseries.signals.P_pv_true_kW[600]));
+ok(Math.abs(pvRes.runs[1].timeseries.signals.P_pv_true_kW[600] - 7.0) <= 0.05,
+  'PV Run2 P_pv(60)→7.00 kW（shading 物理输入两模式同生效）', String(pvRes.runs[1].timeseries.signals.P_pv_true_kW[600]));
+eq(pvRes.runs[0].manifest.scope, 'extension_preview', 'PV Run scope=extension_preview（规格 §2.4/§5）');
+
+/* PV roundtrip：键序倒置 → 同 scenarioHash（与 FL/FC/GT 同保证） */
+eq(SC.scenarioHash(reverseKeysDeep(PV_SENSOR)), SC.scenarioHash(PV_SENSOR), 'PV 场景键序倒置 → 同 scenarioHash');
+const pvMag = clone(PV_SENSOR);
+pvMag.events[0].params.magnitude = 200;
+ok(SC.scenarioHash(pvMag) !== SC.scenarioHash(PV_SENSOR), 'PV 参数不同 → 哈希不同');
+
+
 console.log('\n================================================');
 console.log('PASS ' + pass + ' / FAIL ' + fail + (fail ? '  ✗' : '  ✓'));
 if (fail) {

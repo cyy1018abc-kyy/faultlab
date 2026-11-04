@@ -1,0 +1,55 @@
+/* owner: leaderboard-ui | module: leaderboard page styles | contract: FaultLab-evaluation/NEXT/V070_WAVE_DESIGN.md DEC-6（C-4 只读 UI 视图，CHG-20261104-10）
+   所有选择器限定在 .pg-leaderboard 作用域内，复用 css/theme.css 令牌与公共类
+  （fl-panel/badge/chip/notice/empty/btn/hint-row）。 */
+
+.pg-leaderboard { display: flex; flex-direction: column; gap: 14px; }
+
+/* ---- hero ---- */
+.pg-leaderboard .lb-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pg-leaderboard .lb-hero-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.pg-leaderboard .lb-title { font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: .02em; color: var(--ink-0); }
+.pg-leaderboard .lb-title em { font-style: normal; color: var(--acc); }
+.pg-leaderboard .lb-sub { font-size: 12.5px; color: var(--ink-2); max-width: 76ch; line-height: 1.65; }
+.pg-leaderboard .lb-hero-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.pg-leaderboard .lb-hero-side { flex: 0 0 auto; padding-bottom: 4px; }
+
+/* ---- import ---- */
+.pg-leaderboard .lb-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.pg-leaderboard .lb-file-label { position: relative; overflow: hidden; }
+.pg-leaderboard .lb-import-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pg-leaderboard .lb-verdict { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 18px; }
+
+.pg-leaderboard .lb-error-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.pg-leaderboard .lb-error-item {
+  padding: 6px 9px; border: 1px solid rgba(255, 95, 109, .22); border-radius: var(--r-sm);
+  background: rgba(255, 95, 109, .05); font-size: 11.5px; line-height: 1.55; color: var(--ink-1);
+  overflow-wrap: anywhere;
+}
+.pg-leaderboard .lb-error-more { border-style: dashed; color: var(--ink-3); text-align: center; }
+
+/* ---- source meta + 固定措辞 ---- */
+.pg-leaderboard .lb-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pg-leaderboard .lb-notice { margin-top: 10px; }
+
+/* ---- ranking table（只读） ---- */
+.pg-leaderboard .lb-table-wrap { overflow-x: auto; }
+.pg-leaderboard .lb-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pg-leaderboard .lb-table th {
+  text-align: left; font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3);
+  padding: 6px 10px; border-bottom: 1px solid var(--line-2); white-space: nowrap;
+}
+.pg-leaderboard .lb-table td { padding: 8px 10px; border-bottom: 1px solid var(--line-1); color: var(--ink-1); }
+.pg-leaderboard .lb-table tbody tr:hover { background: rgba(255, 255, 255, .02); }
+.pg-leaderboard .lb-table th.lb-col-num, .pg-leaderboard .lb-table td.lb-col-num { text-align: right; white-space: nowrap; }
+.pg-leaderboard .lb-col-rank { color: var(--acc); font-family: var(--font-mono); font-size: 11.5px; }
+.pg-leaderboard .lb-col-participant { color: var(--ink-0); font-weight: 600; overflow-wrap: anywhere; }
+.pg-leaderboard .lb-col-note { color: var(--ink-3); font-size: 11.5px; }
+
+/* ---- footer ---- */
+.pg-leaderboard .lb-foot {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 11px; color: var(--ink-3); line-height: 1.6;
+  border-top: 1px solid var(--line-1); padding-top: 10px;
+}
+.pg-leaderboard .lb-foot-ver { margin-left: auto; }
