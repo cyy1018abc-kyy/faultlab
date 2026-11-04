@@ -14,7 +14,10 @@
  *   E-05 指标与 golden 关键值一致（E_bat_true_60s ±1e-6 kWh）；
  *   E-06 因果证据链：六节点、evidence 带 rule_id/time_window_s（I-08 最小版）；
  *   E-07 EvidenceBundle v1 在浏览器内构建→导入→run_hash 一致；
- *   E-08 全程无 console error、无外部网络请求（纯浏览器离线）。
+ *   E-08 全程无 console error、无外部网络请求（纯浏览器离线）；
+ *   E-09 深链残留面：teaching 页 → hash 深链进 signals → 切 scenario（SPA 离开）
+ *        → #page-signals 恢复非激活隐藏（v0.7.0 UI 路探针发现路径固化，
+ *        v0.7.2 清算项 4；E-02 用整页刷新覆盖不到这条 SPA 残留路径）。
  *
  * 退出码：0=全部通过；1=存在失败项。报告写 <--out 目录>/e2e-report.json。
  *
@@ -374,6 +377,52 @@ async function main() {
     eq(bundleCheck.role, 'imported', 'E-07：导入角色=imported');
     eq(bundleCheck.points, 601, 'E-07：导入重建 601 点');
 
+    /* E-09 深链残留面（v0.7.0 UI 路探针发现路径固化，v0.7.2 清算项 4）：
+       缺陷史——signals 曾把 .pg-signals/.page-pad 挂到 shell 的 section.page 上，
+       同特异性下 signals.css（index.html 中晚于 theme.css 加载）的
+       .pg-signals{display:block} 压过 .page{display:none}，SPA 离开本页后
+       section 恒可见。修复为内层根 div 模式（与 teaching/leaderboard 页同构）。
+       本块把发现路径固化为断言：teaching → hash 深链 signals（本会话首次挂载）
+       → 切 scenario（SPA 离开）→ #page-signals 必须恢复非激活隐藏。
+       E-02 的五视图深链走整页刷新，覆盖不到这条 SPA 残留路径。 */
+    await cdp.evalExpr(`FL.store.actions.navigate('teaching');`);
+    await wait(450);
+    eq(await cdp.evalExpr(`FL.store.getState().page`), 'teaching', 'E-09：SPA 进入教学页');
+
+    /* 深链走 hash 路由（hashchange → navigate），与 actions.navigate 直调不同入口 */
+    await cdp.evalExpr(`location.hash = '#/signals';`);
+    await wait(450);
+    const onSignals = await cdp.evalExpr(`(function(){
+      const sec = document.getElementById('page-signals');
+      const inner = sec && sec.querySelector(':scope > .pg-signals');
+      return { page: FL.store.getState().page,
+               sectionPg: sec.classList.contains('pg-signals') || sec.classList.contains('page-pad'),
+               hasInner: !!inner, display: getComputedStyle(sec).display,
+               visible: !!sec.offsetParent };
+    })()`);
+    eq(onSignals.page, 'signals', 'E-09：hash 深链 #/signals 可达');
+    eq(onSignals.sectionPg, false, 'E-09：signals 挂载不改 shell section 类（内层根 div 模式）');
+    eq(onSignals.hasInner, true, 'E-09：.pg-signals 挂在本页内层根 div 上');
+    ok(onSignals.display === 'block' && onSignals.visible, 'E-09：激活态 #page-signals 可见');
+
+    /* 切 scenario：startExperiment 重置为默认场景并 SPA 导航到 system 页 */
+    await cdp.evalExpr(`FL.store.actions.startExperiment('FL-001');`);
+    await wait(450);
+    const afterLeave = await cdp.evalExpr(`(function(){
+      const sig = document.getElementById('page-signals');
+      const tea = document.getElementById('page-teaching');
+      return { page: FL.store.getState().page,
+               sigDisplay: getComputedStyle(sig).display, sigVisible: !!sig.offsetParent,
+               teaDisplay: getComputedStyle(tea).display, teaVisible: !!tea.offsetParent };
+    })()`);
+    eq(afterLeave.page, 'system', 'E-09：切 scenario 后 SPA 离开 signals');
+    ok(afterLeave.sigDisplay !== 'block' && !afterLeave.sigVisible,
+      'E-09：离开后 #page-signals 恢复非激活隐藏（非 block 且不可见）',
+      'display=' + afterLeave.sigDisplay + ' visible=' + afterLeave.sigVisible);
+    ok(afterLeave.teaDisplay !== 'block' && !afterLeave.teaVisible,
+      'E-09：对照 #page-teaching 同样恢复隐藏（内层根模式基线）',
+      'display=' + afterLeave.teaDisplay + ' visible=' + afterLeave.teaVisible);
+
     /* E-08 离线与控制台 */
     ok(externalRequests.length === 0, 'E-08：无外部网络请求（纯浏览器离线）',
       JSON.stringify(externalRequests.slice(0, 8)));
@@ -440,7 +489,7 @@ async function main() {
     console.log('================================================');
     process.exit(1);
   }
-  console.log('E2E 冒烟全部通过（五视图/事件相位/单时钟/回放不变/golden/因果/证据包/离线）。');
+  console.log('E2E 冒烟全部通过（五视图/事件相位/单时钟/回放不变/golden/因果/证据包/深链残留面/离线）。');
 }
 
 main().catch((e) => {

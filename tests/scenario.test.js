@@ -2,17 +2,14 @@
    场景编排核心测试：负例（≥10 类）/ roundtrip（键序不敏感）/ 执行等价（场景 Run vs 单独 Run，
    序列逐点一致 + config_hash/run_hash 全等）/ 校验器错误信息字段完整性。
    运行：node tests/scenario.test.js；失败非零退出。
-   装载：本波 S1 独立交付，不改动 tests/core-load.js 的 CORE_FILES（并发路隔离）——
-   bootstrap() 后按同一 eval 机制补装 src/core/scenario.js；S5（run-g2 第 26 步接线）
-   落地时可将其并入 CORE_FILES 装载清单。 */
+   装载：src/core/scenario.js 已并入 tests/core-load.js CORE_FILES（V072 残留清单 5，
+   S1 临时 (0,eval) 自装载退役）——bootstrap() 直接就绪 FL.core.scenario，浏览器序
+   registry.js → scenario.js 与 index.html <script> 序一致。 */
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const { bootstrap, CORE_DIR } = require('./core-load');
+const { bootstrap } = require('./core-load');
 
 const FL = bootstrap();
-(0, eval)(fs.readFileSync(path.join(CORE_DIR, 'scenario.js'), 'utf8'));
 
 const SC = FL.core.scenario;
 const TS = '2026-11-04T00:00:00Z';

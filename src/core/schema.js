@@ -120,11 +120,29 @@
       feedback_mode: cfg.feedback_mode,
       initial_SOC_pct: cfg.initial && cfg.initial.SOC_pct,
       initial_load_kW: cfg.initial && cfg.initial.load_kW,
+      /* R-8（CHG-20261105-01 清算项 2）：PV-001 initial 无 SOC_pct、有 G0_W_m2
+         （PV001_G2B_SPEC_APPROVED v1.0 §1.1）——initial 键面按 system.bounds 派生。
+         G0_W_m2 仅 PV-001 声明：其他系统 undefined → 不进入投影/哈希（inertia_model 同款先例，
+         GTL1_G2B_SPEC_APPROVED v1.0 §2.4）。 */
+      initial_G0_W_m2: cfg.initial && cfg.initial.G0_W_m2,
       /* A-1 惯性双轨 → L1 三轨（GTL1_G2B_SPEC_APPROVED v1.0 §2.4；GT-001 声明；
          其他系统 undefined → 不进入投影/哈希） */
       inertia_model: cfg.inertia_model,
       noise: (cfg.noise && cfg.noise.enabled) ? { seed: cfg.noise.seed, level: cfg.noise.level } : null
     };
+  }
+
+  /* R-8（CHG-20261105-01 清算项 2）：按 model_id 反查 system.bounds，派生 initial 键面。
+     systems 未装载 / 未知 model_id → null（调用方回退 FL/FC/GT 既有键面，行为逐字等价）。 */
+  function resolveInitialBounds(modelId) {
+    if (!FL.systems || !FL.systems._raw || typeof FL.systems._raw.all !== 'function') return null;
+    var all = FL.systems._raw.all();
+    if (!Array.isArray(all)) return null;
+    for (var i = 0; i < all.length; i++) {
+      var s = all[i];
+      if (s && s.model && s.model.model_id === modelId && s.bounds) return s.bounds;
+    }
+    return null;
   }
 
   function validateScenarioConfig(sc, opts) {
@@ -170,11 +188,30 @@
         sc.inertia_model !== 'swing' && sc.inertia_model !== 'linear' && sc.inertia_model !== 'thermo') {
       bad('inertia_model', 'inertia_model 必须为 swing / linear / thermo', '检查配置');
     }
-    if (!isNum(sc.initial_SOC_pct) || sc.initial_SOC_pct < 0 || sc.initial_SOC_pct > 100) {
-      bad('initial_SOC_pct', 'initial_SOC_pct 必须在 0–100 之间', '检查配置');
+    /* R-8（CHG-20261105-01 清算项 2）：initial 键面按 system.bounds 派生——声明才要求
+       （PV-001 bounds 无 SOC_pct，健康 PV Run 不再误报 CN-E02；FL/FC/GT bounds 均含 SOC_pct，
+       键面与报文逐字不变）；PV-001 的 G0_W_m2 校验补入（域取 bounds.G0_W_m2，
+       engine.js normalizeConfig 同口径，T3 v0.7.0 先例）。
+       声明面之外的初值键处置保持不变：不要求、不新增拒绝；反查失败回退既有键面。 */
+    var initBounds = resolveInitialBounds(sc.model_id);
+    if (!initBounds || initBounds.SOC_pct) {
+      if (!isNum(sc.initial_SOC_pct) || sc.initial_SOC_pct < 0 || sc.initial_SOC_pct > 100) {
+        bad('initial_SOC_pct', 'initial_SOC_pct 必须在 0–100 之间', '检查配置');
+      }
     }
-    if (!isNum(sc.initial_load_kW) || sc.initial_load_kW <= 0) {
-      bad('initial_load_kW', 'initial_load_kW 必须是正数', '检查配置');
+    if (!initBounds || initBounds.load_kW) {
+      if (!isNum(sc.initial_load_kW) || sc.initial_load_kW <= 0) {
+        bad('initial_load_kW', 'initial_load_kW 必须是正数', '检查配置');
+      }
+    }
+    if (initBounds && initBounds.G0_W_m2) {
+      if (!isNum(sc.initial_G0_W_m2)) {
+        bad('initial_G0_W_m2', 'initial_G0_W_m2 必须是数字（W/m²）', '检查配置');
+      } else if (sc.initial_G0_W_m2 < initBounds.G0_W_m2.min - 1e-9 ||
+                 sc.initial_G0_W_m2 > initBounds.G0_W_m2.max + 1e-9) {
+        bad('initial_G0_W_m2', 'initial_G0_W_m2 必须在 ' + initBounds.G0_W_m2.min + '–' +
+          initBounds.G0_W_m2.max + ' W/m² 之间', '检查配置');
+      }
     }
     if (sc.noise !== null && sc.noise !== undefined) {
       if (typeof sc.noise !== 'object' || !isNum(sc.noise.seed) || !isNum(sc.noise.level)) {

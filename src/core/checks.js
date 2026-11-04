@@ -1,6 +1,11 @@
 /* owner: core-engine | module: checks | contract: docs/CONTRACT.md */
-/* quality_checks：契约 §4.8 必含检查（sampling / conservation-true / conservation-meas /
-   units / soc-bounds / event-window / energy-balance）。不通过时页面必须显示"验证未通过"。 */
+/* quality_checks：契约 §4.8 检查（sampling / conservation-true / conservation-meas /
+   units / soc-bounds / event-window / energy-balance）+ 系统专属 PHY 按系统分派
+   （GT：gt-energy-consistency / gt-bat-envelope；PV：pv-energy-consistency）。
+   soc-bounds/energy-balance 按 system.bounds 派生：声明 bounds.SOC_pct 的系统（FL/FC/GT）
+   才检查；PV-001 无 SOC/E_bat 面，不派发（CHG-20261105-01 清算项 1，解除
+   CHG-20261104-10 锁定态），其能量恒等由 pv-energy-consistency 承载（EQ-PV-5/EQ-PV-7）。
+   不通过时页面必须显示"验证未通过"。 */
 (function () {
   'use strict';
 
@@ -300,6 +305,29 @@
       ));
     }
 
+    /* ---- PV-001 专属 PHY（PV001_G2B_SPEC_APPROVED v1.0 §4 项 2 PS-2 能量恒等面；
+         CHG-20261105-01 清算项 1）：能量账本恒等 E_pv_true + E_grid = E_load
+         （EQ-PV-5/EQ-PV-7 定义恒等；E_grid 由引擎按 E_load − E_pv 承载，engine
+         integrals 同源，engine.js PV 分支 integrals 块）。容差按 pv001_v1 golden
+         gate T-A E_kWh = 1e-9 kWh（引擎四场景残差复算 ≤5.6e-17，余量 ≥7 个量级）。
+         本检查验证指标账本对恒等式的回归一致，不是物理守恒验证。 */
+    if (system.id === 'PV-001') {
+      var ePvTrue = metricValue(metrics, 'E_pv_true_kWh');
+      var eGrid = metricValue(metrics, 'E_grid_kWh');
+      var eLoad = metricValue(metrics, 'E_load_kWh');
+      var residPv = (ePvTrue !== null && eGrid !== null && eLoad !== null)
+        ? Math.abs(ePvTrue + eGrid - eLoad) : null;
+      var okPv = residPv !== null && residPv <= 1e-9;
+      quality.push(check(
+        'pv-energy-consistency', '能量账本恒等闭合（EQ-PV-5/EQ-PV-7 定义恒等）',
+        okPv ? 'pass' : 'fail',
+        '≤ 1e-9 kWh（pv001_v1 gate T-A E_kWh）',
+        residPv,
+        '|E_pv_true + E_grid − E_load| = ' + (residPv === null ? '不可用' : residPv.toExponential(2)) +
+          ' kWh（E_grid 按 E_load − E_pv 定义承载；定义恒等回归，不是物理守恒验证）'
+      ));
+    }
+
     /* ---- units ---- */
     var unitIssues = [];
     var declaredUnits = (system.model && FL.systems && FL.systems._raw && FL.systems._raw.units) ? FL.systems._raw.units : {};
@@ -320,29 +348,34 @@
         : ('单位问题：' + unitIssues.join('；'))
     ));
 
-    /* ---- soc-bounds ---- */
-    var socTrueRange = minMaxNonEmpty(series.SOC_true_pct);
-    var socEstRange = minMaxNonEmpty(series.SOC_est_pct);
-    var socViolation = 0;
-    var socOk = !!(socTrueRange && socEstRange);
-    if (socTrueRange) {
-      if (socTrueRange.min < -1e-6) { socOk = false; socViolation = Math.max(socViolation, -socTrueRange.min); }
-      if (socTrueRange.max > 100 + 1e-6) { socOk = false; socViolation = Math.max(socViolation, socTrueRange.max - 100); }
+    /* ---- soc-bounds（按 system.bounds 派生：声明 bounds.SOC_pct 的系统（FL/FC/GT）才检查；
+       PV-001 bounds 无 SOC_pct 键（有 load_kW/G0_W_m2），无 SOC 序列面，不派发——
+       CHG-20261105-01 清算项 1）---- */
+    var socDeclared = !!(system.bounds && system.bounds.SOC_pct);
+    if (socDeclared) {
+      var socTrueRange = minMaxNonEmpty(series.SOC_true_pct);
+      var socEstRange = minMaxNonEmpty(series.SOC_est_pct);
+      var socViolation = 0;
+      var socOk = !!(socTrueRange && socEstRange);
+      if (socTrueRange) {
+        if (socTrueRange.min < -1e-6) { socOk = false; socViolation = Math.max(socViolation, -socTrueRange.min); }
+        if (socTrueRange.max > 100 + 1e-6) { socOk = false; socViolation = Math.max(socViolation, socTrueRange.max - 100); }
+      }
+      if (socEstRange) {
+        if (socEstRange.min < -1e-6) { socOk = false; socViolation = Math.max(socViolation, -socEstRange.min); }
+        if (socEstRange.max > 100 + 1e-6) { socOk = false; socViolation = Math.max(socViolation, socEstRange.max - 100); }
+      }
+      quality.push(check(
+        'soc-bounds', 'SOC 物理边界',
+        socOk ? 'pass' : 'fail',
+        'SOC_true 与 SOC_est ∈ [0, 100] %',
+        socViolation,
+        socOk
+          ? ('SOC_true ∈ [' + socTrueRange.min.toFixed(5) + ', ' + socTrueRange.max.toFixed(5) + '] %；SOC_est ∈ [' +
+            socEstRange.min.toFixed(5) + ', ' + socEstRange.max.toFixed(5) + '] %')
+          : ('SOC 越界，最大越界量 ' + socViolation.toFixed(6) + ' pp')
+      ));
     }
-    if (socEstRange) {
-      if (socEstRange.min < -1e-6) { socOk = false; socViolation = Math.max(socViolation, -socEstRange.min); }
-      if (socEstRange.max > 100 + 1e-6) { socOk = false; socViolation = Math.max(socViolation, socEstRange.max - 100); }
-    }
-    quality.push(check(
-      'soc-bounds', 'SOC 物理边界',
-      socOk ? 'pass' : 'fail',
-      'SOC_true 与 SOC_est ∈ [0, 100] %',
-      socViolation,
-      socOk
-        ? ('SOC_true ∈ [' + socTrueRange.min.toFixed(5) + ', ' + socTrueRange.max.toFixed(5) + '] %；SOC_est ∈ [' +
-          socEstRange.min.toFixed(5) + ', ' + socEstRange.max.toFixed(5) + '] %')
-        : ('SOC 越界，最大越界量 ' + socViolation.toFixed(6) + ' pp')
-    ));
 
     /* ---- event-window（G0-DEC-05：pre = t_f 左极限，t_s 恒为 t_f；19.9 不是 pre）---- */
     var eventOk;
@@ -377,39 +410,43 @@
       faulted ? cfg.fault.t_start_s : null, 'numeric'
     ));
 
-    /* ---- energy-balance ---- */
-    var eSource = metricValue(metrics, 'E_source_kWh');
-    var eBat = metricValue(metrics, 'E_bat_kWh');
-    var eServed = metricValue(metrics, 'E_load_served_kWh');
-    var balanceTol = system.id === 'GT-001' ? 1e-3 : (system.id === 'FC-001' ? 1e-3 : 1e-6);
-    var residual = null;
-    var balanceMsg;
-    if (eSource === null || eBat === null || eServed === null) {
-      balanceMsg = '能量指标不可用，无法校验能量平衡';
-    } else if (system.id === 'GT-001') {
-      var fArr = series.f_true_Hz;
-      var fFirst = fArr && isNum(fArr[0]) ? fArr[0] : null;
-      var fLast = fArr && isNum(fArr[fArr.length - 1]) ? fArr[fArr.length - 1] : null;
-      if (fFirst === null || fLast === null) {
-        balanceMsg = '频率信号不可用，无法校验含转子项的能量平衡';
+    /* ---- energy-balance（与 soc-bounds 同一 bounds 派生面：声明 bounds.SOC_pct 的系统
+       （FL/FC/GT，均带 E_bat 电池面）才检查；PV-001 无 SOC/E_bat 面，不派发——
+       其能量恒等由专属 PHY 检查 pv-energy-consistency 承载。CHG-20261105-01 清算项 1）---- */
+    if (socDeclared) {
+      var eSource = metricValue(metrics, 'E_source_kWh');
+      var eBat = metricValue(metrics, 'E_bat_kWh');
+      var eServed = metricValue(metrics, 'E_load_served_kWh');
+      var balanceTol = system.id === 'GT-001' ? 1e-3 : (system.id === 'FC-001' ? 1e-3 : 1e-6);
+      var residual = null;
+      var balanceMsg;
+      if (eSource === null || eBat === null || eServed === null) {
+        balanceMsg = '能量指标不可用，无法校验能量平衡';
+      } else if (system.id === 'GT-001') {
+        var fArr = series.f_true_Hz;
+        var fFirst = fArr && isNum(fArr[0]) ? fArr[0] : null;
+        var fLast = fArr && isNum(fArr[fArr.length - 1]) ? fArr[fArr.length - 1] : null;
+        if (fFirst === null || fLast === null) {
+          balanceMsg = '频率信号不可用，无法校验含转子项的能量平衡';
+        } else {
+          var eRotor = (5.0 * (fLast - fFirst)) / 3600;
+          residual = Math.abs(eSource + eBat - eServed - eRotor);
+          balanceMsg = '|E_gen + E_bat − E_load − E_rotor| = ' + residual.toExponential(3) +
+            ' kWh（E_rotor = K_J·Δf/3600 = ' + eRotor.toExponential(3) + ' kWh）';
+        }
       } else {
-        var eRotor = (5.0 * (fLast - fFirst)) / 3600;
-        residual = Math.abs(eSource + eBat - eServed - eRotor);
-        balanceMsg = '|E_gen + E_bat − E_load − E_rotor| = ' + residual.toExponential(3) +
-          ' kWh（E_rotor = K_J·Δf/3600 = ' + eRotor.toExponential(3) + ' kWh）';
+        residual = Math.abs(eSource + eBat - eServed);
+        balanceMsg = '|E_source + E_bat − E_load_served| = ' + residual.toExponential(3) + ' kWh';
       }
-    } else {
-      residual = Math.abs(eSource + eBat - eServed);
-      balanceMsg = '|E_source + E_bat − E_load_served| = ' + residual.toExponential(3) + ' kWh';
+      var balanceOk = residual !== null && residual <= balanceTol;
+      quality.push(check(
+        'energy-balance', '电能平衡',
+        balanceOk ? 'pass' : 'fail',
+        '≤ ' + balanceTol + ' kWh' + (system.id === 'GT-001' ? '（含转子动能变化项）' : ''),
+        residual,
+        balanceOk ? balanceMsg : ('电能平衡超差：' + balanceMsg)
+      ));
     }
-    var balanceOk = residual !== null && residual <= balanceTol;
-    quality.push(check(
-      'energy-balance', '电能平衡',
-      balanceOk ? 'pass' : 'fail',
-      '≤ ' + balanceTol + ' kWh' + (system.id === 'GT-001' ? '（含转子动能变化项）' : ''),
-      residual,
-      balanceOk ? balanceMsg : ('电能平衡超差：' + balanceMsg)
-    ));
 
     return quality;
   }

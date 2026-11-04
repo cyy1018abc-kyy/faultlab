@@ -1,7 +1,8 @@
 /* owner: lab-pages | module: page-home | contract: docs/CONTRACT.md */
-/* 实验首页：Hero（价值主张 + 信任标签）、三系统选择卡、选中系统的实验详情、
+/* 实验首页：Hero（价值主张 + 信任标签）、四系统选择卡、选中系统的实验详情、
    三个问题、参数摘要（标预设值）、建议体验路径、模型假设抽屉、3 步快速讲解浮层、
-   故障原理解剖（静态图解）、恢复上次实验 / 继续当前实验。 */
+   故障原理解剖（测量偏置系统渲染参数化静态图解，其余渲染声明性机制卡）、
+   恢复上次实验 / 继续当前实验。 */
 (function () {
   'use strict';
   const FL = window.FL = window.FL || {};
@@ -17,8 +18,8 @@
     {
       icon: 'layers',
       title: '选择一个系统',
-      text: '三个 L0 行为级能源系统共用同一套五页面。FL-001 电池储能为基准实验：默认在 20 s 注入 +10 A 电流传感器偏置。',
-      bullets: ['FL-001 电池储能（基准）', 'FC-001 燃料电池（扩展）', 'GT-001 燃气涡轮（扩展）']
+      text: '四个行为级能源系统（L0 / L1）共用同一套五页面。FL-001 电池储能为基准实验：默认在 20 s 注入 +10 A 电流传感器偏置。',
+      bullets: ['FL-001 电池储能（基准）', 'FC-001 燃料电池（扩展）', 'GT-001 燃气涡轮（扩展）', 'PV-001 光伏并网（扩展）']
     },
     {
       icon: 'sliders',
@@ -48,6 +49,22 @@
     fault: { label: '故障组', tone: 'danger' },
     contrast: { label: '对照', tone: 'info' },
     imported: { label: '导入', tone: 'warn' }
+  };
+
+  /* 故障原理静态图的通道参数（声明性，符号/量纲来自 systems.js 各 SystemDef 的信号公式，
+     本表只做 UI 文案映射，不产生数值）。三面板静态图（真实值连续、测量值 t0 阶跃、
+     闭环后真实值缓慢趋向新稳态）只对「测量偏置进入观测通道、且被偏置同一量的真实状态
+     在闭环中移动」的系统成立——FL-001 / FC-001（电流）、GT-001（转速偏置→反馈频率）。
+     PV-001 的被偏置辐照度真值 G_true 恒定，闭环响应在功率量（EQ-PV-3/4 一阶跟随），
+     三面板形状不成立 → 渲染声明性机制卡（fault 定义自带 closedLoopEffect / monitorEffect）。
+     未登记系统或非 sensor_drift 默认故障一律走机制卡。 */
+  const PRINCIPLE_DIAGRAM = {
+    'FL-001': { quantity: '电流', trueSym: 'I_true', measSym: 'I_meas', unit: 'A' },
+    'FC-001': { quantity: '电流', trueSym: 'I_true', measSym: 'I_meas', unit: 'A' },
+    'GT-001': {
+      quantity: '频率', trueSym: 'f_true', measSym: 'n_meas/60', unit: 'Hz',
+      measNote: '转速通道 n_meas = 60 × (f_true + b(t))，调速器取 n_meas/60 为反馈频率；f_meas 为健康的电气频率量测通道。'
+    }
   };
 
   const local = {
@@ -139,6 +156,19 @@
   }
 
   function modeText(mode) { return mode === 'monitor' ? '仅监测' : '闭环演示'; }
+
+  /* 卡片/详情徽章的 level 前缀取自 SystemDef.level 真实字符串（如
+     'L0 · 光伏并网等效演示（G2b 已批准）' → 'L0'；GT-001 thermo 后为 L1），
+     不再写死 'L0b'（v0.7 残留清算：PV-001 为 L0，授权状态按 FAULT_CATALOG 仍为
+     extension_preview，故徽章措辞保持「扩展预览」）。 */
+  function levelPrefix(sysDef) {
+    const m = /^L\d/.exec(String((sysDef && sysDef.level) || ''));
+    return m ? m[0] : 'L0';
+  }
+
+  function previewBadgeLabel(sysDef) {
+    return '扩展预览（' + levelPrefix(sysDef) + '）';
+  }
 
   function paramChips(sysDef) {
     const fault = firstFault(sysDef);
@@ -273,8 +303,8 @@
       el('div', { class: 'section-head home-section-head' }, [
         el('div', {}, [
           el('div', { class: 'eyebrow' }, '01 / 选择实验系统'),
-          el('h2', { class: 'section-title home-section-title' }, '三个系统，同一条验证路径'),
-          el('p', { class: 'section-sub' }, 'FL-001 电池储能为基准实验；FC-001 与 GT-001 展示同一套页面如何驱动不同能源系统与故障家族。')
+          el('h2', { class: 'section-title home-section-title' }, '四个系统，同一条验证路径'),
+          el('p', { class: 'section-sub' }, 'FL-001 电池储能为基准实验；FC-001、GT-001 与 PV-001 展示同一套页面如何驱动不同能源系统与故障家族。')
         ]),
         el('span', { class: 'badge', 'data-tone': 'info' }, 'L0 · 行为级')
       ])
@@ -291,7 +321,7 @@
       const isBaseline = s.id === 'FL-001';
       const isApprovedFc = s.id === 'FC-001'; /* V3-04 升正式 */
       const badgeLabel = isBaseline ? '基准实验'
-        : isApprovedFc ? '已验收（1.1.0）' : '扩展预览（L0b）';
+        : isApprovedFc ? '已验收（1.1.0）' : previewBadgeLabel(s);
       const badgeTone = isBaseline ? 'acc' : isApprovedFc ? 'warm' : 'neutral';
       const card = el('button', {
         class: 'home-sys-card fl-card fl-card--hover', type: 'button',
@@ -552,7 +582,7 @@
       el('div', { class: 'panel-head' }, [
         el('div', { class: 'panel-head-main' }, [
           el('span', { class: 'eyebrow' }, '02 / 实验详情 · ' + sysDef.experimentCode),
-          sBaselineBadge(selected)
+          sBaselineBadge(sysDef)
         ]),
         el('span', { class: 'badge', 'data-tone': 'neutral' }, sysDef.level || 'L0')
       ]),
@@ -620,23 +650,23 @@
       ])
     ]);
 
+    const principleMeta = (fault && PRINCIPLE_DIAGRAM[sysDef.id]) || null;
     const sidePrinciple = el('section', { class: 'home-side-card fl-panel home-principle' + (local.principleOpen ? ' is-open' : '') }, [
       el('div', { class: 'panel-head' }, [
         el('div', { class: 'panel-head-main' }, [
           el('span', { class: 'panel-title' }, '故障原理'),
           el('span', { class: 'panel-sub' }, fault ? (fault.shortLabel || fault.label) : '—')
         ]),
-        el('span', { class: 'badge', 'data-tone': 'danger' }, '静态图解')
+        el('span', { class: 'badge', 'data-tone': 'danger' }, principleMeta ? '静态图解' : '机制说明')
       ]),
       el('div', { class: 'panel-body home-side-body' }, local.principleOpen
-        ? [buildPrincipleDiagram(sysDef, fault)]
+        ? [principleMeta ? buildPrincipleDiagram(sysDef, fault, principleMeta) : buildPrincipleCard(sysDef, fault)]
         : [
-          el('p', { class: 'home-principle-teaser' },
-            '展开查看 I_meas = I_true + b(t)：偏置只进入测量通道，然后通过反馈回路改变真实电流。'),
+          el('p', { class: 'home-principle-teaser' }, principleTeaserText(fault, principleMeta)),
           el('button', {
             class: 'btn btn-sm btn-block', type: 'button',
             on: { click: () => { local.principleOpen = true; renderDetail(sysDef, selected, state()); } }
-          }, [ui.icon('chevron-down', { size: 13 }), el('span', {}, '展开故障原理图解')])
+          }, [ui.icon('chevron-down', { size: 13 }), el('span', {}, '展开故障原理')])
         ])
     ]);
 
@@ -644,19 +674,64 @@
     host.appendChild(el('div', { class: 'home-detail-grid' }, [main, side]));
   }
 
-  function sBaselineBadge(selected) {
-    if (selected === 'FL-001') return el('span', { class: 'badge', 'data-tone': 'acc' }, '基准实验');
-    if (selected === 'FC-001') return el('span', { class: 'badge', 'data-tone': 'warm' }, '已验收（1.1.0）');
-    return el('span', { class: 'badge', 'data-tone': 'neutral' }, '扩展预览（L0b）');
+  function sBaselineBadge(sysDef) {
+    const id = sysDef && sysDef.id;
+    if (id === 'FL-001') return el('span', { class: 'badge', 'data-tone': 'acc' }, '基准实验');
+    if (id === 'FC-001') return el('span', { class: 'badge', 'data-tone': 'warm' }, '已验收（1.1.0）');
+    return el('span', { class: 'badge', 'data-tone': 'neutral' }, previewBadgeLabel(sysDef));
   }
 
-  function buildPrincipleDiagram(sysDef, fault) {
+  /* 收起态 teaser：按系统/故障给出一句概览（测量偏置系统带公式，其余走机制说明措辞） */
+  function principleTeaserText(fault, meta) {
+    if (meta) {
+      return '展开查看 ' + meta.measSym + ' = ' + meta.trueSym + ' + b(t)：偏置只注入测量通道，' +
+        '然后通过反馈回路改变真实' + meta.quantity + '。';
+    }
+    if (!fault) return '展开查看本系统的故障机制说明（该系统未提供默认故障）。';
+    return '展开查看「' + (fault.shortLabel || fault.label) + '」的机制说明：扰动如何进入通道，' +
+      '闭环反馈与仅监测下各自发生什么。';
+  }
+
+  /* 声明性机制卡：全部内容来自 systems.js SystemDef 的 fault 定义
+     （description / closedLoopEffect / monitorEffect / 参数与默认时刻），本页不生成数值。
+     用于 PV-001（被偏置辐照度真值恒定，闭环响应在功率量，三面板静态图不成立）
+     及一切未登记三面板图或非 sensor_drift 的默认故障。 */
+  function buildPrincipleCard(sysDef, fault) {
+    const rows = [];
+    if (fault) {
+      const p0 = fault.params && fault.params[0] ? fault.params[0] : null;
+      const num = p0 ? p0.default : null;
+      const magText = (num == null) ? ''
+        : ((typeof num === 'number' && num >= 0 ? '+' : '') + num + (p0.unit ? ' ' + p0.unit : ''));
+      rows.push(['故障事件', (fault.shortLabel || fault.label) + '：t = ' + fault.defaultTime_s + ' s ' +
+        (magText ? magText + ' ' : '') + '（默认预设值）']);
+      if (fault.description) rows.push(['机制', fault.description]);
+      if (fault.closedLoopEffect) rows.push(['闭环反馈', fault.closedLoopEffect]);
+      if (fault.monitorEffect) rows.push(['仅监测', fault.monitorEffect]);
+    } else {
+      rows.push(['无默认故障', '该系统未提供默认故障定义；请到系统页选择故障家族后再看机制说明。']);
+    }
+    return el('div', { class: 'home-principle-content' }, [
+      el('ul', { class: 'home-assume-list' }, rows.map((r) => el('li', { class: 'home-assume-item' }, [
+        el('span', { class: 'home-assume-id mono' }, r[0]),
+        el('span', { class: 'home-assume-text' }, r[1])
+      ]))),
+      el('p', { class: 'home-principle-note' },
+        '声明性机制说明（非曲线示意）：以上数值均为默认预设值口径，实际结果以运行数据为准；' +
+        '逐时刻数值见曲线页，机制链见因果页。')
+    ]);
+  }
+
+  function buildPrincipleDiagram(sysDef, fault, meta) {
     const mag = fault && fault.params && fault.params[0] ? fault.params[0].default : 10;
     const unit = fault && fault.params && fault.params[0] ? (fault.params[0].unit || '') : 'A';
     const t0 = fault ? fault.defaultTime_s : 20;
     const t0x = (8 + t0 / 60 * 604).toFixed(1);
     const positive = typeof mag !== 'number' || mag >= 0;
     const biasLabel = (positive ? '+' : '−') + Math.abs(mag) + (unit ? ' ' + unit : '');
+    const quantity = meta.quantity;
+    const trueSym = meta.trueSym;
+    const measSym = meta.measSym;
 
     function svgDefs() {
       return '<defs><marker id="homeArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">' +
@@ -676,9 +751,9 @@
 
     const content = el('div', { class: 'home-principle-content' }, [
       el('div', { class: 'formula home-principle-formula' }, [
-        el('span', { class: 'fx-obs' }, 'I_meas(t)'),
+        el('span', { class: 'fx-obs' }, measSym + '(t)'),
         el('span', {}, ' = '),
-        el('span', { class: 'fx-acc' }, 'I_true(t)'),
+        el('span', { class: 'fx-acc' }, trueSym + '(t)'),
         el('span', {}, ' + '),
         el('span', { class: 'fx-fault' }, 'b(t)'),
         el('span', { class: 'home-formula-note' }, '   ← 偏置只注入测量通道，不直接改变物理量')
@@ -687,19 +762,20 @@
         'b(t) = 0 (t < ' + t0 + ' s)； b(t) = ' + biasLabel.replace(' ', '') + ' (t ≥ ' + t0 + ' s)'
       ]),
       el('div', { class: 'home-principle-plots', html:
-        panel('hp-true', '真实电流 I_true（闭环反馈响应）',
+        panel('hp-true', '真实' + quantity + ' ' + trueSym + '（闭环反馈响应）',
           'M8 18 H' + t0x + ' C ' + (+t0x + 30) + ' 18, ' + (+t0x + 54) + ' 34, ' + (+t0x + 120) + ' 34 H612',
           'hp-line hp-solid') +
         panel('hp-bias', '偏置 b(t)（故障事件，阶跃）',
           'M8 40 H' + t0x + ' V14 H612',
           'hp-line hp-dashed hp-faultline') +
-        panel('hp-meas', '测量电流 I_meas = I_true + b(t)（观测通道）',
+        panel('hp-meas', '测量' + quantity + ' ' + measSym + ' = ' + trueSym + ' + b(t)（观测通道）',
           'M8 18 H' + t0x + ' V4 C ' + (+t0x + 30) + ' 4, ' + (+t0x + 54) + ' 24, ' + (+t0x + 120) + ' 26 H612',
           'hp-line hp-dashed hp-obsline')
       }),
+      meta.measNote ? el('p', { class: 'home-principle-note' }, meta.measNote) : null,
       el('p', { class: 'home-principle-note' },
-        '示意：仅表达“真实值连续、测量值在故障时刻阶跃、闭环后真实值缓慢回落”的定性关系，不含刻度与数值。' +
-        '默认场景的精确数值（20 s / +10 A / 60 s）见参数摘要，实际结果以运行数据为准。')
+        '示意：仅表达“真实值连续、测量值在故障时刻阶跃、闭环后真实值缓慢趋向新的稳态”的定性关系，不含刻度与数值。' +
+        '默认场景的精确数值（' + t0 + ' s / ' + biasLabel + ' / ' + (sysDef.duration_s || 60) + ' s）见参数摘要，实际结果以运行数据为准。')
     ]);
     return content;
   }

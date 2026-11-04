@@ -1609,6 +1609,85 @@
       assumptions: ['A-ideal-bus', 'A-lumped-inertia', 'A-droop', 'A-gov-integral', 'A-gen-lag', 'A-l0'],
       limitations: ['不含阀门机械动态与透平热力学。', '卡涩建模为理想功率上限，不是真实保护动作。', 'L0 演示模型：结论只在上述假设下成立。'],
       alternatives: [{ title: '若阀门未卡涩', text: '调速器能把频率恢复到 50 Hz，电池回到 5 kW；本模型未建模阀门机械动态与保护动作。' }]
+    },
+    /* GT-001 thermo 轨叙事卡（V072 清算项 6/7；GTL1_G2B_SPEC_APPROVED v1.0 §3.2 分歧表）。
+       定位声明：本卡是静态教学叙事面（跨深度对比卡），不是运行期故障因果模板——
+       engine.buildCausal 按 fault.family 分派模板（system.causalTemplates[family]），
+       既有 sensor_drift / load_step / actuator_fault 三模板零改动、运行期行为零变更；
+       本卡经 FL.systems.causalTemplate('GT-001', 'thermo_track') 供教学/对比面引用，
+       节点数值为 §3.2 v1.0 口径（与 tests/engine-gt.test.js 跨深度分歧断言同源：
+       gt001_v2 冻结锚点 + thermo 轨 T-B 容差断言），不是经过验证的设备特性数字。 */
+    thermo_track: {
+      id: 'gt-thermo-cross-depth',
+      headline: '同一故障、两种模型深度：GT-001 L0b swing ↔ L1 thermo 跨深度叙事卡（thermo 默认轨）',
+      mechanismSummary: '测量偏置 → 效率链重新平衡：转速通道偏置 b → 调速器误认为频率偏高（f_gov = n_meas/60）→ 燃料指令 u 下调 → 燃烧室能量平衡左移（Q_f = k_f·u 下调 → T3 下探）→ 压气机-透平效率链重新平衡 → P_gen 稳态偏移。注意：PV-001「测量偏置 → MPPT 重算目标」的类比在此不适用——GT 的调速器是积分结构，偏置不改变目标映射，而是经积分持续误调燃料指令，直到把带偏置的 f_gov 拉回 50 Hz；稳态由控制器结构决定（f = 50 − b，两深度同），模型深度改变的是暂态路径与可观测面。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '偏置注入（两深度同一配置事实）', short: '转速通道 +0.3 Hz（+18 rpm）',
+          layer: 'config', componentId: 'speed_sensor', signalIds: ['n_meas_rpm', 'f_meas_Hz'],
+          detail: '偏置写进转速测量通道（n_meas = 60×(f_true + b)），健康电气频率量测 f_meas 不变。这一步是配置事实，与 inertia_model 无关——swing 与 thermo 轨的注入配置完全相同，分歧从下游开始。'
+        },
+        {
+          id: 'n2', order: 2, title: '调速器积分误调燃料指令', short: 'u 下调；指令域不同不可直比',
+          layer: 'mechanism', componentId: 'governor', signalIds: ['P_gen_cmd_kW'],
+          detail: '调速器按故障转速通道积分（dP_gen_cmd/dt = Ki×(50 − f_gov)），把燃料指令从设计点 25 kW_eq 持续下调。指令域语义随深度不同：L0b swing 的指令是功率域 P_gen_cmd（稳态 17.80 kW），L1 thermo 的指令是燃料指令域 u（稳态 19.65 kW_eq）——同稳态、异指令，两个数字不能直接比较（§3.2 指令域行）。'
+        },
+        {
+          id: 'n3', order: 3, title: 'T3 / 效率链重新平衡（L1 独有观测）', short: 'T3 1173 → 1044.16 K（t=60 采样）；T4 → 687.22 K',
+          layer: 'observation', componentId: 'turbine', signalIds: ['T3_out_K', 'T4_out_K', 'Q_fuel_kW'],
+          detail: '燃料功率 Q_f = k_f·u 下调 → 燃烧室能量平衡 η_b·Q_f = ṁ_g·cp_g·(T3 − T2) 左移 → T3 从设计值 1173 K 下探（t=60 采样 1044.16 K，趋向渐近稳态 1043.95 K），EGT T4 随之降至 687.22 K（渐近 686.96 K）——传感器偏置的热力学后果约 −83 K（EGT 下探），这在 L0b swing 轨完全不可见（无热力面）：模型深度的表达力差异，不是精度优劣声明。'
+        },
+        {
+          id: 'n4', order: 4, title: 'P_gen 稳态偏移（两深度同值）', short: 'f = 50 − b = 49.7 Hz；稳态跨深度同',
+          layer: 'observation', componentId: 'generator', signalIds: ['f_true_Hz', 'P_bat_true_kW'],
+          detail: '真实频率稳态收敛到 49.7 Hz（= 50 − b）——调速器积分结构把带偏置的 f_gov 拉回 50 Hz，稳态由控制器结构决定、与模型深度无关（§3.2 稳态行：两深度同）；电池一次调频按健康频率量测补缺。两深度分歧在暂态路径：L1 回路增益 dP_gen/du ≈ 1.332（vs L0b 1.0），恢复更快（sensor f(60)：49.70050 vs 49.70548）。'
+        },
+        {
+          id: 'n5', order: 5, title: '同故障暂态路径分歧（load_step / actuator / 清除）', short: 'nadir 49.590174 vs 49.589336；P_gen 18.266 vs 20.000 kW',
+          layer: 'observation', componentId: 'generator', signalIds: ['f_true_Hz', 'P_gen_true_kW', 'P_rotor_kW'],
+          detail: '同一故障在两种模型深度下的暂态/钳位分歧（§3.2 v1.0 口径）：load_step +10 的频率最低点 nadir 49.590174（thermo）vs 49.589336（swing，深 8.4e-4 Hz）——初瞬由摇摆方程主导、几乎同；f(60) 49.999347 vs 49.992213（thermo 快 7.1e-3 Hz，增益 1.332×）。actuator 50% 钳位语义域差异显性化：swing 功率域钳位 P_gen 恰 20.000 kW，thermo 燃料域钳位 u_eff=20 经效率链给出 18.266 kW（Δ = −1.73 kW，−8.7%）；f 稳态 49.719396 vs 49.791667。清除（t_clear=35）过冲 +0.3221 vs +0.213412 Hz——清除瞬间燃料域 40 kW_eq 经链上放大超过 L0b 的 40 kW。'
+        },
+        {
+          id: 'n6', order: 6, title: '口径与边界声明', short: '结构决定稳态；深度改变暂态与表达力',
+          layer: 'observation', componentId: 'bus', signalIds: ['r_true_kW', 'f_channel_diff_Hz'],
+          detail: '口径：①「控制器结构决定稳态、模型深度改变暂态路径与可观测面」——本库跨深度教学点；②一致性通道两深度同构：r_true（含转子项定义恒等）恒为 0、f_channel_diff = +0.3 Hz 是测量通道偏差的直接体现，不是真实能量变化；③本卡引用数字为库内双实现复现值（gt001_v2 冻结锚点 + thermo 轨 T-B 容差断言），只在本演示模型假设（A-gtl1-* 八条）内成立，不是经过验证的设备控制器或机组热力学模型，不外推到真实设备。'
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '转速读数偏移进入调速器' },
+        { from: 'n2', to: 'n3', label: '燃料指令下调' },
+        { from: 'n3', to: 'n4', label: '效率链重新平衡' },
+        { from: 'n1', to: 'n5', label: '同一故障、两种模型深度', dashed: true },
+        { from: 'n5', to: 'n6', label: '口径与边界' }
+      ],
+      monitorNodes: [
+        {
+          id: 'm1', order: 1, title: '偏置注入（仅监测）', short: '偏置不进入物理回路',
+          layer: 'config', componentId: 'speed_sensor', signalIds: ['n_meas_rpm'],
+          detail: '仅监测模式下偏置只污染转速读数，调速器与电池调频使用健康频率量测——真实状态保持设计点。'
+        },
+        {
+          id: 'm2', order: 2, title: '两深度逐点恒等', short: 'f ≡ 50 Hz ∧ T3 ≡ 1173 K',
+          layer: 'observation', componentId: 'generator', signalIds: ['f_true_Hz', 'T3_out_K'],
+          detail: '偏置不进入物理回路时两深度完全一致：f ≡ 50 Hz 且 T3 ≡ 1173 K（常数轨，§3.2 monitor 行）——跨深度分歧只存在于闭环反馈路径。'
+        },
+        {
+          id: 'm3', order: 3, title: '一致性通道照常暴露', short: 'f_channel_diff = +0.3 Hz',
+          layer: 'observation', componentId: 'speed_sensor', signalIds: ['f_channel_diff_Hz'],
+          detail: '通道冗余不一致 f_channel_diff = +0.3 Hz 在两深度同样暴露测量通道偏差——检出依据与模型深度无关。'
+        }
+      ],
+      monitorEdges: [
+        { from: 'm1', to: 'm2', label: '不进入物理回路' },
+        { from: 'm1', to: 'm3', label: '冗余不一致照常' }
+      ],
+      assumptions: ['A-gtl1-idealgas', 'A-gtl1-chain-qs', 'A-gtl1-combustor-lump', 'A-gtl1-fuel-map', 'A-gtl1-speed-coupling', 'A-gtl1-rotor-balance', 'A-gtl1-actuator-cmd-domain', 'A-gtl1-l1'],
+      limitations: [
+        '本卡为 thermo 轨静态叙事面，不是运行期故障因果模板——运行期因果链仍按 fault.family 由既有三模板分派。',
+        '引用数值为库内双实现复现值（gt001_v2 冻结锚点 / thermo 轨 T-B 容差断言），非机组数据；不外推到真实设备。',
+        'swing/linear 遗留轨无热力面（八个热力信号全程 null）；跨深度对比只在 thermo 轨有 T3/T4 观测。'
+      ],
+      alternatives: [{ title: '若切回 swing/linear 遗留轨', text: '同故障稳态不变（调速器积分结构相同），暂态路径不同（load_step nadir 49.589336 vs 49.590174）；热力面全程不可见（T3/T4 null）——「模型深度导致的表达力差异」，非精度优劣声明。' }]
     }
   };
 

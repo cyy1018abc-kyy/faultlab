@@ -754,9 +754,13 @@
     ]);
   }
 
+  /* root 由 mount 传入：本页内层根 div（自带 .pg-signals/.page-pad），构建时不改类。
+     不把这两个类挂到 shell 的 section.page 上——否则同特异性下本页样式表
+     （index.html 中晚于 theme.css 加载）的 .pg-signals{display:block} 会压过
+     theme.css 的 .page{display:none}，SPA 离开本页后 section 恒可见
+     （v0.7.0 UI 路探针实证，v0.7.2 清算项 4 修复；与 teaching/leaderboard 页内层根模式同构）。 */
   function buildSkeleton(root) {
     var view = {};
-    root.classList.add('pg-signals', 'page-pad');
     var stage = h('div', { class: 'sig-stage' });
     view.banners = h('div', { class: 'sig-banners', 'aria-live': 'polite' });
     view.emptyHost = buildEmptyHost(view);
@@ -1914,12 +1918,16 @@
     navLabel: '曲线',
 
     mount: function (root, api) {
-      page.root = root;
       page.api = api;
       page.mounted = true;
-      root.classList.add('pg-signals', 'page-pad');
       clear(root);
-      page.view = buildSkeleton(root);
+      /* 内层根 div 模式（与 teaching/leaderboard 页同构）：.pg-signals/.page-pad
+         挂在本页自己的内层节点上，shell 的 section.page 类保持由 shell 独占管理
+         （is-active 切换 display 才能正常生效）。 */
+      var inner = h('div', { class: 'pg-signals page-pad' });
+      root.appendChild(inner);
+      page.root = inner;
+      page.view = buildSkeleton(inner);
       try {
         createChart(page.view, api);
       } catch (err) {

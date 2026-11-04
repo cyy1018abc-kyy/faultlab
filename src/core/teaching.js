@@ -274,7 +274,7 @@
   /* ================================================================== */
   /* getTeachingPaths / exportTeachingPath                              */
   /* ================================================================== */
-  /* 返回 3 条预设路径的深克隆副本（外部改动不内渗；与 scenario.samples() 同口径） */
+  /* 返回 4 条预设路径（3 系统 + GT 跨深度扩展）的深克隆副本（外部改动不内渗；与 scenario.samples() 同口径） */
   function getTeachingPaths() {
     return cloneTeachingPaths();
   }
@@ -300,7 +300,8 @@
   }
 
   /* ================================================================== */
-  /* 预设路径数据（3 系统 × 5 步；事实源：systems.js + docs/FAULT_CATALOG.md）  */
+  /* 预设路径数据（4 条路径 = 3 系统 × 5 步 + GT 跨深度扩展路径 × 5 步；           */
+  /* 事实源：systems.js + docs/FAULT_CATALOG.md + GTL1_G2B_SPEC_APPROVED §3.2）    */
   /* 文案口径：合成演示定位（L0 行为级演示 / 合成示例数据 synthetic）、解释已知故障 */
   /* 的传播路径、不做检测/定位/诊断声明；禁词零命中（tests/teaching.test.js 自查）。 */
   /* ================================================================== */
@@ -462,7 +463,57 @@
     ]
   };
 
-  var PATHS = [FL_PATH, FC_PATH, GT_PATH];
+  /* ---- GT-001 跨深度扩展路径（V072 清算项 7；GTL1_G2B_SPEC_APPROVED v1.0 §3.2 分歧表——
+        「同一系统、不同模型深度可对比」教学点；数值与 tests/engine-gt.test.js 跨深度分歧
+        断言同源：gt001_v2 冻结锚点 + thermo 轨 T-B 容差断言，非机组数据）。
+        独立路径（不扩既有 path-gt-001）保 DEC-5 5 步契约零改动。 ---- */
+  var GT_CROSS_SPEC = {
+    scenario_id: 'path-gt-001-cross-depth-eval',
+    version: 1,
+    label: 'GT-001 跨深度对比评测：同一故障 swing ↔ thermo 双轨成对运行',
+    system: 'GT-001',
+    events: [
+      { key: 'ev-sensor-thermo', label: '转速偏置 闭环 thermo 轨', family: 'sensor_drift', params: { magnitude: 0.3 }, t_start_s: 20, feedback_mode: 'closed_loop', inertia_model: 'thermo' },
+      { key: 'ev-sensor-swing', label: '转速偏置 闭环 swing 轨', family: 'sensor_drift', params: { magnitude: 0.3 }, t_start_s: 20, feedback_mode: 'closed_loop', inertia_model: 'swing' },
+      { key: 'ev-load-thermo', label: '负载阶跃 闭环 thermo 轨', family: 'load_step', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop', inertia_model: 'thermo' },
+      { key: 'ev-load-swing', label: '负载阶跃 闭环 swing 轨', family: 'load_step', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop', inertia_model: 'swing' }
+    ]
+  };
+
+  var GT_CROSS_PATH = {
+    pathId: 'path-gt-001-cross-depth',
+    title: '燃气涡轮：同一故障、两种模型深度',
+    system: 'GT-001',
+    goal: '在同一故障配置下并排运行 swing（L0b 遗留轨）与 thermo（L1 默认轨）两种模型深度，看清「控制器结构决定稳态、模型深度改变暂态路径与可观测面」：nadir、恢复速度、指令域语义与热力观测面的跨深度分歧。',
+    prerequisites: '建议先完成 path-gt-001 路径（转速偏置与双通道冗余）；知道 GT-001 声明三轨 inertia_model（thermo 默认 / swing / linear 遗留轨），同一故障可在不同模型深度下成对运行对照（事件级 inertia_model 键）。本页对比只在本演示模型假设内成立，非机组/电网动态验证。',
+    steps: [
+      stepInject(
+        'GT-001 默认运行在 thermo 轨（L1）：调速器燃料指令经压气机-燃烧室-透平效率链与燃烧室集总热惯性给出电功率；swing/linear 是遗留轨（L0b 行为级，无热力面）。本路径的主角不是新故障，而是模型深度：同一个故障写进两种深度的配置，各跑一条 Run，再看差异落在哪里。第一步先在系统页确认 topology 里的热力链组件与 thermo 默认轨标识。',
+        '系统页 · GT-001 拓扑与模型深度标识：thermo 默认轨（L1）与 swing/linear 遗留轨说明；热力链组件（压气机 → 燃烧室 → 透平）。'
+      ),
+      stepClosedLoop(
+        '闭环注入 +0.3 Hz 转速偏置（thermo 默认轨）：真实频率稳态仍收敛到 49.7 Hz——稳态由控制器结构（调速器积分）决定，与模型深度无关。分歧在暂态与观测面：thermo 轨能看到燃烧室出口温度 T3 从 1173 K 下探（t=60 采样 1044.16 K，趋向渐近稳态 1043.95 K）、透平出口温度 T4 降到 687.22 K——这是传感器偏置的热力学后果（燃料回落 → EGT 下探约 83 K），swing 轨完全没有这张观测面。t=60 采样频率 49.70050（thermo）vs 49.70548（swing）：thermo 回路增益 dP_gen/du ≈ 1.332（vs L0b 1.0），恢复更快。',
+        '信号页 · f_true_Hz 收敛 49.7 Hz；辅看 T3_out_K / T4_out_K 下探轨（swing 轨同列全程空白）与 Q_fuel_kW 燃料回落。',
+        { label: 'swing 轨视角', text: '同一偏置在 swing 轨：稳态同为 49.7 Hz、暂态路径不同（f(60)=49.70548）；T3/T4/Q_f 全程无观测面——模型深度决定你能看见什么。' }
+      ),
+      stepMonitorCompare(
+        '「同一故障、两种模型深度」并排（compare 面选同族不同轨的 Run）：负载阶跃 +10 kW 的频率最低点 nadir 49.590174（thermo）vs 49.589336（swing）——thermo 浅 8.4e-4 Hz，初瞬由摇摆方程主导所以几乎同；恢复速度分歧明显：f(60) 49.999347 vs 49.992213（thermo 快 7.1e-3 Hz）。注意指令域不可直比：thermo 稳态指令是燃料指令域 u_ss ≈ 19.65 kW_eq，swing 是功率指令域 P_gen_cmd ≈ 17.80 kW——同稳态、异指令，两个数字量纲语义不同。',
+        '对比页 · 同故障不同轨 Run 对照：load_step 双轨的 f_true（nadir 与恢复段分歧）+ T3 面有无；指令域两列分开读。',
+        { label: '执行器视角', text: '卡涩 50% 把分歧放大：swing 功率域钳位 P_gen 恰 20.000 kW，thermo 燃料域钳位 u_eff=20 经效率链给出 18.266 kW（Δ = −1.73 kW）——钳位语义域差异是跨深度教学点（第④步展开）。' }
+      ),
+      stepCausal(
+        '因果页的 GT thermo 轨叙事卡（gt-thermo-cross-depth）讲的是「测量偏置 → 效率链重新平衡」：偏置 b → 调速器误认为频率偏高 → 燃料指令下调 → 燃烧室能量平衡左移（T3 下探）→ P_gen 稳态偏移。注意 PV-001「测量偏置 → MPPT 重算目标」的类比在此不适用：GT 的调速器是积分结构，偏置不改变目标映射，而是被积分持续误调。执行器对比也在这里：同是 50% 卡涩，swing 钳电功率（20.000 kW）、thermo 钳燃料（链上 18.266 kW），f 稳态 49.791667 vs 49.719396；清除过冲 +0.213412 vs +0.3221 Hz。本页只解释运行前注入的已知故障在两种模型深度下的传播差异，不做检测、定位或诊断。',
+        '因果页 · thermo 轨跨深度叙事卡（gt-thermo-cross-depth 节点 ①→⑥）：n5 同故障暂态分歧表 + n6 口径与边界声明。'
+      ),
+      stepEval(
+        '评测入口：预置 4 事件成对场景——转速偏置与负载阶跃各按 thermo / swing 双轨成对运行（事件级 inertia_model 键，均 @20 s，锚点参数）。执行后逐对核对：负载阶跃对的 nadir（49.590174 vs 49.589336）与 f(60)（49.999347 vs 49.992213）；转速偏置对的 T3 观测面有无；swing 轨热力列全程空白本身就是要核对的结论——模型深度改变可观测面。',
+        '场景页 · 导入 4 事件成对场景 → 执行 → 按 inertia_model 分组核对 nadir / f(60) / T3 面；「载入查看」回到曲线与因果页。',
+        GT_CROSS_SPEC
+      )
+    ]
+  };
+
+  var PATHS = [FL_PATH, FC_PATH, GT_PATH, GT_CROSS_PATH];
 
   /* ================================================================== */
   /* 挂载                                                               */

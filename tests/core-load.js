@@ -1,14 +1,18 @@
 /* owner: core-engine | module: tests/core-load | contract: docs/CONTRACT.md */
 /* Node 加载器：建立 globalThis.window = globalThis，按依赖顺序 eval src/core 下经典脚本
    （含 I-11 plant 适配器 src/core/plants/*），使 window.FL 在 Node 中可用
-   （浏览器/protocol.js 不参与，核心层不硬依赖 FL.protocol）。 */
+   （浏览器/protocol.js 不参与，核心层不硬依赖 FL.protocol）。
+   V072_WAVE_DESIGN 残留清单 5：scenario.js / teaching.js 并入 CORE_FILES（S1/C-3 并发路
+   临时 eval 自装载退役）——顺序沿用 index.html 浏览器序：registry.js → scenario.js
+   （registry.createRun / engine.createConfig 首用前就绪）→ teaching.js（模块头规定
+   scenario.js 先于本模块）。 */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 
 const CORE_DIR = path.join(__dirname, '..', 'src', 'core');
-const CORE_FILES = ['hash.js', 'rng.js', 'schema.js', 'scope.js', 'systems.js', 'plants/fl001.js', 'plants/fc001.js', 'engine.js', 'metrics.js', 'checks.js', 'registry.js', 'bundle.js', 'arena-protocol.js'];
+const CORE_FILES = ['hash.js', 'rng.js', 'schema.js', 'scope.js', 'systems.js', 'plants/fl001.js', 'plants/fc001.js', 'engine.js', 'metrics.js', 'checks.js', 'registry.js', 'scenario.js', 'teaching.js', 'bundle.js', 'arena-protocol.js'];
 
 function bootstrap() {
   globalThis.window = globalThis;

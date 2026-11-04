@@ -13,8 +13,10 @@
         三系统既有轨 sanity（FL/FC/GT 各自信号面在、PV 信号不在）；
      5. 健康局 P_pv ≡ 10 恒等（逐位；§3.3 健康局不变量 PS-6 面）；
      6. DEC-2 Arena 显式排除守卫（源级）：arena.js systemList 过滤 PV-001 + 守卫注释。
-   PV Run quality 通用存储类检查（soc-bounds/energy-balance）对 PV fail 属当前锁定状态：
-   PV 无 SOC/E_bat 通道，checks.js 本波零改动（CHG-20261104-10 纪律），见第 4 节断言。 */
+   PV Run quality：soc-bounds/energy-balance 按 system.bounds 派生（PV bounds 无 SOC_pct 声明
+   → 不派发；CHG-20261105-01 清算项 1 解除 CHG-20261104-10 锁定态）；PV 专属 PHY 检查
+   pv-energy-consistency（E_pv_true + E_grid = E_load，EQ-PV-5/EQ-PV-7；容差 pv001_v1
+   gate T-A E_kWh=1e-9 kWh）pass，见第 4 节断言。 */
 'use strict';
 
 const fs = require('fs');
@@ -348,15 +350,30 @@ Object.keys(golden.runs).forEach((runKey) => {
   eq(pv[0], 10, 'P_pv(0)=10 kW');
   close(pv[600], 11.00, 0.05, 'P_pv(60)=11.00 kW（PV 锚点，非 GT 轨数值面）');
 
-  /* PV Run quality 当前锁定状态：通用检查 pass / 通用存储类检查 fail（PV 无 SOC/E_bat 通道，
-     checks.js 本波零改动——CHG-20261104-10 纪律；PV 专属 PHY 检查留待显式 CHG） */
+  /* PV Run quality（CHG-20261105-01 清算项 1 落地态）：通用检查 pass；
+     soc-bounds/energy-balance 按 system.bounds 派生——PV bounds 无 SOC_pct 声明 → 不派发
+     （解除 CHG-20261104-10 锁定态 fail）；PV 专属 PHY 恒等检查 pv-energy-consistency pass */
   const q = {};
   pvRun.quality.forEach((c) => { q[c.check_id] = c.status; });
   ['sampling', 'conservation-true', 'conservation-meas', 'units', 'event-window'].forEach((id) => {
     eq(q[id], 'pass', 'PV quality ' + id + '=pass');
   });
-  eq(q['soc-bounds'], 'fail', 'PV quality soc-bounds=fail（无 SOC 通道，当前锁定状态）');
-  eq(q['energy-balance'], 'fail', 'PV quality energy-balance=fail（无 E_bat/E_source 指标，当前锁定状态）');
+  eq(q['soc-bounds'], undefined, 'PV quality soc-bounds 不派发（bounds 无 SOC_pct 声明，bounds 派生分派）');
+  eq(q['energy-balance'], undefined, 'PV quality energy-balance 不派发（bounds 无 SOC_pct 声明，bounds 派生分派）');
+
+  /* PV 专属 PHY 检查 pv-energy-consistency：4 Run 全部在场且 pass，
+     残差 |E_pv_true + E_grid − E_load| ≤1e-9 kWh（pv001_v1 gate T-A E_kWh） */
+  ['healthy', 'closed_loop_fault', 'monitor_only', 'shading_closed_loop'].forEach((k) => {
+    const pc = trackRuns[k].quality.find((c) => c.check_id === 'pv-energy-consistency');
+    ok(!!pc, k + '：pv-energy-consistency 在场（PV 专属 PHY 按系统分派）');
+    eq(pc && pc.status, 'pass', k + '：pv-energy-consistency=pass（E_pv + E_grid = E_load 恒等闭合）');
+    ok(pc && typeof pc.observed === 'number' && pc.observed <= 1e-9,
+      k + '：pv-energy-consistency 残差 ≤1e-9 kWh（gate T-A E_kWh）', String(pc && pc.observed));
+    ok(pc && pc.tolerance.indexOf('1e-9') !== -1, k + '：pv-energy-consistency 容差声明含 1e-9 kWh');
+  });
+  /* PV quality 面无 fail（锁定态解除的整面断言） */
+  eq(pvRun.quality.filter((c) => c.status === 'fail').length, 0,
+    'PV quality 无 fail（锁定态 fail → pass 翻转完成）');
 
   /* 三系统既有轨 sanity：各自信号面在场、PV 信号不在场、run_hash 可重算
      （engine.test.js 不改而在验证清单跑绿；此处为引擎面轻量回归） */

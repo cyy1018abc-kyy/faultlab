@@ -92,6 +92,64 @@ ok(causalSrc.indexOf('card-residual-energy') !== -1, '教学卡携带 data-testi
 ok(causalSrc.indexOf('0.04444') !== -1 && causalSrc.indexOf('0.04278') !== -1 && causalSrc.indexOf('0.00167') !== -1
   && causalSrc.indexOf('代数恒等') !== -1, '教学卡三量并列 + 代数恒等（TXT-07）');
 
+/* 8. V072 清算项 6/7：GT thermo 轨叙事卡（systems.js causalTemplates 新键）
+      + RESIDUAL_CANDIDATES PV-001 / GT thermo 键（src/ui/pages/causal.js）。
+      契约：既有三族模板零改动；thermo_track 为静态叙事面（engine 按 fault.family
+      分派，不进运行期）；候选键按 r_meas→d_pv / thermo 效率链口径解析。 */
+const gtSys = FL.systems._raw.get('GT-001');
+eq(JSON.stringify(Object.keys(gtSys.causalTemplates)),
+  JSON.stringify(['sensor_drift', 'load_step', 'actuator_fault', 'thermo_track']),
+  'GT-001 causalTemplates：既有三族键零改动 + 新增 thermo_track（V072 清算项 6）');
+eq(gtSys.causalTemplates.sensor_drift.id, 'gt-sensor-drift', '既有模板 id 零改动（sensor_drift）');
+eq(gtSys.causalTemplates.load_step.id, 'gt-load-step', '既有模板 id 零改动（load_step）');
+eq(gtSys.causalTemplates.actuator_fault.id, 'gt-valve-stuck', '既有模板 id 零改动（actuator_fault）');
+const thermoCard = FL.systems.causalTemplate('GT-001', 'thermo_track');
+ok(thermoCard && thermoCard.id === 'gt-thermo-cross-depth',
+  'thermo_track 卡经 causalTemplate API 可取（静态叙事面，非运行期分派键）');
+eq(thermoCard.nodes.length, 6, 'thermo 卡 6 节点（PV001 spec §6.4 先例结构）');
+ok(Array.isArray(thermoCard.monitorNodes) && thermoCard.monitorNodes.length === 3, 'thermo 卡 monitor 链 3 节点');
+ok(thermoCard.mechanismSummary.indexOf('测量偏置 → 效率链重新平衡') !== -1 &&
+  thermoCard.mechanismSummary.indexOf('MPPT') !== -1 && thermoCard.mechanismSummary.indexOf('不适用') !== -1,
+  'thermo 卡机制摘要：测量偏置→效率链重新平衡；PV MPPT 类比不适用显式登记');
+const thermoCardText = JSON.stringify(thermoCard);
+['49.590174', '49.589336', '49.999347', '49.992213', '18.266', '20.000', '49.719396', '49.791667', '0.3221', '0.213412']
+  .forEach((num) => ok(thermoCardText.indexOf(num) !== -1, 'thermo 卡引用 §3.2 数值：' + num));
+/* 卡面引用完整性：componentId / signalIds / assumptions 均存在于 GT-001 注册面 */
+const gtCompIds = gtSys.components.map((c) => c.id);
+const gtSigIds = gtSys.signals.map((s) => s.id);
+const gtAsmIds = (gtSys.model.assumptions || []).map((a) => a.id);
+thermoCard.nodes.forEach((n) => {
+  ok(gtCompIds.indexOf(n.componentId) !== -1, 'thermo 卡节点 ' + n.id + ' componentId 存在（' + n.componentId + '）');
+  (n.signalIds || []).forEach((sid) => ok(gtSigIds.indexOf(sid) !== -1, 'thermo 卡节点 ' + n.id + ' 信号 ' + sid + ' 存在'));
+});
+thermoCard.assumptions.forEach((aid) => ok(gtAsmIds.indexOf(aid) !== -1, 'thermo 卡假设 ' + aid + ' 存在于 model.assumptions'));
+
+/* RESIDUAL_CANDIDATES：源码提取 + 按系统/轨解析断言 */
+const mRes = causalSrc.match(/const RESIDUAL_CANDIDATES = \{([\s\S]*?)\n  \};/);
+ok(!!mRes, 'causal.js RESIDUAL_CANDIDATES 块可提取');
+const RES = (0, eval)('({' + mRes[1] + '})');
+eq(JSON.stringify(RES.pvMeas), JSON.stringify(['d_pv_kW']), 'PV-001 键（r_meas→d_pv 口径）：pvMeas=[d_pv_kW]');
+eq(JSON.stringify(RES.pvSource), JSON.stringify(['P_pv_true_kW']), 'PV-001 电源项键：pvSource=[P_pv_true_kW]');
+eq(JSON.stringify(RES.gtThermoChain), JSON.stringify(['Q_fuel_kW', 'P_comp_kW', 'P_turb_kW']),
+  'GT thermo 键：gtThermoChain=效率链三信号（kW 域，非残差信号）');
+const pvSys = FL.systems._raw.get('PV-001');
+const pvSigIds = pvSys.signals.map((s) => s.id);
+['d_pv_kW', 'r_meas_kW', 'P_pv_true_kW'].forEach((sid) => {
+  ok(pvSigIds.indexOf(sid) !== -1, 'PV-001 信号目录含 ' + sid);
+});
+const gtThermoRun = core.simulate(core.createConfig('GT-001', {}), { runId: 'CR-GT-TH' });
+function hasFiniteSeries(run, id) {
+  const arr = run.timeseries && run.timeseries.signals ? run.timeseries.signals[id] : null;
+  return Array.isArray(arr) && arr.some((v) => typeof v === 'number' && isFinite(v));
+}
+ok(RES.gtThermoChain.every((id) => hasFiniteSeries(gtThermoRun, id)), 'thermo 轨：效率链三信号为有限数值轨（可解析）');
+const gtSwingRun = core.simulate(core.createConfig('GT-001', { inertia_model: 'swing' }), { runId: 'CR-GT-SW' });
+ok(RES.gtThermoChain.every((id) => !hasFiniteSeries(gtSwingRun, id)), 'swing 遗留轨：效率链三信号全程 null（不解析）');
+const pvRun = core.simulate(core.createConfig('PV-001', { fault: { family: 'sensor_drift', params: { magnitude: 100 }, t_start_s: 20 }, feedback_mode: 'closed_loop' }), { runId: 'CR-PV' });
+ok(hasFiniteSeries(pvRun, 'd_pv_kW') && hasFiniteSeries(pvRun, 'r_meas_kW'), 'PV-001 运行：d_pv / r_meas 双通道并存');
+eq((pvRun.metrics.find((m) => m.metric_id === 'max_abs_r_meas_kW') || {}).value, 0,
+  'PV-001 r_meas 恒 0（r_meas→d_pv 口径的根因：功率测量通道全健康）');
+
 /* ------------------------------------------------------------------ */
 console.log('\n================================================');
 console.log('PASS ' + pass + ' / FAIL ' + fail + (fail ? '  ✗' : '  ✓'));

@@ -108,6 +108,33 @@ code(contract.validateScenarioConfig(Object.assign({}, scFault, { bias_A: NaN })
 code(contract.validateScenarioConfig(Object.assign({}, scFault, { initial_load_kW: Infinity })), 'CN-E02', 'Infinity 参数拒绝');
 
 /* ------------------------------------------------------------------ *
+ * 2b. ScenarioConfig initial 键面按 system.bounds 派生（R-8，CHG-20261105-01 清算项 2；
+ *     PV001_G2B_SPEC_APPROVED v1.0 §1.1：PV-001 initial 无 SOC_pct、有 G0_W_m2）。
+ *     PV Run 导出校验由 CN-E02 改为 pass；FL/FC/GT 既有键面与域校验逐字保持；
+ *     未知 model_id 反查失败回退既有键面；声明面外初值键处置不变（不要求、不新增拒绝）。
+ * ------------------------------------------------------------------ */
+const pvBase = core.createConfig('PV-001', { fault: { family: 'none', faultId: null, t_start_s: 20, params: { magnitude: 0 } } });
+const scPV = contract.scenarioView(pvBase);
+eq(scPV.initial_load_kW, 30, 'PV scenarioView.initial_load_kW=30');
+eq(scPV.initial_SOC_pct, undefined, 'PV scenarioView 无 initial_SOC_pct（无储能键面）');
+eq(scPV.initial_G0_W_m2, 1000, 'PV scenarioView.initial_G0_W_m2=1000（R-8 投影补入）');
+eq(contract.validateScenarioConfig(scPV).length, 0, 'PV-001 Run 导出校验通过（R-8：声明才要求，不再报 CN-E02）');
+code(contract.validateScenarioConfig(Object.assign({}, scPV, { initial_G0_W_m2: 200 })), 'CN-E02', 'PV G0 低于 bounds 域下界 300 拒绝');
+code(contract.validateScenarioConfig(Object.assign({}, scPV, { initial_G0_W_m2: 1200 })), 'CN-E02', 'PV G0 高于 bounds 域上界 1000 拒绝');
+code(contract.validateScenarioConfig(Object.assign({}, scPV, { initial_G0_W_m2: NaN })), 'CN-E02', 'PV G0 NaN 拒绝');
+code(contract.validateScenarioConfig(Object.assign({}, scPV, { initial_G0_W_m2: undefined })), 'CN-E02', 'PV G0 缺失拒绝（声明即要求）');
+eq(contract.validateScenarioConfig(Object.assign({}, scPV, { initial_G0_W_m2: 300 })).length, 0, 'PV G0=300（bounds 下界端点）通过');
+['FC-001', 'GT-001'].forEach((sid) => {
+  eq(contract.validateScenarioConfig(contract.scenarioView(core.createConfig(sid, {}))).length, 0,
+    sid + ' Run 导出校验通过（bounds 含 SOC_pct，键面零变化）');
+});
+code(contract.validateScenarioConfig(Object.assign({}, scFault, { initial_SOC_pct: 150 })), 'CN-E02', 'FL SOC 域校验保持（bounds 声明 SOC_pct）');
+code(contract.validateScenarioConfig(Object.assign({}, scFault, { model_id: 'x-unknown', initial_SOC_pct: 150 })), 'CN-E02',
+  '未知 model_id 反查失败回退既有键面（SOC 域校验仍生效）');
+eq(contract.validateScenarioConfig(Object.assign({}, scFault, { initial_G0_W_m2: 1000 })).length, 0,
+  'FL 场景携带声明面外初值键处置保持（不要求、不新增拒绝）');
+
+/* ------------------------------------------------------------------ *
  * 3. TimeSeries §2.4（n 由参数派生，禁止硬编码 601；T-07 / SA-01）
  * ------------------------------------------------------------------ */
 const run = core.simulate(cfgFault, { runId: 'SCHEMA-TEST' });

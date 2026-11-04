@@ -9,7 +9,12 @@
 
   /* 指标卡分组（对应规格 §7.3 的六类 + focal_change）。
      FL-001 使用 DATA_CONTRACT_SPEC §2.6 的 P0 契约指标 ID（*_60s/*_end_pp/focal_change_A）；
-     FC/GT 冻结预览沿用旧 ID——两组 ID 并列，由 metricLoose 兼容匹配。 */
+     FC/GT 冻结预览沿用旧 ID——两组 ID 并列，由 metricLoose 兼容匹配。
+     bySystem：按所选系统替换组标题/说明/指标行（v0.7 残留清算 PV 适配）——
+     PV-001 无储能、无电池与 SOC 通道（不可调度电源，EQ-PV-7：SOC_est 功能位由
+     P_pv,est/ΔE_pv 承担），energy-source 组改用 PV 能量账本四指标（metrics.js
+     PV-001 专属段注册名）；soc 组保留原指标行（PV 的这些指标由引擎注册为
+     unavailable → 值面显示「不可用」，不填 0），仅替换说明防止误读。 */
   const METRIC_GROUPS = [
     {
       id: 'energy-load', title: '负载需求电能 / 实际服务电能',
@@ -19,12 +24,24 @@
     {
       id: 'energy-source', title: '电源电能 / 电池电能积分',
       desc: '电源真实电能与电池真实电能（带符号）的积分；二者之和应与实际供电电能一致。',
-      metrics: ['E_source_kWh', 'E_bat_kWh', 'E_gen_true_60s', 'E_bat_true_60s']
+      metrics: ['E_source_kWh', 'E_bat_kWh', 'E_gen_true_60s', 'E_bat_true_60s'],
+      bySystem: {
+        'PV-001': {
+          title: '光伏电能 / 馈线受电电能积分',
+          desc: '光伏阵列真实电能、EMS 辐照度折算估计电能、两者之差（ΔE_pv）与馈线受电电能；E_pv + E_grid = E_load 为定义恒等（EQ-PV-7）。',
+          metrics: ['E_pv_true_kWh', 'E_pv_est_kWh', 'E_pv_err_kWh', 'E_grid_kWh']
+        }
+      }
     },
     {
       id: 'soc', title: 'SOC 真值 / 估计 / 误差',
       desc: '真实 SOC、由测量积分的估计 SOC 及两者差值（单位：百分点 pp）。',
-      metrics: ['SOC_true_end_pct', 'SOC_est_end_pct', 'SOC_err_pp', 'SOC_err_end_pp']
+      metrics: ['SOC_true_end_pct', 'SOC_est_end_pct', 'SOC_err_pp', 'SOC_err_end_pp'],
+      bySystem: {
+        'PV-001': {
+          desc: 'PV-001 无储能（结构上无 SOC 键），本组指标对光伏运行显示「不可用」；SOC_est 通道的功能位由 P_pv,est / ΔE_pv 承担（见上一组）。'
+        }
+      }
     },
     {
       id: 'residual', title: '最大功率平衡残差',
@@ -522,6 +539,18 @@
     return null;
   }
 
+  /* 按系统解析指标组：试验运行优先（一致性检查要求同系统同模型），其次基准，
+     都没有则用默认组定义。只替换 title / desc / metrics 展示面，不改数值来源
+     （数值仍只来自 run.metrics / compareRuns.pairs）。 */
+  function systemOfPair(data) {
+    return (data.trial && data.trial.systemId) || (data.baseline && data.baseline.systemId) || null;
+  }
+
+  function groupForSystem(group, systemId) {
+    const ov = (systemId && group.bySystem && group.bySystem[systemId]) || null;
+    return ov ? Object.assign({}, group, ov) : group;
+  }
+
   function metricEntry(data, metricId) {
     const comp = data.comparison;
     const pair = pairFor(comp, metricId);
@@ -603,7 +632,9 @@
     ]));
 
     const grid = el('div', { class: 'cp-metric-grid' });
-    METRIC_GROUPS.forEach((group) => {
+    const pairSystemId = systemOfPair(data);
+    METRIC_GROUPS.forEach((baseGroup) => {
+      const group = groupForSystem(baseGroup, pairSystemId);
       const card = el('section', {
         class: 'cp-cat fl-card' + (group.accent ? ' is-accent' : ''),
         'data-cat': group.id,

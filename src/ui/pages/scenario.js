@@ -22,11 +22,16 @@
   const MODE_LABEL = { closed_loop: '闭环反馈', monitor: '仅监测' };
   /* 教学路径草稿键（与 src/ui/pages/teaching.js DRAFT_KEY 同一字面量镜像，改动须两处同步） */
   const TEACHING_DRAFT_KEY = 'faultlab.teaching.scenarioDraft.v1';
-  /* 每 Run 摘要行展示的关键指标（按系统选取；数值一律来自 run.metrics） */
+  /* 每 Run 摘要行展示的关键指标（按系统选取；数值一律来自 run.metrics）。
+     PV-001：focal_change 的焦点信号即 P_pv_true_kW（metrics.js FOCAL_SIGNAL 映射，
+     故障时刻→结束的真实出力变化量）；ΔE_pv（E_pv_err_kWh）承担 SOC_est 的功能位
+     （EQ-PV-7），E_grid_kWh 为馈线受电口径（E_pv + E_grid = E_load 定义恒等）。
+     PV-001 无储能/无 SOC，故不取 SOC 类指标（缺失显示 不可用，见 pickMetrics）。 */
   const METRIC_PICK = {
     'FL-001': ['focal_change_A', 'SOC_err_end_pp', 'E_bat_true_60s'],
     'FC-001': ['focal_change', 'SOC_err_pp', 'E_bat_kWh'],
-    'GT-001': ['focal_change', 'f_nadir_Hz']
+    'GT-001': ['focal_change', 'f_nadir_Hz'],
+    'PV-001': ['focal_change', 'E_pv_err_kWh', 'E_grid_kWh']
   };
   const MAX_ERROR_ROWS = 12;
 
@@ -185,7 +190,7 @@
     refs.text = h('textarea', {
       class: 'input scn-text', rows: '8', spellcheck: 'false',
       'data-testid': 'scenario-import-text',
-      placeholder: '粘贴场景 JSON（schema v1）。顶层字段：version=1 / system（FL-001 · FC-001 · GT-001）/ events[]；' +
+      placeholder: '粘贴场景 JSON（schema v1）。顶层字段：version=1 / system（FL-001 · FC-001 · GT-001 · PV-001）/ events[]；' +
         '事件字段：key、family、params、t_start_s、feedback_mode（closed_loop / monitor）。',
       on: { input: onTextChanged }
     });

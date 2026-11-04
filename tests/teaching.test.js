@@ -2,26 +2,26 @@
    + FaultLab-evaluation/NEXT/V070_WAVE_DESIGN.md DEC-5（CHG-20261104-10）
    教学路径核心测试（C-3 最小形态）：
    A. 模块形态 + view.page 校验表与 src/ui/shell.js PAGES 键源码交叉核对；
-   B. 3 条预设路径全部过 validateTeachingPath + 元数据 / 5 步结构 / 导出原语断言；
+   B. 4 条预设路径（3 系统 + GT 跨深度扩展，V072 清算项 7）全部过 validateTeachingPath +
+      元数据 / 5 步结构 / 导出原语断言；
    C. 校验器负例（8 类）+ 装载顺序守卫 + warning 面；
    D. narrative/文案禁词自检：读 tools/copy-guard.mjs BANNED 数组（33 模式）对路径内
       全部字符串值做子串自查（正则形模式退化为同义 RegExp；字面形为纯子串比对——
       teaching.js 文案承诺零禁词子串、连批准否定串也不含，故无需 ALLOW 剥离，严于 copy-guard）；
    E. scenarioSpec 执行冒烟：FL 路径第⑤步 executeScenario → 3 Run 结构完整 + 哈希确定性。
    运行：node tests/teaching.test.js；失败非零退出。
-   装载：bootstrap() 后按 tests/scenario.test.js 同一机制补装 src/core/scenario.js 与
-   src/core/teaching.js（不改动 tests/core-load.js 的 CORE_FILES——并发路隔离，
-   run-g2 接线轮可统一并入装载清单）。 */
+   装载：src/core/scenario.js 与 src/core/teaching.js 已并入 tests/core-load.js
+   CORE_FILES（V072 残留清单 5，S1/C-3 临时 (0,eval) 自装载退役）——bootstrap() 直接
+   就绪 FL.core.scenario / FL.core.teaching，序 registry.js → scenario.js → teaching.js
+   与 index.html <script> 序一致。 */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
-const { bootstrap, CORE_DIR } = require('./core-load');
+const { bootstrap } = require('./core-load');
 
 const ROOT = path.join(__dirname, '..');
 const FL = bootstrap();
-(0, eval)(fs.readFileSync(path.join(CORE_DIR, 'scenario.js'), 'utf8'));
-(0, eval)(fs.readFileSync(path.join(CORE_DIR, 'teaching.js'), 'utf8'));
 
 const TC = FL.core.teaching;
 const SC = FL.core.scenario;
@@ -61,8 +61,8 @@ eq(TC.SHELL_PAGE_KEYS.length, 9, '页面键数=9（home/system/signals/causal/co
  * ------------------------------------------------------------------ */
 section('B. 预设路径校验 + 结构 + 导出原语');
 const paths = TC.getTeachingPaths();
-eq(paths.length, 3, 'getTeachingPaths 返回 3 条');
-eq(new Set(paths.map((p) => p.pathId)).size, 3, 'pathId 唯一');
+eq(paths.length, 4, 'getTeachingPaths 返回 4 条（3 系统 + GT 跨深度扩展，V072 清算项 7）');
+eq(new Set(paths.map((p) => p.pathId)).size, 4, 'pathId 唯一');
 ['FL-001', 'FC-001', 'GT-001'].forEach((sid) => {
   ok(paths.some((p) => p.system === sid), '存在 ' + sid + ' 路径');
 });
@@ -99,6 +99,29 @@ ok(flPath.steps[4].scenarioSpec.events.every((e) => e.family !== 'load_step'), '
 /* GT 路径第⑤步演示 GT 专属 t_clear */
 const gtPath = paths.find((p) => p.pathId === 'path-gt-001');
 eq(gtPath.steps[4].scenarioSpec.events[3].t_clear_s, 35, 'GT 第⑤步含 t_clear_s=35（GT-001 执行器专属）');
+
+/* GT 跨深度扩展路径（V072 清算项 7）：独立 pathId 保 DEC-5 5 步契约零改动；
+   第⑤步 4 事件双轨成对（事件级 inertia_model 键，B-2 定案）——「同一故障、两种模型深度」。 */
+const gtxPath = paths.find((p) => p.pathId === 'path-gt-001-cross-depth');
+ok(!!gtxPath, '存在 GT 跨深度扩展路径 path-gt-001-cross-depth');
+eq(gtxPath.system, 'GT-001', '跨深度路径绑定 GT-001');
+eq(gtxPath.steps.length, 5, '跨深度路径步数=5（DEC-5 契约不破坏）');
+eq(JSON.stringify(gtxPath.steps.map((s) => s.view.page)), JSON.stringify(['system', 'signals', 'compare', 'causal', 'scenario']),
+  '跨深度路径视图深链序列与模板同构');
+const gtxEvents = gtxPath.steps[4].scenarioSpec.events;
+eq(gtxEvents.length, 4, '跨深度第⑤步 4 事件（双故障 × 双轨成对）');
+eq(JSON.stringify(gtxEvents.map((e) => e.family + ':' + e.inertia_model)),
+  JSON.stringify(['sensor_drift:thermo', 'sensor_drift:swing', 'load_step:thermo', 'load_step:swing']),
+  '跨深度 4 事件双轨成对（sensor/load × thermo/swing，锚点参数 0.3 Hz / 10 kW）');
+eq(JSON.stringify(gtxEvents.map((e) => e.params.magnitude)), JSON.stringify([0.3, 0.3, 10, 10]),
+  '跨深度事件参数取目录锚点值');
+/* 跨深度叙事数值锚（GTL1_G2B_SPEC_APPROVED §3.2 v1.0 口径，engine-gt.test.js 跨深度分歧断言同源） */
+const gtxText = JSON.stringify(gtxPath);
+['49.590174', '49.589336', '49.999347', '49.992213', '49.70050', '49.70548', '1044.16', '687.22', '19.65', '17.80', '18.266', '20.000']
+  .forEach((num) => ok(gtxText.indexOf(num) !== -1, '跨深度路径引用 §3.2 数值：' + num));
+/* 既有 3 路径本体零改动（新增为第 4 条，不扩不改） */
+eq(flPath.pathId, 'path-fl-001', '既有 FL 路径零改动');
+eq(TC.exportTeachingPath('path-gt-001').path.title, '燃气涡轮：转速偏置与双通道冗余', '既有 GT 路径零改动');
 
 /* 导出原语：确定性信封 + 内容哈希；未知 pathId 抛中文错误 */
 const exp1 = TC.exportTeachingPath('path-fl-001');
@@ -285,4 +308,4 @@ if (fail) {
   console.log('================================================');
   process.exit(1);
 }
-console.log('教学路径核心（C-3 DEC-5）测试全部通过：3 路径校验 / 负例 8 类 + 守卫 / 禁词 33 模式子串自检 / FL 3 Run 执行冒烟。');
+console.log('教学路径核心（C-3 DEC-5）测试全部通过：4 路径校验（含 GT 跨深度扩展）/ 负例 8 类 + 守卫 / 禁词 33 模式子串自检 / FL 3 Run 执行冒烟。');

@@ -1042,3 +1042,41 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
      双路评审四路 + 全量门禁；golden 零变更、零新仿真轨、A-4b/B-2 批准不在本授权内；
   ③ **CHG-20261105-02 预留**（v0.7.2 发布）。
   批准人：用户（2026-11-05「统一采用推荐决策」）；记录人：实现 Agent。
+
+- `CHG-20261105-02`：**v0.7.2 发布（G8）——残留清算九项全清 + A-4b/A-4c/B-2 草案轮**。
+  V072_WAVE_DESIGN 波次（T1…T12，动态工作流 dwfrun-11360bb0 三阶段 13 路）。交付：
+  ① **残留清算九项全清**：T1 checks.js soc-bounds/energy-balance 按 bounds 派生（PV 不派发）
+     + **pv-energy-consistency** PV 专属 PHY 检查（E_pv_true+E_grid=E_load，实测残差 ≤5.551e-17）
+     ／T2 schema 导出面 R-8（initial 键面 bounds 派生、PV 免 SOC_pct、G0_W_m2 校验+投影；
+     FL/FC/GT baseline 并跑探针**逐字等价**）／T3 home 四系统化+徽章真实 level 前缀
+     （**GT→L1 联带修正**）+故障原理卡通用化（PV 声明性机制卡）+METRIC_PICK/compare PV 组
+     ／T4 signals.js 内层根 div 修复（SPA 残留缺陷消除）+e2e E-09 深链残留断言（回退→咬合
+     →重应用闭环证明）／T5 CORE_FILES 并入 + **FaultLab.html 重打包**（1383.4 KiB，原产物
+     2026-10-27 陈旧缺 15 文件）+ file:// 冒烟 57×3 轮／T6 causalTemplates thermo_track 静态
+     叙事卡 + causal.js RESIDUAL_CANDIDATES PV/GT-thermo 键 + **单位域缺陷修复**
+     （f_channel_diff_Hz Hz 域）+ teaching 跨深度路径 + TESPy 旁证算例（6/6 PASS，
+     三标签不合并）；
+  ② **A-4b FL 热模型 G2b 草案**：`FL001_THERMAL_G2B_SPEC_DRAFT.md` v0.1（547 行）——
+     thermal_model off 默认（P0 旗舰四理由）、守恒面 (a) 进母线平衡推荐、EQ-FLTH-1…9、
+     锚点 RK4 预填（L0 轨零变化三层佐证 worst diff=0.0）；双路评审
+     **A:PASS_WITH_CONDITIONS（4）/B:PASS_WITH_CONDITIONS（3）**——批准轮修订清单
+     （A-1 两角点 P_gen 预填值修正 21.769954/20.139754 等）登记证据 §3，**批准与实现
+     v0.8.0（DEC-2 留待用户）**；
+  ③ **B-2 WT-001 风电 G2b 草案**：`WT001_G2B_SPEC_DRAFT.md` v0.1（576 行）——L0b 推荐
+     （WT-DRAFT-Q3）、Cp 经验式+三支路目标+变桨一阶、3 族（**v_sensor_bias 注入点经复算
+     证伪 v³ 目标律发散→钳位+估计通道推荐（Q1）**/pitch_stuck 位置强制（Q2）/gust_step）；
+     双路评审 **A:PASS_WITH_CONDITIONS（3）/B:PASS_WITH_CONDITIONS（4）**——批准轮修订
+     清单（A-1 β(20.0) 口径二选一/B-1 禁词改写等）登记证据 §3，**批准与实现 v0.8.0
+     （DEC-4 留待用户）**；
+  ④ 步数账（DEC-6）：run-g2 **28 步不变**，预算 ≤29 维持；验证：run-g2 28/28 PASS 两次独立
+     （工作流内 + 主流程复验 35417ms）；**golden 零变更**（6 golden 字节冻结）；零新仿真轨
+     （engine.js 零改动）；FL/FC/GT 行为 baseline 探针逐字等价；copy-guard 0 命中；
+     file:// 冒烟 57×3、e2e 48/48（新增 E-09 深链残留断言）、CDP 走查 50/50；
+  ⑤ **新增残留登记（本波探针发现，须显式 CHG）**：faulted PV Run bias_A 分域缺陷
+     （schema.js:161-163 |b|≤20 A 误用于 W/m² 幅值域，faulted PV 导出仍报 CN-E02）／
+     docs/CONTRACT.md §4.8 quality「必含」措辞欠账／thermo_track 运行期自动分派留后续。
+  预期失效面：PV quality 锁定态 fail→pass、**新建 PV Run config_hash/run_hash 变化**
+  （scenarioView 补投 initial_G0_W_m2，无冻结 PV 哈希断言）、FaultLab.html 字节变化、
+  home 文案变化；FL/FC/GT 行为零变化。证据 `evidence/g8/v072-release.md`。
+  **推送按用户裁定暂缓（与 v0.7.1 同批）**。
+  批准人：用户（CHG-20261105-01 授权链）；记录人：实现 Agent。

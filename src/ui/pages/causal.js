@@ -32,7 +32,21 @@
     load: ['P_load_served_kW', 'P_load_demand_kW'],
     rotor: ['P_rotor_kW'],
     rTrue: ['r_true_kW'],
-    rMeas: ['r_meas_kW', 'f_channel_diff_Hz']
+    rMeas: ['r_meas_kW', 'f_channel_diff_Hz'],
+    /* PV-001 键（r_meas→d_pv 口径，V072 清算项 6）：PV-001 全部功率测量通道健康、
+       r_meas 恒为 0（与 FL-001 传感器偏置的 +4 kW 测量残差形成教学对照），测量侧
+       一致性通道由 MPPT 一致性残差 d_pv 承载（代数恒等，不是能量损失——闭环瞬态后
+       稳态归零、仅监测恒为 −0.01·b）。pvSource：PV 电源项（阵列真实出力）——通用
+       sourceTrue 键不含 PV 信号，展开面逐项表用。 */
+    pvSource: ['P_pv_true_kW'],
+    pvMeas: ['d_pv_kW'],
+    /* GT thermo 键（thermo 轨残差/一致性通道口径，V072 清算项 6）：残差通道 = r_true
+       （含转子项定义恒等，swing/thermo 两轨同构，由 rTrue 承载）；测量一致性通道 =
+       f_channel_diff_Hz（Hz 域通道冗余不一致，不是 kW 功率残差，由 rMeas 回退承载——
+       展示单位跟随信号自身单位，不得标注为 kW）。gtThermoChain = thermo 轨效率链通道
+       （P_gen = η_m·(P_turb − P_comp)，kW 域），供展开面热力逐项展示；swing/linear
+       遗留轨该三信号全程 null（无热力面），不解析。 */
+    gtThermoChain: ['Q_fuel_kW', 'P_comp_kW', 'P_turb_kW']
   };
 
   let el = null;
@@ -1138,7 +1152,9 @@
     const open = !!ps.residualOpen;
     const peak = run ? residualPeak(run) : null;
     const peakText = peak == null ? null : FMT.num(peak, Math.abs(peak) >= 10 ? 1 : 2);
-    const title = (peak != null && peak > 1e-6) ? '为什么显示 +' + peakText + ' kW' : '功率平衡残差';
+    /* 一致性通道展示单位跟随信号自身单位（GT 的 f_channel_diff_Hz 是 Hz 域，不是 kW） */
+    const measSigHead = run ? findSignalByCandidates(run, RESIDUAL_CANDIDATES.rMeas) : null;
+    const title = (peak != null && peak > 1e-6) ? '为什么显示 +' + peakText + ' ' + (measSigHead ? unitOf(measSigHead) : 'kW') : '功率平衡残差';
 
     const card = el('section', { class: 'cc-bottom-card fl-panel' });
     card.appendChild(el('div', { class: 'panel-head' }, [
@@ -1167,6 +1183,24 @@
     const batMeas = findSignalByCandidates(run, RESIDUAL_CANDIDATES.batMeas);
     const loadSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.load);
     const rotorSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.rotor);
+    /* PV-001 键（r_meas→d_pv 口径）与 GT thermo 键解析 */
+    const pvSourceSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.pvSource);
+    const pvMeasSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.pvMeas);
+    const chainSigs = RESIDUAL_CANDIDATES.gtThermoChain
+      .map((id) => findSignalByCandidates(run, [id]))
+      .filter((sig) => {
+        if (!sig) return false;
+        /* swing/linear 遗留轨该三信号为全程 null 的占位数组（无热力面）——须有有限值才解析 */
+        const arr = run.timeseries && run.timeseries.signals ? run.timeseries.signals[sig.id] : null;
+        if (!Array.isArray(arr)) return false;
+        for (let i = 0; i < arr.length; i++) {
+          if (typeof arr[i] === 'number' && isFinite(arr[i])) return true;
+        }
+        return false;
+      });
+    /* 一致性通道展示单位跟随信号自身单位（GT 的 f_channel_diff_Hz 是 Hz 域，不是 kW） */
+    const measUnit = sigMeas ? unitOf(sigMeas) : 'kW';
+    const sameDomain = !!sigMeas && !!sigTrue && unitOf(sigMeas) === unitOf(sigTrue);
 
     if (!sigTrue && !sigMeas) {
       body.appendChild(el('div', { class: 'notice', 'data-tone': 'warn' }, [
@@ -1177,10 +1211,7 @@
     }
     if (!ev) {
       body.appendChild(el('p', { class: 'cc-card-desc' }, '本运行没有故障事件，真实与测量平衡残差都应接近 0，不存在需要解释的残差现象。'));
-      body.appendChild(el('div', { class: 'cc-resid-summary' }, [
-        residualSummaryRow(run, sigTrue, state.currentTime),
-        residualSummaryRow(run, sigMeas, state.currentTime)
-      ]));
+      body.appendChild(el('div', { class: 'cc-resid-summary' }, residualSummaryRows(run, state.currentTime, sigTrue, sigMeas, pvMeasSig)));
       return card;
     }
     if (peak == null || peak <= 1e-6) {
@@ -1188,11 +1219,16 @@
         UI.icon('info', { size: 14 }),
         el('div', {}, '本次运行的最大测量一致性残差 ≈ 0，未出现可解释的残差异常；页面不推断未观测的原因。')
       ]));
+      /* PV-001（r_meas→d_pv 口径）：r_meas 恒为 0 本身是教学点，功率测量通道全健康；
+         测量侧一致性由 d_pv 承载——r_meas ≈ 0 时并行展示 d_pv 通道，不把两者混同。 */
+      if (pvMeasSig) {
+        body.appendChild(el('div', { class: 'cc-resid-summary' }, residualSummaryRows(run, state.currentTime, sigTrue, sigMeas, pvMeasSig)));
+      }
       return card;
     }
 
     body.appendChild(el('p', { class: 'cc-card-desc' },
-      '测量一致性残差由测量通道构造，' + peakText + ' kW 是测量偏差的体现；真实功率守恒仍然成立。点击展开查看两条平衡式的逐项数值。'));
+      '测量一致性残差由测量通道构造，' + peakText + ' ' + measUnit + ' 是测量偏差的体现；真实功率守恒仍然成立。点击展开查看两条平衡式的逐项数值。'));
     /* +4 kW 教学卡（UI_COPY_GUARDRAILS §4 逐字口径；TXT-07）。
        仅对批准白名单内的 P0 基准故障 Run（+4 kW）显示数值；其余 Run 只给机制文本，不编造数字。 */
     (function appendTeachingCard() {
@@ -1216,6 +1252,7 @@
         const tEval = residualEvalTime(st, run, ev);
         summary.appendChild(residualSummaryRow(run, sigTrue, tEval, true));
         summary.appendChild(residualSummaryRow(run, sigMeas, tEval, true));
+        if (pvMeasSig) summary.appendChild(residualSummaryRow(run, pvMeasSig, tEval, true));
         summary.appendChild(el('div', { class: 'tiny muted' }, '评估时刻：t = ' + FMT.time(tEval) +
           (st.currentTime < ev.trigger_s ? '（故障尚未开始，已取故障期间末点）' : '（当前时刻）')));
       };
@@ -1229,6 +1266,7 @@
     const terms = [];
     const termList = [];
     if (sourceTrue) termList.push({ sig: sourceTrue, sign: 1, label: '电源真实功率' });
+    else if (pvSourceSig) termList.push({ sig: pvSourceSig, sign: 1, label: '电源真实功率' });
     if (batTrue) termList.push({ sig: batTrue, sign: 1, label: '电池真实功率' });
     if (batMeas) termList.push({ sig: batMeas, sign: 1, label: '电池测量功率' });
     if (loadSig) termList.push({ sig: loadSig, sign: -1, label: '负载功率' });
@@ -1241,7 +1279,9 @@
       const samples = {};
       termList.forEach((term) => { samples[term.sig.id] = sample(run, term.sig.id, tEval).value; });
       const useTrue = !!(sourceTrue && batTrue && loadSig);
-      const useMeas = !!(sourceTrue && batMeas && loadSig);
+      /* 一致性通道为功率域（kW）才渲染功率平衡分解式：GT 的 f_channel_diff_Hz 是 Hz 域
+         通道冗余不一致（不是功率平衡残差），不能代入电源+电池−负载式子。 */
+      const useMeas = !!(sourceTrue && batMeas && loadSig && sameDomain);
       liveBox.appendChild(el('div', { class: 'cc-resid-time mono' }, '评估时刻 t = ' + FMT.time(tEval) +
         (st.currentTime < ev.trigger_s ? '（故障尚未开始，取故障期间末点）' : '（当前时刻）')));
       if (useTrue) {
@@ -1255,29 +1295,24 @@
         }, samples));
       }
       if (!useTrue && !useMeas) {
-        const tRow = el('div', { class: 'cc-term-table' });
-        termList.forEach((term) => {
-          const v = samples[term.sig.id];
-          tRow.appendChild(el('div', { class: 'cc-term-row' }, [
-            el('span', { class: 'cc-term-label' }, [
-              el('span', {}, term.sig.label || term.sig.id),
-              el('span', { class: 'mono tiny muted' }, term.sig.id)
-            ]),
-            el('span', { class: 'cc-term-value num' }, (v == null ? '不可用' : signedOrZero(term.sign * v, precisionOf(term.sig, 3))) + ' ' + unitOf(term.sig)),
-            el('span', {}, UI.sourceTag(term.sig.sourceKind))
-          ]));
-        });
-        liveBox.appendChild(tRow);
+        liveBox.appendChild(termTable(termList, samples));
       }
-      const delta = (() => {
-        const a = sigMeas ? sample(run, sigMeas.id, tEval).value : null;
-        const b = sigTrue ? sample(run, sigTrue.id, tEval).value : null;
-        return (a != null && b != null) ? a - b : null;
-      })();
-      liveBox.appendChild(el('div', { class: 'cc-term-foot' }, [
-        el('span', {}, 'r_meas − r_true = ' + (delta == null ? '不可用' : signedOrZero(delta, 3) + ' kW')),
-        el('span', { class: 'muted' }, '该项即测量通道引入的一致性偏差。')
-      ]));
+      /* GT thermo 键：thermo 轨效率链通道逐项展示（kW 域，非残差信号——swing/linear 遗留轨无热力面，不解析） */
+      if (chainSigs.length) {
+        liveBox.appendChild(el('div', { class: 'tiny muted' }, '热力链通道（thermo 轨，非残差信号）：P_gen = η_m·(P_turb − P_comp)；swing/linear 遗留轨无热力面。'));
+        liveBox.appendChild(termTable(chainSigs.map((sig) => ({ sig: sig, sign: 1 })), samples));
+      }
+      if (sameDomain) {
+        const delta = (() => {
+          const a = sigMeas ? sample(run, sigMeas.id, tEval).value : null;
+          const b = sigTrue ? sample(run, sigTrue.id, tEval).value : null;
+          return (a != null && b != null) ? a - b : null;
+        })();
+        liveBox.appendChild(el('div', { class: 'cc-term-foot' }, [
+          el('span', {}, 'r_meas − r_true = ' + (delta == null ? '不可用' : signedOrZero(delta, 3) + ' kW')),
+          el('span', { class: 'muted' }, '该项即测量通道引入的一致性偏差。')
+        ]));
+      }
     };
     liveHooks.push(hook);
     hook(state);
@@ -1311,6 +1346,31 @@
       el('span', {}, UI.sourceTag(sig.sourceKind)),
       withLabel ? el('span', { class: 'tiny muted' }, 't=' + FMT.num(t, 1) + ' s') : null
     ]);
+  }
+  /* 摘要行组装：r_true / r_meas（一致性通道）+ 可选系统专属通道（PV-001 的 d_pv，
+     r_meas→d_pv 口径——r_meas 恒 0 与 d_pv 并行展示，不混同）。 */
+  function residualSummaryRows(run, t, sigTrue, sigMeas, pvMeasSig) {
+    const rows = [];
+    if (sigTrue) rows.push(residualSummaryRow(run, sigTrue, t));
+    if (sigMeas) rows.push(residualSummaryRow(run, sigMeas, t));
+    if (pvMeasSig) rows.push(residualSummaryRow(run, pvMeasSig, t));
+    return rows;
+  }
+  /* 逐项信号表（展开面复用：残差项 / GT thermo 效率链通道） */
+  function termTable(termList, samples) {
+    const tRow = el('div', { class: 'cc-term-table' });
+    termList.forEach((term) => {
+      const v = samples[term.sig.id];
+      tRow.appendChild(el('div', { class: 'cc-term-row' }, [
+        el('span', { class: 'cc-term-label' }, [
+          el('span', {}, term.sig.label || term.sig.id),
+          el('span', { class: 'mono tiny muted' }, term.sig.id)
+        ]),
+        el('span', { class: 'cc-term-value num' }, (v == null ? '不可用' : signedOrZero(term.sign * v, precisionOf(term.sig, 3))) + ' ' + unitOf(term.sig)),
+        el('span', {}, UI.sourceTag(term.sig.sourceKind))
+      ]));
+    });
+    return tRow;
   }
 
   function residualFormulaBlock(title, isTrue, tEval, run, parts, samples) {
