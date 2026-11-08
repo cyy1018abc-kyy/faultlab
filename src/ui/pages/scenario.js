@@ -1,18 +1,25 @@
 /* owner: orchestrator-ui | module: page-scenario | contract: FaultLab-evaluation/NEXT/V06_ROADMAP.md §7 S4（C-2 UI 只读骨架，CHG-20261104-08） */
 /* =========================================================================
    场景编排页（V06_ROADMAP 主线 C，DEC-1 最小闭环：只读序列视图，无拖拽）
-   - 导入：场景 JSON（schema v1）两种等价入口——文件选择 + 粘贴文本；
-   - 校验：FL.core.scenario.parseScenario → 通过=事件卡只读序列；失败=结构化错误列表；
+   - 导入：场景信封（C-5，kind=faultlab.scenario）与裸场景 JSON（schema v1）双格式
+     等价入口——文件选择 + 粘贴文本（FL.core.scenario.importScenarioEnvelope 分派）；
+   - 校验：信封 kind/version/content_checksum 封闭校验（不符=结构化错误，不静默重算）
+     → 场景 schema v1 全量封闭校验 → 通过=事件卡只读序列；失败=结构化错误列表；
    - 运行：FL.core.scenario.executeScenario 按事件序构造标准 Run（复用 engine/registry
      既有语义，不引入新执行语义），经 store.addScenarioRuns 入运行档案；
    - 结果：每 Run 一行（key / family / feedback_mode / 关键指标，数值只读 run.metrics），
      「载入查看」复用既有 loadRun 入口（系统页打开，曲线/因果/对比共享同一 Run）；
-   - 导出：归一化场景 JSON（再解析幂等，roundtrip 内容哈希一致）；
-   - 不做：拖拽编辑（规划于 v0.7）、localStorage 以外的持久化、云/账户（I-1）；
+   - 导出：场景信封（C-5，DEC-3——确定性信封 {kind,version,content_checksum,scenario}，
+     exportTeachingPath 先例；roundtrip 内容哈希一致）；
+   - 不做：拖拽编辑（规划于 v0.7）、localStorage 以外的持久化、云/账户（I-1）——
+     场景文件为手动流转（导出→复制→导入），无云同步、无账户体系；
    - 文案护栏：UI_COPY_GUARDRAILS §6 禁词 / §7 空态不放假数据；
    - [登记·UI 接线路 CHG-20261104-10 最小改动] 教学路径草稿读取入口
     （maybeConsumeTeachingDraft / TEACHING_DRAFT_KEY，见函数处注释）：只新增「读 sessionStorage
      草稿→填入导入框→走既有 parseCurrent」一条通路，不触碰解析/运行/导出语义。
+   - [登记·C-5 信封线 CHG-20261108-01] 导出改信封格式、导入走 importScenarioEnvelope
+     双格式分派、导入面板加手动流转提示（I-1）：解析/运行/教学草稿语义零变化
+     （裸场景 JSON 与教学草稿经 bare 路径照常解析）。
    ========================================================================= */
 (function () {
   'use strict';
@@ -71,7 +78,9 @@
 
   function fmt() { return (api && api.fmt) ? api.fmt : FL.protocol.fmt; }
   function scenarioModule() {
-    return (FL.core && FL.core.scenario && typeof FL.core.scenario.parseScenario === 'function')
+    return (FL.core && FL.core.scenario && typeof FL.core.scenario.parseScenario === 'function' &&
+      typeof FL.core.scenario.importScenarioEnvelope === 'function' &&
+      typeof FL.core.scenario.exportScenarioEnvelope === 'function')
       ? FL.core.scenario : null;
   }
   function scenarioReady() { return !!scenarioModule(); }
@@ -166,7 +175,7 @@
         h('div', { class: 'eyebrow' }, 'C-2 · SCENARIO ORCHESTRATOR'),
         h('h1', { class: 'scn-title' }, ['场景', h('em', {}, '编排器')]),
         h('p', { class: 'scn-sub' },
-          '导入场景 JSON（schema v1，封闭白名单），校验通过后生成只读事件序列；一键按序创建标准 Run 并入运行档案。本波为只读骨架，拖拽编辑不在范围内。'),
+          '导入场景信封（kind=faultlab.scenario）或裸场景 JSON（schema v1，封闭白名单），校验通过后生成只读事件序列；一键按序创建标准 Run 并入运行档案。本页为只读序列视图，拖拽编辑不在范围内。'),
         h('div', { class: 'scn-hero-tags' }, [
           ui.badge('只读序列视图', { tone: 'info' }),
           ui.badge('schema v1 · 封闭白名单', { tone: 'neutral' }),
@@ -207,7 +216,8 @@
     refs.text = h('textarea', {
       class: 'input scn-text', rows: '8', spellcheck: 'false',
       'data-testid': 'scenario-import-text',
-      placeholder: '粘贴场景 JSON（schema v1）。顶层字段：version=1 / system（FL-001 · FC-001 · GT-001 · PV-001）/ events[]；' +
+      placeholder: '粘贴场景信封（kind=faultlab.scenario，含 content_checksum）或裸场景 JSON（schema v1），两种格式均接受。' +
+        '裸场景顶层字段：version=1 / system（FL-001 · FC-001 · GT-001 · PV-001）/ events[]；' +
         '事件字段：key、family、params、t_start_s、feedback_mode（closed_loop / monitor）。',
       on: { input: onTextChanged }
     });
@@ -228,10 +238,10 @@
       h('div', { class: 'panel-head' }, [
         h('div', { class: 'panel-head-main' }, [
           h('span', { class: 'eyebrow' }, 'IMPORT'),
-          h('span', { class: 'panel-title' }, '导入场景 JSON'),
-          h('span', { class: 'panel-sub' }, '选择文件 / 粘贴文本，两种入口等价')
+          h('span', { class: 'panel-title' }, '导入场景信封 / JSON'),
+          h('span', { class: 'panel-sub' }, '选择文件 / 粘贴文本，两种入口等价；信封与裸 JSON 均接受')
         ]),
-        ui.badge('schema v1', { tone: 'neutral' })
+        ui.badge('信封 v1 + schema v1', { tone: 'neutral' })
       ]),
       h('div', { class: 'panel-body scn-import-body' }, [
         refs.text,
@@ -248,6 +258,10 @@
           ui.icon('info', { size: 13 }),
           h('span', {}, '样例为可直接运行的合法场景；解析失败时逐条给出字段级错误，未通过前不创建任何运行。')
         ]),
+        h('div', { class: 'hint-row', 'data-testid': 'scenario-manual-flow-hint' }, [
+          ui.icon('info', { size: 13 }),
+          h('span', {}, '场景经文件手动流转：从导出按钮取得 JSON 文件后复制给对方导入即可——无云同步、无账户体系（I-1）。')
+        ]),
         refs.verdict
       ])
     ]);
@@ -260,8 +274,9 @@
 
     refs.exportBtn = h('button', {
       class: 'btn btn-ghost btn-sm', type: 'button', 'data-testid': 'scenario-export-btn',
+      title: '导出场景信封 JSON（kind=faultlab.scenario，含内容校验和；对方导入即复现同一内容哈希）',
       on: { click: exportScenario }
-    }, [ui.icon('download', { size: 13 }), h('span', {}, '导出场景 JSON')]);
+    }, [ui.icon('download', { size: 13 }), h('span', {}, '导出场景信封')]);
 
     refs.runBtn = h('button', {
       class: 'btn btn-primary btn-sm', type: 'button', 'data-testid': 'scenario-run-btn',
@@ -333,7 +348,10 @@
       syncAll(api.getState(), 'scenario-parse');
       return;
     }
-    local.parsed = SC.parseScenario(text);
+    /* C-5 信封线（CHG-20261108-01）：importScenarioEnvelope 双格式分派（信封 / 裸场景
+       JSON，back-compat）；返回形态与 parseScenario 同构（ok/scenario/errors/warnings），
+       信封路径另附 via='envelope' + content_checksum（供校验通过提示）。 */
+    local.parsed = SC.importScenarioEnvelope(text);
     if (local.parsed.ok) {
       try { local.scenarioHash = SC.scenarioHash(local.parsed.scenario); } catch (e) { local.scenarioHash = null; }
     }
@@ -448,7 +466,12 @@
     if (!parsedOk()) { api.toast('请先通过解析校验，再导出场景', 'warn'); return; }
     let ok = false;
     try {
-      const text = JSON.stringify(local.parsed.scenario, null, 2);
+      /* C-5 信封线（DEC-3）：确定性信封 {kind,version,content_checksum,scenario}——
+         无时间戳、无随机；content_checksum=scenarioHash（元数据不入哈希），
+         对方导入复现同一内容哈希（指南见 docs/SCENARIO_SHARING.md）。 */
+      const SC = scenarioModule();
+      const envelope = SC.exportScenarioEnvelope(local.parsed.scenario);
+      const text = JSON.stringify(envelope, null, 2);
       const sid = safeFilePart(local.parsed.scenario.scenario_id ||
         ('hash-' + String(local.scenarioHash || '').slice(0, 8)));
       const exporter = FL.exporter;
@@ -459,7 +482,7 @@
     } catch (e) {
       ok = false;
     }
-    if (ok) api.toast('已导出场景 JSON：再导入可复现同一内容哈希', 'ok');
+    if (ok) api.toast('已导出场景信封 JSON（含内容校验和）：对方导入可复现同一内容哈希', 'ok');
     else api.toast('导出失败：浏览器未允许下载', 'danger');
   }
 
@@ -542,6 +565,12 @@
         refs.verdict.appendChild(h('div', { class: 'notice', 'data-tone': 'warn' }, [
           ui.icon('warning', { size: 14 }),
           h('span', {}, warn.map((w) => (w.field ? w.field + ' ' : '') + w.message).join('；'))
+        ]));
+      } else if (local.parsed.via === 'envelope') {
+        /* C-5 信封线：信封导入成功 = kind/version/校验和三门全过（不符已在上游拒绝） */
+        refs.verdict.appendChild(h('div', { class: 'hint-row' }, [
+          ui.icon('check', { size: 13 }),
+          h('span', {}, '信封校验一致（content_checksum 与重算一致）：事件卡序列见下方「只读事件序列」，可运行或导出。')
         ]));
       } else {
         refs.verdict.appendChild(h('div', { class: 'hint-row' }, [

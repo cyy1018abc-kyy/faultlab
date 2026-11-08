@@ -1,0 +1,47 @@
+{
+  "journey": "file-smoke-61",
+  "target": {
+    "path": "FaultLab.html",
+    "absolute": "E:\\Users\\amdir\\Desktop\\FaultLab — Virtual Energy Lab\\FaultLab.html",
+    "bytes": 1564189
+  },
+  "protocol": "file:",
+  "assertions_per_round": 61,
+  "rounds": 1,
+  "ok": true,
+  "pass": 61,
+  "fail": 0,
+  "round_results": [
+    {
+      "round": 1,
+      "ok": true,
+      "pass": 61,
+      "fail": 0,
+      "failures": [],
+      "duration_ms": 14710,
+      "aborted": null
+    }
+  ],
+  "failures": [],
+  "environment": {
+    "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "node": "v26.5.1",
+    "browser": {
+      "product": "Chrome/156.0.8078.80",
+      "revision": "@fb096c0011f9d50f0a264a9376420cdea9c421e3",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+      "jsVersion": "15.6.75.27"
+    }
+  },
+  "code": {
+    "commit_sha": "85f5c808a5992ed01c65ee94e3d5d7f452414d9e",
+    "branch": "main",
+    "worktree_dirty": true
+  },
+  "execution": {
+    "command": "node tools/file-smoke.mjs",
+    "started_at": "2026-11-08T23:05:26.585Z",
+    "generated_at": "2026-11-08T23:05:41.466Z",
+    "duration_ms": 14881
+  }
+}

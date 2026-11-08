@@ -12,6 +12,11 @@
                      feedback_mode: 'closed_loop'|'monitor' } ] }；
    - 事实源：src/core/systems.js（faults 目录 = family/params min-max-step/timeRange/defaultTime_s）
      + docs/FAULT_CATALOG.md（授权状态：非「已删除」方可准入）；
+   - 场景共享信封（C-5，DEC-3 / CHG-20261108-01；exportTeachingPath 先例）：
+       { kind: 'faultlab.scenario', version: 1, content_checksum: <scenarioHash>, scenario: <归一化场景> }
+     确定性（无时间戳/无随机）、可复核（校验和=scenarioHash）；导入双格式接受
+     （信封 + 裸场景 JSON back-compat），校验和不符 = 结构化错误，不静默重算放行；
+     指南见 docs/SCENARIO_SHARING.md；
    - 零依赖经典脚本 IIFE（零构建 ES2020，O-03）：浏览器 <script> 直挂，Node 经 tests/core-load.js
      bootstrap() 装载核心后再 eval 本文件（FL.systems / FL.core(hash) / FL.registry 须先就绪）。
    运行：node tests/scenario.test.js */
@@ -499,9 +504,122 @@
     return { runs: runs, scenarioHash: scenarioHash(s) };
   }
 
-  /* ================================================================== */
-  /* 可执行事件样例（FL/FC/GT 各一；供导入模板与测试直接执行）           */
-  /* ================================================================== */
+/* ================================================================== */
+/* 场景共享信封（C-5，DEC-3 / CHG-20261108-01；exportTeachingPath 先例） */
+/* ================================================================== */
+
+/* 信封契约（与教学路径信封同构，kind 采用点分命名空间）：
+     { kind: 'faultlab.scenario', version: 1, content_checksum: <scenarioHash>, scenario: <归一化场景> }
+   - 确定性：无时间戳、无随机——同场景两次导出逐字节同 JSON；
+   - content_checksum 为场景本体的内容哈希（scenarioHash，canonical v1 严格模式；
+     scenario_id 与 label 为元数据不入哈希，与 scenarioHash 口径一致）；
+   - 内容校验和仅证明内容一致性，不代表签名/来源/第三方认证（UI_COPY_GUARDRAILS §6.1）。 */
+var ENVELOPE_KIND = 'faultlab.scenario';
+var ENVELOPE_VERSION = 1;
+/* 信封顶层封闭字段（closed-world 白名单，与 TOP_KEYS 同纪律） */
+var ENVELOPE_KEYS = ['kind', 'version', 'content_checksum', 'scenario'];
+
+/* 导出信封：入参同 parseScenario（对象或 JSON 字符串）。
+   嵌入信封的场景为归一化形态（params 目录补齐、解析轨盖章）——再解析幂等，
+   roundtrip 内容哈希一致。非法场景抛 ScenarioError（结构化 .errors），不返回部分信封。 */
+function exportScenarioEnvelope(scenario) {
+  var n = normalizeScenario(scenario);
+  if (!n.ok) throw makeScenarioError(n.errors);
+  return {
+    kind: ENVELOPE_KIND,
+    version: ENVELOPE_VERSION,
+    content_checksum: scenarioHash(n.value),
+    scenario: n.value
+  };
+}
+
+/* 导入信封 / 裸场景（双格式接受，back-compat）：返回形态与 parseScenario 同构
+   （{ ok, scenario|errors, warnings }），另附 via（'envelope'|'bare'）与
+   content_checksum（信封路径声明值，成功时与重算一致）。所有错误结构化
+   （field/message），不抛裸异常、不静默重算放行。
+   - 信封（对象含 kind 键）：kind/version/未知字段封闭校验 → content_checksum 格式校验
+     → 嵌入场景全量解析（错误前缀 'scenario.'）→ 校验和比对；不符 = 结构化错误
+     （field=content_checksum），不静默重算接受；
+   - 裸场景（无 kind 键）：normalizeScenario 既有语义零变化（既有导入面 back-compat）。
+   字符串入参 JSON.parse 一次后分派（与 parseScenario 字符串入口同口径）。 */
+function importScenarioEnvelope(payload) {
+  var warnings = [];
+  var input = payload;
+  if (typeof payload === 'string') {
+    try { input = JSON.parse(payload); }
+    catch (e) {
+      return { ok: false, errors: [{ field: 'scenario', message: 'JSON 解析失败：' + String(e.message) }], warnings: warnings, via: null };
+    }
+  }
+  if (!isPlainObject(input)) {
+    return { ok: false, errors: [{ field: 'scenario', message: '输入必须是 JSON 对象（收到 ' + typeName(input) + '）' }], warnings: warnings, via: null };
+  }
+
+  /* 裸场景路径（back-compat：信封引入前的既有导出文件与教学草稿均走此路径） */
+  if (input.kind === undefined) {
+    var bare = normalizeScenario(input);
+    return bare.ok
+      ? { ok: true, scenario: bare.value, warnings: bare.warnings, via: 'bare' }
+      : { ok: false, errors: bare.errors, warnings: bare.warnings, via: 'bare' };
+  }
+
+  /* 信封路径：kind 门（带 kind 键即按信封解析，kind 错值不回退裸场景——避免错信封
+     被误读为场景后给出成片「未知顶层字段」噪音） */
+  if (input.kind !== ENVELOPE_KIND) {
+    return { ok: false, errors: [{ field: 'kind', message: '未知信封 kind ' + JSON.stringify(input.kind) + '（只接受 ' + ENVELOPE_KIND + '）' }], warnings: warnings, via: 'envelope' };
+  }
+
+  var errors = [];
+  Object.keys(input).forEach(function (k) {
+    if (ENVELOPE_KEYS.indexOf(k) === -1) {
+      errors.push({ field: k, message: '未知信封字段（信封封闭字段：' + ENVELOPE_KEYS.join(' / ') + '）' });
+    }
+  });
+  if (input.version === undefined) {
+    errors.push({ field: 'version', message: '缺少信封 version（必须为 ' + ENVELOPE_VERSION + '）' });
+  } else if (input.version !== ENVELOPE_VERSION) {
+    errors.push({ field: 'version', message: '只支持信封 version = ' + ENVELOPE_VERSION + '（当前 ' + String(input.version) + '；可能来自更新版本的导出）' });
+  }
+  var declaredChecksum = input.content_checksum;
+  if (declaredChecksum === undefined) {
+    errors.push({ field: 'content_checksum', message: '缺少 content_checksum（信封完整性字段；裸场景流转请直接用裸 JSON，不带校验和的信封不接受）' });
+  } else if (typeof declaredChecksum !== 'string' || !/^[0-9a-f]{64}$/.test(declaredChecksum)) {
+    errors.push({ field: 'content_checksum', message: '必须是 64 位十六进制内容校验和（收到 ' + typeName(declaredChecksum) + (typeof declaredChecksum === 'string' ? '：' + declaredChecksum : '') + '）' });
+  }
+  if (input.scenario === undefined) {
+    errors.push({ field: 'scenario', message: '缺少 scenario（场景本体）' });
+  } else if (!isPlainObject(input.scenario)) {
+    errors.push({ field: 'scenario', message: '必须是场景 JSON 对象（收到 ' + typeName(input.scenario) + '）' });
+  }
+  if (errors.length) return { ok: false, errors: errors, warnings: warnings, via: 'envelope' };
+
+  /* 嵌入场景全量校验（错误前缀 'scenario.'，与教学路径 scenarioSpec 前缀先例同构） */
+  var inner = normalizeScenario(input.scenario);
+  if (!inner.ok) {
+    return {
+      ok: false,
+      errors: inner.errors.map(function (e) { return { field: 'scenario.' + e.field, message: '信封内场景解析失败：' + e.message }; }),
+      warnings: warnings,
+      via: 'envelope'
+    };
+  }
+
+  /* 校验和比对（最后一步）：重算与声明不符 = 结构化错误，不静默重算放行 */
+  var recomputed = scenarioHash(inner.value);
+  if (declaredChecksum !== recomputed) {
+    return {
+      ok: false,
+      errors: [{ field: 'content_checksum', message: '内容校验和不符：信封声明 ' + declaredChecksum + '，实际重算 ' + recomputed + '（场景内容与校验和不一致：文件可能在流转中被改动，或校验和与场景不配套）' }],
+      warnings: warnings,
+      via: 'envelope'
+    };
+  }
+  return { ok: true, scenario: inner.value, warnings: warnings, via: 'envelope', content_checksum: declaredChecksum };
+}
+
+/* ================================================================== */
+/* 可执行事件样例（FL/FC/GT 各一；供导入模板与测试直接执行）           */
+/* ================================================================== */
   var SAMPLE_SCENARIOS = {
     'FL-001': {
       scenario_id: 'sample-fl001-sensor-drift',
@@ -536,9 +654,13 @@
     SCHEMA_VERSION: SCHEMA_VERSION,
     MAX_EVENTS: MAX_EVENTS,
     FEEDBACK_MODES: FEEDBACK_MODES.slice(),
+    ENVELOPE_KIND: ENVELOPE_KIND,
+    ENVELOPE_VERSION: ENVELOPE_VERSION,
     parseScenario: parseScenario,
     scenarioHash: scenarioHash,
     executeScenario: executeScenario,
+    exportScenarioEnvelope: exportScenarioEnvelope,
+    importScenarioEnvelope: importScenarioEnvelope,
     samples: function () {
       var out = {};
       Object.keys(SAMPLE_SCENARIOS).forEach(function (k) {

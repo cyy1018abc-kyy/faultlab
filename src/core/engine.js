@@ -1996,38 +1996,12 @@
     return { description: interpolate(map[system.id] || '仅监测模式下真实状态保持不变，只有测量通道偏移。', facts) };
   }
 
-  function buildCausal(ctx) {
+  /* 模板 → 因果卡构建（DEC-5 v0.9.0 残留清算②抽取：原 buildCausal 内联主体原样上移，
+     主链与 thermo_track 挂载卡共用同一套节点/证据/边/机制构建代码——挂载卡与主链
+     卡字段面完全同构（同 10 字段），挂载仅使 run.causal 新增 thermoTrackCard 一个
+     附加字段，主链字段零增减。 */
+  function buildCardFromTemplate(ctx, cfg, family, tpl, facts) {
     var system = ctx.system;
-    var cfg = ctx.config;
-    var family = cfg.fault.family;
-    var assumptionsAll = (system.model.assumptions || []).map(function (a) { return a.id + '：' + a.text; });
-    var limitationsAll = (system.model.limitations || []).slice();
-    if (family === 'none') {
-      return {
-        rule_version: CAUSAL_RULE_VERSION,
-        focusEventId: null,
-        headline: '本次运行未注入故障（健康基准）',
-        mechanismSummary: '健康运行没有故障事件，因此不存在可推导的故障因果链；此处只列出适用假设与限制。',
-        nodes: [],
-        edges: [],
-        assumptions: assumptionsAll,
-        limitations: limitationsAll,
-        alternatives: [],
-        monitorContrast: null
-      };
-    }
-    var tpl = system.causalTemplates && system.causalTemplates[family];
-    if (!tpl) {
-      return {
-        rule_version: CAUSAL_RULE_VERSION,
-        focusEventId: ctx.events.length ? ctx.events[0].event_id : null,
-        headline: 't=' + Number(cfg.fault.t_start_s).toFixed(1) + ' s，' + (findFaultDef(system, family) || {}).label,
-        mechanismSummary: '该故障家族尚未定义模型因果模板，本模型无法推导该现象。',
-        nodes: [], edges: [], assumptions: assumptionsAll, limitations: limitationsAll,
-        alternatives: [], monitorContrast: null
-      };
-    }
-    var facts = buildCausalFacts(ctx);
     var useMonitor = cfg.feedback_mode === 'monitor' && Array.isArray(tpl.monitorNodes) && tpl.monitorNodes.length > 0;
     var nodeSpecs = useMonitor ? tpl.monitorNodes : tpl.nodes;
     var edgeSpecs = useMonitor ? (tpl.monitorEdges || []) : (tpl.edges || []);
@@ -2101,6 +2075,56 @@
       alternatives: alternatives,
       monitorContrast: buildMonitorContrast(system, cfg, facts)
     };
+  }
+
+  function buildCausal(ctx) {
+    var system = ctx.system;
+    var cfg = ctx.config;
+    var family = cfg.fault.family;
+    var assumptionsAll = (system.model.assumptions || []).map(function (a) { return a.id + '：' + a.text; });
+    var limitationsAll = (system.model.limitations || []).slice();
+    if (family === 'none') {
+      return {
+        rule_version: CAUSAL_RULE_VERSION,
+        focusEventId: null,
+        headline: '本次运行未注入故障（健康基准）',
+        mechanismSummary: '健康运行没有故障事件，因此不存在可推导的故障因果链；此处只列出适用假设与限制。',
+        nodes: [],
+        edges: [],
+        assumptions: assumptionsAll,
+        limitations: limitationsAll,
+        alternatives: [],
+        monitorContrast: null
+      };
+    }
+    var tpl = system.causalTemplates && system.causalTemplates[family];
+    if (!tpl) {
+      return {
+        rule_version: CAUSAL_RULE_VERSION,
+        focusEventId: ctx.events.length ? ctx.events[0].event_id : null,
+        headline: 't=' + Number(cfg.fault.t_start_s).toFixed(1) + ' s，' + (findFaultDef(system, family) || {}).label,
+        mechanismSummary: '该故障家族尚未定义模型因果模板，本模型无法推导该现象。',
+        nodes: [], edges: [], assumptions: assumptionsAll, limitations: limitationsAll,
+        alternatives: [], monitorContrast: null
+      };
+    }
+    var facts = buildCausalFacts(ctx);
+    var card = buildCardFromTemplate(ctx, cfg, family, tpl, facts);
+    /* ---- DEC-5（V090_WAVE_DESIGN；v080-release §4 残留③ v0.9.0 清算）：
+       thermo_track 运行期自动挂载 ----
+       触发面：system.causalTemplates.thermo_track 已注册（当前仅 GT-001）
+       ∧ cfg.inertia_model === 'thermo' ∧ family !== 'none'（健康基准无卡可挂）。
+       主链分派零变化：nodes/edges/headline/mechanismSummary 仍按 fault.family 既有
+       模板构建——thermo 主链与 swing/linear 同走既有三族模板，tests/core.test.js §6
+       既有 GT causal 断言（默认轨 6 节点 / monitor 4 节点 / load_step 6 / actuator 5）
+       即回归佐证。thermo_track 卡由「教学/对比面静态引用」变为自动挂载
+       （causal.thermoTrackCard 附加字段，经同一构建机制产出，字段面与主链同构）；
+       run_hash 不含 causal（registry.js runHashInput），golden 字节冻结不受影响。 */
+    var thermoTpl = system.causalTemplates ? system.causalTemplates.thermo_track : null;
+    if (thermoTpl && cfg.inertia_model === 'thermo' && thermoTpl !== tpl) {
+      card.thermoTrackCard = buildCardFromTemplate(ctx, cfg, family, thermoTpl, facts);
+    }
+    return card;
   }
 
   /* ================================================================== */

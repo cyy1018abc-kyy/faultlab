@@ -94,8 +94,10 @@ ok(causalSrc.indexOf('0.04444') !== -1 && causalSrc.indexOf('0.04278') !== -1 &&
 
 /* 8. V072 清算项 6/7：GT thermo 轨叙事卡（systems.js causalTemplates 新键）
       + RESIDUAL_CANDIDATES PV-001 / GT thermo 键（src/ui/pages/causal.js）。
-      契约：既有三族模板零改动；thermo_track 为静态叙事面（engine 按 fault.family
-      分派，不进运行期）；候选键按 r_meas→d_pv / thermo 效率链口径解析。 */
+      契约：既有三族模板零改动；thermo_track 为叙事卡模板键（非 fault.family
+      分派键）——v0.9.0 DEC-5 起由 engine 运行期自动挂载为 causal.thermoTrackCard
+      附加字段（见 §9），主链仍按 fault.family 分派；候选键按 r_meas→d_pv /
+      thermo 效率链口径解析。 */
 const gtSys = FL.systems._raw.get('GT-001');
 eq(JSON.stringify(Object.keys(gtSys.causalTemplates)),
   JSON.stringify(['sensor_drift', 'load_step', 'actuator_fault', 'thermo_track']),
@@ -105,9 +107,10 @@ eq(gtSys.causalTemplates.load_step.id, 'gt-load-step', '既有模板 id 零改�
 eq(gtSys.causalTemplates.actuator_fault.id, 'gt-valve-stuck', '既有模板 id 零改动（actuator_fault）');
 const thermoCard = FL.systems.causalTemplate('GT-001', 'thermo_track');
 ok(thermoCard && thermoCard.id === 'gt-thermo-cross-depth',
-  'thermo_track 卡经 causalTemplate API 可取（静态叙事面，非运行期分派键）');
+  'thermo_track 卡经 causalTemplate API 可取（叙事卡模板键，非 fault.family 分派键；运行期挂载见 §9）');
 eq(thermoCard.nodes.length, 6, 'thermo 卡 6 节点（PV001 spec §6.4 先例结构）');
 ok(Array.isArray(thermoCard.monitorNodes) && thermoCard.monitorNodes.length === 3, 'thermo 卡 monitor 链 3 节点');
+
 ok(thermoCard.mechanismSummary.indexOf('测量偏置 → 效率链重新平衡') !== -1 &&
   thermoCard.mechanismSummary.indexOf('MPPT') !== -1 && thermoCard.mechanismSummary.indexOf('不适用') !== -1,
   'thermo 卡机制摘要：测量偏置→效率链重新平衡；PV MPPT 类比不适用显式登记');
@@ -149,6 +152,62 @@ const pvRun = core.simulate(core.createConfig('PV-001', { fault: { family: 'sens
 ok(hasFiniteSeries(pvRun, 'd_pv_kW') && hasFiniteSeries(pvRun, 'r_meas_kW'), 'PV-001 运行：d_pv / r_meas 双通道并存');
 eq((pvRun.metrics.find((m) => m.metric_id === 'max_abs_r_meas_kW') || {}).value, 0,
   'PV-001 r_meas 恒 0（r_meas→d_pv 口径的根因：功率测量通道全健康）');
+
+/* 9. DEC-5（V090_WAVE_DESIGN / v080-release §4 残留③ v0.9.0 清算）：
+      thermo_track 运行期自动挂载（engine.js buildCausal → causal.thermoTrackCard）。
+      契约：①触发面 = causalTemplates.thermo_track 已注册（当前仅 GT-001）
+      ∧ cfg.inertia_model === 'thermo' ∧ family !== 'none'；
+      ②主链分派零变化——thermo Run 主链仍走既有三族模板（与 swing/linear 同构；
+      tests/core.test.js §6 既有 GT causal 断言为回归佐证）；
+      ③挂载卡与主链经同一构建机制产出（字段面同构：rule_version/focusEventId/
+      headline/mechanismSummary/nodes/edges/assumptions/limitations/alternatives/
+      monitorContrast），不新增字段面；
+      ④run_hash 不含 causal（registry.js runHashInput），golden 字节冻结不受影响。 */
+const gtMountRun = core.simulate(core.createConfig('GT-001', {}), { runId: 'CR-GT-MOUNT' });
+const mount = gtMountRun.causal.thermoTrackCard;
+ok(mount && typeof mount === 'object', 'thermo Run（GT 默认轨）causal 自动挂载 thermoTrackCard');
+if (mount) {
+  eq(mount.nodes.length, 6, '挂载卡 6 节点（与 §8 静态卡同源）');
+  ok(mount.headline.indexOf('跨深度叙事卡') !== -1, '挂载卡 headline 来自 thermo_track 模板');
+  ok(mount.nodes[0].rule_id.indexOf('gt-thermo-cross-depth') !== -1,
+    '挂载卡 rule_id 携带模板 id（' + mount.nodes[0].rule_id + '）');
+  ok(Array.isArray(mount.assumptions) && mount.assumptions.length === 8, '挂载卡假设面 = A-gtl1-* 八条');
+  ok(mount.monitorContrast && typeof mount.monitorContrast.description === 'string',
+    '挂载卡字段面与主链同构（含 monitorContrast.description）');
+  mount.nodes.forEach((n) => {
+    ok(typeof n.rule_id === 'string' && n.rule_id.indexOf('CR-GT001-') === 0,
+      '挂载卡节点 ' + n.id + ' rule_id 版本化');
+    ok(Array.isArray(n.evidence), '挂载卡节点 ' + n.id + ' evidence 数组在场');
+  });
+}
+/* 主链零变化（thermo Run 主链仍按 fault.family 既有模板分派） */
+eq(gtMountRun.causal.nodes.length, 6, 'thermo Run 主链仍 6 节点（零变化）');
+eq(gtMountRun.causal.nodes[0].rule_id, 'CR-GT001-sensor_drift-gt-sensor-drift-n1',
+  'thermo Run 主链 rule_id 仍按 sensor_drift 模板分派');
+/* 各故障族 thermo Run：主链不变 + 卡照挂（thermo_track 卡 n5 即跨故障叙事） */
+const gtMountLoad = core.simulate(core.createConfig('GT-001', { fault: { family: 'load_step' } }), { runId: 'CR-GT-ML' });
+ok(gtMountLoad.causal.thermoTrackCard && gtMountLoad.causal.thermoTrackCard.nodes.length === 6,
+  'thermo load_step Run 同样挂载');
+ok(gtMountLoad.causal.nodes.length === 6 && gtMountLoad.causal.nodes[0].rule_id.indexOf('gt-load-step') !== -1,
+  'thermo load_step 主链 rule_id 仍按 load_step 模板分派');
+const gtMountAct = core.simulate(core.createConfig('GT-001', { fault: { family: 'actuator_fault' } }), { runId: 'CR-GT-MA' });
+ok(gtMountAct.causal.thermoTrackCard && gtMountAct.causal.nodes.length === 5,
+  'thermo actuator Run：主链 5 节点零变化 + 挂载卡在场');
+/* monitor 轨：挂载卡走 thermo_track.monitorNodes（3 节点），主链 monitor 链不变 */
+const gtMountMon = core.simulate(core.createConfig('GT-001', { feedback_mode: 'monitor' }), { runId: 'CR-GT-MM' });
+ok(gtMountMon.causal.thermoTrackCard && gtMountMon.causal.thermoTrackCard.nodes.length === 3,
+  'monitor Run 挂载卡走 monitorNodes（3 节点）');
+eq(gtMountMon.causal.nodes.length, 4, 'monitor Run 主链仍 4 节点（零变化）');
+/* 遗留轨不受影响：swing/linear 不挂载（既有分派零变化的直接断言） */
+ok(gtSwingRun.causal.thermoTrackCard === undefined, 'swing 遗留轨不挂载（thermoTrackCard 缺席）');
+const gtLinearCausal = core.simulate(core.createConfig('GT-001', { inertia_model: 'linear' }), { runId: 'CR-GT-LN' });
+ok(gtLinearCausal.causal.thermoTrackCard === undefined, 'linear 遗留轨不挂载');
+/* 零波及面：无 thermo_track 模板注册的系统无挂载字段；健康基准 family=none 早返回 */
+const flMountRun = core.simulate(core.createConfig('FL-001', {}), { runId: 'CR-FL-MOUNT' });
+ok(flMountRun.causal.thermoTrackCard === undefined, 'FL-001（无 thermo_track 模板注册）零波及');
+const gtHealthyCausal = core.simulate(core.createConfig('GT-001', { fault: { family: 'none' } }), { runId: 'CR-GT-HEAL' });
+ok(gtHealthyCausal.causal.thermoTrackCard === undefined && gtHealthyCausal.causal.nodes.length === 0,
+  'GT 健康基准无挂载（family=none 早返回）');
 
 /* ------------------------------------------------------------------ */
 console.log('\n================================================');

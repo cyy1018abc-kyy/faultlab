@@ -1163,3 +1163,40 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
      thermo_track 分派小改）、B-3 批准不在本授权内；
   ④ **CHG-20261108-02 预留**（v0.9.0 发布）。
   批准人：用户（2026-11-08「统一采用推荐决策」）；记录人：实现 Agent。
+
+- `CHG-20261108-02`：**v0.9.0 发布（G8）——B-3 草案轮 + A-5/C-5/D-5 + 残留三项清算 + v1.0 收敛准备**。
+  V090_WAVE_DESIGN 波次（T1…T8，动态工作流 dwfrun-9a8cae8b 三阶段 9 路）。交付：
+  ① **B-3 MG-001 微电网 G2b 草案**：`MG001_G2B_SPEC_DRAFT.md` v0.1——**聚合层复用推荐**
+     （engine 内组合既有源轨、oracle 导入 pv001/wt001 冻结模块，不建第四物理栈）+ EQ-MG-1…9
+     **全代数零新 ODE** + 孤岛=「脱离主馈线的功率平衡重整演示」（I-5 专项自查）+ 4 族
+     （含 island_event 零参数族+t_clear 重连）+ 锚点 96/96 独立复算（复用交叉与源 golden
+     逐位一致）+ golden mg001_v1 计划（聚合确定性复算器+MS-1…8 复用一致性 emit 硬条件）+
+     MG-DRAFT-Q1…Q7；双路评审 **A:PASS_WITH_CONDITIONS（4）/B:PASS_WITH_CONDITIONS（6）**
+     ——批准轮修订清单登记证据 §3（A-1 gate 补 I_A 两键 P1/A-2 SOC 包络更正/
+     A-4 oracle 复用委托形制/B-1 I-5 自查改写/B-3 per-model 第 32 步/B-6 实现时点建议
+     **v1.0.x 首项**），**状态仍 DRAFT，批准留待用户（DEC-1）**；
+  ② **A-5 探路评估稿**：`A5_MULTIPHYSICS_EXPLORATION.md`——三系统 L1 深化提案
+     （FC P1→FL P2→GT P3，**推荐时点全部 v1.0 后**）+ L2 不做清单确认；
+  ③ **D-5 插件评估稿**：`D5_PLUGIN_ARCHITECTURE_ASSESSMENT.md`（392 行）——
+     **推荐 v1.0 不做插件化**（插件化只省最便宜环节、准入成本照付、运行期代码装载永久排除）
+     + TR-1/2/3 触发条件登记；
+  ④ **C-5 场景共享落地**：exportScenarioEnvelope/importScenarioEnvelope（信封+裸 JSON 双格式
+     back-compat、checksum 不符结构化拒绝）+ 场景页信封导出导入 + docs/SCENARIO_SHARING.md
+     （威胁模型：closed-world 白名单即安全边界）+ scenario 测试 +30 断言（351）；
+  ⑤ **残留三项清算**：`tools/file-smoke.mjs` 固化（61 断言）**入 run-g2 第 31 步**（终结
+     两轮临时件重建）+ engine buildCausal **thermo_track 运行期自动挂载**（附加字段、主链
+     分派零变化）+ `tools/ui-walkthrough.mjs` 五系统深度走查 50 断言固化（不入门禁，
+     发布轮规程）；
+  ⑥ **v1.0 收敛准备**：`docs/V1_FACES.md`（424 行）——八契约面盘点（golden v2 唯一标冻结、
+     余七面演进中 additive-only）+ SemVer breaking 政策 + 收敛核对表（8 达成/2 发布轮动作/
+     1 残留待裁定，无阻塞缺口）+ 双重声明「准备清单不构成冻结」；
+  ⑦ 步数账（DEC-7）：run-g2 30→**31**（+file-smoke core 步），预算 ≤32 申报；
+  ⑧ 验证：run-g2 31/31 PASS 两次独立（工作流内 + 主流程复验 54504ms）；**8 golden 字节
+     零变更**；engine 改动仅 thermo_track 挂载面（主链分派零变化断言佐证）；copy-guard
+     0 命中；file-smoke 61/61、ui-walkthrough 50/50、causal-rules 149、scenario 351 全绿。
+  新增登记（诚实口径）：thermoTrackCard 附加字段实现（主链替换将破坏既有断言——与预期失效
+  面一致）；systems.js thermo_track 卡自述过时（下一波清算）；**FaultLab.html 未重打包**
+  （V090 §3 预定，工件差异随下次重打包收敛）；e2e E-04 高载偶发抖动观察（门禁执行规程参考）；
+  T6 新增残留两项（scenario 枚举文案/teaching+leaderboard 步账）。证据
+  `evidence/g8/v090-release.md`。**推送按用户裁定三批同批暂缓（本波产出并入同批）**。
+  批准人：用户（CHG-20261108-01 授权链）；记录人：实现 Agent。

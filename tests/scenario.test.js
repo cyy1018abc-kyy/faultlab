@@ -1,6 +1,8 @@
 /* owner: core-scenario | module: tests/scenario | contract: FaultLab-evaluation/NEXT/V06_ROADMAP.md §7 S1（C-2 骨架，CHG-20261104-08）
    场景编排核心测试：负例（≥10 类）/ roundtrip（键序不敏感）/ 执行等价（场景 Run vs 单独 Run，
-   序列逐点一致 + config_hash/run_hash 全等）/ 校验器错误信息字段完整性。
+   序列逐点一致 + config_hash/run_hash 全等）/ 校验器错误信息字段完整性 / 场景共享信封
+   （C-5，DEC-3 / CHG-20261108-01：导出确定性 roundtrip 同哈希 / 校验和篡改拒绝 /
+   裸 JSON back-compat / 信封 version 错误拒绝）。
    运行：node tests/scenario.test.js；失败非零退出。
    装载：src/core/scenario.js 已并入 tests/core-load.js CORE_FILES（V072 残留清单 5，
    S1 临时 (0,eval) 自装载退役）——bootstrap() 直接就绪 FL.core.scenario，浏览器序
@@ -583,6 +585,99 @@ eq(flTrackRes.runs[0].manifest.config_hash, manualOff.manifest.config_hash, 'FL 
 ok(JSON.stringify(flTrackRes.runs[0].timeseries) === JSON.stringify(manualOff.timeseries),
   'FL 缺省轨 Run 时间序列与手工显式 off Run 逐点一致（off 等价）');
 eq(flTrackRes.runs[0].manifest.run_hash, manualOff.manifest.run_hash, 'FL 缺省轨 Run run_hash = 手工显式 off Run（t/signals/events/metrics/checks 内容面全等）');
+
+
+/* ------------------------------------------------------------------ *
+ * 9. 场景共享信封（C-5，DEC-3 / CHG-20261108-01；exportTeachingPath 先例）：
+ *    导出标准化（确定性、可复核）+ 导入双格式（信封/裸 JSON back-compat）+
+ *    checksum 门（不符 = 结构化错误，不静默重算放行）
+ * ------------------------------------------------------------------ */
+ok(typeof SC.exportScenarioEnvelope === 'function' && typeof SC.importScenarioEnvelope === 'function',
+  'FL.core.scenario 信封 API 就绪（export/import）');
+eq(SC.ENVELOPE_KIND, 'faultlab.scenario', 'ENVELOPE_KIND=faultlab.scenario');
+eq(SC.ENVELOPE_VERSION, 1, 'ENVELOPE_VERSION=1');
+
+/* 9.1 导出形态与确定性 */
+const env = SC.exportScenarioEnvelope(FL3);
+eq(env.kind, 'faultlab.scenario', '信封 kind=faultlab.scenario');
+eq(env.version, 1, '信封 version=1');
+eq(env.content_checksum, h1, '信封 content_checksum = scenarioHash(场景本体)');
+eq(JSON.stringify(env.scenario), JSON.stringify(pFL.scenario), '信封嵌入场景为归一化形态（再解析幂等）');
+ok(/^[0-9a-f]{64}$/.test(env.content_checksum), 'content_checksum 为 64 位十六进制（SHA-256）');
+const envAgain = SC.exportScenarioEnvelope(JSON.stringify(FL3));
+eq(JSON.stringify(envAgain), JSON.stringify(env), '同场景（对象/字符串入参）两次导出逐字节同 JSON（确定性，无时间戳/无随机）');
+const envRev = SC.exportScenarioEnvelope(reverseKeysDeep(FL3));
+eq(JSON.stringify(envRev), JSON.stringify(env), '键序倒置入参导出 → 同信封（哈希键序不敏感）');
+
+/* 9.2 导出 → 导入 roundtrip（同哈希） */
+const rt = SC.importScenarioEnvelope(clone(env));
+ok(rt.ok === true && rt.via === 'envelope', '信封导入 ok（via=envelope）', JSON.stringify(rt.errors));
+eq(rt.content_checksum, env.content_checksum, '信封导入回传声明校验和（与重算一致）');
+eq(SC.scenarioHash(rt.scenario), h1, 'roundtrip：导出 → 导入 → 同 scenarioHash');
+eq(JSON.stringify(rt.scenario), JSON.stringify(pFL.scenario), 'roundtrip 场景本体逐字段一致');
+const rtStr = SC.importScenarioEnvelope(JSON.stringify(env));
+ok(rtStr.ok && rtStr.via === 'envelope' && SC.scenarioHash(rtStr.scenario) === h1,
+  '信封 JSON 字符串入参 → 同 roundtrip 结果（UI 粘贴文本入口）');
+
+/* 9.3 元数据不入校验和（与 scenarioHash 口径一致：scenario_id/label 为元数据） */
+const envLabeled = SC.exportScenarioEnvelope(Object.assign(clone(FL3), { label: '另一份拷贝' }));
+eq(envLabeled.content_checksum, env.content_checksum, 'label 变化（元数据）→ 同 content_checksum');
+
+/* 9.4 校验和篡改拒绝（结构化错误，不静默重算放行） */
+const envTamper = clone(env);
+envTamper.content_checksum = (envTamper.content_checksum[0] === '0' ? '1' : '0') + envTamper.content_checksum.slice(1);
+const rtTamper = SC.importScenarioEnvelope(envTamper);
+ok(rtTamper.ok === false && (rtTamper.errors || []).some((e) => e.field === 'content_checksum'),
+  '校验和篡改 → 拒绝（field=content_checksum）', JSON.stringify(rtTamper.errors));
+ok((rtTamper.errors || []).some((e) => e.message.indexOf(env.content_checksum) !== -1),
+  '校验和错误信息含实际重算值（可复核）', JSON.stringify(rtTamper.errors));
+/* 内容篡改（校验和保持原值）→ 同门拒绝 */
+const envContent = clone(env);
+envContent.scenario.events[0].params.magnitude = 12;
+const rtContent = SC.importScenarioEnvelope(envContent);
+ok(rtContent.ok === false && (rtContent.errors || []).some((e) => e.field === 'content_checksum' && e.message.indexOf('不符') !== -1),
+  '场景内容篡改（校验和未同步）→ 校验和不符拒绝', JSON.stringify(rtContent.errors));
+
+/* 9.5 裸场景 JSON back-compat（信封引入前既有导出文件/教学草稿导入面零变化） */
+const rtBare = SC.importScenarioEnvelope(clone(FL3));
+ok(rtBare.ok && rtBare.via === 'bare' && JSON.stringify(rtBare.scenario) === JSON.stringify(pFL.scenario),
+  '裸场景对象导入（back-compat，via=bare）');
+const rtBareStr = SC.importScenarioEnvelope(JSON.stringify(FL3));
+ok(rtBareStr.ok && rtBareStr.via === 'bare' && SC.scenarioHash(rtBareStr.scenario) === h1,
+  '裸场景 JSON 字符串导入（back-compat，同哈希）');
+const rtBareBad = SC.importScenarioEnvelope(scen('FL-001', [ev()], { version: 2 }));
+ok(rtBareBad.ok === false && (rtBareBad.errors || []).some((e) => e.field === 'version'),
+  '裸场景非法输入仍走既有结构化错误路径（back-compat）');
+
+/* 9.6 信封门负例：version / kind / 缺 checksum / 坏 checksum / 未知字段 / scenario 形态 / 内嵌非法场景 */
+const envVer = clone(env); envVer.version = 2;
+const rtVer = SC.importScenarioEnvelope(envVer);
+ok(rtVer.ok === false && (rtVer.errors || []).some((e) => e.field === 'version' && e.message.indexOf('信封') !== -1),
+  '信封 version=2 → 拒绝（field=version）', JSON.stringify(rtVer.errors));
+const envKind = clone(env); envKind.kind = 'faultlab.other';
+const rtKind = SC.importScenarioEnvelope(envKind);
+ok(rtKind.ok === false && (rtKind.errors || []).some((e) => e.field === 'kind'),
+  '未知信封 kind → 拒绝（不回退裸场景解析）', JSON.stringify(rtKind.errors));
+const envNoCs = clone(env); delete envNoCs.content_checksum;
+ok(SC.importScenarioEnvelope(envNoCs).ok === false, '缺 content_checksum → 拒绝（不带校验和的信封不接受，裸流转请用裸 JSON）');
+const envBadCs = clone(env); envBadCs.content_checksum = 'deadbeef';
+ok(SC.importScenarioEnvelope(envBadCs).ok === false, 'content_checksum 非 64 hex → 拒绝');
+const envExtra = clone(env); envExtra.extra = true;
+const rtExtra = SC.importScenarioEnvelope(envExtra);
+ok(rtExtra.ok === false && (rtExtra.errors || []).some((e) => e.field === 'extra' && e.message.indexOf('封闭字段') !== -1),
+  '未知信封字段 → 拒绝（信封封闭字段白名单，closed-world）', JSON.stringify(rtExtra.errors));
+const envStrScn = clone(env); envStrScn.scenario = JSON.stringify(env.scenario);
+ok(SC.importScenarioEnvelope(envStrScn).ok === false, '信封内 scenario 为字符串 → 拒绝（须为 JSON 对象）');
+const envInner = clone(env); envInner.scenario = { version: 2, system: 'FL-001', events: [ev()] };
+const rtInner = SC.importScenarioEnvelope(envInner);
+ok(rtInner.ok === false && (rtInner.errors || []).some((e) => String(e.field).indexOf('scenario.') === 0),
+  '信封内场景非法 → 结构化错误带 scenario. 前缀', JSON.stringify(rtInner.errors));
+
+/* 9.7 导出非法输入 → ScenarioError（结构化，非裸异常） */
+let errEnv = null;
+try { SC.exportScenarioEnvelope({ version: 2, system: 'FL-001', events: [ev()] }); } catch (e) { errEnv = e; }
+ok(errEnv && errEnv.name === 'ScenarioError' && Array.isArray(errEnv.errors) && errEnv.errors.length > 0,
+  'exportScenarioEnvelope 非法输入 → ScenarioError（携带结构化 errors）', errEnv && errEnv.message);
 
 
 console.log('\n================================================');
