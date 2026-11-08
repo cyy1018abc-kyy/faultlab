@@ -414,7 +414,10 @@ FL-001 为电池真实电流变化 A；FC 为电堆真实电流；GT 为发电�
 ```
 
 必含：`sampling`（601 点/长度一致）、`conservation-true`、`conservation-meas`（warn 允许，
-故障期间残差本就非零）、`units`、`soc-bounds`、`event-window`、`energy-balance`。
+故障期间残差本就非零）、`units`、`event-window`。`soc-bounds` 与 `energy-balance` 为
+**bounds 派生项**（非全体系统必含——与实现口径一致）：声明 `system.bounds.SOC_pct` 的系统
+（FL/FC/GT，均带 E_bat 电池面）必含；无 SOC/E_bat 面的系统（PV-001/WT-001）不派发，
+其能量恒等由系统专属 PHY 检查承载（PV：`pv-energy-consistency`；WT：`wt-energy-identity`）。
 GT 系统的 power conservation 含 `P_rotor_kW` 项（见 §5.3）。
 
 ### 4.9 Causal（`run.causal`）

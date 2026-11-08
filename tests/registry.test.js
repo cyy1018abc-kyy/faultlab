@@ -159,6 +159,58 @@ const runAfterMutate = reg.createRun({ config: cfgFrozen, runId: 'RUN-K11', crea
 ok(runAfterMutate.manifest.run_hash !== frozenHash, '污染后参数创建新 Run → run_hash 不同（改参只产生新 Run）');
 eq(runFrozen.manifest.run_hash, frozenHash, '新 Run 创建后旧 Run 哈希仍不变');
 
+/* ------------------------------------------------------------------ *
+ * 10. per-Run config 哈希面：预期失效面登记（V080 / CHG-20261107-01；
+ *     FLTH §4 项 8「tests/registry.test.js per-Run config 哈希面核查随
+ *     FLTH-G2b-04 更新登记」+ WT §4 项 8 同款核对——两新键逐项登记：
+ *     ① FL thermal_model scenario 键（FLTH-G2b-04）② WT initial.v0_ms 键
+ *     （WT-G2b-03，R-8 bounds 驱动投影）。per-Run config_hash 输入面 =
+ *     contract.scenarioView 投影（engine.js simulate config_hash 行）。
+ * ------------------------------------------------------------------ */
+
+/* ① FL thermal_model 键（scenario 键）：cfg 缺省盖章 off（engine normalizeConfig
+   补轨行）；scenarioView 不投影 thermal_model → 契约面 config_hash 对轨值零敏感
+   （FLTH R-9：默认 off ⇒ 盲包零变化；轨差由 run_hash/序列面承载） */
+const cfgThOff = core.createConfig('FL-001', { fault: { family: 'none' } });
+const cfgThOn = core.createConfig('FL-001', { fault: { family: 'none' }, thermal_model: 'on' });
+eq(cfgThOff.thermal_model, 'off', 'FL cfg 缺省热轨盖章 thermal_model=off（normalizeConfig 补轨）');
+eq(cfgThOn.thermal_model, 'on', 'FL cfg 显式 thermal_model=on 保留');
+const runThOff = reg.createRun({ config: cfgThOff, runId: 'RUN-TH-OFF', createdAt: '2026-10-28T00:00:00Z' });
+const runThOn = reg.createRun({ config: cfgThOn, runId: 'RUN-TH-ON', createdAt: '2026-10-28T00:00:00Z' });
+eq(runThOff.manifest.config_hash, runThOn.manifest.config_hash,
+  'FL thermal on/off → config_hash 相同（scenarioView 不投影热模型轨，契约面哈希零变化——FLTH R-9）');
+ok(runThOff.manifest.run_hash !== runThOn.manifest.run_hash,
+  'FL thermal on/off → run_hash 不同（热力序列面差异承载轨差，改轨只产生新 Run）');
+eq(reg.verifyRunHash(runThOff), true, 'FL off 轨 Run run_hash 可重算');
+eq(reg.verifyRunHash(runThOn), true, 'FL on 轨 Run run_hash 可重算');
+
+/* ② WT initial.v0_ms 键（WT-G2b-03）：scenarioView.initial_v0_ms 按 bounds 派生投影
+   （R-8 泛化，非硬编码系统清单）；入 per-Run config_hash——v0 不同 → config_hash
+   不同；无该键系统的投影值为 undefined、不入哈希（§1 canonicalization 不变量），
+   故 WT 键面新增不改 FL/FC/GT/PV 既有 per-Run 哈希 */
+const cfgWtV0a = core.createConfig('WT-001', { fault: { family: 'none' } });
+const cfgWtV0b = core.createConfig('WT-001', { fault: { family: 'none' }, initial: { v0_ms: 8 } });
+eq(cfgWtV0a.initial.v0_ms, 9, 'WT cfg initial.v0_ms 缺省 9（SystemDef defaults.initial）');
+eq(cfgWtV0b.initial.v0_ms, 8, 'WT cfg initial.v0_ms 显式 8 保留');
+eq(FL.contract.scenarioView(cfgWtV0a).initial_v0_ms, 9, 'WT scenarioView.initial_v0_ms=9（R-8 投影）');
+const runWtV0a = reg.createRun({ config: cfgWtV0a, runId: 'RUN-WT-V09', createdAt: '2026-10-28T00:00:00Z' });
+const runWtV0b = reg.createRun({ config: cfgWtV0b, runId: 'RUN-WT-V08', createdAt: '2026-10-28T00:00:00Z' });
+ok(runWtV0a.manifest.config_hash !== runWtV0b.manifest.config_hash,
+  'WT v0_ms 9→8 → config_hash 不同（per-Run config 哈希含 initial_v0_ms，R-8 投影）');
+ok(runWtV0a.manifest.run_hash !== runWtV0b.manifest.run_hash,
+  'WT v0_ms 9→8 → run_hash 不同（物理初值面，改参只产生新 Run）');
+eq(reg.verifyRunHash(runWtV0a), true, 'WT Run run_hash 可重算');
+/* WT 键面新增不外溢：FL 投影无 initial_v0_ms 键值（undefined 不参与哈希，§1 已证），
+   FL/FC/GT/PV 既有 Run 的 config_hash 键面与 WT SystemDef 落地无关（per-Run 哈希
+   按各自 scenarioView 投影计算——PV001 §4 项 8「不因新增系统破坏」同款核对） */
+eq(FL.contract.scenarioView(runA.config).initial_v0_ms, undefined,
+  'FL Run 投影无 initial_v0_ms 值（undefined 不入哈希——WT initial 键不影响既有系统 per-Run 哈希面）');
+eq(runA.manifest.config_hash, reg.createRun({ config: core.createConfig('FL-001', {}), runId: 'RUN-WT-KEY-NEG', createdAt: '2026-10-28T00:00:00Z' }).manifest.config_hash,
+  'WT SystemDef 落地后 FL 缺省配置 config_hash 仍与 §2 RUN-A1 相同（新增系统/键不改既有 per-Run 哈希）');
+/* WT 模型清单硬编码对齐面（L4 交接：WT model_id 'wt.aero.l0b' 测试硬编码需对齐） */
+eq(cfgWtV0a.modelId, 'wt.aero.l0b', 'WT cfg.modelId=wt.aero.l0b（模型清单硬编码对齐面）');
+eq(cfgWtV0a.modelVersion, '1.0.0', 'WT cfg.modelVersion=1.0.0（三段式 v2 归一样式）');
+
 /* ------------------------------------------------------------------ */
 console.log('\n================================================');
 console.log('PASS ' + pass + ' / FAIL ' + fail + (fail ? '  ✗' : '  ✓'));

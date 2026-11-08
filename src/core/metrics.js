@@ -183,12 +183,18 @@
         blindSafe: true,
         definition: '∫ P_load,served dt / 3600'
       });
+    /* A-3①（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §4 项 8，CHG-20261107-01）：
+       E_source 定义串 cfg 感知——FL thermal on 域（EQ-FLTH-5 守恒面 (a)）为
+       「P_gen := P_load − P_bat + P_loss 为定义（thermal on 记账口径）」；off 域维持
+       原串逐字不变（off 轨指标面零漂移，FLTH-G2b-04 off 轨逐位不变验收面）。 */
+    var flThermalOn = isFL && cfg.thermal_model === 'on';
     mk(isFL ? 'E_gen_true_60s' : 'E_source_kWh', srcLabel,
       eSource === null ? null : eSource / 3600, 'kWh', 5,
       null, {
         source_signal_ids: [srcSig],
         blindSafe: false,
-        definition: '∫ ' + srcSig + ' dt / 3600（' + srcLabel + '）；P_gen := P_load − P_bat 为定义'
+        definition: '∫ ' + srcSig + ' dt / 3600（' + srcLabel + '）；P_gen := P_load − P_bat' +
+          (flThermalOn ? ' + P_loss 为定义（thermal on 记账口径）' : ' 为定义')
       });
     mk(isFL ? 'E_bat_true_60s' : 'E_bat_kWh', '电池真实电能（带符号）',
       eBat === null ? null : eBat / 3600, 'kWh', 5,
@@ -222,12 +228,15 @@
       });
 
     /* ---- 残差 ---- */
+    /* 同型串 A-3①（metrics.js 原 :230，FLTH-G2b-04 工作面）：r_true 定义恒等式注记
+       thermal on 域同步扩式（EQ-FLTH-6 含 −P_loss 项）；off 域原串逐字不变。 */
     mk('max_abs_r_true_kW', '最大真实功率平衡残差', maxAbs(series.r_true_kW), 'kW', 6,
       'algebraic', {
         method_version: '1',
         source_signal_ids: ['r_true_kW'],
         blindSafe: false,
-        definition: 'max |r_true|；定义恒等式（P_gen := P_load − P_bat），仅作代数一致性回归，不是物理验证'
+        definition: 'max |r_true|；定义恒等式（P_gen := P_load − P_bat' +
+          (flThermalOn ? ' + P_loss' : '') + '），仅作代数一致性回归，不是物理验证'
       });
     mk(system.id === 'GT-001' ? 'max_abs_f_channel_diff_Hz' : 'max_abs_r_meas_kW',
       system.id === 'GT-001' ? '最大频率通道不一致' : '最大测量一致性残差',
@@ -261,6 +270,32 @@
           blindSafe: true,
           definition: 't_f=20.0 s post 采样行的 I_meas（= I_true + b）'
         });
+
+      /* ---- FL-001 thermal on 域指标（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §4 项 8 /
+         FLTH-G2b-04 指标面，CHG-20261107-01）：与 fl001_v2 golden scalars 注册名对齐
+         （E_loss_kWh / T_bat_end_K）。E_loss 优先 integrals.E_loss（引擎子步梯形，
+         EQ-FLTH-8/Q4 定案；导入复核无 integrals 路径回退序列梯形）；T_bat_end_K 为
+         t=duration 采样行值（EQ-FLTH-4 RK4 热状态末值）。仅 thermal_model=on 产生——
+         off 轨指标面零漂移（T_bat_K/P_loss_kW 序列列 off 轨全程 null，GT 热信号先例）。 ---- */
+      if (cfg.thermal_model === 'on') {
+        var eLossKws = (integrals && isNum(integrals.E_loss)) ? integrals.E_loss : integrate(t, series.P_loss_kW);
+        mk('E_loss_kWh', '热损耗电能（记账口径）', isNum(eLossKws) ? eLossKws / 3600 : null, 'kWh', 7,
+          null, {
+            source_signal_ids: ['P_loss_kW'],
+            blindSafe: false,
+            definition: '∫ P_loss dt / 3600（子步梯形，EQ-FLTH-8/Q4；守恒面 (a) 账本 ' +
+              'E_source + E_bat = E_load + E_loss——P_loss 为模型记账项，不是能量损失）'
+          });
+        var tBatEnd = valueAt(t, series.T_bat_K, duration);
+        mk('T_bat_end_K', '电池温度末值', tBatEnd, 'K', 4,
+          'analytic', {
+            method_version: '1',
+            source_signal_ids: ['T_bat_K'],
+            time_window_s: [duration, duration],
+            blindSafe: false,
+            definition: 'T_bat(duration_s) 采样行值（EQ-FLTH-4 单节点集总热平衡 RK4 末状态；T_bat(0) = T_amb = 298.15 K 冷启动）'
+          });
+      }
     }
 
     /* ---- 故障元数据 ---- */
@@ -430,6 +465,66 @@
           source_signal_ids: ['P_grid_true_kW'],
           blindSafe: false,
           definition: '∫ P_grid,true dt / 3600（受电为正；E_pv + E_grid = E_load 为定义恒等）'
+        });
+    }
+
+    /* ---- WT-001 专属：能量账本 + 末值采样（EQ-WT-8/EQ-WT-9；与 wt001_v1 golden scalars
+         注册表同名（E_wt_true_kWh/E_wt_est_kWh/E_wt_err_kWh/E_grid_kWh），PV-001 能量账本
+         同构；WT-G2b-04 / CHG-20261107-01）。E_wt 取引擎子步解析积分（engine simulateWT001
+         integrals.E_wt_true/E_wt_est/E_grid 同源）；ΔE_wt = E_est − E_true（估计偏多为止）。
+         末值三项（P_wt_true_end_kW/P_grid_end_kW/d_wt_end_kW）为 L5 最小指标组
+         （valueAt 采样行值，I_true_26s_A 同法）。本系统无 SOC——SOC_est 通道功能位由
+         P_wt,est/ΔE_wt 承担（EQ-WT-9）。 ---- */
+    if (system.id === 'WT-001') {
+      var wtInt = integrals || {};
+      mk('E_wt_true_kWh', '风电真实电能', isNum(wtInt.E_wt_true) ? wtInt.E_wt_true / 3600 : null, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_wt_true_kW'],
+          blindSafe: false,
+          definition: '∫ P_wt,true dt / 3600（EQ-WT-9；子步解析积分真实能量口径）'
+        });
+      mk('E_wt_est_kWh', 'EMS 风速折算估计电能', isNum(wtInt.E_wt_est) ? wtInt.E_wt_est / 3600 : null, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_wt_est_kW'],
+          blindSafe: true,
+          definition: '∫ P_wt,est dt / 3600（EQ-WT-9 事件感知解析积分，v_est 分段常值；恒用测量风速，A-wt-est-channel；本系统无 SOC，SOC_est 通道的功能位承担者）'
+        });
+      mk('E_wt_err_kWh', '估计−真实电能差（ΔE_wt）',
+        (isNum(wtInt.E_wt_est) && isNum(wtInt.E_wt_true)) ? (wtInt.E_wt_est - wtInt.E_wt_true) / 3600 : null, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_wt_est_kW', 'P_wt_true_kW'],
+          blindSafe: false,
+          definition: 'ΔE_wt = E_wt,est − E_wt,true（EQ-WT-9；正 = 估计偏多，含测量偏置或执行器卡涩的贡献）'
+        });
+      mk('E_grid_kWh', '馈线受电电能', isNum(wtInt.E_grid) ? wtInt.E_grid / 3600 : null, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_grid_true_kW'],
+          blindSafe: false,
+          definition: '∫ P_grid,true dt / 3600（受电为正；E_wt + E_grid = E_load 为定义恒等，EQ-WT-8/EQ-WT-9）'
+        });
+      mk('P_wt_true_end_kW', '风电真实出力末值', valueAt(t, series.P_wt_true_kW, duration), 'kW', 4,
+        'analytic', {
+          method_version: '1',
+          source_signal_ids: ['P_wt_true_kW'],
+          time_window_s: [duration, duration],
+          blindSafe: false,
+          definition: 'P_wt,true(duration_s) 采样行值（60 s 末采样）'
+        });
+      mk('P_grid_end_kW', '馈线受电功率末值', valueAt(t, series.P_grid_true_kW, duration), 'kW', 4,
+        'analytic', {
+          method_version: '1',
+          source_signal_ids: ['P_grid_true_kW'],
+          time_window_s: [duration, duration],
+          blindSafe: false,
+          definition: 'P_grid,true(duration_s) 采样行值（60 s 末采样，受电为正）'
+        });
+      mk('d_wt_end_kW', '最优曲线一致性残差末值', valueAt(t, series.d_wt_kW, duration), 'kW', 4,
+        'analytic', {
+          method_version: '1',
+          source_signal_ids: ['d_wt_kW'],
+          time_window_s: [duration, duration],
+          blindSafe: false,
+          definition: 'd_wt(duration_s) 采样行值（EQ-WT-8 代数恒等，不是能量损失；健康测量下 d_wt ≤ 0 恒成立）'
         });
     }
 

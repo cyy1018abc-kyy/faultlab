@@ -1,17 +1,26 @@
-# FL001_THERMAL_G2B_SPEC_DRAFT — FL-001 电池单节点集总热模型 G2b 物理规格（DRAFT v0.1）
+# FL001_THERMAL_G2B_SPEC_APPROVED — FL-001 电池单节点集总热模型 G2b 物理规格（APPROVED v1.0；曾用名 FL001_THERMAL_G2B_SPEC_DRAFT）
 
 > **任务**：A-4b FL-001 热模型 G2b 规格起草（V06_ROADMAP §2 主线 A A-4b 行；V072_WAVE_DESIGN
 > §1 DEC-2 / §2 T7）。
 > **授权**：V072_WAVE_DESIGN v1（CHG-20261105-01，2026-11-05 批准，按推荐执行）阶段一
-> T7「A-4b FL 热模型 G2b 草案」。**DEC-2：本波只到草案 + 双路评审（批准留待用户）；
-> 批准与实现（fl001_v2 + 轨实现）待用户裁定后入 v0.8.0**（V072 §1 DEC-2/DEC-5）。
+> T7「A-4b FL 热模型 G2b 草案」。**DEC-2：v0.7.2 波只到草案 + 双路评审；批准与实现
+> （fl001_v2 + 轨实现）入 v0.8.0**（V072 §1 DEC-2/DEC-5）——该批准已于 2026-11-07 下达
+> （CHG-20261107-01），本 v1.0 即其批准轮修订执行。
 > **前置**：FL-001 现为 L0 解析双故障族基准系统（systems.js:117-315 EQ-1…EQ-6/EQ-A/EQ-B；
 > P=0.4×I 恒压等效、理想母线、r_true/r_meas 定义恒等）；L1 制度先例 = GTL1_G2B_SPEC_APPROVED
 > v1.0（RK4/T-B/oracle_base 出生接入/分歧预期表体例）；G2b 结构先例 = PV001_G2B_SPEC_APPROVED
 > v1.0；治理依据 = SCOPE_SPLIT_MEMO §8.2。**本草案为新增状态变量/新物理（方程集扩展）**，
 > 按 ALINE_MODEL_DEPTH_DESIGN §1.2 第三行 → **完整 G2b**（双路评审 + 用户批准）。
-> **状态**：`DRAFT`（v0.1，2026-11-05，A-4b 规格起草人起草）——待双路独立评审
-> （FLTH-G2b-02：物理 A / 治理 B）+ 用户书面批准；**批准与实现 v0.8.0**。
+> **状态**：`APPROVED`（v1.0，2026-11-07）。**批准链**：双路独立评审（v0.7.2，
+> CHG-20261105-02，A/B 均 PASS_WITH_CONDITIONS，§10）→ 用户书面批准（2026-11-07
+> 「统一采用推荐决策」指令链，CHG-20261107-01 登记，七条件全按推荐处置，§11-a）→
+> 本 v1.0（七条件落正文 + 更名 APPROVED）。**待办**：FLTH-G2b-03（oracle + emit）/
+> FLTH-G2b-04（实现）入 v0.8.0（V080_WAVE_DESIGN，CHG-20261107-01 ③）。
+> **记录**：A-4b 规格起草人起草（2026-11-05）；数值预填由临时复算脚本独立计算
+> （Python stdlib，`python -I`，记录见 §3.5，脚本已按任务纪律删除）；v1.0 修订
+> （批准轮条件修订，2026-11-07，CHG-20261107-01）：A-1…A-4/B-1…B-3 七条件 +
+> Q1…Q4 定案落正文，文件由 FL001_THERMAL_G2B_SPEC_DRAFT 更名
+> FL001_THERMAL_G2B_SPEC_APPROVED（git mv）。
 > **本波纪律符合性**：golden 零变更（既有 6 golden 字节冻结，本文档只提案不 emit）、
 > engine.js 零改动、tools/oracle/** 零触碰、零第三方依赖、零新仿真轨（本草案为
 > v0.8.0 实现轮的规格输入）；数值预填由临时复算脚本独立计算（Python stdlib，`python -I`，
@@ -19,7 +28,8 @@
 > **脚本已按任务纪律删除**）。
 > **Q-4 三守卫适用**：新方程集入引擎须走 G2b（即本文档流程）；许可证自研零依赖
 > （RK4 stdlib 自写 / 浏览器原生 JS，无 TESPy/PyBaMM 类对照轨本波提案）；验收路径禁入
-> 直至批准（本波 golden/oracle/引擎全链零触碰，§0 不动清单）。
+> 直至实现轮 emit/接线完成（§7.2 门禁面——v0.7.2 起草波 golden/oracle/引擎全链零触碰，
+> §0 不动清单）。
 > **行号基准说明**：本文档行号引用为**起草时点（2026-11-05）实读值**——本波 v0.7.2 残留
 > 清算（V072 §2 T1…T6：checks.js/schema.js/systems.js/scenario.js 等）与本草案**并发执行**，
 > 上述文件行号在清算落地后会漂移；实现轮（FLTH-G2b-03/04）以**语义锚点**（信号 id/检查 id/
@@ -39,12 +49,13 @@
 - **层级关系**：thermal on 与 off 并存、不替换（ALINE §12「L1 替换 L0 不做」同款；L0 轨
   永久保留为对比轨与 P0 验收轨）。**措辞红线**：跨深度差异解释只说「模型深度导致的表达力
   差异」，禁「更准确/更真实/工业级」（ALINE §6.4 / copy-guard 词表，预检 §6.3）。
-- **守恒面声明（草案核心难点，Q1 裁定点）**：P_loss = I_true²·R_int 的能量去向是本草案
-  最大的结构裁定——**推荐方案 (a) 进母线平衡**（P_gen = P_load − P_bat + P_loss，
+- **守恒面声明（Q1 已定案（v1.0，CHG-20261107-01）：采 (a) 进母线平衡）**：P_loss = I_true²·R_int 的能量去向是本规格
+  最大的结构裁定——**定案方案 (a) 进母线平衡**（P_gen = P_load − P_bat + P_loss，
   r_true/r_meas 定义恒等扩展含 −P_loss 项，教学叙事「热损耗由发电机补偿」）；备选
   (b) 损耗离场破坏 E 恒等式、涟漪大（全案对照与推荐理由见 §2.2 守恒面裁定节 +
   §11 FLTH-DRAFT-Q1）。
-- **不动清单（本草案与批准轮均适用，直至实现轮显式 CHG）**：
+- **不动清单（v0.1 起草轮与 v1.0 批准轮均适用；实现轮 FLTH-G2b-03/04 按 §8 排期执行
+  其点名工作面时不受相应条目约束，其余直至实现轮显式 CHG）**：
   ① `tools/oracle/fl001_oracle.py` 及全部 5 个既有 oracle 零改动（V-03 字节语义，
   ORACLE_INTERFACE_D2 §5.2）；fl001_v2 由**新文件** fl001_l1_oracle.py 承接（出生即
   oracle_base，§4 项 2），fl001_oracle.py 物理零触碰；
@@ -112,22 +123,23 @@ sourceKind 提案 MODEL_STATE / DERIVED（DATA_CONTRACT_SPEC §1.6 默认映射�
 - **分区（partitioned）结构**：控制/事件输入（b、target、I_cap）在子步内**冻结于子步起点
   右值**（L0 bAt 同口径，t=20 阶跃落在子步边界上，无子步内间断——plants/fl001.js:34
   `time >= tStart - 1e-9` 逐字）；**T_bat 的 RHS 内 I_true 冻结于子步起点值**（FLTH-DRAFT-Q2
-  推荐口径，误差量级分析 §2.3 注记②）；
+  定案口径（v1.0，CHG-20261107-01），误差量级分析 §2.3 注记①）；
 - **豁免声明**：不采用自适应步长/刚性积分器（教学面保持固定网格与可复算性）；热时间常数
   τ_th = C_bat/(h − I²R0α) ≈ 31–34 s（§2.1 教学参数）与电气 τ=1.5 s/0.4 s 相差一个量级以上，
   无刚性耦合源。
 
 ### 1.4 数值 oracle 提案（非闭式）
 
-新文件 `tools/oracle/fl001_l1_oracle.py`（FLTH-G2b-03 执行；**本波不创建**——V072 §0 禁区
-不动 tools/oracle/**）。Python stdlib 独立 RK4 实现；**不 import src/**、不 import
-fl001_oracle**、方程与常量唯一权威文本 = 本规格 §2（批准后）；自带自检 FL-1…FL-8（§4 项 3）；
+新文件 `tools/oracle/fl001_l1_oracle.py`（FLTH-G2b-03 执行；**v0.7.2 起草波不创建**——V072 §0 禁区
+不动 tools/oracle/**，v0.8.0 解禁）。Python stdlib 独立 RK4 实现；**不 import src/**、不 import
+fl001_oracle**、方程与常量唯一权威文本 = 本规格 §2（**v1.0 定案：批准已下（CHG-20261107-01），
+§2 即唯一权威文本**）；自带自检 FL-1…FL-8（§4 项 3）；
 golden 由该 oracle 只读生成、engine 只读比对（G0-DEC-16）。与 fl001_oracle.py 的
 「解析闭式 + T-A ±1e-12」路线不同：RK4 双实现跨语言不承诺 bit-exact，容差走 **T-B 方法
 等价**（同一离散方法、独立实现——ALINE §3 T-B 定义行；ALINE :91「A-4 热模型起步即 T-B」），
 实测散差证据见 §3.5（半步长 max|ΔT| = 6.16e-04 K）。
 
-## 2. 方程集（EQ-FLTH-1…9，全部显式；**批准后本节为 oracle/引擎唯一权威文本**）
+## 2. 方程集（EQ-FLTH-1…9，全部显式；**v1.0 定案（CHG-20261107-01）：批准已下，本节为 oracle/引擎唯一权威文本**）
 
 ### 2.0 配置开关形态与默认轨：`thermal_model: "off" | "on"`，默认 **off**（DEC-2 定案）
 
@@ -148,7 +160,8 @@ golden 由该 oracle 只读生成、engine 只读比对（G0-DEC-16）。与 fl0
   默认翻转（GT 需翻转才可达 C-2/C-3 场景的约束在 FL 不存在——FL 的 off 轨本身即教学主角）；
   ④ **Arena 盲包**：FL 在盲测池（P0），默认 off ⇒ 盲包 config 指纹/观测语义零变化
   （GT Q4 需「必要时 Arena 盲包锁定 inertia_model」对冲——FL 侧天然免除）。
-  默认翻转（off→on）如批准轮用户裁定，须显式 CHG 并同轮处置 ①②④（可撤销，登记不预设）。
+  **默认轨批准裁定（FLTH-IMP-Q3，CHG-20261107-01）**：用户未提默认翻转——**默认 off 维持**；
+  未来如翻转（off→on）须显式 CHG 并同轮处置 ①②④（可撤销，登记不预设）。
 - **层级表达**：off ⇔ L0（现有 level 标签不变）；on ⇔ L1（level/summary 变体提案 §6.2；
   provenance 派生 FLTH-IMP-Q2）。cfg 单值与 golden id 一一映射：off→fl001_v1、on→fl001_v2
   （§4 项 1；GTL1 §2.4 理由 3 同构）。
@@ -170,9 +183,9 @@ golden 由该 oracle 只读生成、engine 只读比对（G0-DEC-16）。与 fl0
 82.6%）；故障后（I=15 A）新稳态 4.71 K 形成可观测的降温恢复轨。**非设备参数辨识**：不对应
 任何真实电池包热特性（A-flth-params + I-5 自查 §6.3）。
 
-### 2.2 方程登记（含**守恒面裁定**——草案核心难点，Q1 裁定点）
+### 2.2 方程登记（含**守恒面裁定**——**Q1 已定案（v1.0，CHG-20261107-01）：采推荐 (a)**）
 
-#### 2.2.0 守恒面裁定：P_loss 的去向——二选一（推荐 (a)）
+#### 2.2.0 守恒面裁定：P_loss 的去向——二选一（**Q1 已定案（v1.0，CHG-20261107-01）：采推荐 (a)**）
 
 P_loss = I_true²·R_int(T_bat) 在热 on 时是新增的真实功率项，必须裁定其记账去向。
 L0 既有能量恒等式为 **E_source + E_bat ≡ E_load**（E_source = ∫P_gen dt = ∫(P_load − P_bat)dt，
@@ -189,9 +202,10 @@ DEC-2 约束「SOC 定义不动（I-2 能量口径零涟漪）」字面满足（
 ③ 物理可解读：等价于「电池 = 0.4 kV 理想源（A-const-v 口径保留）+ 串联内阻 R_int(T)」的
 串联阻模型——理想源功率 0.4·I（=P_bat,true 登记值不变），内阻耗散 I²R 由母线侧平衡源补齐，
 包净馈入 = P_bat,true − P_loss；④ 教学叙事强（损耗在 P_gen、E_source、T_bat 三处可见）；
-⑤ r_meas 恒等扩展后 0.4·b 教学锚点保持纯净（Q3）。**方案 (a) 为本草案全部锚点/方程/
-golden 计划的基准**；评审若裁 (b)，§2/§3 全量重推（复算脚本分支改动 + 能量口径重设计，
-工作量 M，登记 FLTH-DRAFT-Q1 备选路径）。
+⑤ r_meas 恒等扩展后 0.4·b 教学锚点保持纯净（Q3）。**方案 (a) 为本规格全部锚点/方程/
+golden 计划的基准（Q1 已定案，v1.0：CHG-20261107-01 采推荐）**；(b) 备选路径关闭
+（v0.1 历史评估保留备查：评审若裁 (b) 须 §2/§3 全量重推——复算脚本分支改动 + 能量口径
+重设计，工作量 M；登记于 §11 FLTH-DRAFT-Q1，不再开放裁定）。
 
 #### 2.2.1 方程登记表
 
@@ -201,10 +215,10 @@ golden 计划的基准**；评审若裁 (b)，§2/§3 全量重推（复算脚�
 | EQ-FLTH-2 | **R_int(T_bat) = R0·(1 + α·(T_bat − 298.15))**（T_bat 单位 K） | 内阻温度面（任务书 °C 制 R0·(1+α·(T−25)) 的 K 制等价式：T_bat − 298.15 ≡ T_°C − 25；两式数值逐位同）；α>0 为正温度反馈（内阻随温升增大） |
 | EQ-FLTH-3 | **P_loss = I_true²·R_int(T_bat)**（W；信号面 P_loss_kW = P_loss/1000） | 焦耳热；I² 对充放电符号对称（充电同样发热——load0≤20 退化域教学点 §3.6） |
 | EQ-FLTH-4 | **C_bat·dT_bat/dt = P_loss − h·(T_bat − T_amb)**，T_bat(0) = T_amb = 298.15 K | 单节点集总热平衡（新动态状态）；牛顿冷却；冷启动假设（T_bat(0)=环境温度） |
-| EQ-FLTH-5 | **P_gen,true = P_load − P_bat,true + P_loss**（守恒面 (a)，Q1 推荐） | 热损耗由发电机补偿；off 轨原式 P_gen = P_load − P_bat（P_loss≡0 退化，零变化） |
-| EQ-FLTH-6 | **r_true := P_gen,true + P_bat,true − P_load,served − P_loss ≡ 0**；**r_meas := P_gen,true + P_bat,meas − P_load,served − P_loss ≡ 0.4·b(t)**（Q3 推荐同轮扩展） | 定义恒等扩展（损耗为模型已知结构项、非测量偏差/缺口，从一致性残差中扣除）；off 轨 P_loss≡0 退化为原恒等式；r_meas 教学锚点 max\|r_meas\| = 0.4·b = 4.0 kW 保持（§3.2 复算实证） |
+| EQ-FLTH-5 | **P_gen,true = P_load − P_bat,true + P_loss**（守恒面 (a)，**Q1 已定案（v1.0，CHG-20261107-01）**） | 热损耗由发电机补偿；off 轨原式 P_gen = P_load − P_bat（P_loss≡0 退化，零变化） |
+| EQ-FLTH-6 | **r_true := P_gen,true + P_bat,true − P_load,served − P_loss ≡ 0**；**r_meas := P_gen,true + P_bat,meas − P_load,served − P_loss ≡ 0.4·b(t)**（**Q3 已定案（v1.0，CHG-20261107-01）：同轮扩展**） | 定义恒等扩展（损耗为模型已知结构项、非测量偏差/缺口，从一致性残差中扣除）；off 轨 P_loss≡0 退化为原恒等式；r_meas 教学锚点 max\|r_meas\| = 0.4·b = 4.0 kW 保持（§3.2 复算实证） |
 | EQ-FLTH-7 | SOC_true = SOC0 − ∫P_bat,true dt/(40 kWh)×100%；SOC_est = SOC0 − ∫P_bat,meas dt/(40 kWh)×100% | **SOC 定义不动**（DEC-2 约束；P_bat,true 口径 = 0.4·I_true 不变 ⇒ SOC/∫I 面与 L0 逐位同，§3.2） |
-| EQ-FLTH-8 | E_loss = ∫P_loss dt（**子步梯形**：每子步 P_loss(子步起点 I,T) 与 P_loss(子步终点 I,T) 各评一次取均值×h——Q4 推荐，GTL1 E_gen 梯形纪律同构）；E_source = E_load − E_bat + E_loss | 损耗能量账本（kW·s ÷3600 → kWh）；E 恒等式 E_source + E_bat ≡ E_load + E_loss（方案 (a) 后果） |
+| EQ-FLTH-8 | E_loss = ∫P_loss dt（**子步梯形**：每子步 P_loss(子步起点 I,T) 与 P_loss(子步终点 I,T) 各评一次取均值×h——**Q4 已定案（v1.0，CHG-20261107-01）**，GTL1 E_gen 梯形纪律同构）；E_source = E_load − E_bat + E_loss | 损耗能量账本（kW·s ÷3600 → kWh）；E 恒等式 E_source + E_bat ≡ E_load + E_loss（方案 (a) 后果） |
 | EQ-FLTH-9 | 检查式：**E_source + E_bat − E_load − E_loss ≡ 0**（离散自洽，checks.js thermal on 分支判据）；渐近闭式 **θ_ss = I²·R0/(h − I²R0α)**（θ = T_bat − T_amb；稳态解，稳定性条件 h > I²R0α） | oracle 自检 FL-2/FL-7 与 checks 分支的判据式；θ_ss 闭式同时是包络角点声明的依据（§3.6） |
 
 **变比热/非线性豁免声明**：R_int(T) 线性式为教学近似（真实电池 R(T) 非线性、低温侧显著，
@@ -218,7 +232,7 @@ golden 计划的基准**；评审若裁 (b)，§2/§3 全量重推（复算脚�
 ① 电气面（L0 序保留，逐字不动）：I_start = I_true（子步起点值，同时是②的冻结输入）
    st = plant.stepOf(I_start, t_sub, h)                    # 精确指数（plants/fl001.js:45-53）
    I_end = st.y；intI += st.integral；intB += b·h           # SOC/E_bat 面零变化
-② RK4（热状态 T_bat；RHS 内 I 冻结于 I_start——FLTH-DRAFT-Q2 推荐口径）：
+② RK4（热状态 T_bat；RHS 内 I 冻结于 I_start——FLTH-DRAFT-Q2 定案口径（v1.0，CHG-20261107-01））：
    RHS(T)：θ = T − 298.15；P_loss(I_start, T) = I_start²·R0·(1+α·θ)
            ⇒ dT/dt = (P_loss − h·θ)/C_bat
    k1 = RHS(T)；k2 = RHS(T+h/2·k1)；k3 = RHS(T+h/2·k2)；k4 = RHS(T+h·k3)
@@ -232,10 +246,15 @@ golden 计划的基准**；评审若裁 (b)，§2/§3 全量重推（复算脚�
    SOC/SOC_est/E_bat 面与 L0 record() 逐字同（intI/intB 同源）
 ```
 
-**审查注记（评审 A 请重点核）**：① RHS 内 I 用子步起点冻结值而非 RK4 阶段值——冻结误差
-量级 = |dI/dt|·h ≈ 6.67 A/s×0.01 s = 0.067 A（故障后电流衰减段最大），单子步 P_loss 偏差
-≤ 2·I·R0·ΔI ≈ 2 W，对 T 的单子步贡献 ≤ 2.2e-05 K、不累积（半步长实测 6.16e-04 K 全窗上界，
-§3.5）——备选口径（RK4 阶段值用子步内精确指数 I(s)）登记为 FLTH-DRAFT-Q2 备选；
+**审查注记**：① RHS 内 I 用子步起点冻结值而非 RK4 阶段值（**Q2 已定案（v1.0，CHG-20261107-01）：
+采推荐冻结口径**）——冻结误差
+量级 = |dI/dt|·h ≈ 6.67 A/s×0.01 s = 0.067 A（故障后电流衰减段最大，I∈[15,25] A 取最不利
+I=25 A），单子步 P_loss 偏差 ≤ 2·I·R0·ΔI ≈ **0.67 W**（**v1.0 勘正（A-4，CHG-20261107-01）**：
+复算 2×25×0.2×0.0667 ≈ 0.67 W，v0.1 原文「≈2 W」系算术勘误；含温度反馈的 R_int 上界口径
+≈0.71 W 同量级），对 T 的单子步贡献 ≤ 2.2e-05 K（复算 0.67 W×0.01 s/300 J/K ≈ 2.2e-5 K，
+维持）、不累积（半步长实测 6.16e-04 K 全窗上界，
+§3.5）——备选口径（RK4 阶段值用子步内精确指数 I(s)）不采（v0.1 登记为 FLTH-DRAFT-Q2 备选，
+随 Q2 定案关闭）；
 ② record() 的 P_loss 用当前状态重算而 E_loss 用子步梯形累计——两口径的差 = 梯形离散偏差
 （E_loss 实测 ΔE = 2.2e-09 kWh/半步长，§3.5），信号面与账本面分离声明；
 ③ 事件边界 t=20.0 恰在子步边界（(k−1)·0.1 + j·0.01 网格），无子步内间断——若实现轮调整
@@ -258,10 +277,13 @@ schema v1 为闭合白名单制，新键随 FLTH-G2b-04 入 EVENT_KEYS 白名单
 
 > 本节全部 thermal on 数值为**预填**（临时脚本复算，§3.5）——thermal 轨无全局闭式解，锚点
 > 终值以 fl001_l1_oracle 的 emit 输出为准冻结（gt001 §4「验收锚点由 oracle 复核冻结」先例）；
-> 本草案冻结的是**方程集、常量表、更新序与分歧方向/量级**。L0（off）对照值引自 fl001_v1
-> 冻结 golden（data/golden/fl001_v1.json，本波复算 3 轨 7 行 worst diff = **0.0** 逐项复现，
+> 本规格冻结的是**方程集、常量表、更新序与分歧方向/量级**。L0（off）对照值引自 fl001_v1
+> 冻结 golden（data/golden/fl001_v1.json，起草波复算 3 轨 7 行 worst diff = **0.0** 逐项复现，
 > §3.5 环境校验）。预填口径：h=0.01 RK4、601 点输出网格、EQ-FLTH-5/6（a) 方案式、
 > §2.1 教学参数。
+> 〔**v1.0 定案**：批准已下（CHG-20261107-01），本节冻结口径维持（方程集/常量/更新序/
+> 分歧方向）；两角点 P_gen 与稳定性边界按 A-1/A-4 勘正（§3.4，勘误处注明复算依据），
+> 终值由 FLTH-G2b-03 emit 冻结。〕
 
 ### 3.1 健康局（thermal on，closed_loop 无故障）
 
@@ -314,9 +336,9 @@ schema v1 为闭合白名单制，新键随 FLTH-G2b-04 入 EVENT_KEYS 白名单
 | 项 | 声明 | 复算依据 |
 |---|---|---|
 | T_bat 域（默认参数 60 s 窗） | [298.15, 309.953229] K（healthy 上端 = t=60 未收敛位；渐近 312.435714） | §3.5 |
-| **load0=45 角点** | I=62.5 A：T(60) = **424.704098 K**、P_loss(60) = 1.769954 kW、P_gen(60) = 6.769954 kW、E_loss = 0.0218589 kWh；**渐近 T_ss = 655.292857 K**（≈382 °C）——合法角点、无热保护动作（沿袭 L0「无保护动作」局限并显式扩到热面，§6.1 项 7）；教学演示建议默认 load0=30 | 域角点复算 |
-| load0=10 角点（充电） | I_ref = −25 A：T(60) = **309.953229 K（与 +25 A 放电逐位同——I² 律对充放符号对称）**、P_gen(60) = 40.139754 kW；充电发热为 EQ-FLTH-3 结构推论（教学点） | 域角点复算 |
-| **稳定性条件** | h > I_true²·R0·α（EQ-FLTH-9）：注册域内最大 I²R0α = **7.8125 W/K（load0=45 角点）< 10**（裕度 1.28×）；**手拼配置 load_kW > 48.3 kW（越界）可破稳定性条件** → 正温度反馈失控（无热保护），登记 limitations（§6.1 项 8）+ 未来开放热参数配置须先立钳位的前置声明 | 闭式 + 域扫描 |
+| **load0=45 角点** | I=62.5 A：T(60) = **424.704098 K**、P_loss(60) = 1.769954 kW、P_gen(60) = **21.769954 kW**（**v1.0 勘正（A-1，CHG-20261107-01）**：v0.1 预填 6.769954 系 EQ-FLTH-5 派生笔误；复算 P_gen = P_load − 0.4·I + P_loss = 45 − 0.4×62.5 + 1.769954 = 21.769954 kW）、E_loss = 0.0218589 kWh；**渐近 T_ss = 655.292857 K**（≈382 °C）——合法角点、无热保护动作（沿袭 L0「无保护动作」局限并显式扩到热面，§6.1 项 7）；教学演示建议默认 load0=30 | 域角点复算（P_gen 项勘正复算见左列） |
+| load0=10 角点（充电） | I_ref = −25 A：T(60) = **309.953229 K（与 +25 A 放电逐位同——I² 律对充放符号对称）**、P_gen(60) = **20.139754 kW**（**v1.0 勘正（A-1，CHG-20261107-01）**：v0.1 预填 40.139754 系同上派生笔误；复算 P_gen = P_load − 0.4·I + P_loss = 10 − 0.4×(−25) + 0.139754 = 20.139754 kW——恰与健康局 load0=30 的 P_gen(60) 同值（\|I\|=25 A 同热轨、P_load−P_bat 同为 20 kW），自洽佐证）；充电发热为 EQ-FLTH-3 结构推论（教学点） | 域角点复算（P_gen 项勘正复算见左列） |
+| **稳定性条件** | h > I_true²·R0·α（EQ-FLTH-9）：注册域内最大 I²R0α = **7.8125 W/K（load0=45 角点）< 10**（裕度 1.28×）；**手拼配置 load_kW > 48.2843 kW（越界）可破稳定性条件**（**v1.0 勘正（A-4，CHG-20261107-01）**：v0.1 「48.3」改精确值）→ 正温度反馈失控（无热保护），登记 limitations（§6.1 项 8）+ 未来开放热参数配置须先立钳位的前置声明 | 闭式 + 域扫描；精确值复算：h > I²R0α ⟺ I < √(h/(R0α)) = √5000 ≈ 70.7107 A ⟺ load0 < 0.4×70.7107 + 20 = 48.2843 kW（库内口径 I_ref = (P_load − 20)/0.4 = 2.5·load0 − 50，systems.js:236/302 实读，2026-11-07） |
 | 渐近稳态表 | θ_ss：I=25 A → 14.2857 K（T_ss 312.4357）；I=15 A → 4.7120 K（302.8620）；I=13.75 A → 3.9298 K（302.0798）；I=62.5 A → 357.14 K（655.2929） | EQ-FLTH-9 闭式 |
 | 手拼配置 | normalizeConfig 不钳位 load_kW（L0 既有 limitations 原样）；thermal on 不新增钳位（最小集），越域后果经 §6.1 项 8 声明 | 现状核实 |
 
@@ -335,8 +357,12 @@ schema v1 为闭合白名单制，新键随 FLTH-G2b-04 入 EVENT_KEYS 白名单
   **ΔE_loss = 2.2e-09 kWh**（vs E_kWh 容差预案 1e-6，裕度 ×450）；
 - **RK4 vs 子步解析交叉（FL-7 自检预案输入）**：I 冻结口径下 T-ODE 在子步内为**线性常系数
   ODE**（θ′ = λθ + c，λ = (I²R0α − h)/C_bat），存在子步内精确指数解——RK4 全轨与之逐点比较
-  **max\|ΔT\| = 5.68e-14 K**（双精度路径噪声级，6000 子步无可见累积）——RK4 实现正确性的
-  强交叉证据，冻结为 oracle 自检 FL-7 判据预案；
+  **max\|ΔT\| = 5.68e-14 K**（**v1.0 措辞勘正（A-4③，CHG-20261107-01）**：该值为**起草时单实现
+  （同精度双精度算术）交叉实测上界**——不宣称普适双精度噪声地板；6000 子步无可见累积；
+  评审 A 独立复算 1.46e-11 K 同量级）——RK4 实现正确性的强交叉证据。**该值不作判据冻结
+  （A-2 定案，CHG-20261107-01）**：FL-7 判据终值按 oracle↔engine **双实现实测散差 ×≥10
+  （且下限 ≥1e-9 K）**于 FLTH-G2b-03 实测冻结（§4 项 3）；5.68e-14 K（起草）与 1.46e-11 K
+  （评审复算）仅作量级登记；
 - 脚本已删除，本节数值即其输出摘录；评审可按 §2 方程独立重推（θ_ss 渐近闭式可手推，
   暂态按 §2.3 伪代码复刻）。
 
@@ -348,20 +374,20 @@ I_A/P_kW/E/SOC/r 面沿 fl001_v1 gate 键面外推。事件快照面**零扩展*
 事件变量维持 L0 变量集 I_bat_true_A/I_bat_meas_A/bias_A/I_bat_cap_A；T_bat 不入事件快照——
 最小集声明，如需扩面另行裁定）。
 
-## 4. golden 计划（fl001_v2 · tier T-B · oracle_base 出生接入 · 旧 golden 留档；**起草波零改动维持**——批准与 emit 入 v0.8.0，FLTH-G2b-03；既有 6 golden 与 fl001_oracle.py 零触碰）
+## 4. golden 计划（fl001_v2 · tier T-B · oracle_base 出生接入 · 旧 golden 留档；起草波零改动维持——**v1.0 定案：批准已下（CHG-20261107-01），emit = FLTH-G2b-03 入 v0.8.0（V080_WAVE_DESIGN）**；既有 6 golden 与 fl001_oracle.py 零触碰维持）
 
 | # | 项 | 内容 |
 |---|---|---|
 | 1 | **新 id 判据** | golden_id = **fl001_v2**——方程集扩展超出已批 MODEL_VALIDATION_SPEC §1.2/§1.3（ALINE §1.2 第三行）→ 模型/方法变更 → 新 id（ORACLE_INTERFACE_D2 §3.1「模型/方法变更 → 新 id」；gt001_v3 先例 supersedes 字段 data/golden/gt001_v3.json 实读）。**保 id 重出不适用**（DEC-B 口径仅限引擎行为零变更的原地扩容） |
-| 2 | 独立 oracle | `tools/oracle/fl001_l1_oracle.py`（v0.8.0 执行；本波不创建）。独立性声明对标 fl001_oracle.py:1-10 / gt001_l1_oracle.py:4-20 先例：不 import src/**、不 import fl001_oracle、方程与常量唯一权威文本 = 本规格 §2 批准文本、自含硬编码；自带自检 FL-1…FL-8。**出生即 oracle_base 接入**（新文件无 V-03 历史字节负担；GT 先例 GTL1 §4 项 2）：`import oracle_base` + `resolve_run_spec` + `write_golden_with_sidecar`（LF 钉死，ORACLE_INTERFACE_D2 §6）+ `approval_block/apply_approval`（三字段非 null 方可落盘，§3.3）+ `SERIES_IDS` 模块常量（含
+| 2 | 独立 oracle | `tools/oracle/fl001_l1_oracle.py`（v0.8.0 FLTH-G2b-03 执行；v0.7.2 起草波不创建——V072 §0 禁区）。独立性声明对标 fl001_oracle.py:1-10 / gt001_l1_oracle.py:4-20 先例：不 import src/**、不 import fl001_oracle、方程与常量唯一权威文本 = 本规格 §2 批准文本、自含硬编码；自带自检 FL-1…FL-8。**出生即 oracle_base 接入**（新文件无 V-03 历史字节负担；GT 先例 GTL1 §4 项 2）：`import oracle_base` + `resolve_run_spec` + `write_golden_with_sidecar`（LF 钉死，ORACLE_INTERFACE_D2 §6）+ `approval_block/apply_approval`（三字段非 null 方可落盘，§3.3）+ `SERIES_IDS` 模块常量（含
   "t" 列——fl001_v1 实测惯例 + golden-compare.js:66-71 网格校验（起草时点行号；该比对循环
   按 **golden series 键集**迭代，引擎侧额外 null 列不进比对——§3.3 项 4 的实现面佐证）） |
-| 3 | self_check 预案 | **FL-1** L0 冻结锚点环境校验（fl001_v1 三轨标量闭式复现，判据 ≤1e-9——本波实测 0.0）；**FL-2** 热能量恒等（EQ-FLTH-9 离散自洽：E_source+E_bat−E_load−E_loss ≡ 0，判据 ≤1e-9 kWh）+ θ_ss 渐近闭式抽查；**FL-3 电气面跨轨恒等**——thermal on 的 I/SOC/E_bat/r_meas 面与 L0 闭式 **±1e-9 内逐点恒等**（§3.3 零变化声明的 oracle 侧固化；不做跨语言逐位承诺——T-B 制度）；**FL-4** 网格（601 点、t[i]=i·dt、单调、事件域 null 豁免同 fl001 SC-6 口径）；**FL-5** 锚点全表复算（§3.1/§3.2 终值）；**FL-6** monitor 热面恒等（monitor 轨 T_bat 与 healthy 轨 max\|ΔT\| = 0——偏置不进入物理回路的结构判据）；**FL-7** 半步长自收敛登记（6.16e-04 K 证据 → T_K_atol 取 ×16 裕度）+ RK4 vs 子步内解析指数交叉（5.68e-14 K）；**FL-8** 无 NaN/Inf + 包络抽查（§3.4：load0=45 角点 + 稳定性裕度断言 I²R0α < h） |
+| 3 | self_check 预案 | **FL-1** L0 冻结锚点环境校验（fl001_v1 三轨标量闭式复现，判据 ≤1e-9——本波实测 0.0）；**FL-2** 热能量恒等（EQ-FLTH-9 离散自洽：E_source+E_bat−E_load−E_loss ≡ 0，判据 ≤1e-9 kWh）+ θ_ss 渐近闭式抽查；**FL-3 电气面跨轨恒等**——thermal on 的 I/SOC/E_bat/r_meas 面与 L0 闭式 **±1e-9 内逐点恒等**（§3.3 零变化声明的 oracle 侧固化；不做跨语言逐位承诺——T-B 制度）；**FL-4** 网格（601 点、t[i]=i·dt、单调、事件域 null 豁免同 fl001 SC-6 口径）；**FL-5** 锚点全表复算（§3.1/§3.2 终值）；**FL-6** monitor 热面恒等（monitor 轨 T_bat 与 healthy 轨 max\|ΔT\| = 0——偏置不进入物理回路的结构判据）；**FL-7** 半步长自收敛登记（6.16e-04 K 证据 → T_K_atol 取 ×16 裕度）+ RK4 vs 子步内解析指数交叉——**判据终值按 oracle↔engine 双实现实测散差 ×≥10（且下限 ≥1e-9 K）于 FLTH-G2b-03 实测冻结（A-2 定案，CHG-20261107-01）**；预填值 5.68e-14 K（起草单实现交叉实测上界，§3.5）与评审复算 1.46e-11 K 仅作量级登记、不得冻结为判据值；**FL-8** 无 NaN/Inf + 包络抽查（§3.4：load0=45 角点 + 稳定性裕度断言 I²R0α < h） |
 | 4 | Run 集 | **4 Run**（镜像 fl001_v1 全集，全部 thermal_model=on）：healthy / closed_loop_fault（sensor +10）/ monitor_only / actuator_closed_loop（55%）。镜像判据：gt001_v3 镜像 gt001_v2 全集（6 Run）同构——fl001_v1 为 4 Run ⇒ fl001_v2 镜像 4 Run（任务书「6 Run 或沿 fl001_v1+thermal 变体」二选一的采后者理由：新 id golden 镜像基线 golden 全集的 GT 先例） |
-| 5 | 元数据（schema v2） | `golden_schema_version="v2"`（新 golden 默认 v2，ORACLE_INTERFACE_D2 §3.5）；`golden_id="fl001_v2"`；`model_id="FL-001"`；`model_version="1.1.0"`（提案；三段式 v2 归一样式——fl001.1 遗留样式在 v2 新 id 轮归一，ORACLE_INTERFACE_D2 §3.1；深度轨类比 GT 1.1.0→1.2.0 为 minor 增位）；`method_id="fl001_thermal_rk4_dt0.01"`（gt001_l1_rk4_dt0.01 先例）；`engine_baseline=null`；`backend=null`（§3.4 留位）；`thermal_model="on"`（cfg 键入 config 块，沿 gt001_v3 inertia_model 先例）；`supersedes="fl001_v1（L0 轨 thermal_model=off，字节冻结留档；存档场次继续引用 v1）"`；units 増 `"T":"K"`（schema.js:23 UNIT_DICT 已含 K——GT 波 C-3 同款已落地，本轨零 schema 工作，已核实）；generated_by 一段式 + approval 三字段首签引本规格批准 CHG |
-| 6 | 容差 tier | **T-B**（同法 RK4、独立双实现——ALINE §3 T-B 定义行；ALINE :91「A-4 热模型起步即 T-B」）。gate 块预案：`{tier:"T-B", I_A_rtol:1e-12, I_A_atol:1e-15, T_K_atol:1e-2, P_kW_rtol:1e-6, P_kW_atol:1e-3, E_kWh:1e-6, SOC_pp:1e-5, r_true_kW:1e-9, r_meas_kW_atol:1e-9, t_s:1e-9}`——**量级预案非终值**：终值按双实现实测散差 × 安全系数 ≥10 冻结（半步长证据 §3.5：6.16e-04 K → T_K_atol 1e-2 为 ×16；gt001_v3 gate 冻结先例同纪律）；I_A 面沿 v1（精确指数闭式跨语言散差在 rtol 1e-12 实证域内，fl001_v1 gate 键面）；若实测超限 → 降 **T-C** 并必附 `convergence` 块（ORACLE_INTERFACE_D2 §3.2）——双向预案登记（T-A 不承诺：RK4 双语言 bit-exact 无依据） |
-| 7 | verify_golden | **注册面为硬编码表**（scripts/verify_golden.py:51-95 MODELS dict；**PV001 §4 项 7 勘正先例引用**——「新系统/新轨零改动 verify_golden」不成立，注册行是显式工作面）：新增 `import fl001_l1_oracle` + `MODELS["fl001_l1"]` 注册行（golden_file="fl001_v2.json"、i_true="I_bat_true_A" / i_meas="I_bat_meas_A"、event_tol 缺省 "I_A_atol"（verify_golden.py:363 默认键，事件相位变量 A 域适用）、scalars 面增 E_loss_kWh/T_bat_end_K 等）。**T-B series_limit `_A` 分支为显式工作面**：现 T-B 分派按信号 id 后缀路由（verify_golden.py:118-140：`_Hz/_rpm/_K/_kPa/_kW/SOC/_pct/r_true`），**无 `_A` 分支**（I_bat_true_A 落入缺省 f_Hz_atol 键）——fl001_v2 为库内首个含 A 类序列的 T-B golden，须增 `_A` → I_A_atol/rtol 路由分支（GTL1 §4 项 7「参数化与注册行同轮落地」同款，FLTH-G2b-03）。**「fl001 条目重指向」不适用声明**：gt001 条目已重指向 gt001_v3（verify_golden.py:70-76，GT Q4 默认翻转的伴生动作）——FL 默认 off ⇒ `MODELS["fl001"]` **继续验 fl001_v1（off 默认轨）零改动**，thermal 轨走新增 fl001_l1 条目（与 GT 的结构性差异随 §2.0 差异理由②登记） |
-| 8 | 预期失效面 | 新增 `data/golden/fl001_v2.json`(+`.sha256`)；**既有 6 golden 字节零变更**（V072 §0 维持）；engine.test.js/plants.test.js 增 thermal 变体断言（**并入现有步**，ALINE §2 步数管理约束）；tests/registry.test.js per-Run config 哈希面核查（§2.4 scenario 键）；信号目录/manifest model_hash 面（§3.3 项 4）；FAULT_CATALOG §1 增 thermal 轨注记行（FLTH-G2b-03，PV-G2b-03 增节先例）；UI 层级徽章/level 变体为 FLTH-G2b-04 面 |
+| 5 | 元数据（schema v2） | `golden_schema_version="v2"`（新 golden 默认 v2，ORACLE_INTERFACE_D2 §3.5）；`golden_id="fl001_v2"`；`model_id="FL-001"`；`model_version="1.1.0"`（**B-1 定案（v1.0，CHG-20261107-01）**；三段式 v2 归一样式——fl001.1 遗留样式在 v2 新 id 轮归一，ORACLE_INTERFACE_D2 §3.1；深度轨类比 GT 1.1.0→1.2.0 为 minor 增位。**model_version 1.1.0 归一涟漪面三项登记（B-1）**：① scope.js `APPROVED.modelVersion` 现值 `'fl001.1'`（scope.js:20 实读，2026-11-07）——classify 对 FL-001 **不消费该值**（classify 校验链 = systemId/modelId/family/mode/initial/duration/dt/noise，modelVersion 校验仅存在于 FC-001 分支 scope.js:45；FL 分支无此校验——scope.js:42-83 实读核实）⇒ **显式声明「不校验、仅登记」**，FLTH-G2b-04 无需同步改 scope.js；② 旧存档（config 元数据 model_version='fl001.1'）重放行为预期 = **非阻断**（该值不参与 classify 校验，重放按既有语义放行；fl001_v2 的 model_version='1.1.0' 为 on 轨新 golden 元数据，与 off 轨存档互不引用）；③ DATA_CONTRACT_SPEC / MODEL_VALIDATION_SPEC 中 fl001 版本引用（'fl001.1' 字面）失效面入 **FLTH-G2b-04 工作面清单**（实现轮同轮订正至 1.1.0 或登记双版本并存口径）；`method_id="fl001_thermal_rk4_dt0.01"`（gt001_l1_rk4_dt0.01 先例）；`engine_baseline=null`；`backend=null`（§3.4 留位）；`thermal_model="on"`（cfg 键入 config 块，沿 gt001_v3 inertia_model 先例）；`supersedes="fl001_v1（L0 轨 thermal_model=off，字节冻结留档；存档场次继续引用 v1）"`；units 増 `"T":"K"`（schema.js:23 UNIT_DICT 已含 K——GT 波 C-3 同款已落地，本轨零 schema 工作，已核实）；generated_by 一段式 + approval 三字段首签引本规格批准 CHG |
+| 6 | 容差 tier | **T-B**（同法 RK4、独立双实现——ALINE §3 T-B 定义行；ALINE :91「A-4 热模型起步即 T-B」）。gate 块预案：`{tier:"T-B", I_A_rtol:1e-12, I_A_atol:1e-15, T_K_atol:1e-2, P_kW_rtol:1e-6, P_kW_atol:1e-3, E_kWh:1e-6, SOC_pp:1e-5, r_true_kW:1e-9, r_meas_kW_atol:1e-9, t_s:1e-9}`——**量级预案非终值**：终值按双实现实测散差 × 安全系数 ≥10 冻结（半步长证据 §3.5：6.16e-04 K → T_K_atol 1e-2 为 ×16；gt001_v3 gate 冻结先例同纪律）；I_A 面沿 v1（精确指数闭式跨语言散差在 rtol 1e-12 实证域内，fl001_v1 gate 键面）；若实测超限 → 降 **T-C** 并必附 `convergence` 块（ORACLE_INTERFACE_D2 §3.2）——双向预案登记（T-A 不承诺：RK4 双语言 bit-exact 无依据）。**gate 预案键面 × verify_golden T-B 分派分支的对齐缺口清单（A-4④/B-3 合并登记，CHG-20261107-01；分派规则见项 7）**：① `_A` 后缀无分支——I_bat_true_A/I_bat_meas_A 现落入 T-B 缺省 `f_Hz_atol` 键（scripts/verify_golden.py:140 缺省 return；fl001_v2 gate 预案**无该键 → KeyError 拒载**，缺口实证）；② `r_meas_kW_atol` 键（1e-9）在 gate 预案已有但**无对应路由分支**（r_meas_kW 现命中 `_kW` 后缀支，走 P_kW_atol/rtol 而非专键）；③ `"r_true" in sid` 分支现状已有（verify_golden.py:138-139）**但被前序 `_kW` 后缀分支遮蔽**（r_true_kW 恒先命中 `_kW` 支——verify_golden.py:118-140 实读，2026-11-07），落地时须将 r_true/r_meas 判别前置于 `_kW` 后缀判别之前方能真正路由至专键。三项均列为 **FLTH-G2b-03 显式工作面** |
+| 7 | verify_golden | **注册面为硬编码表**（scripts/verify_golden.py:51-95 MODELS dict；**PV001 §4 项 7 勘正先例引用**——「新系统/新轨零改动 verify_golden」不成立，注册行是显式工作面）：新增 `import fl001_l1_oracle` + `MODELS["fl001_l1"]` 注册行（golden_file="fl001_v2.json"、i_true="I_bat_true_A" / i_meas="I_bat_meas_A"、event_tol 缺省 "I_A_atol"（verify_golden.py:363 默认键，事件相位变量 A 域适用）、scalars 面增 E_loss_kWh/T_bat_end_K 等）。**T-B series_limit 分派分支补全为显式工作面（B-3 裁定采纳（推荐），CHG-20261107-01；与 A-4④ 合并表述、gate 键面缺口清单见项 6）**：现 T-B 分派按信号 id 后缀路由（verify_golden.py:118-140：`_Hz/_rpm/_K/_kPa/_kW/SOC/_pct/r_true`），fl001_v2 为库内首个含 A 类序列的 T-B golden——**B-3 裁定的分派显式规则**：`"r_true" in sid` → r_true_kW 键（现状已有，确认保留；须前置于 `_kW` 后缀判别之前以解除现状遮蔽，项 6 ③）；`"r_meas" in sid` → **新增** r_meas_kW_atol 键路由分支（gate 预案已有该键、分支缺失）；`endswith("_A")` → **新增** I_A_atol/I_A_rtol 分支（置于 `_Hz` 判断之前以免误配）。三项均为 FLTH-G2b-03 显式工作面（GTL1 §4 项 7「参数化与注册行同轮落地」同款）。**遮蔽勘正的波及面声明**：r_true/r_meas 判别前移将改变**全部 T-B golden** 的 r_true_kW 实际路由——gt001_v3 现行比对中 r_true_kW 走 `_kW` 支（P_kW_atol=1e-3）而非 r_true_kW=1e-9 专键（data/golden/gt001_v3.json gate 块 + series 键实读佐证）；FLTH-G2b-03 落地时须先实测 gt001_v3 r_true 散差量级（定义恒等预期 ≪1e-9，r_true_kW 专键 1e-9 大概率安全）再统一前移，若实测超预期则将新分支按 golden id 作用域限定（fl001_l1 优先），不静默变更 gt001_v3 比对语义。**「fl001 条目重指向」不适用声明**：gt001 条目已重指向 gt001_v3（verify_golden.py:70-76，GT Q4 默认翻转的伴生动作）——FL 默认 off ⇒ `MODELS["fl001"]` **继续验 fl001_v1（off 默认轨）零改动**，thermal 轨走新增 fl001_l1 条目（与 GT 的结构性差异随 §2.0 差异理由②登记） |
+| 8 | 预期失效面 | 新增 `data/golden/fl001_v2.json`(+`.sha256`)；**既有 6 golden 字节零变更**（V072 §0 维持）；engine.test.js/plants.test.js 增 thermal 变体断言（**并入现有步**，ALINE §2 步数管理约束）；tests/registry.test.js per-Run config 哈希面核查（§2.4 scenario 键）；信号目录/manifest model_hash 面（§3.3 项 4）；FAULT_CATALOG §1 增 thermal 轨注记行（FLTH-G2b-03，PV-G2b-03 增节先例）；UI 层级徽章/level 变体为 FLTH-G2b-04 面。**metrics.js E_source 指标 definition 串 thermal on 域变体（A-3① 定案，CHG-20261107-01）**——现串「P_gen := P_load − P_bat 为定义」（metrics.js:191 实读，2026-11-07），on 域须为「P_gen := P_load − P_bat + P_loss」（EQ-FLTH-5）；同型串 metrics.js:230（max_abs_r_true_kW 定义注记「定义恒等式（P_gen := P_load − P_bat）」）一并登记为 FLTH-G2b-04 工作面；指标**数值面零改动**（E_source = ∫P_gen dt 经 P_gen 信号定义扩展自动携带损耗项，metrics.js:162-186 实读）；新串 copy-guard 预检 0 命中（「P_loss」非禁词、不触「能量损失」子串）。**acceptance.keyValues off 域专用声明（A-3② 定案）**——systems.js keyValues 现值（E_bat_kWh/SOC_err_pp/max_abs_r_meas_kW/I_true_26s_A 等，systems.js:309-313 实读，2026-11-07）显式声明为 **off 轨（L0/fl001_v1）专用冻结锚点**；thermal on 轨验收 keyValues 由 **fl001_v2 golden 承载（FLTH-G2b-03 emit）**；systems.js acceptance 面按 cfg.thermal_model 分域（on 轨不引用 off 轨 keyValues 作通过判据，FLTH-G2b-04 工作面） |
 | 9 | 旧 golden 留档 | fl001_v1 文件不删不改不重出（V-03 字节语义；supersedes 链 v2→v1）；已归档评测场次继续引用既有 golden；run-g2 步①（verify_golden fl001 → fl001_v1）零改动。**FL 侧无迁移债声明**：fl001_oracle.py 已于 v1 重出轮（CHG-20261104-07）接入 oracle_base（fl001_oracle.py:59-61 实读）——不存在 GT 式 gt001_oracle.py 冻结归档债；ORACLE_INTERFACE_D2 §5.2 触发条件 1（模型/方法变更 → 新 golden_id，与重出同轮）由 **fl001_v2 新 id + 新文件**承接、fl001_oracle.py 物理零触碰（GTL1 §4 项 9 同构处置） |
 
 ## 5. 对照轨（无）
@@ -384,8 +410,9 @@ I-1 纯度与 V072 §0 边界（DEC-3 已裁 PyBaMM 不引入含后端侧）。�
 5. 环境动态（T_amb = 25 °C 常数；昼夜/季节/通风变化未建模）；
 6. **温度对容量/OCV/老化耦合**（A-5 热-电-老化方向，ALINE §7；本波登记不做）；
 7. **热保护未建模**（高温降额/热失控保护/熔断——§3.4 load0=45 角点 655 K 渐近为合法演示值）；
-8. **稳定性域边界**（手拼配置 load_kW > 48.3 kW 越界可破 h > I²R0α 稳定性条件 → 正反馈
-   失控；normalizeConfig 不钳位沿袭 L0 声明）；
+8. **稳定性域边界**（手拼配置 load_kW > **48.2843** kW 越界可破 h > I²R0α 稳定性条件 → 正反馈
+   失控——精确值复算见 §3.4，**v1.0 勘正（A-4）**：v0.1 「48.3」改精确值；normalizeConfig
+   不钳位沿袭 L0 声明）；
 9. 沿袭 L0 全部未建模项（systems.js:288-294：单一恒定负载、理想母线、变换器开关动态、
    电网交互、电池老化、退化域与手拼配置声明）。
    定位句（沿 house 句式）：本模型为教学尺度单节点集总热模型示意（L1），非机组/电网动态验证。
@@ -407,9 +434,10 @@ I-1 纯度与 V072 §0 边界（DEC-3 已裁 PyBaMM 不引入含后端侧）。�
 
 ### 6.3 文案提案与 33 模式预检（实现期入 systems.js；node tools/copy-guard.mjs 终检）
 
-copy-guard 33 模式扫 src/**（tools/copy-guard.mjs:15 SCOPES=['src']）；本草案在
+copy-guard 33 模式扫 src/**（tools/copy-guard.mjs:15 SCOPES=['src']）；本规格在
 FaultLab-evaluation/**（不扫描），但实现轮文案迁入 src/** 前按 GTL1 §6.3/PV001 §6.3 先例
-预检（本波已实跑 `node tools/copy-guard.mjs` → PASS 0 命中，基线绿）：
+预检（起草波已实跑 `node tools/copy-guard.mjs` → PASS 0 命中，基线绿；v1.0 新增登记串的
+预检结论见 §4 项 8——新串无禁词命中）：
 
 | 提案串 | 高危子串核查 | 结论 |
 |---|---|---|
@@ -449,46 +477,59 @@ FaultLab-evaluation/**（不扫描），但实现轮文案迁入 src/** 前按 G
 
 ### 7.1 五项自查表（SCOPE_SPLIT_MEMO §8.2）
 
-| # | 进入条件 | 本草案状态 |
+| # | 进入条件 | 状态（**v1.0 更新（CHG-20261107-01）**：④⑤ 随批准闭合，② 转执行面） |
 |---|---|---|
-| ① | 触发项清单全部关闭 | **适用即闭合**：FL-001 无 GT/FC 式遗留缺陷清单（SCOPE §2 处置表不含 FL 未关闭项；load_step O-13 已闭合归档）；本轨触发项 = V06_ROADMAP §2 A-4b 行 + V072 §1 DEC-2（本草案即交付物）。无未关闭遗留项 |
-| ② | 独立 golden | **计划就绪（未产出）**：§4 fl001_v2 / fl001_l1_oracle（独立 RK4、FL-1…8、4 Run、schema v2、T-B）。golden 后置系 V072 §0「golden 零变更、A-4b 只出草案不 emit」驱动的对 ② 字面顺序的偏离，**经 V072 批准（CHG-20261105-01）登记维持**（GTL1 §7.1 ② / PV001 §11 C-5 同款偏离登记）；emit 于 FLTH-G2b-03（v0.8.0），落地并 verify 通过后本项闭合 |
+| ① | 触发项清单全部关闭 | **适用即闭合**：FL-001 无 GT/FC 式遗留缺陷清单（SCOPE §2 处置表不含 FL 未关闭项；load_step O-13 已闭合归档）；本轨触发项 = V06_ROADMAP §2 A-4b 行 + V072 §1 DEC-2（v0.1 草案即交付物）。无未关闭遗留项 |
+| ② | 独立 golden | **计划就绪（未产出）——v1.0 更新：批准已下，emit = FLTH-G2b-03 入 v0.8.0（CHG-20261107-01）**：§4 fl001_v2 / fl001_l1_oracle（独立 RK4、FL-1…8、4 Run、schema v2、T-B）。golden 后置系 V072 §0「golden 零变更、A-4b 只出草案不 emit」驱动的对 ② 字面顺序的偏离，**经 V072 批准（CHG-20261105-01）登记、并随 v1.0 批准（CHG-20261107-01）维持**（GTL1 §7.1 ② / PV001 §11 C-5 同款偏离登记）；emit 于 FLTH-G2b-03（v0.8.0），落地并 verify 通过后本项闭合 |
 | ③ | UI 措辞与未建模物理清单 | **就绪**：§6.1 未建模 9 项 + §6.2 assumptions 6 条 + §6.3 文案预检（基线 copy-guard 实跑 PASS）+ I-5 专项声明 |
-| ④ | 用户书面批准 | **待定（本轮）**：双路评审（FLTH-G2b-02）后留待用户裁定；批准与实现 v0.8.0（V072 DEC-2/DEC-5） |
-| ⑤ | CHG 登记 | **部分闭合**：起草授权 CHG-20261105-01（V072 T7）已登记；批准 CHG 待批准轮登记（占位：批准 CHG 号批准时分配） |
+| ④ | 用户书面批准 | **已闭合（v1.0）**：用户书面批准已下（2026-11-07「统一采用推荐决策」指令链，CHG-20261107-01 登记；七条件全按推荐处置，§11-a） |
+| ⑤ | CHG 登记 | **已闭合（v1.0）**：起草授权 CHG-20261105-01（V072 T7）+ 批准 CHG-20261107-01（V080_WAVE_DESIGN，2026-11-07，含七条件处置与 Q1…Q4 定案授权）均已登记 |
 
 ### 7.2 门禁路径（G2b → G7）
 
 ```text
-本草案（DRAFT v0.1）→ FLTH-G2b-02 双路独立评审（物理 A / 治理 B）→ 用户书面批准（v0.8.0 轮）
+v0.1 草案（DRAFT）→ FLTH-G2b-02 双路独立评审（物理 A / 治理 B）→ 用户书面批准（v0.8.0 轮）
 → 批准 CHG（规格更名 APPROVED、条件修订进正文）→ FLTH-G2b-03 oracle + fl001_v2 emit
 → FLTH-G2b-04 实现（engine thermal 分支/systems.js 信号·假设·局限·level 变体/
   scenario thermal_model 键/checks.js energy-balance thermal 分支/UI 跨深度卡/测试涟漪）
 → G7 全链验收（golden 比对 + e2e + run-g2 --tier all 全绿 + copy-guard 终检）→ G8 发版（v0.8.0）。
-〔进度标注：本草案 = FLTH-G2b-01（本波，CHG-20261105-01）；FLTH-G2b-02 起下轮。〕
+〔v1.0 进度标注：前三站已完成——双路评审 PASS_WITH_CONDITIONS ×2（§10，v0.7.2 波）+
+用户批准 CHG-20261107-01（2026-11-07）+ 规格更名 APPROVED/七条件修订进正文（本 v1.0）；
+FLTH-G2b-03/04 入 v0.8.0（CHG-20261107-01 授权）。〕
 ```
+
+**门禁面（B-2 定案，CHG-20261107-01）**：FLTH-G2b-04 显式两门禁面——
+① **engine↔fl001_v2 T-B 比对面** = verify_golden fl001_l1（fl001_v2 4 Run 全轨）+
+engine.test.js thermal 变体对 fl001_v2 关键值断言（双实现同法 RK4 比对，T-B 容差 §4 项 6）；
+② **on 轨 P0 验收路由**：cfg.thermal_model→golden 分派 **off→fl001_v1 / on→fl001_v2**
+一一映射（§2.0 层级表达同款）——**v2 emit 通过前 on 轨不进 P0 验收路径**（run-g2 步①
+默认 `verify_golden fl001` 继续只验 fl001_v1 零改动；**步①旁增 fl001_l1 校验随 emit 同轮
+上线**，FLTH-G2b-03）；P0 验收（scope assertApprovedP0）对 on 轨配置的路由开放以
+「fl001_v2 emit + verify 通过」为前置硬条件，不静默。
 
 scope 面：FL-001 系统级 approved_p0 与两族族级状态**不变**（FAULT_CATALOG §1；SA-24 白名单
 零改动）；thermal 为 FL-001 系统内模型深度轨（新 cfg 键），不新增系统/族白名单面。
-Arena：FL 在盲测池（P0）——**默认 off ⇒ 盲包语义零变化**（§2.0 差异理由④）；如批准轮翻转
+Arena：FL 在盲测池（P0）——**默认 off ⇒ 盲包语义零变化**（§2.0 差异理由④）；如未来翻转
 默认或盲包显式钉 on，须同轮处置 Arena 配置锁定面（登记不预设，R-9）。
 
 ### 7.3 步数账（I-7）
 
 现状 28 步（run-g2 28/28，acddba2 基线；预算 ≤29，V072 DEC-6 本波维持）。thermal 实现轮
 （v0.8.0）的步数需求（verify_golden fl001_l1 注册步 + engine thermal 接线断言步归属）
-**归实现轮 CHG 裁定**，本草案只登记纪律：新断言优先并入现有步（verify_golden 步①旁增
+**归实现轮 CHG 裁定**（FLTH-IMP-Q1），本规格只登记纪律：新断言优先并入现有步（verify_golden 步①旁增
 fl001_l1 校验、engine.test.js/plants.test.js 变体用例——ALINE §2 步数管理约束），确需新增步
-时按 DEC-E 单波 ≤ +1 口径申报预算（FLTH-IMP-Q1）。
+时按 DEC-E 单波 ≤ +1 口径申报预算。〔**v1.0 备注**：V080_WAVE_DESIGN 已按「并入现有步」裁
+FL 侧——步数账 28→30 的 +2 为 WT 侧（verify_golden wt001 第 29 步 + engine-wt.test.js
+第 30 步），FL 零新增步，预算 ≤29→≤31 申报（CHG-20261107-01 ③）。〕
 
 ## 8. 实现排期提案（FLTH-G2b-01…04）
 
 | 步骤 | 内容 | 规模 | 波次 |
 |---|---|---|---|
-| FLTH-G2b-01 | 方程集/常量表/更新序/锚点预填 + 独立复算（§2/§3；L0 冻结锚点 3 轨环境校验 worst 0.0 + thermal 四轨 RK4 + 半步长自收敛 6.16e-04 K + RK4 vs 子步解析交叉 5.68e-14 K；临时脚本已删除） | S | **已完成**（本草案 v0.1，2026-11-05，CHG-20261105-01） |
-| FLTH-G2b-02 | 双路独立评审（物理 A：EQ-FLTH 自洽与量纲、§2.3 更新序四注记、锚点复算、守恒面 (a)/(b) 裁定复核、L1 判据对照；治理 B：五项条件/T-B 容差制度与 `_A` 分派缺口/golden 治理与不动清单/默认 off×GT Q4 差异理由/scenario 键 CHG 面/步数账）+ 用户书面批准 + 批准 CHG；条件处置追记（PV001 §11 体例） | M | 下轮（v0.8.0 准备） |
-| FLTH-G2b-03 | fl001_l1_oracle.py 编写（oracle_base 出生接入、RK4、FL-1…8、T-B 容差实测冻结/降 T-C 预案）+ fl001_v2 emit（4 Run、schema v2、approval 首签）+ verify_golden `MODELS["fl001_l1"]` 注册行 + T-B series_limit `_A` 分支 + FAULT_CATALOG §1 thermal 注记行 + 域扫描含 §3.2 口径统一重推 | M | v0.8.0（依赖 02 批准） |
-| FLTH-G2b-04 | 实现：engine simulateFL001Thermal 分支（§2.3 冻结序；simulateFL001 顶部 early-return——engine.js:832 GT 先例）+ systems.js（2 新信号含 exposure/sourceKind 落地（全非盲显、blindVisible 不设置；如需扩盲面另行裁定）/A-flth-* 6 条/limitations 9 项/EQ-FLTH-1…9/model_version 1.1.0/defaults.thermal_model='off' + normalizeConfig 盖章行/level·summary 变体）+ scenario EVENT_KEYS thermal_model（显式 CHG）+ checks.js energy-balance thermal 分支（EQ-FLTH-9）+ 指标面（E_source 热域扩展 + E_loss/T_bat 指标注册）+ UI（inspector/跨深度卡/因果模板变体）+ tests engine/plants thermal 变体（并入现有步）+ off 轨逐位不变验收（run_hash 快照）+ copy-guard 终检 + 步数账裁定（FLTH-IMP-Q1）+ provenance 派生裁定（FLTH-IMP-Q2） | L | v0.8.0（依赖 03） |
+| FLTH-G2b-01 | 方程集/常量表/更新序/锚点预填 + 独立复算（§2/§3；L0 冻结锚点 3 轨环境校验 worst 0.0 + thermal 四轨 RK4 + 半步长自收敛 6.16e-04 K + RK4 vs 子步解析交叉 5.68e-14 K〔历史预填；判据冻结制已按 A-2 改，§4 项 3〕；临时脚本已删除）+ **v1.0 修订**：A-1…A-4/B-1…B-3 七条件落正文（更名 APPROVED） | S | **已完成**（v0.1 起草 2026-11-05，CHG-20261105-01；v1.0 条件修订 2026-11-07，CHG-20261107-01） |
+| FLTH-G2b-02 | 双路独立评审（物理 A：EQ-FLTH 自洽与量纲、§2.3 更新序四注记、锚点复算、守恒面 (a)/(b) 裁定复核、L1 判据对照；治理 B：五项条件/T-B 容差制度与 `_A` 分派缺口/golden 治理与不动清单/默认 off×GT Q4 差异理由/scenario 键 CHG 面/步数账）+ 用户书面批准 + 批准 CHG；条件处置追记（PV001 §11 体例） | M | **已完成**（v0.7.2：PASS_WITH_CONDITIONS ×2（§10）+ 用户批准登记 CHG-20261107-01（2026-11-07）；v1.0 条件修订=本版，更名 APPROVED） |
+| FLTH-G2b-03 | fl001_l1_oracle.py 编写（oracle_base 出生接入、RK4、FL-1…8、T-B 容差实测冻结/降 T-C 预案）+ fl001_v2 emit（4 Run、schema v2、approval 首签）+ verify_golden `MODELS["fl001_l1"]` 注册行 + **T-B series_limit 分派补全（B-3：`_A`→I_A_atol/rtol 新分支 + `r_meas`→r_meas_kW_atol 新分支 + r_true/r_meas 判别前置于 `_kW` 判别解除遮蔽，含 gt001_v3 波及面实测核实，§4 项 6/7）** + **FL-7 判据双实现散差实测冻结（A-2：散差 ×≥10 且下限 ≥1e-9 K）** + **fl001_l1 校验随 emit 同轮上线（run-g2 步①旁增，B-2②）** + FAULT_CATALOG §1 thermal 注记行 + 域扫描含 §3.2 口径统一重推 | M | v0.8.0（依赖 02 批准——**已满足**，CHG-20261107-01） |
+| FLTH-G2b-04 | 实现：engine simulateFL001Thermal 分支（§2.3 冻结序；simulateFL001 顶部 early-return——engine.js:832 GT 先例）+ systems.js（2 新信号含 exposure/sourceKind 落地（全非盲显、blindVisible 不设置；如需扩盲面另行裁定）/A-flth-* 6 条/limitations 9 项/EQ-FLTH-1…9/model_version 1.1.0/defaults.thermal_model='off' + normalizeConfig 盖章行/level·summary 变体）+ scenario EVENT_KEYS thermal_model（显式 CHG）+ checks.js energy-balance thermal 分支（EQ-FLTH-9）+ 指标面（E_source 热域扩展 + E_loss/T_bat 指标注册 + **E_source/max_abs_r_true 指标 definition 串 on 域变体（A-3①，metrics.js:191/230）**）+ **acceptance.keyValues 按 cfg.thermal_model 分域（A-3②：off 轨 keyValues 为 L0/fl001_v1 专用冻结锚点，on 轨不引用）** + **model_version 1.1.0 涟漪面（B-1：DATA_CONTRACT_SPEC/MODEL_VALIDATION_SPEC fl001 版本引用订正；scope.js 不校验仅登记、零改动）** + **两门禁面（B-2：engine↔fl001_v2 T-B 比对面；on 轨 P0 验收路由 cfg.thermal_model→golden 分派 off→fl001_v1/on→fl001_v2，v2 emit 通过前 on 轨不进 P0 验收路径）** + UI（inspector/跨深度卡/因果模板变体）+ tests engine/plants thermal 变体（并入现有步）+ off 轨逐位不变验收（run_hash 快照）+ copy-guard 终检 + 步数账裁定（FLTH-IMP-Q1）+ provenance 派生裁定（FLTH-IMP-Q2） | L | v0.8.0（依赖 03） |
 
 ## 9. 风险
 
@@ -498,33 +539,48 @@ fl001_l1 校验、engine.test.js/plants.test.js 变体用例——ALINE §2 步�
 | R-2 | 「thermal 默认 off」与 GT-L1「thermo 默认 on」先例表面矛盾被误读为制度倒退 | §2.0 差异理由四条显式登记（P0 旗舰保守性 / T-A 验收链 / 教学编排不依赖默认翻转 / Arena 盲包零变化）；批准轮用户裁定（V072 §4 风险 2 同款） |
 | R-3 | 守恒面 (a)「热损耗由发电机补偿」被误读为「损耗不存在/凭空补偿」 | §2.2.0 二选一显式对照 + A-flth-loss 记账口径声明 + r_meas 扩展恒等保持「+4 kW 是测量偏差，不是能量损失」教学点（§3.2 实证）+ I-5 自查（§6.3）+ 实现轮 copy-guard 终检兜底 |
 | R-4 | load0=45 角点高温（T(60)=424.7 K、渐近 655 K）被误读为模型缺陷 | §3.4 域声明「合法角点、无热保护」+ §6.1 项 7 limitations + 教学演示建议默认 load0=30 |
-| R-5 | 手拼配置 load_kW > 48.3 kW 破稳定性条件（正反馈失控） | §3.4/§6.1 项 8 声明 + 未来开放热参数配置须先立钳位的前置登记（L0 退化域声明同款纪律） |
+| R-5 | 手拼配置 load_kW > 48.2843 kW 破稳定性条件（正反馈失控） | §3.4/§6.1 项 8 声明（精确值复算见 §3.4）+ 未来开放热参数配置须先立钳位的前置登记（L0 退化域声明同款纪律） |
 | R-6 | fl001_v1/oracle 字节语义被实现轮误触（V-03 哈希失配 → 冻结锚点报废） | §0 不动清单 ①②③ + FLTH-G2b-03/04 工作面不含既有 oracle/golden 文件 + off 轨 run_hash 逐位不变验收（§3.3 项 3）+ 全量回归兜底 |
 | R-7 | 信号目录增列（null 列面）破坏 off 轨比对/UI | §3.3 项 3/4：GT null 列先例（systems.js:708-711）+ 预期失效面登记 + golden 比对不受额外 null 列影响（gt001_v1/v2 现状佐证）+ tests/registry 哈希面同步更新 |
-| R-8 | verify_golden T-B 分派无 `_A` 后缀分支（I 类序列落入缺省 f_Hz_atol 键）被漏改 | §4 项 7 显式工作面（FLTH-G2b-03）+ gt001_v3 T-B 参数化先例引用（verify_golden.py:106-125 实读） |
+| R-8 | verify_golden T-B 分派缺口被漏改（`_A` 后缀无分支 / `r_meas_kW_atol` 键无路由 / `r_true` 判别被 `_kW` 支遮蔽） | §4 项 6/7 显式工作面（FLTH-G2b-03，B-3 裁定 + 分派次序与波及面声明）+ gt001_v3 T-B 参数化先例引用（verify_golden.py:106-125 实读） |
 | R-9 | thermal_model 进 scenario/盲包指纹后语义漂移（既有场景哈希变化、Arena 钉轨歧义） | §2.4 显式 CHG + scenarioHash 含解析轨登记 + 默认 off ⇒ 盲包零变化（§2.0④）+ Arena 锁定面登记不预设 |
 | R-10 | 盲包观测面误扩（热信号入 blind 投影） | §1.2 不入池显式声明（GTL1 B-1 先例）+ FLTH-G2b-04 保留「如需扩盲面另行裁定」开口 |
 | R-11 | 教学参数（R0/C_bat/h 量级缩放）被误读为设备参数辨识 | A-flth-params「教学整定值非实测参数」+ §2.1 整定依据声明 + I-5 自查（§6.3）——GTL1 R-9 同款 |
 
-## 10. 评审记录（预留表——FLTH-G2b-02 填写）
+## 10. 评审记录（**v0.7.2 双路独立评审**，2026-11-05，双路独立上下文；**v1.0 回填**，CHG-20261107-01——七条件已按 §11-a 处置落入正文）
 
 | 路 | 范围 | verdict | 关键结论 |
 |---|---|---|---|
-| 评审人 A（物理/数值） | EQ-FLTH-1…9 自洽与量纲、§2.1 教学参数合理性、§2.3 更新序四注记、§3 锚点独立复算、§2.2.0 守恒面裁定复核、L1 判据对照、RK4 散差 | 待评 | — |
-| 评审人 B（治理/口径/回归面） | §7 五项进入条件、T-B 容差制度与 `_A` 分派缺口、golden 治理（新 id/不动清单/旧 golden 留档）、默认 off×GT Q4 差异理由、scenario 键 CHG 面、步数账、预期失效面 | 待评 | — |
-| 用户批准 | 批准与实现排期（v0.8.0） | 待定 | 本表为用户裁定输入 |
+| 评审人 A（物理/数值） | EQ-FLTH-1…9 自洽与量纲、§2.1 教学参数合理性、§2.3 更新序四注记、§3 锚点独立复算、§2.2.0 守恒面裁定复核、L1 判据对照、RK4 散差 | **PASS_WITH_CONDITIONS（4 条件）** | 守恒面 (a) 复核成立（E 恒等式闭合、SOC 零涟漪）；L1 判据对照与 RK4 分区更新序四注记成立；RK4 vs 子步解析交叉独立复算 1.46e-11 K（与预填 5.68e-14 K 同量级）。4 条件（§11-a）：A-1 两角点 P_gen 预填值系 EQ-FLTH-5 派生笔误（21.769954/20.139754）、A-2 FL-7 判据不得冻结单实现预填值（改双实现散差 ×≥10 且下限 ≥1e-9 K 冻结制）、A-3 涟漪表补 metrics 定义串 on 域变体 + acceptance.keyValues off 域专用声明、A-4 四项 P3 勘正（损耗偏差 ≈0.67 W/稳定性边界精确值 48.2843 kW/worst diff 措辞/T-B 单位分支缺口） |
+| 评审人 B（治理/口径/回归面） | §7 五项进入条件、T-B 容差制度与 `_A` 分派缺口、golden 治理（新 id/不动清单/旧 golden 留档）、默认 off×GT Q4 差异理由、scenario 键 CHG 面、步数账、预期失效面 | **PASS_WITH_CONDITIONS（3 条件）** | 治理面总体扎实：五项进入条件对照诚实（golden 后置偏离已显式登记）、不动清单/新 id 判据/默认 off×GT Q4 差异四理由/scenario 键 CHG 面/步数账经核对成立。3 条件（§11-a）：B-1 model_version 1.1.0 归一涟漪面（scope.js 校验消费面核实 + 旧存档重放预期 + 文档引用失效面）、B-2 FLTH-G2b-04 显式两门禁面（engine↔fl001_v2 T-B 比对面 + on 轨 P0 验收路由 off→fl001_v1/on→fl001_v2）、B-3 verify_golden T-B 分派 r_true_kW 路由口径裁定（r_true 保留/r_meas 新分支/`_A` 新分支） |
+| 用户批准 | 批准与实现排期（v0.8.0） | **已批准（2026-11-07，CHG-20261107-01 指令链）** | 用户 2026-11-07「按照计划方案，统一采用推荐决策」指令链（GTL1-G2b-02 先例：用户指令链即书面批准记录）：七条件全按推荐处置（§11-a）；FLTH-DRAFT-Q1…Q4 全采推荐（§11）；批准与实现入 v0.8.0（V080_WAVE_DESIGN） |
 
-## 11. 决策点汇总（本草案裁定点；推荐项已经 V072「全采推荐」授权链预登记，批准轮确认）
+## 11-a. 批准轮条件处置表（v0.7.2 双路评审七条件，2026-11-07 用户批准，CHG-20261107-01——**七条件全按推荐处置**；PV001 §11 体例；落点列已注明复算依据或工作面归属）
+
+| # | 条件（来源） | 处置 | 落点 |
+|---|---|---|---|
+| A-1 | **两角点 P_gen 预填值修正（A）**：load0=45 角点 P_gen(60) 6.769954→21.769954 kW、load0=10 角点 40.139754→20.139754 kW（EQ-FLTH-5 派生笔误）；同步核对 §3.4 其余 P_gen 派生表述 | 按推荐采纳，已改并复算确认 | 已入 §3.4（复算：P_gen = P_load − 0.4·I + P_loss——45 − 0.4×62.5 + 1.769954 = **21.769954**；10 − 0.4×(−25) + 0.139754 = **20.139754**；自洽佐证：load0=10 角点值与健康局 load0=30 的 P_gen(60) 同值（\|I\|=25 A 同热轨、P_load−P_bat 同为 20 kW）；§3.1/§3.2 其余 P_gen 值复算核验自洽、无连带勘正） |
+| A-2 | **FL-7 判据修正（A）**：「RK4 vs 子步解析交叉 max\|ΔT\| = 5.68e-14 K」不得冻结为判据值——终值按 oracle↔engine 双实现实测散差 ×≥10（且下限 ≥1e-9 K）冻结；评审复算 1.46e-11 K 仅作量级登记 | 按推荐采纳，已改 | 已入 §4 项 3（FL-7 判据冻结制）+ §3.5（措辞同步：5.68e-14 K 为起草时单实现交叉实测上界、非判据，1.46e-11 K 量级登记）；终值实测冻结 = FLTH-G2b-03 工作面 |
+| A-3 | **涟漪表补两项（A）**：① metrics.js E_source 指标 definition 串 thermal on 域变体（现串「P_gen := P_load − P_bat 为定义」，on 域须 + P_loss）；② acceptance.keyValues 现值显式声明为 off 轨（L0/fl001_v1）专用冻结锚点，on 轨 keyValues 由 fl001_v2 golden 承载、systems.js acceptance 面按 cfg.thermal_model 分域 | 按推荐采纳，实读核对后登记 | ① 已入 §4 项 8（metrics.js:191 实读核对；同型串 metrics.js:230 r_true 定义注记一并登记；指标数值面零改动）→ **FLTH-G2b-04 工作面**；② 已入 §4 项 8（systems.js:309-313 实读）→ 分域落地 **FLTH-G2b-04 工作面**、on 轨 keyValues 由 **FLTH-G2b-03 emit** 承载 |
+| A-4 | **四项 P3 勘正（A）**：① §2.3 注记①损耗偏差 W 值；② §3.4/§6.1 稳定性边界精确值 48.2843 kW；③ §3.5「worst diff」措辞诚实化；④ verify_golden T-B 单位分支对齐缺口清单 | 按推荐采纳，逐项复算后已改 | ① 已入 §2.3 注记①（复算 2·I·R0·ΔI = 2×25×0.2×0.0667 ≈ **0.67 W**（I 取故障衰减段最不利 25 A、ΔI≈0.067 A），v0.1「≈2 W」为勘误；T 贡献 0.67 W×0.01 s/300 J/K ≈ 2.2e-5 K 维持）；② 已入 §3.4/§6.1 项 8/§9 R-5（复算 √(h/(R0α)) = √5000 ≈ 70.7107 A，库内 I_ref = (P_load−20)/0.4（systems.js:236/302 实读）⟺ load0 < 0.4×70.7107 + 20 = **48.2843 kW**）；③ 已入 §3.5；④ 与 B-3 合并（已入 §4 项 6/7） |
+| B-1 | **model_version 1.1.0 归一涟漪面（B）**：① scope.js APPROVED.modelVersion 同步或声明不校验；② 旧存档（model_version='fl001.1'）重放行为预期；③ DATA_CONTRACT_SPEC / MODEL_VALIDATION_SPEC fl001 版本引用失效面 | 按推荐采纳，实读核实后登记 | 已入 §4 项 5——① classify **不消费 modelVersion**（scope.js:42-83 实读：校验链无该值，modelVersion 校验仅 FC-001 分支 scope.js:45）⇒ **声明「不校验、仅登记」，scope.js 零改动**；② 旧存档重放**非阻断**（随 ① 结论如实登记）；③ 文档引用失效面 → **FLTH-G2b-04 工作面清单** |
+| B-2 | **FLTH-G2b-04 显式两门禁面（B）**：① engine↔fl001_v2 T-B 比对面（verify_golden fl001_l1 + engine.test.js thermal 变体）；② on 轨 P0 验收路由 cfg.thermal_model→golden 分派 off→fl001_v1 / on→fl001_v2，**v2 emit 通过前 on 轨不进 P0 验收路径**（run-g2 步①旁增 fl001_l1 校验随 emit 同轮上线） | 按推荐采纳，已登记 | 已入 §7.2 门禁面段 + §8 FLTH-G2b-03/04 行（步①旁增校验 = FLTH-G2b-03；两门禁面落地 = FLTH-G2b-04 工作面） |
+| B-3 | **verify_golden T-B 分支 r_true_kW 路由口径裁定（B）**：`"r_true" in sid` → r_true_kW 键（现状已有，确认保留）；`"r_meas" in sid` → 新增 r_meas_kW_atol 键路由分支；`endswith("_A")` → 新增 I_A_atol/I_A_rtol 分支（置于 `_Hz` 判断之前） | 按推荐采纳（含分派次序勘正），已登记 | 已入 §4 项 6（gate 键面 × 分派分支对齐缺口清单）+ §4 项 7（三分派显式规则 + r_true/r_meas 判别须前置于 `_kW` 判别解除现状遮蔽的实读勘正与 gt001_v3 波及面声明）→ **FLTH-G2b-03 显式工作面** |
+
+## 11. 决策点汇总（**v1.0 定案标注（CHG-20261107-01）**：FLTH-DRAFT-Q1…Q4 全部采推荐项——
+落点 **Q1**→§2.2.0/EQ-FLTH-5（守恒面 (a)）、**Q2**→§2.3 注记①（I 冻结子步起点）、
+**Q3**→EQ-FLTH-6（r_meas 同轮扩展）、**Q4**→EQ-FLTH-8（E_loss 子步梯形）；IMP-Q1/Q2/Q3
+保持实现轮裁定——IMP-Q3 备注：用户未提默认翻转，默认 off 维持（§2.0））
 
 | # | 决策 | 推荐 | 备选 |
 |---|---|---|---|
-| FLTH-DRAFT-Q1 | **守恒面：P_loss 去向**（§2.2.0，草案核心难点） | **(a) 进母线平衡**：P_gen = P_load − P_bat + P_loss，r_true/r_meas 定义恒等扩展含 −P_loss，E 恒等式闭合为 E_source + E_bat = E_load + E_loss，SOC 零涟漪（§2.2.0 五理由） | (b) 损耗离场：E 恒等式破坏、须重设计能量口径（SOC 改按 P_bat+P_loss 积分或恒等式带永久缺口项）——涟漪 M，与 DEC-2「SOC 定义不动」约束冲突 |
-| FLTH-DRAFT-Q2 | T_bat RHS 的电流口径 | **I 冻结于子步起点**（§2.3 注记①；半步长实测 6.16e-04 K 上界，L0 序保留最简） | RK4 阶段值用子步内精确指数 I(s)（精度增益 <1e-7 K 量级、伪代码复杂化、oracle/引擎双侧复刻面变大） |
-| FLTH-DRAFT-Q3 | r_meas 是否同轮扩展 | **同轮扩展含 −P_loss 项**（0.4·b 教学锚点在两深度逐位一致，§3.2 实证；「测量偏差 vs 真实损耗」教学区分保持纯净） | 不扩展（r_meas = 0.4·b + P_loss 混叠——max\|r_meas\| 变 4.13 kW 级、破坏 4.0 kW 冻结锚点与 questions[1] 教学问答） |
-| FLTH-DRAFT-Q4 | E_loss 积分口径 | **子步梯形**（GTL1 E_gen/E_bat 梯形纪律同构；ΔE 半步长 2.2e-09 kWh） | 左矩形（engine intB 同构；离散偏差 ~1e-6 kWh 级，仍可冻结但精度冗余损失） |
-| FLTH-IMP-Q1 | 步数账 | 实现轮 CHG 申报（verify_golden fl001_l1 + engine thermal 断言，优先并入现有步） | — |
-| FLTH-IMP-Q2 | 文案终稿 / provenance 派生 / questions 追加 | 实现轮按 §6.3/§6.4 预检执行；provenance 派生（thermal on ⇔ L1 表达）与 GT 同位先例核对后定 | — |
-| FLTH-IMP-Q3 | 默认轨翻转（off→on）如批准轮用户提出 | 保持 off（§2.0 四理由）；翻转须显式 CHG + 同轮处置 P0 验收链/Arena/文档面 | 用户裁定翻转（可撤销，涟漪 M） |
+| FLTH-DRAFT-Q1 | **守恒面：P_loss 去向**（§2.2.0，草案核心难点）——**已裁：推荐采纳（CHG-20261107-01）** | **(a) 进母线平衡**：P_gen = P_load − P_bat + P_loss，r_true/r_meas 定义恒等扩展含 −P_loss，E 恒等式闭合为 E_source + E_bat = E_load + E_loss，SOC 零涟漪（§2.2.0 五理由） | (b) 损耗离场：E 恒等式破坏、须重设计能量口径（SOC 改按 P_bat+P_loss 积分或恒等式带永久缺口项）——涟漪 M，与 DEC-2「SOC 定义不动」约束冲突（**不采**，历史评估保留备查） |
+| FLTH-DRAFT-Q2 | T_bat RHS 的电流口径——**已裁：推荐采纳（CHG-20261107-01）** | **I 冻结于子步起点**（§2.3 注记①；半步长实测 6.16e-04 K 上界，L0 序保留最简） | RK4 阶段值用子步内精确指数 I(s)（精度增益 <1e-7 K 量级、伪代码复杂化、oracle/引擎双侧复刻面变大）（**不采**） |
+| FLTH-DRAFT-Q3 | r_meas 是否同轮扩展——**已裁：推荐采纳（CHG-20261107-01）** | **同轮扩展含 −P_loss 项**（0.4·b 教学锚点在两深度逐位一致，§3.2 实证；「测量偏差 vs 真实损耗」教学区分保持纯净） | 不扩展（r_meas = 0.4·b + P_loss 混叠——max\|r_meas\| 变 4.13 kW 级、破坏 4.0 kW 冻结锚点与 questions[1] 教学问答）（**不采**） |
+| FLTH-DRAFT-Q4 | E_loss 积分口径——**已裁：推荐采纳（CHG-20261107-01）** | **子步梯形**（GTL1 E_gen/E_bat 梯形纪律同构；ΔE 半步长 2.2e-09 kWh） | 左矩形（engine intB 同构；离散偏差 ~1e-6 kWh 级，仍可冻结但精度冗余损失）（**不采**） |
+| FLTH-IMP-Q1 | 步数账 | 实现轮 CHG 申报（verify_golden fl001_l1 + engine thermal 断言，优先并入现有步）——**保持实现轮裁定**（v1.0 备注：V080_WAVE_DESIGN 已按「并入现有步」裁 FL 侧零新增步，CHG-20261107-01 ③，§7.3） | — |
+| FLTH-IMP-Q2 | 文案终稿 / provenance 派生 / questions 追加 | 实现轮按 §6.3/§6.4 预检执行；provenance 派生（thermal on ⇔ L1 表达）与 GT 同位先例核对后定——**保持实现轮裁定** | — |
+| FLTH-IMP-Q3 | 默认轨翻转（off→on）如批准轮用户提出 | 保持 off（§2.0 四理由）；翻转须显式 CHG + 同轮处置 P0 验收链/Arena/文档面——**保持实现轮裁定**（**v1.0 备注：用户未提翻转，默认 off 维持**） | 用户裁定翻转（可撤销，涟漪 M） |
 
 ---
 
@@ -540,8 +596,31 @@ fl001_l1 校验、engine.test.js/plants.test.js 变体用例——ALINE §2 步�
 五项进入条件自查表、门禁路径与步数账、排期 FLTH-G2b-01…04、风险 R-1…R-11、评审预留表、
 决策点 Q1…Q4 + IMP-Q1…Q3。
 
-**状态**：`DRAFT`（v0.1，2026-11-05）——待 FLTH-G2b-02 双路独立评审 + 用户书面批准；
-**批准与实现（fl001_v2 + 轨实现）v0.8.0**。本草案零代码/golden/oracle 触碰
-（§0 不动清单）；数值预填以 fl001_l1_oracle emit 终值冻结为准（§3）。
+**v1.0（2026-11-07，CHG-20261107-01，批准轮条件修订）**：① 七条件落正文——A-1 §3.4 两角点
+P_gen 勘正（21.769954/20.139754，复算依据附落点处）；A-2 FL-7 判据改双实现散差 ×≥10
+（下限 ≥1e-9 K）冻结制（§4 项 3）+ §3.5 措辞同步；A-3 §4 项 8 补 metrics.js:191 定义串
+on 域变体（同型串 :230 一并登记）+ acceptance.keyValues off 轨专用冻结锚点声明；
+A-4 四项 P3 勘正（§2.3 注记① 0.67 W、§3.4/§6.1/§9 48.2843 kW、§3.5 worst diff 诚实措辞、
+§4 项 6/7 T-B 分派缺口清单）；B-1 §4 项 5 model_version 1.1.0 涟漪面三项（scope.js 不校验
+仅登记/旧存档非阻断/文档引用失效面入 FLTH-G2b-04）；B-2 §7.2/§8 两门禁面（engine↔fl001_v2
+T-B 比对面 + on 轨 P0 验收路由 off→v1/on→v2，v2 emit 通过前 on 轨不进 P0 验收）；B-3 §4
+项 6/7 T-B 分派三分支裁定（r_true 保留 + 前置解除 `_kW` 遮蔽勘正/r_meas 新分支/`_A` 新分支，
+FLTH-G2b-03 工作面）；② Q1…Q4 定案落 §2（Q1→§2.2.0/EQ-FLTH-5、Q2→§2.3 注记①、
+Q3→EQ-FLTH-6、Q4→EQ-FLTH-8），IMP-Q1/Q2/Q3 保持实现轮裁定（IMP-Q3 默认 off 维持）；
+③ §10 评审记录回填（A/B 均 PASS_WITH_CONDITIONS + 用户批准行）+ 新增 §11-a 批准轮条件
+处置表（PV001 §11 体例）+ §11 标注定案；④ §7 自查表 ④⑤ 随批准闭合、② 转执行面；§7.2
+进度标注 + 门禁面段；§7.3 步数账 v1.0 备注；§8 排期更新（G2b-01/02 已完成，03/04 入
+v0.8.0）；§9 R-5/R-8 勘正同步；⑤ 文档头/状态行改 APPROVED（批准链 + 待办 FLTH-G2b-03/04
+入 v0.8.0）；文件由 FL001_THERMAL_G2B_SPEC_DRAFT 更名 FL001_THERMAL_G2B_SPEC_APPROVED
+（git mv）；行号基准说明保留（起草时点口径不变，实现轮以语义锚点为准）。
 
-**文件结束**。FL001_THERMAL_G2B_SPEC_DRAFT v0.1（2026-11-05，CHG-20261105-01 授权起草）。
+**状态**：`APPROVED`（v1.0，2026-11-07，CHG-20261107-01）。本批准不自动打开验收路径——
+golden/代码工件按 §8 排期产出（FLTH-G2b-03 oracle + fl001_v2 emit / FLTH-G2b-04 实现入
+v0.8.0，V080_WAVE_DESIGN）；v0.1 起草轮零代码/golden/oracle 触碰（§0 不动清单维持）；
+数值预填以 fl001_l1_oracle emit 终值冻结为准（§3）。
+
+**文件结束**。FL001_THERMAL_G2B_SPEC_APPROVED v1.0（2026-11-07，CHG-20261107-01；曾用名
+FL001_THERMAL_G2B_SPEC_DRAFT——A-4b 规格起草人起草 v0.1（2026-11-05，CHG-20261105-01 授权
+起草），v0.7.2 双路评审时点状态 DRAFT 的历史记录见 §10/§11-a）。**v1.0 修订**：七条件与
+Q1…Q4 定案落正文，状态 `APPROVED`，FLTH-G2b-01（含条件修订）/FLTH-G2b-02 闭合，
+FLTH-G2b-03/04 入 v0.8.0。本规格批准不自动打开验收路径；golden/代码工件仍按 §8 排期产出。

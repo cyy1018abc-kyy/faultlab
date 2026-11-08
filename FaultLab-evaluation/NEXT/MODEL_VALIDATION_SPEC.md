@@ -168,7 +168,7 @@ SOC_err_pp(t) = SOC_est(t) − SOC_true(t)                       单位百分点
 
 - **来源**：`REVIEWS/NUMERIC_ORACLE.md` §2/§3/§4/§6 与**附录 B 全精度速查**（三路独立计算一致；`verify_fl001.py` exit 0 记录见 `REVIEW_DIFF.md` §1.3）。本文件**只转录** oracle 值，未新增任何独立数值计算。
 - **状态**：Golden v1 = **待固化为 `data/golden/fl001_v1.json`**（本文件定义其字段与容差；生成由独立 oracle 完成，见 §6）。**不得**把显示舍入值（如 0.123889）当作全精度 golden 使用。
-- **方法**：`method_id = analytic_flux`（事件感知解析闭式积分）；`method_version = 'analytic_flux.1'`；`model_version='fl001.1'`、`schema_version='1.0.0'`（与 DATA_CONTRACT_SPEC §1.1 版本三元组一致）。
+- **方法**：`method_id = analytic_flux`（事件感知解析闭式积分）；`method_version = 'analytic_flux.1'`；`model_version='fl001.1'`、`schema_version='1.0.0'`（与 DATA_CONTRACT_SPEC §1.1 版本三元组一致——`'fl001.1'` 为 fl001_v1 冻结面记录值（legacy 样式）；FL-001 当前 model_version 已归一 `'1.1.0'`（thermal 轨 fl001_v2 起，FL 规格 B-1 定案），双版本并存口径见 §6.2 注）。
 - **与 DATA_CONTRACT_SPEC 附录 A 的关系**：该处 15 位打印值（如 `0.123888888888885`）与本文附录 B 全精度值（`0.12388888888888452`）在 rtol 1e-12 内一致；**判定以本文 golden 层全精度为准**，附录 A 属展示级转录。
 
 ### 3.2 关键逐点值（`closed_loop_fault`；全精度）
@@ -343,7 +343,7 @@ scripts/
 
 | 组 | 字段 |
 |---|---|
-| 身份 | `golden_schema_version:'v1'`、`golden_id:'fl001_v1'`、`model_id:'FL-001'`、`model_version:'fl001.1'`、`schema_version:'1.0.0'`、`engine_baseline`（可为空，oracle 不依赖 engine） |
+| 身份 | `golden_schema_version:'v1'`、`golden_id:'fl001_v1'`、`model_id:'FL-001'`、`model_version:'fl001.1'`（v1 冻结记录值——FL-001 当前 `'1.1.0'` 自 thermal 轨 fl001_v2 起，双版本并存口径：v1 遗留样式字节冻结留档、v2 新 id 轮归一，B-1 失效面清偿）、`schema_version:'1.0.0'`、`engine_baseline`（可为空，oracle 不依赖 engine） |
 | 方法 | `method_id:'analytic_flux'`、`method_version:'analytic_flux.1'`、`units`（A/kW/kWh/s/%/pp） |
 | 配置 | §1.2 全部冻结参数 + `feedback_mode` 枚举 |
 | 采样/事件 | `n=601`、`dt_s=0.1`、`i_f=200`、`t_0/t_end`、`event_encoding_version:1`、`events[pre/post]` |
@@ -351,6 +351,15 @@ scripts/
 | 容差 | §3.6 字段级容差（含 `gate` 与 `analytic_crosscheck` 两层） |
 | 生成 | `generated_by:{tool, python_version, command, oracle_source_sha256, generated_at（不入 run_hash）}` |
 | 批准 | `approval:{approved_by:'numeric-oracle/lead', approved_at, approved_golden_sha256}`（由 G2 执行时填写，不得预填虚构值） |
+
+**扩展轨指针（FLTH-G2b-03 / WT-G2b-03，CHG-20261107-01 批准链；本节以上物理与容差文本不重写）**：
+FL-001 thermal 轨（`thermal_model=on`）golden = `data/golden/fl001_v2.json`（4 Run 全部 on、
+schema v2、method `fl001_thermal_rk4_dt0.01`、gate tier **T-B**、model_version `1.1.0`、
+supersedes=fl001_v1、oracle `tools/oracle/fl001_l1_oracle.py`，verify_golden 注册行
+`fl001_l1`，默认无参运行已扩为 fl001 + fl001_l1 双 golden）；WT-001 golden =
+`data/golden/wt001_v1.json`（5 Run、schema v2、method `wt001_l0b_euler_dt0.01`、gate **T-A**、
+oracle `tools/oracle/wt001_oracle.py`，注册行 `wt001`）；权威规格 =
+`FL001_THERMAL_G2B_SPEC_APPROVED.md` / `WT001_G2B_SPEC_APPROVED.md` v1.0。
 
 ### 6.3 独立性规则（违反即 golden 无效）
 

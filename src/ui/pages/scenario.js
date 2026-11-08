@@ -26,13 +26,30 @@
      PV-001：focal_change 的焦点信号即 P_pv_true_kW（metrics.js FOCAL_SIGNAL 映射，
      故障时刻→结束的真实出力变化量）；ΔE_pv（E_pv_err_kWh）承担 SOC_est 的功能位
      （EQ-PV-7），E_grid_kWh 为馈线受电口径（E_pv + E_grid = E_load 定义恒等）。
-     PV-001 无储能/无 SOC，故不取 SOC 类指标（缺失显示 不可用，见 pickMetrics）。 */
+     PV-001 无储能/无 SOC，故不取 SOC 类指标（缺失显示 不可用，见 pickMetrics）。
+     WT-001（v0.8.0 UI 接线路，CHG-20261107-01）：无储能/无 SOC 同款口径——
+     focal_change（焦点信号 P_wt_true_kW，待 L5 FOCAL_SIGNAL 注册）+ ΔE_wt
+     （E_wt_err_kWh，EMS 风速折算估计电能差）+ 最优曲线一致性残差 d_wt_kW；
+     id 与 compare.js bySystem WT-001 组一致，未注册的 id 被 pickMetrics 跳过
+     （缺失不显示、不填 0）。 */
   const METRIC_PICK = {
     'FL-001': ['focal_change_A', 'SOC_err_end_pp', 'E_bat_true_60s'],
     'FC-001': ['focal_change', 'SOC_err_pp', 'E_bat_kWh'],
     'GT-001': ['focal_change', 'f_nadir_Hz'],
-    'PV-001': ['focal_change', 'E_pv_err_kWh', 'E_grid_kWh']
+    'PV-001': ['focal_change', 'E_pv_err_kWh', 'E_grid_kWh'],
+    'WT-001': ['focal_change', 'E_wt_err_kWh', 'd_wt_kW']
   };
+  /* FL-001 thermal_model 事件/Run 展示（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0：
+     off|on 单键枚举，默认 off；L5 在 src/core/scenario.js EVENT_KEYS 白名单加
+     thermal_model 后，事件卡/Run 行按 cfg 展示键值）。 */
+  const THERMAL_LABEL = { on: '热模型 on', off: '热模型 off' };
+  function thermalChipOf(value) {
+    if (value !== 'on' && value !== 'off') return null;
+    return ui.chip(THERMAL_LABEL[value], {
+      tone: value === 'on' ? 'warm' : 'neutral',
+      title: 'thermal_model = ' + value + '（FL-001 模型深度开关：off = L0 行为级轨，on = L1 单节点集总热轨）'
+    });
+  }
   const MAX_ERROR_ROWS = 12;
 
   let api = null;
@@ -568,6 +585,9 @@
     if (typeof ev.t_clear_s === 'number') {
       chips.push(ui.chip('清除 ' + fmt().time(ev.t_clear_s), { title: 't_clear_s = ' + ev.t_clear_s + ' s' }));
     }
+    /* FL-001 thermal_model 事件列（L5 EVENT_KEYS 白名单加键后可解析展示；缺省不显示） */
+    const thermalChip = thermalChipOf(ev.thermal_model);
+    if (thermalChip) chips.push(thermalChip);
     const paramChips = Object.keys(ev.params || {}).map((k) => {
       const p = def && def.params ? def.params.filter((pp) => pp.key === k)[0] : null;
       const label = p && p.label ? p.label : k;
@@ -628,8 +648,12 @@
       h('span', { class: 'scn-run-family' }, ui.badge(
         familyLabel(run.systemId, ev ? ev.family : (run.config.fault ? run.config.fault.family : '')),
         { tone: 'danger' })),
-      h('span', { class: 'scn-run-mode' }, ui.chip(modeLabel(run.config.feedback_mode),
-        { tone: run.config.feedback_mode === 'monitor' ? 'neutral' : 'acc' })),
+      h('span', { class: 'scn-run-mode' }, [
+        ui.chip(modeLabel(run.config.feedback_mode),
+          { tone: run.config.feedback_mode === 'monitor' ? 'neutral' : 'acc' }),
+        /* FL-001 thermal_model Run 列（off/on；defaults盖章后 FL Run 恒带键，其余系统不显示） */
+        thermalChipOf(run.config.thermal_model)
+      ]),
       h('div', { class: 'scn-run-metrics' }, metricNodes),
       h('span', { class: 'scn-run-hash mono', title: 'config_hash ' + (run.configHash || '') },
         fmt().hash(run.configHash || '')),

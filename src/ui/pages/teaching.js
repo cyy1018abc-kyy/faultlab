@@ -1,9 +1,11 @@
 /* owner: teaching-ui | module: page-teaching | contract: FaultLab-evaluation/NEXT/V070_WAVE_DESIGN.md DEC-5（C-3 最小形态·UI 接线，CHG-20261104-10）
    =========================================================================
    教学路径引导页（页面键 teaching，导航 08）：
-   - 数据源：FL.core.teaching.getTeachingPaths()（src/core/teaching.js，3 条预设 × 固定 5 步，
-     DEC-5：注入→闭环观察→仅监测对照→因果→评测入口）；本页零新执行语义（I-6）；
-   - 路径选择：3 张预设卡（pathId / title / system / goal / prerequisites）；
+   - 数据源：FL.core.teaching.getTeachingPaths()（src/core/teaching.js，7 条预设 × 固定 5 步：
+     FL/FC/GT/WT 主线 + GT/FL 跨深度扩展 + WT 阵风——v0.8.0 UI 接线路 CHG-20261107-01，
+     路径数据事实源在 src/core/teaching.js PATHS，本页只渲染）；
+     DEC-5：注入→闭环观察→仅监测对照→因果→评测入口；本页零新执行语义（I-6）；
+   - 路径选择：预设卡（pathId / title / system / goal / prerequisites）；
    - 步骤卡：narrative（教学叙述）+ compare（可选对照视角）+ view.focus（焦点说明）；
      「进入视图」= 按 step.view.page 深链跳转既有页面，并以 toast 提示焦点说明
      （view.focus 是给读者的「看什么」文字说明，不解析为 DOM 选择器——不触碰目标页语义）；
@@ -134,15 +136,19 @@
 
   function buildHero() {
     refs.heroStatus = h('span', { class: 'badge', 'data-tone': 'neutral' }, '未选择路径');
+    /* 路径计数徽章挂 ref：syncAll 装载 paths 后按实际条数刷新（数据事实源
+       src/core/teaching.js PATHS，页面不写死条数——v0.8.0 五系统接线路）。 */
+    refs.heroCount = ui.badge('预设教学路径 × 5 步', { tone: 'info' });
     return h('header', { class: 'tea-hero' }, [
       h('div', { class: 'tea-hero-main' }, [
         h('div', { class: 'eyebrow' }, 'C-3 · TEACHING PATHS'),
         h('h1', { class: 'tea-title' }, ['教学', h('em', {}, '路径')]),
         h('p', { class: 'tea-sub' },
-          '三条预设教学路径（FL-001 / FC-001 / GT-001，每条固定 5 步）：先在运行前配置里注入已知故障，' +
-          '再依次观察闭环响应、对照仅监测模式、读取因果解释，最后进入评测入口。页面结论只在本演示假设内成立。'),
+          '预设教学路径（FL-001 / FC-001 / GT-001 / WT-001 主线 + GT/FL 跨模型深度扩展，每条固定 5 步）：' +
+          '先在运行前配置里注入已知故障，再依次观察闭环响应、对照仅监测模式、读取因果解释，最后进入评测入口。' +
+          '页面结论只在本演示假设内成立。'),
         h('div', { class: 'tea-hero-tags' }, [
-          ui.badge('预设 3 路径 × 5 步', { tone: 'info' }),
+          refs.heroCount,
           ui.badge('视图深链', { tone: 'neutral' }),
           ui.badge('零新执行语义', { tone: 'acc' })
         ])
@@ -158,7 +164,7 @@
         h('div', { class: 'panel-head-main' }, [
           h('span', { class: 'eyebrow' }, 'PATHS'),
           h('span', { class: 'panel-title' }, '选择一条教学路径'),
-          h('span', { class: 'panel-sub' }, '三条预设路径各绑定一个系统，固定 5 步（DEC-5 模板）')
+          h('span', { class: 'panel-sub' }, '预设路径各绑定一个系统，固定 5 步（DEC-5 模板）')
         ]),
         ui.badge('schema v' + (function () {
           const T = teachingModule();
@@ -210,6 +216,7 @@
     if (!local.paths) {
       local.paths = T.getTeachingPaths();
     }
+    if (refs.heroCount) refs.heroCount.textContent = '预设 ' + local.paths.length + ' 路径 × 5 步';
     renderSelection();
   }
 

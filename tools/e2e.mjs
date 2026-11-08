@@ -18,6 +18,11 @@
  *   E-09 深链残留面：teaching 页 → hash 深链进 signals → 切 scenario（SPA 离开）
  *        → #page-signals 恢复非激活隐藏（v0.7.0 UI 路探针发现路径固化，
  *        v0.7.2 清算项 4；E-02 用整页刷新覆盖不到这条 SPA 残留路径）。
+ *   E-10 五系统卡：home 五系统卡 + WT-001 入卡（v0.8.0 UI 接线路，CHG-20261107-01）；
+ *   E-11 WT-001 深链系统页 + demo Run 关键信号 601 点（P_wt / d_wt / n_rotor）；
+ *   E-12 Arena 排除：系统选择器与页面文本不含 WT-001 / PV-001（ARENA_EXCLUDED 守卫）；
+ *   E-13 scenario 页 METRIC_PICK 声明 WT-001 键 + FL thermal_model 展示面
+ *        （同源取模块源的源级断言——内部常量无 DOM 直读面，fetch 本地不计外联）。
  *
  * 退出码：0=全部通过；1=存在失败项。报告写 <--out 目录>/e2e-report.json。
  *
@@ -422,6 +427,63 @@ async function main() {
     ok(afterLeave.teaDisplay !== 'block' && !afterLeave.teaVisible,
       'E-09：对照 #page-teaching 同样恢复隐藏（内层根模式基线）',
       'display=' + afterLeave.teaDisplay + ' visible=' + afterLeave.teaVisible);
+
+    /* E-10 五系统卡（v0.8.0 UI 接线路 CHG-20261107-01：home 五系统化 + WT-001 入卡） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&page=home' });
+    await wait(1400);
+    const home5 = await cdp.evalExpr(`(function(){
+      const cards = Array.prototype.slice.call(document.querySelectorAll('.home-sys-card'));
+      return { count: cards.length,
+               ids: cards.map(function (c) { return c.getAttribute('data-system'); }) };
+    })()`);
+    eq(home5.count, 5, 'E-10：home 五系统卡');
+    ok(home5.ids.indexOf('WT-001') !== -1, 'E-10：home 卡序含 WT-001（L0b 徽章）', JSON.stringify(home5.ids));
+
+    /* E-11 WT-001 深链系统页 + 关键信号（WT-G2b-04 UI 接线面：?system= 深链 +
+       demo=1 自动建 Run；关键信号取 Run 数据面 601 点——P_wt / d_wt / n_rotor） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=WT-001&page=system' });
+    await wait(1500);
+    const wtRun = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      const sig = r && r.timeseries && r.timeseries.signals ? r.timeseries.signals : {};
+      const len = function (id) { return sig[id] ? sig[id].length : 0; };
+      return { systemId: s.systemId, page: s.page, hasRun: !!r,
+               pwt: len('P_wt_true_kW'), dwt: len('d_wt_kW'), nrotor: len('n_rotor_rpm') };
+    })()`);
+    eq(wtRun.systemId, 'WT-001', 'E-11：?system=WT-001 深链进入 WT 系统页');
+    ok(wtRun.hasRun && wtRun.pwt === 601 && wtRun.dwt === 601 && wtRun.nrotor === 601,
+      'E-11：WT-001 demo Run 关键信号 601 点可见（P_wt / d_wt / n_rotor）',
+      JSON.stringify({ hasRun: wtRun.hasRun, pwt: wtRun.pwt, dwt: wtRun.dwt, nrotor: wtRun.nrotor }));
+
+    /* E-12 Arena 排除 WT-001（ARENA_EXCLUDED 守卫——PV DEC-2 同款，CHG-20261107-01） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?page=arena' });
+    await wait(700);
+    const arenaChk = await cdp.evalExpr(`(function(){
+      const sec = document.getElementById('page-arena');
+      const sysSeg = sec ? sec.querySelector('.seg[aria-label="选择实验系统"]') : null;
+      const vals = sysSeg ? Array.prototype.map.call(sysSeg.querySelectorAll('.seg-item'),
+        function (b) { return b.dataset.value; }) : [];
+      return { page: FL.store.getState().page, vals: vals, text: sec ? sec.textContent : '' };
+    })()`);
+    eq(arenaChk.page, 'arena', 'E-12：arena 页打开');
+    ok(arenaChk.vals.indexOf('WT-001') === -1 && arenaChk.vals.indexOf('PV-001') === -1 &&
+      arenaChk.vals.indexOf('FL-001') !== -1,
+      'E-12：arena 系统选择器不含 WT-001 / PV-001（ARENA_EXCLUDED 守卫）', JSON.stringify(arenaChk.vals));
+    ok(arenaChk.text.indexOf('WT-001') === -1, 'E-12：arena 页面文本不含 WT-001');
+
+    /* E-13 scenario 页 METRIC_PICK 含 WT-001 键 + FL thermal_model 展示面。
+       METRIC_PICK / thermalChipOf 为页面模块内部量：经同源静态服务器取模块源核对
+       （源级断言，与 tests/causal-rules.test.js §7 同思路；fetch 127.0.0.1 属本地
+       请求，不计入 E-08 外联判定）。 */
+    const scnChk = await cdp.evalExpr(`(function(){
+      return fetch('src/ui/pages/scenario.js').then(function (r) { return r.text(); }).then(function (t) {
+        return { hasWT: /'WT-001':\\s*\\[/.test(t), hasDwt: t.indexOf('d_wt_kW') !== -1,
+                 hasThermal: t.indexOf('thermal_model') !== -1 };
+      });
+    })()`);
+    ok(scnChk.hasWT && scnChk.hasDwt, 'E-13：scenario 页 METRIC_PICK 声明 WT-001 键（focal/ΔE_wt/d_wt）', JSON.stringify(scnChk));
+    ok(scnChk.hasThermal, 'E-13：scenario 页含 FL thermal_model off/on 事件列展示面');
 
     /* E-08 离线与控制台 */
     ok(externalRequests.length === 0, 'E-08：无外部网络请求（纯浏览器离线）',

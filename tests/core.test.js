@@ -239,11 +239,12 @@ eq(FL.rng.gauss(FL.rng.mulberry32(5)), FL.rng.gauss(FL.rng.mulberry32(5)), 'rng.
 /* 1. SystemDef 元数据完整性                                           */
 /* ================================================================== */
 const sysList = systems.list();
-/* PV-001 注册（PV001_G2B_SPEC_APPROVED v1.0 / CHG-20261104-10）：注册表 3→4，
-   系统卡自动注册为 V070_WAVE_DESIGN §3 预期失效面；本两条仅随注册表键面演进，
-   三系统物理/数值断言零改动 */
-eq(sysList.length, 4, 'systems.list 返回四个系统');
-eq(sysList.map((s) => s.id).join(','), 'FL-001,FC-001,GT-001,PV-001', 'systems.list 顺序稳定');
+/* 注册表随波演进（本两条仅随注册表键面更新，既有系统物理/数值断言零改动）：
+   PV-001 注册 3→4（PV001_G2B_SPEC_APPROVED v1.0 / CHG-20261104-10，V070_WAVE_DESIGN §3
+   预期失效面）；WT-001 注册 4→5（WT001_G2B_SPEC_APPROVED v1.0 / CHG-20261107-01，
+   L4 系统面落地，V080 预期失效面——L9a 逐项登记）。 */
+eq(sysList.length, 5, 'systems.list 返回五个系统（PV-001、WT-001 注册面演进）');
+eq(sysList.map((s) => s.id).join(','), 'FL-001,FC-001,GT-001,PV-001,WT-001', 'systems.list 顺序稳定（WT-001 尾接）');
 sysList.forEach((item) => {
   ok(item.experimentCode && item.title && item.shortTitle && item.tagline && item.level, 'systems.list 字段齐备（' + item.id + '）');
   eq(item.available, true, 'systems.list available（' + item.id + '）');
@@ -319,12 +320,15 @@ sysList.forEach((item) => {
   eq(systems.validateDraft(core.createConfig(id)).ok, true, id + '：validateDraft 默认配置通过');
 });
 
-/* FL-001 必含信号集合（契约 §5.1 表） */
+/* FL-001 必含信号集合（契约 §5.1 表 + FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §1.2 两热信号：
+   T_bat_K/P_loss_kW 为 L4 信号目录 +2 的预期失效面，16→18——L9a 逐项登记；
+   off 轨两列全程 null 的序列面断言由 tests/engine.test.js 步 1 承载） */
 const FL_REQUIRED_SIGNALS = ['I_bat_true_A', 'I_bat_meas_A', 'I_ref_A', 'bias_A', 'I_bat_cap_A',
   'P_bat_true_kW', 'P_bat_meas_kW', 'P_gen_true_kW', 'P_gen_meas_kW', 'P_load_demand_kW',
-  'P_load_served_kW', 'V_bus_V', 'SOC_true_pct', 'SOC_est_pct', 'r_true_kW', 'r_meas_kW'];
+  'P_load_served_kW', 'V_bus_V', 'SOC_true_pct', 'SOC_est_pct', 'r_true_kW', 'r_meas_kW',
+  'T_bat_K', 'P_loss_kW'];
 const flSignalIds = systems.get('FL-001').signals.map((s) => s.id);
-eq(flSignalIds.slice().sort().join(','), FL_REQUIRED_SIGNALS.slice().sort().join(','), 'FL-001 必含信号集合（16 个）');
+eq(flSignalIds.slice().sort().join(','), FL_REQUIRED_SIGNALS.slice().sort().join(','), 'FL-001 必含信号集合（18 个，+thermal 两信号）');
 eq(systems.signalMap('FL-001').I_bat_meas_A.blindVisible, true, 'FL-001 I_bat_meas_A blindVisible');
 eq(systems.signalMap('FL-001').I_bat_true_A.chart.style, 'solid', 'FL-001 I_true 为实线');
 eq(systems.signalMap('FL-001').I_bat_meas_A.chart.style, 'dashed', 'FL-001 I_meas 为虚线');

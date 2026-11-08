@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   FaultLab — Virtual Energy Lab V0.1 (single-file offline build)
-  built: 2026-11-05 05:59:13
+  built: 2026-11-07 19:48:59
   css files inlined: 10, js files inlined: 33
   Source of truth: index.html + src/ + css/. Rebuild with: python tools/build.py
   Data note: analytic / behaviour-level (L0) demo model — not Simulink, not measured field data.
@@ -5678,7 +5678,11 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     's': 'time', '%': 'percent', 'pp': 'percent_point',
     'Hz': 'frequency', 'rpm': 'speed',
     'W/m²': 'irradiance', /* PV-001 新轨（PV001_G2B_SPEC_APPROVED v1.0 §8 C-3/C-6）：纯增项 */
-    'K': 'temperature', 'kPa': 'pressure' /* GT-001 L1 thermo 轨（GTL1-IMP-Q2，CHG-20261104-12）：纯增项 */
+    'K': 'temperature', 'kPa': 'pressure', /* GT-001 L1 thermo 轨（GTL1-IMP-Q2，CHG-20261104-12）：纯增项 */
+    /* WT-001 L0b 轨（WT001_G2B_SPEC_APPROVED v1.0 §1.2/§4 项 5/§8 WT-G2b-03，CHG-20261107-01）：
+       纯增项——'m/s'（风速 3 信号）/'°'（桨距角 3 信号）/'-'（λ/Cp 无量纲 2 信号，§1.2 信号表）；
+       量纲类名沿 golden units 表命名（§4 项 5 "wind":"m/s","angle":"°"）。 */
+    'm/s': 'wind', '°': 'angle', '-': 'dimensionless'
   };
   var P0_UNITS = ['A', 'kW', 'kWh', 'V', 's', '%', 'pp'];
 
@@ -5783,6 +5787,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
          G0_W_m2 仅 PV-001 声明：其他系统 undefined → 不进入投影/哈希（inertia_model 同款先例，
          GTL1_G2B_SPEC_APPROVED v1.0 §2.4）。 */
       initial_G0_W_m2: cfg.initial && cfg.initial.G0_W_m2,
+      /* B-2 WT-001（WT001_G2B_SPEC_APPROVED v1.0 §1.1，WT-G2b-03，CHG-20261107-01）：
+         initial v0_ms 键面按 system.bounds 派生（R-8 同款）——WT-001 声明 v0_ms ∈ [6,10]；
+         其他系统 undefined → 不进入投影/哈希（G0_W_m2 / inertia_model 同款先例）。 */
+      initial_v0_ms: cfg.initial && cfg.initial.v0_ms,
       /* A-1 惯性双轨 → L1 三轨（GTL1_G2B_SPEC_APPROVED v1.0 §2.4；GT-001 声明；
          其他系统 undefined → 不进入投影/哈希） */
       inertia_model: cfg.inertia_model,
@@ -5790,17 +5798,42 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     };
   }
 
-  /* R-8（CHG-20261105-01 清算项 2）：按 model_id 反查 system.bounds，派生 initial 键面。
-     systems 未装载 / 未知 model_id → null（调用方回退 FL/FC/GT 既有键面，行为逐字等价）。 */
-  function resolveInitialBounds(modelId) {
+  /* R-8（CHG-20261105-01 清算项 2）：按 model_id 反查 SystemDef 原始引用。
+     systems 未装载 / 未知 model_id → null（调用方回退既有行为，行为逐字等价）。 */
+  function resolveSystemDef(modelId) {
     if (!FL.systems || !FL.systems._raw || typeof FL.systems._raw.all !== 'function') return null;
     var all = FL.systems._raw.all();
     if (!Array.isArray(all)) return null;
     for (var i = 0; i < all.length; i++) {
       var s = all[i];
-      if (s && s.model && s.model.model_id === modelId && s.bounds) return s.bounds;
+      if (s && s.model && s.model.model_id === modelId) return s;
     }
     return null;
+  }
+
+  function resolveInitialBounds(modelId) {
+    var sys = resolveSystemDef(modelId);
+    return (sys && sys.bounds) ? sys.bounds : null;
+  }
+
+  /* 残留①（CHG-20261107-01 ③；v072-release §4 项 1）：bias_A 契约键在投影面统一承载
+     fault.params.magnitude（scenarioView 键名沿契约 §2.1 历史面——哈希输入零变化），
+     但 |b|≤20 A 是电流域物理界，只对偏置信号为电流域 bias_A 的系统适用。
+     分派口径（选型登记）：按系统信号目录是否存在 id='bias_A' 的信号——契约键与信号
+     目录同名同域，最诚实且免维护系统清单（新系统落地即自动取得正确域语义）。
+     FL-001/FC-001 信号目录声明 bias_A（单位 A）→ 检查适用（既有行为逐字保持）；
+     PV-001 偏置信号为 bias_W_m2（W/m² 域）、GT-001 为转速偏置（Hz 域）、WT-001 为
+     bias_ms（m/s 域）→ 其 faulted Run 幅值不属电流域，A 域检查不适用（旧实现按 A 域
+     误校 → faulted PV Run 导出/导入误报 CN-E02，v072-release §4 项 1 登记在案）。
+     反查失败（systems 未装载/未知 model_id）回退既有行为（检查生效）。 */
+  function hasCurrentDomainBiasSignal(modelId) {
+    var sys = resolveSystemDef(modelId);
+    if (!sys) return true; /* 回退：既有行为 */
+    var signals = sys.signals || [];
+    for (var i = 0; i < signals.length; i++) {
+      if (signals[i] && signals[i].id === 'bias_A') return true;
+    }
+    return false;
   }
 
   function validateScenarioConfig(sc, opts) {
@@ -5834,7 +5867,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     if (!isNum(sc.bias_A)) bad('bias_A', 'bias_A 必须是数字', '检查配置');
     else if (opts.p0frozen && Math.abs(sc.bias_A) > 0 && Math.abs(sc.bias_A - 10) > 1e-12) {
       bad('bias_A', 'P0 冻结 bias_A=+10（当前 ' + String(sc.bias_A) + '）', '参数编辑属 P1 范围');
-    } else if (Math.abs(sc.bias_A) > 20) {
+    } else if (hasCurrentDomainBiasSignal(sc.model_id) && Math.abs(sc.bias_A) > 20) {
       bad('bias_A', 'bias_A 幅值超出模型物理范围（|b| ≤ 20 A）', '修改参数后重试');
     }
     if (sc.feedback_mode !== 'closed_loop' && sc.feedback_mode !== 'monitor') {
@@ -5869,6 +5902,19 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
                  sc.initial_G0_W_m2 > initBounds.G0_W_m2.max + 1e-9) {
         bad('initial_G0_W_m2', 'initial_G0_W_m2 必须在 ' + initBounds.G0_W_m2.min + '–' +
           initBounds.G0_W_m2.max + ' W/m² 之间', '检查配置');
+      }
+    }
+    /* B-2 WT-001（WT001_G2B_SPEC_APPROVED v1.0 §1.1，WT-G2b-03，CHG-20261107-01）：
+       initial_v0_ms 校验补入（域取 bounds.v0_ms，声明才要求——R-8 G0_W_m2 同款；
+       WT-001 声明 [6,10] m/s，§1.1）。bounds 驱动、无系统清单硬编码：WT-001 SystemDef
+       落地（WT-G2b-04）即自动纳入。声明面之外的初值键处置不变；反查失败回退既有键面。 */
+    if (initBounds && initBounds.v0_ms) {
+      if (!isNum(sc.initial_v0_ms)) {
+        bad('initial_v0_ms', 'initial_v0_ms 必须是数字（m/s）', '检查配置');
+      } else if (sc.initial_v0_ms < initBounds.v0_ms.min - 1e-9 ||
+                 sc.initial_v0_ms > initBounds.v0_ms.max + 1e-9) {
+        bad('initial_v0_ms', 'initial_v0_ms 必须在 ' + initBounds.v0_ms.min + '–' +
+          initBounds.v0_ms.max + ' m/s 之间', '检查配置');
       }
     }
     if (sc.noise !== null && sc.noise !== undefined) {
@@ -6595,9 +6641,11 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
   <script>
 /* ===== src/core/systems.js ===== */
 /* owner: core-engine | module: systems | contract: docs/CONTRACT.md */
-/* 四系统 SystemDef（FL-001 / FC-001 / GT-001 / PV-001）：拓扑、信号元数据、故障目录、模型假设、因果模板。
+/* 五系统 SystemDef（FL-001 / FC-001 / GT-001 / PV-001 / WT-001）：拓扑、信号元数据、故障目录、模型假设、因果模板。
    纯数据 + 查询 API，挂在 FL.systems；不依赖 DOM / FL.protocol。
-   PV-001 = PV001_G2B_SPEC_APPROVED v1.0 实现（PV-G2b-04a / CHG-20261104-10 批准）。 */
+   PV-001 = PV001_G2B_SPEC_APPROVED v1.0 实现（PV-G2b-04a / CHG-20261104-10 批准）。
+   FL-001 thermal 面 + WT-001 = FL001_THERMAL_G2B_SPEC_APPROVED v1.0 / WT001_G2B_SPEC_APPROVED v1.0
+   实现（FLTH-G2b-04 / WT-G2b-04 systems.js 面，V080_WAVE_DESIGN / CHG-20261107-01 批准）。 */
 (function () {
   'use strict';
 
@@ -6729,6 +6777,11 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     topologyViewBox: [0, 0, 1000, 620],
     defaults: {
       feedback_mode: 'closed_loop',
+      /* FL-001 L1 thermal 轨开关（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0，DEC-2 定案单键
+         枚举）：thermal_model: off|on，默认 off——off 轨（L0/fl001_v1）为 P0 验收轨与教学主角，
+         on 轨（L1/fl001_v2）经显式选择到达；FLTH-IMP-Q3 定案：用户未提默认翻转，默认 off 维持。
+         engine normalizeConfig/validate 按本键盖章与枚举守卫（engine.js thermal_model 分支）。 */
+      thermal_model: 'off',
       initial: { load_kW: 30, SOC_pct: 60 },
       noise: { enabled: false, seed: 12345, level: 0 }
     },
@@ -6822,6 +6875,8 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     signalCategories: [
       { id: 'current', label: '电流' },
       { id: 'power', label: '功率' },
+      /* FL-001 L1 thermal 轨类目（FLTH §6.4；GT 先例同字面 systems.js thermal 类目）：纯增项 */
+      { id: 'thermal', label: '热力' },
       { id: 'soc', label: 'SOC' },
       { id: 'residual', label: '残差' },
       { id: 'actuator', label: '执行器' }
@@ -6842,7 +6897,14 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       sig({ id: 'SOC_true_pct', label: '真实 SOC', shortLabel: 'SOC_true', unit: '%', category: 'soc', sourceKind: 'MODEL_STATE', definition: '由真实电池功率积分得到的荷电状态。', formula: 'SOC_true = SOC0 − ∫P_bat,true dt / 40 kWh × 100%', precision: 5, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'SOC_est_pct', label: '估计 SOC', shortLabel: 'SOC_est', unit: '%', category: 'soc', sourceKind: 'OBSERVATION', definition: '由测量电池功率积分得到的 SOC 估计。', formula: 'SOC_est = SOC0 − ∫P_bat,meas dt / 40 kWh × 100%', precision: 5, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true }),
       sig({ id: 'r_true_kW', label: '真实功率平衡残差', shortLabel: 'r_true', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '真实功率守恒残差，理想模型下恒为 0。', formula: 'r_true = P_gen,true + P_bat,true − P_load,served', precision: 6, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
-      sig({ id: 'r_meas_kW', label: '测量一致性残差', shortLabel: 'r_meas', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '由测量构造的功率平衡残差；故障期间为 +4 kW，是测量偏差，不是能量损失。', formula: 'r_meas = P_gen,true + P_bat,meas − P_load,served', precision: 2, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true })
+      sig({ id: 'r_meas_kW', label: '测量一致性残差', shortLabel: 'r_meas', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '由测量构造的功率平衡残差；故障期间为 +4 kW，是测量偏差，不是能量损失。', formula: 'r_meas = P_gen,true + P_bat,meas − P_load,served', precision: 2, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true }),
+      /* FL-001 L1 thermal 轨两新信号（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §1.2；B-1 定案
+         CHG-20261107-01：sourceKind MODEL_STATE / DERIVED 两值默认映射均落 public_demo——
+         全非盲显，不设置 blindVisible、不显式声明 exposure（GT-001 L1 八热信号 B-1 先例同构），
+         盲包观测面不扩）。仅 thermal_model=on 轨填充数值，thermal_model=off 轨全程 null
+         （makeSeries 按 SystemDef.signals 建列——GT 热信号在 swing/linear 遗留轨 null 先例）。 */
+      sig({ id: 'T_bat_K', label: '电池温度（单节点集总）', shortLabel: 'T_bat', unit: 'K', category: 'thermal', sourceKind: 'MODEL_STATE', definition: '电池单节点集总温度（thermal_model=on 轨新动态状态，T_bat(0) = T_amb = 298.15 K 冷启动；thermal_model=off 轨无热力面，全程 null）。', formula: 'C_bat·dT_bat/dt = I_true²·R_int(T_bat) − h·(T_bat − T_amb), C_bat = 300 J/K, h = 10 W/K', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } }),
+      sig({ id: 'P_loss_kW', label: '热损耗功率', shortLabel: 'P_loss', unit: 'kW', category: 'thermal', sourceKind: 'DERIVED', definition: '热损耗功率（模型记账项，不是能量损失；thermal_model=on 轨填充当前状态值，thermal_model=off 轨全程 null）。', formula: 'P_loss = I_true²·R_int(T_bat), R_int(T_bat) = R0·(1 + α·(T_bat − 298.15)), R0 = 0.2 Ω, α = 0.01 1/K', precision: 3, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } })
     ],
     faults: [
       fault({
@@ -6869,9 +6931,17 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       })
     ],
     model: {
-      /* 模型身份按批准契约（DATA_CONTRACT_SPEC §1.1/§2.1）：FL-001 = fl001 / fl001.1 */
+      /* 模型身份按批准契约（DATA_CONTRACT_SPEC §1.1/§2.1）：FL-001 = fl001。
+         model_version 1.1.0（FLTH-G2b-04 / B-1 定案 CHG-20261107-01：三段式 v2 归一样式，
+         fl001.1 遗留样式在新 id 轮归一；thermal 轨类比 GT 1.1.0→1.2.0 为 minor 增位）。
+         B-1 涟漪处置（登记进代码注释）：① scope.js classify 对 FL-001 不消费 modelVersion
+         （校验链 = systemId/modelId/family/mode/initial/duration/dt/noise，modelVersion 校验
+         仅存在于 FC-001 分支）——显式声明「不校验、仅登记」，scope.js 零改动；
+         ② 旧存档（config 元数据 model_version='fl001.1'）重放预期非阻断（该值不参与
+         classify 校验）；③ DATA_CONTRACT_SPEC / MODEL_VALIDATION_SPEC 中 'fl001.1' 字面
+         引用失效面归 FLTH-G2b-04 工作面清单（文档侧同轮订正或登记双版本并存）。 */
       model_id: 'fl001',
-      model_version: 'fl001.1',
+      model_version: '1.1.0',
       assumptions: [
         { id: 'A-ideal-bus', text: '直流母线 400 V 理想，无母线动态与压降。' },
         { id: 'A-ideal-gen', text: '发电机视为理想平衡源，瞬时补偿剩余负载功率；初始 20 kW 仅用于展示。' },
@@ -6879,14 +6949,33 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         { id: 'A-soc-linear', text: 'SOC 由功率积分线性折算，不含温度、OCV-SOC 非线性与效率损耗。' },
         { id: 'A-l0', text: '控制器为行为级一阶闭环（健康/传感器轨 τ = 1.5 s、执行器限幅轨 τ = 0.4 s），不是经过验证的设备控制器。' },
         { id: 'A-fl-clamp', text: '变流器限幅为理想钳位（min 语义）：target = min(I_ref − b(t), I_cap)，自 t_start 起生效；无恢复动态、无保护动作、无 t_clear。' },
-        { id: 'A-gen-lag', text: '（仅负载阶跃场景生效）发电机按一阶惯性源 τ_gen = 2.0 s 追踪负载需求与电池功率之差。' }
+        { id: 'A-gen-lag', text: '（仅负载阶跃场景生效）发电机按一阶惯性源 τ_gen = 2.0 s 追踪负载需求与电池功率之差。' },
+        /* FL-001 L1 thermal 轨 assumptions（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §6.2 六条，
+           CHG-20261107-01 批准；【仅 …适用】作用域句式沿 A-gt-swing-full 先例） */
+        { id: 'A-flth-lump', text: '【仅 thermal_model=on 适用】电池为单节点集总热容模型：C_bat·dT_bat/dt = I_true²·R_int(T_bat) − h·(T_bat − T_amb)，T_bat(0) = T_amb = 298.15 K（冷启动）；内部温度分布与热管理动态未建模。' },
+        { id: 'A-flth-params', text: '【仅 thermal_model=on 适用】R0 = 0.2 Ω、α = 0.01 1/K、C_bat = 300 J/K、h = 10 W/K 均为教学整定值（非实测参数）：量级按「60 s 演示窗内温升路径可见」整定（健康局稳态温升 14.3 K、时间常数 34.3 s），不对应任何真实电池包热特性或设备参数辨识。' },
+        { id: 'A-flth-loss', text: '【仅 thermal_model=on 适用】热损耗记账口径：P_loss = I_true²·R_int(T_bat) 自电池支路扣除、由理想发电机补偿（P_gen = P_load − P_bat + P_loss）；能量恒等式为 E_source + E_bat = E_load + E_loss；r_true/r_meas 定义恒等含 −P_loss 项（损耗为模型已知结构项，不进一致性残差）；SOC 定义不动（P_bat,true = 0.4·I_true 口径不变）。' },
+        { id: 'A-flth-no-feedback', text: '【仅 thermal_model=on 适用】热面对电气面零反馈：I_true/P_bat/SOC/测量链与 thermal_model=off 轨逐位同（温度对容量折算、内阻对电流的反馈不做）；跨深度对比的分歧全部位于热面与损耗补偿面。' },
+        { id: 'A-flth-stability', text: '【仅 thermal_model=on 适用】热平衡稳定性条件 h > I_true²·R0·α 在注册参数域内成立（load_kW=45 角点 I²R0α = 7.81 < 10 W/K）；手拼配置越域可破该条件（无热保护，见局限）。' },
+        { id: 'A-flth-l1', text: '【仅 thermal_model=on 适用】热模型为教学尺度单节点集总示意（L1），不是经过验证的设备控制器或电池热学模型。' }
       ],
       limitations: [
         '单一恒定负载、理想母线、无保护动作与故障传播。',
         '不含电池老化、热管理、变换器开关动态与电网交互。',
         'L0 行为级演示模型；非实测、非 Simulink、无实测对比。',
         '退化域：load0 ≤ 20 kW 时 I_ref ≤ 0，min 钳位 no-op（故障零效果），I_bat_cap_A 显示负值；锚点数值仅对 load0 = 30 kW 成立。',
-        'normalizeConfig 不钳位 load_kW：合法域仅由 UI bounds（10…45 kW）保证，手拼配置可破 ±25 kW 包络。'
+        'normalizeConfig 不钳位 load_kW：合法域仅由 UI bounds（10…45 kW）保证，手拼配置可破 ±25 kW 包络。',
+        /* FL-001 L1 thermal 轨未建模项（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §6.1 项 1…8，
+           CHG-20261107-01 批准；与上方 L0 项并存不替换；定位句沿 house 句式） */
+        '【thermal_model=on 轨】电池内部温度分布/双节点热网络未建模（单节点集总等效——C_bat 为集总等效热容）。',
+        '【thermal_model=on 轨】R_int(T) 非线性未建模：线性温度系数为教学近似，真实电池低温侧 R 显著增大、高温侧 SEI/析锂效应未建模。',
+        '【thermal_model=on 轨】热管理/冷却控制动态未建模（h 为常数牛顿冷却，无风扇/液冷回路建模）。',
+        '【thermal_model=on 轨】与电气面的双向耦合未建模：温度对电流/电压/SOC 的反馈不做（温度对容量折算登记不做）——I_true 面零反馈是「电气面与 off 轨逐位同」的结构原因。',
+        '【thermal_model=on 轨】环境动态未建模（T_amb = 298.15 K（25 °C）常数，昼夜/季节/通风变化未建模）。',
+        '【thermal_model=on 轨】温度对容量/OCV/老化耦合未建模（热-电-老化方向，本波登记不做）。',
+        '【thermal_model=on 轨】热保护未建模（高温降额/热失控保护/熔断——load0=45 角点渐近 655.29 K（≈382 °C）为合法演示值）。',
+        '【thermal_model=on 轨】稳定性域边界：手拼配置 load_kW > 48.2843 kW（越界）可破 h > I_true²·R0·α 稳定性条件 → 正温度反馈失控（normalizeConfig 不钳位沿袭 L0 声明）；未来开放热参数配置须先立钳位。',
+        '【thermal_model=on 轨】本模型为教学尺度单节点集总热模型示意（L1），非机组/电网动态验证。'
       ],
       equations: [
         { id: 'EQ-1', latex_text: 'I_meas(t) = I_true(t) + b(t)', note: '测量通道偏置叠加' },
@@ -6896,18 +6985,55 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         { id: 'EQ-5', latex_text: 'SOC(t) = SOC0 − ∫P_bat dt / (40 kWh) × 100%', note: 'SOC 积分定义' },
         { id: 'EQ-6', latex_text: 'r_true = P_gen + P_bat,true − P_load; r_meas = P_gen + P_bat,meas − P_load', note: '真实/测量残差定义' },
         { id: 'EQ-A', latex_text: 'I_cap = I_ref × magnitude/100, I_ref = (P_load − 20)/0.4; target = min(I_ref − b(t), I_cap)', note: '变流器限幅（钳位式，min 语义，自 t_start 起）；actuator 轨 b ≡ 0' },
-        { id: 'EQ-B', latex_text: 'τ·dI_true/dt + I_true = target; τ = 1.5 s（healthy/sensor 轨）、τ = 0.4 s（actuator 轨）', note: '执行器双轨一阶跟随（EQ-2 的 τ 按轨细分）' }
+        { id: 'EQ-B', latex_text: 'τ·dI_true/dt + I_true = target; τ = 1.5 s（healthy/sensor 轨）、τ = 0.4 s（actuator 轨）', note: '执行器双轨一阶跟随（EQ-2 的 τ 按轨细分）' },
+        /* FL-001 L1 thermal 轨方程（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.2.1 EQ-FLTH-1…9，
+           CHG-20261107-01 批准，oracle/引擎唯一权威文本；EQ-FLTH-5/6/8 含 Q1/Q3/Q4 定案口径）。
+           除 EQ-FLTH-1/7 逐字沿用电面外均为 on 域标注——thermal_model=off 轨 P_loss ≡ 0 退化，
+           物理面与登记式零变化。 */
+        { id: 'EQ-FLTH-1', latex_text: 'I_meas = I_true + b(t); τ·dI_true/dt + I_true = target（healthy/sensor 轨 target = I_ref − b，monitor 轨 target = I_ref，actuator 轨 target = min(I_ref, I_cap)、τ_act = 0.4 s）; P_bat,true = 0.4·I_true', note: '电气面原样（EQ-1/2/A/B 逐字沿用，A-const-v 恒压等效口径保留）；thermal on 不回写电气面' },
+        { id: 'EQ-FLTH-2', latex_text: 'R_int(T_bat) = R0·(1 + α·(T_bat − 298.15))，T_bat 单位 K，R0 = 0.2 Ω, α = 0.01 1/K', note: '内阻温度面（任务书 °C 制 R0·(1+α·(T−25)) 的 K 制等价式，两式数值逐位同）；α>0 为正温度反馈（仅 thermal_model=on 轨）' },
+        { id: 'EQ-FLTH-3', latex_text: 'P_loss = I_true²·R_int(T_bat)（W；信号面 P_loss_kW = P_loss/1000）', note: '焦耳热；I² 对充放电符号对称（充电同样发热——load0 ≤ 20 退化域教学点；仅 thermal_model=on 轨）' },
+        { id: 'EQ-FLTH-4', latex_text: 'C_bat·dT_bat/dt = P_loss − h·(T_bat − T_amb), C_bat = 300 J/K, h = 10 W/K, T_bat(0) = T_amb = 298.15 K', note: '单节点集总热平衡（新动态状态；牛顿冷却；冷启动假设；仅 thermal_model=on 轨）' },
+        { id: 'EQ-FLTH-5', latex_text: 'P_gen,true = P_load − P_bat,true + P_loss', note: '守恒面 (a)（Q1 定案 CHG-20261107-01）：热损耗由发电机补偿（模型记账口径）；off 轨原式 P_gen = P_load − P_bat（P_loss ≡ 0 退化，零变化）' },
+        { id: 'EQ-FLTH-6', latex_text: 'r_true := P_gen,true + P_bat,true − P_load,served − P_loss ≡ 0; r_meas := P_gen,true + P_bat,meas − P_load,served − P_loss ≡ 0.4·b(t)', note: '定义恒等扩展（Q3 定案：r_meas 同轮扩展含 −P_loss，0.4·b 教学锚点两深度保持）；off 轨 P_loss ≡ 0 退化为原恒等式' },
+        { id: 'EQ-FLTH-7', latex_text: 'SOC_true = SOC0 − ∫P_bat,true dt/(40 kWh)×100%; SOC_est = SOC0 − ∫P_bat,meas dt/(40 kWh)×100%', note: 'SOC 定义不动（P_bat,true = 0.4·I_true 口径不变 ⇒ SOC/∫I 面与 L0 逐位同）' },
+        { id: 'EQ-FLTH-8', latex_text: 'E_loss = ∫P_loss dt（子步梯形，Q4 定案）; E_source = E_load − E_bat + E_loss', note: '损耗能量账本（kW·s ÷3600 → kWh）；E 恒等式 E_source + E_bat ≡ E_load + E_loss（守恒面 (a) 后果）' },
+        { id: 'EQ-FLTH-9', latex_text: 'E_source + E_bat − E_load − E_loss ≡ 0（检查式）; θ_ss = I²·R0/(h − I²·R0·α)（θ = T_bat − T_amb 渐近稳态温升，稳定性条件 h > I²·R0·α）', note: 'oracle 自检 FL-2/FL-7 与 checks thermal 分支判据式；θ_ss 闭式为包络角点声明依据（load0=45 角点与 48.2843 kW 稳定性边界）' }
       ]
     },
     acceptance: {
       reference: 'MODEL_VALIDATION_SPEC §1.2/§3（解析金标准，未与实测校准）',
       exactness: 'FL-001 默认场景与解析式在 1e-6 容差内一致（求积/舍入规则见 MODEL_VALIDATION_SPEC §3.5/§7）',
+      /* A-3② 定案（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §4 项 8，CHG-20261107-01）：
+         以下 keyValues 为 off 轨（L0 / fl001_v1）专用冻结锚点——thermal_model=on 轨验收
+         keyValues 由 fl001_v2 golden 承载（FLTH-G2b-03 emit），本键面不引用 off 轨锚点
+         作 on 轨通过判据；acceptance 面按 cfg.thermal_model 分域为 FLTH-G2b-04 工作面
+         （分域派生落地另行登记，本波键面零变化）。 */
       keyValues: {
         E_bat_kWh: 0.1238889, E_gen_kWh: 0.3761111, E_load_kWh: 0.5,
         SOC_true_end_pct: 59.6902778, SOC_est_end_pct: 59.5791667, SOC_err_pp: -0.1111111,
         max_abs_r_meas_kW: 4.0, I_true_26s_A: 15.183156388
       }
     }
+  };
+
+  /* FL-001 thermal 轨层级/摘要派生（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §6.2/§6.4，
+     FLTH-IMP-Q2 实现轮裁定，CHG-20261107-01 批准）。
+     实现方式选择（登记）：GT 三轨先例的 level 为静态字符串字段（thermo 为默认轨，静态即可）；
+     FL 默认 off，故 level 保持 off 默认字符串（home/list/signals/causal 等全部静态消费入口
+     零变化），on 轨层级经 levelFor(cfg) / summaryFor(cfg) 派生——消费入口：
+     ① engine/provenance 面（run 元数据按 cfg 派生，L3 接线）；
+     ② UI 跨深度卡/系统详情（cfg 在手时调用，L7 接线；无 cfg 的静态卡继续读 level 字段）。
+     off（或缺省/未知 cfg）时两函数返回与 level/summary 字段相同的现值——off 域零变化。 */
+  FL001.levelFor = function (cfg) {
+    return (cfg && cfg.thermal_model === 'on')
+      ? 'L1 · 单节点集总热模型（数值仿真级）'
+      : FL001.level;
+  };
+  FL001.summaryFor = function (cfg) {
+    return (cfg && cfg.thermal_model === 'on')
+      ? FL001.summary + '电池按单节点集总热容升温，热损耗由发电机补偿（模型记账口径）。'
+      : FL001.summary;
   };
 
   /* ================================================================== */
@@ -7636,7 +7762,249 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
   };
 
   /* ================================================================== */
+  /* WT-001 风电机组（WT001_G2B_SPEC_APPROVED v1.0 批准 CHG-20261107-01；实现 =
+     WT-G2b-04 systems.js 面 / V080_WAVE_DESIGN §2 L4。§1 全量：拓扑 7 组件 9 边 /
+     22 信号 / EQ-WT-1..9 / 3 故障族 / A-wt-* 11 条 / limitations 10 项。
+     scope：WT-001 全场景 extension_preview（scope.js classify fall-through 零改动）；
+     Arena：ARENA_EXCLUDED 增 'WT-001' 为 WT-G2b-04 显式工作面（arena.js，L7）。 */
+  /* ================================================================== */
+  var WT001 = {
+    id: 'WT-001',
+    title: '风电并网等效系统',
+    shortTitle: '风电并网',
+    experimentCode: 'WT-001',
+    experimentName: '风速传感器偏置',
+    tagline: '在 20 秒注入 1.0 m/s 风速测量低估，看可用功率保护如何把测量偏差变成真实出力下降。风电 L0b 机械动态演示，不含尾流/湍流/气弹模型。',
+    level: 'L0b · 机械动态行为级演示（G2b 已批准）',
+    summary: '风轮经全功率变流器接入 400 V 等效母线，与理想平衡馈线共同为 30 kW 恒定负载供电；变流器按转速最优增益律给目标功率（额定 15 kW 封顶、可用风功率保护钳位），桨距执行器一阶跟踪转速调节指令，风轮转速由气动扭矩与电功率之差驱动。',
+    questions: [
+      '风速测量被低估时，为什么真实出力会跟着下降？高估时为什么零真实效应？',
+      'd_wt 为零、为负、为正分别对应什么运行状态（最优、偏离最优、测量伪影）？',
+      '同样的偏置，闭环与仅监测为什么一个被吸收进自洽、一个持续暴露？'
+    ],
+    duration_s: 60,
+    dt_s: 0.1,
+    topologyViewBox: [0, 0, 1000, 620],
+    defaults: {
+      feedback_mode: 'closed_loop',
+      /* WT-001 无储能：initial 无 SOC 键（与 FL/FC/GT 的键面差异点，规格 §1.1，PV-001 同款）；
+         v0_ms 为 WT 自有配置量（有意封顶于 v_rated = 10.302 m/s 之下——额定区初值需数值
+         平衡求解，规格 §1.1）；无 inertia_model 键（单轨 L0b，GT-001 三轨键不适用）。
+         engine validate 按 bounds.v0_ms 校验（engine.js v0_ms 分支）；schema 导出面
+         initial_v0_ms 键为 WT-G2b-03 工作面（schema.js R-8 同构，L6）。 */
+      initial: { load_kW: 30, v0_ms: 9 },
+      noise: { enabled: false, seed: 12345, level: 0 }
+    },
+    bounds: {
+      load_kW: { min: 10, max: 45 },
+      v0_ms: { min: 6, max: 10 }
+    },
+    components: [
+      comp({
+        id: 'rotor', label: '风轮（含传动链单质量等效）', kind: 'rotor', role: '气动功率 → 转速惯性',
+        description: '风轮气动功率 P_aero = Cp(λ,β)·½ρA·v³ 经传动链单质量惯量驱动转速（J·dω/dt = (P_aero − P_wt)/ω）；gust_step 场景有效真实风速阶跃上升。',
+        x: 60, y: 60, w: 190, h: 96, faultable: true,
+        inspector: [
+          { id: 'P_aero_kW', source: 'MODEL_STATE' },
+          { id: 'n_rotor_rpm', source: 'MODEL_STATE' },
+          { id: 'lambda_tip', source: 'MODEL_STATE' }
+        ]
+      }),
+      comp({
+        id: 'anemometer', label: '风速传感器', kind: 'sensor', role: '风速测量 · 故障注入点',
+        description: '风速测量通道（与风轮同位置等效采样）；v_sensor_bias 场景注入低估方向阶跃偏置，可用功率保护钳位按错误风速收紧。',
+        x: 60, y: 250, w: 180, h: 88, faultable: true,
+        inspector: [
+          { id: 'v_true_ms', source: 'MODEL_STATE' },
+          { id: 'bias_ms', source: 'FAULT_EVENT' },
+          { id: 'v_meas_ms', source: 'OBSERVATION' }
+        ]
+      }),
+      comp({
+        id: 'pitch_act', label: '变桨执行器', kind: 'actuator', role: '桨距角一阶跟踪 · 转速调节',
+        description: '变桨执行器一阶跟踪（τ=0.5 s）：按转速偏差比例给出桨距指令；卡涩场景钉扎于偏转位置。',
+        x: 310, y: 250, w: 170, h: 96, faultable: true,
+        inspector: [
+          { id: 'beta_pitch_deg', source: 'MODEL_STATE' },
+          { id: 'beta_cmd_deg', source: 'CONTROLLER' },
+          { id: 'beta_stuck_deg', source: 'FAULT_EVENT' }
+        ]
+      }),
+      comp({
+        id: 'converter', label: '全功率变流器（含 MPPT 与保护）', kind: 'converter', role: '最优增益律 + 额定封顶 + 可用功率保护',
+        description: '全功率变流器（含 MPPT 与保护）：按转速最优增益律与可用风功率保护钳位给目标功率，一阶跟随；不是经过验证的设备控制器。',
+        x: 310, y: 60, w: 170, h: 96, faultable: false,
+        inspector: [
+          { id: 'P_wt_ref_kW', source: 'CONTROLLER' },
+          { id: 'P_wt_true_kW', source: 'MODEL_STATE' },
+          { id: 'v_meas_ms', source: 'OBSERVATION' }
+        ]
+      }),
+      comp({
+        id: 'bus', label: '等效母线', kind: 'bus', role: '400 V 等效（功率平衡抽象）',
+        description: '400 V 等效母线：功率平衡的抽象等效，不是电网模型；无电压/频率动态、无功与网损。',
+        x: 540, y: 60, w: 160, h: 96, faultable: false,
+        inspector: [
+          { id: 'V_bus_V', source: 'MODEL_ASSUMPTION' },
+          { id: 'r_true_kW', source: 'DERIVED' },
+          { id: 'r_meas_kW', source: 'DERIVED' }
+        ]
+      }),
+      comp({
+        id: 'grid', label: '电网馈线（理想平衡源）', kind: 'grid', role: '理想双向补差源 · 初始 20 kW 展示',
+        description: '理想平衡功率馈线，瞬时吸收/补齐母线剩余功率；初始 20 kW 仅用于展示，不代表真实电网侧动态。',
+        x: 760, y: 60, w: 190, h: 96, faultable: false,
+        inspector: [
+          { id: 'P_grid_true_kW', source: 'MODEL_STATE' },
+          { id: 'P_grid_meas_kW', source: 'OBSERVATION' }
+        ]
+      }),
+      comp({
+        id: 'load', label: '负载', kind: 'load', role: '恒定 30 kW',
+        description: '恒定功率负载；WT-001 无 load_step 族（负载恒定是结构设定，不可调度电源的教学对照面）。',
+        x: 760, y: 250, w: 190, h: 96, faultable: false,
+        inspector: [
+          { id: 'P_load_demand_kW', source: 'CONFIG' },
+          { id: 'P_load_served_kW', source: 'MODEL_STATE' }
+        ]
+      })
+    ],
+    edges: [
+      { id: 'rotor->converter_power', from: 'rotor', to: 'converter', kind: 'power', label: '机械功率' },
+      { id: 'converter->bus', from: 'converter', to: 'bus', kind: 'power', label: '电功率馈入' },
+      { id: 'grid->bus', from: 'grid', to: 'bus', kind: 'power', label: '补偿功率' },
+      { id: 'bus->load', from: 'bus', to: 'load', kind: 'power', label: '30 kW 需求' },
+      { id: 'rotor->anemometer', from: 'rotor', to: 'anemometer', kind: 'measurement', label: '风速采样（与风轮同位置）' },
+      { id: 'anemometer->converter', from: 'anemometer', to: 'converter', kind: 'measurement', label: 'v_meas' },
+      { id: 'rotor->converter_speed', from: 'rotor', to: 'converter', kind: 'measurement', label: '转速反馈 n_rotor' },
+      { id: 'converter->pitch_act', from: 'converter', to: 'pitch_act', kind: 'signal', label: '桨距指令' },
+      { id: 'pitch_act->rotor', from: 'pitch_act', to: 'rotor', kind: 'signal', label: '桨距角' }
+      /* 刻意无 load→converter 边：不可调度电源的结构声明（规格 §1.1，PV-001 无 load→mppt 边同构）。
+         规格草表 rotor→converter 两行（power/measurement）按登记的实现细节去重为
+         rotor->converter_power / rotor->converter_speed 两条。 */
+    ],
+    faultAnchors: { sensor_drift: 'anemometer', actuator_fault: 'pitch_act', gust_step: 'rotor' },
+    signalCategories: [
+      { id: 'wind', label: '风速' },
+      { id: 'mechanical', label: '机械' },
+      { id: 'power', label: '功率' },
+      { id: 'residual', label: '残差' }
+      /* 无 soc（无储能）、无 actuator 残差类（执行器状态由 mechanical 类 β 信号承载）——规格 §1.1 */
+    ],
+    signals: [
+      /* 22 信号按 WT001_G2B_SPEC_APPROVED v1.0 §1.2 表逐行；exposure 落点沿 PV-001 体例：
+         blind 信号显式声明 exposure: 'blind_observable'（sourceKind 默认映射为 public_demo 的
+         CONTROLLER/DERIVED/CONFIG/MODEL_ASSUMPTION 必须显式声明才会落 blind）、public 信号
+         不声明（默认映射 public_demo）；blindVisible 不独立设置（由 exposure 派生）——
+         §1.2 B-3 三值映射核对表工作面以本落地为准逐信号核对。 */
+      sig({ id: 'v_true_ms', label: '有效真实风速', shortLabel: 'v_true', unit: 'm/s', category: 'wind', sourceKind: 'MODEL_STATE', definition: '风轮平面有效真实风速（单点等效输入，与风轮同位置）。', formula: 'v_true = v0 + Δv·1(t≥t0)（gust）', precision: 1, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'v_meas_ms', label: '风速测量（控制面读数）', shortLabel: 'v_meas', unit: 'm/s', category: 'wind', sourceKind: 'OBSERVATION', definition: '风速传感器输出（控制面读数）：monitor 模式偏置故障时保护钳位通道改读真实风速。', formula: 'v_ctrl = monitor∧bias 故障 ? v_true : v_true + b(t)', precision: 1, chart: { style: 'dashed', colorToken: 'obs', axis: 'left', step: true }, exposure: 'blind_observable', noiseSigma: 0.15 }),
+      sig({ id: 'bias_ms', label: '风速传感器偏置', shortLabel: 'b(t)', unit: 'm/s', category: 'wind', sourceKind: 'FAULT_EVENT', definition: '故障注入的风速测量偏置（低估方向），阶跃信号。', formula: 'b(t) = −B·1(t≥t0)（B≥0 低估幅值，仅 v_sensor_bias）', precision: 1, chart: { style: 'dashed', colorToken: 'fault', axis: 'right', step: true } }),
+      sig({ id: 'n_rotor_rpm', label: '风轮转速', shortLabel: 'n_rotor', unit: 'rpm', category: 'mechanical', sourceKind: 'MODEL_STATE', definition: '风轮转速（ω 为 ODE 状态，传动链单质量等效）。', formula: 'n = ω·30/π（ω 为 ODE 状态）', precision: 1, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'lambda_tip', label: '叶尖速比', shortLabel: 'λ', unit: '-', category: 'mechanical', sourceKind: 'MODEL_STATE', definition: '叶尖速比（无量纲）。', formula: 'λ = ωR/v_true', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'cp_coeff', label: '风能利用系数', shortLabel: 'Cp', unit: '-', category: 'mechanical', sourceKind: 'MODEL_STATE', definition: '风能利用系数（无量纲；EQ-WT-2 经验解析式——教学惯例参数组，非实测、非设备辨识）。', formula: 'Cp(λ, β)（EQ-WT-2 经验式）', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'beta_pitch_deg', label: '桨距角（实际）', shortLabel: 'β', unit: '°', category: 'mechanical', sourceKind: 'MODEL_STATE', definition: '桨距角实际状态（一阶跟随指令；pitch_stuck 执行器激活窗内 = β_stuck 钉扎）。', formula: 'β 状态（执行器窗内 = β_stuck）', precision: 2, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'beta_cmd_deg', label: '桨距指令', shortLabel: 'β_cmd', unit: '°', category: 'mechanical', sourceKind: 'CONTROLLER', definition: '桨距比例转速调节指令（亚额定 ω<ω_N 时为 0 自动退出）。', formula: 'β_ref = clamp(K_β·(ω−ω_N), 0, 30°)', precision: 2, chart: { style: 'dashdot', colorToken: 'warm', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'beta_stuck_deg', label: '卡涩桨距角', shortLabel: 'β_stuck', unit: '°', category: 'mechanical', sourceKind: 'FAULT_EVENT', definition: 'pitch_stuck 场景的位置强制钉扎值（位置强制语义，Q2 定案）；其他场景不可用（null）。', formula: 'β_stuck = 30°·magnitude%（仅 pitch_stuck，其余场景 null）', precision: 2, chart: { style: 'dashed', colorToken: 'fault', axis: 'left', step: true } }),
+      sig({ id: 'P_aero_kW', label: '气动功率', shortLabel: 'P_aero', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '风轮气动功率（Cp 经验式 × 可用风功率）。', formula: 'P_aero = Cp(λ,β)·½ρA·v_true³', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_wt_ref_kW', label: '变流器功率目标', shortLabel: 'P_ref', unit: 'kW', category: 'power', sourceKind: 'CONTROLLER', definition: '变流器目标功率（三支路取小：MPPT 最优增益律 + 额定封顶 + 可用风功率保护钳位）。', formula: 'P_ref = min(k_opt·ω³, P_rated, k_v·v_ctrl³)', precision: 3, chart: { style: 'dashdot', colorToken: 'warm', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'P_wt_true_kW', label: '风电真实出力', shortLabel: 'P_wt,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '风电机组真实出力（受控功率源以 τ_e = 1.0 s 一阶跟随目标）。', formula: 'τ_e·dP_wt/dt + P_wt = P_ref（P_wt 为 ODE 状态）', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_wt_meas_kW', label: '风电测量功率', shortLabel: 'P_wt,meas', unit: 'kW', category: 'power', sourceKind: 'OBSERVATION', definition: '风电功率测量（健康通道）。', formula: 'P_wt,meas = P_wt,true（健康通道）', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable', noiseSigma: 0.15 }),
+      sig({ id: 'P_wt_est_kW', label: 'EMS 风速折算估计', shortLabel: 'P_wt,est', unit: 'kW', category: 'power', sourceKind: 'DERIVED', definition: 'EMS 按测量风速折算的风电功率估计；恒用测量风速，不随运行模式切换。', formula: 'P_wt,est = k_v·v_est³，v_est = v_true + b(t)（恒用测量，不随模式切换——A-wt-est-channel）', precision: 3, chart: { style: 'dotted', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'd_wt_kW', label: '最优曲线一致性残差', shortLabel: 'd_wt', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '风电测量功率与 EMS 估计之差（代数恒等，不是能量损失）；健康测量下 d_wt ≤ 0 恒成立，传感器偏置破坏该界（测量伪影特征），封顶工况稳态 d_wt < 0 为合法残差（设计性偏离最优，非故障）。', formula: 'd_wt = P_wt,meas − P_wt,est = P_wt,true − k_v·v_est³', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'P_grid_true_kW', label: '馈线真实功率', shortLabel: 'P_grid,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '电网馈线真实功率（受电为正；理想双向补差，倒送为负且不建模约束）。', formula: 'P_grid = P_load − P_wt,true（受电为正）', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_grid_meas_kW', label: '馈线测量功率', shortLabel: 'P_grid,meas', unit: 'kW', category: 'power', sourceKind: 'OBSERVATION', definition: '馈线功率测量（健康通道）。', formula: 'P_grid,meas = P_grid,true（健康通道）', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable', noiseSigma: 0.15 }),
+      sig({ id: 'P_load_demand_kW', label: '负载需求功率', shortLabel: 'P_load', unit: 'kW', category: 'power', sourceKind: 'CONFIG', definition: '恒定功率负载；WT-001 无 load_step 族（负载恒定是结构设定，不可调度电源的教学对照面）。', formula: 'P_load = 30 kW（恒定，无 load_step 族）', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'P_load_served_kW', label: '负载实际获得功率', shortLabel: 'P_served', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '负载实际获得的功率（理想母线即需求功率）。', formula: 'P_load,served = P_load,demand', precision: 2, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'V_bus_V', label: '等效母线电压', shortLabel: 'V_bus', unit: 'V', category: 'power', sourceKind: 'MODEL_ASSUMPTION', definition: '400 V 等效母线电压（功率平衡抽象的模型假设，不是仿真状态）。', formula: 'V_bus = 400 V（模型假设，非仿真状态）', precision: 0, chart: { style: 'solid', colorToken: 'ink', axis: 'left', defaultVisible: false }, exposure: 'blind_observable', tableOnly: true }),
+      sig({ id: 'r_true_kW', label: '真实功率平衡残差', shortLabel: 'r_true', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '真实功率守恒残差，理想模型下恒为 0。', formula: 'r_true = P_wt,true + P_grid,true − P_load,served ≡ 0', precision: 6, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'r_meas_kW', label: '测量一致性残差', shortLabel: 'r_meas', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '由测量构造的功率平衡残差；全部功率测量通道健康，恒为 0（与 FL-001 传感器偏置的 +4 kW 测量残差形成教学对照）。', formula: 'r_meas = P_wt,meas + P_grid,meas − P_load,served ≡ 0（全功率通道健康——与 FL-001 的 r_meas = 0.4·b 教学对照）', precision: 2, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable' })
+    ],
+    faults: [
+      fault({
+        id: 'v_sensor_bias', family: 'sensor_drift', label: '风速传感器偏置（低估）', shortLabel: '传感器漂移',
+        target: 'anemometer',
+        description: '风速测量通道注入低估方向阶跃偏置，可用功率保护钳位按错误风速收紧，真实出力被压低；高估方向零真实效应（保护松开，仅估计通道暴露）。',
+        params: [{ key: 'magnitude', label: '低估幅值', unit: 'm/s', min: 0.5, max: 3.0, step: 0.5, default: 1.0, precision: 1, help: '低估偏置使测量风速低于真实 |b| m/s：可用功率保护钳位收紧，真实出力被压低；高估方向零真实效应（保护松开，仅估计通道暴露——见角点声明）' }],
+        defaultTime_s: 20, timeRange: [2, 55],
+        closedLoopEffect: '可用功率上限由 k_v·9³ = 10.00 kW 收紧至 k_v·8³ = 7.02 kW（默认 B=1.0），P_wt τ=1.0 s 跟随下行，转速上升 180.6→224.3 rpm（桨距随即介入 β→5.51°），λ 8.10→10.06 右支偏移，馈线 20→22.98 kW；d_wt 瞬态 +2.98 kW 后归零（估计先跳下行、真实滞后——闭环把低估故障吸收进自洽：保护钳位使真实出力恒等于被低估的估计值）',
+        monitorEffect: '真实出力不变（10.00 kW 恒定）；保护钳位改读真实风速；P_wt,est 仍按低估测量折算，d_wt ≡ +2.98 kW 持续暴露（健康测量下 d_wt ≤ 0 的界被测量伪影破坏——特征本身），ΔE_wt = −0.0331 kWh（估计偏少）',
+        causalTemplateId: 'wt-sensor-drift'
+      }),
+      fault({
+        id: 'pitch_stuck', family: 'actuator_fault', label: '变桨卡涩（位置强制）', shortLabel: '执行器异常',
+        target: 'pitch_act',
+        description: '变桨执行器卡涩于 β_stuck = 30° × magnitude% 偏转位置（位置强制语义，执行器窗内桨距角被钉扎）；与 FL/FC/GT 指令限幅模式不同——亚额定桨距指令为零，限幅式卡涩将是 no-op。',
+        params: [{ key: 'magnitude', label: '卡涩偏转比例', unit: '%', min: 20, max: 85, step: 5, default: 55, precision: 0, help: '变桨执行器卡涩于 β_stuck = 30° × magnitude%（55% → 16.5°）偏转位置；与 FL/FC/GT 指令限幅模式不同——亚额定桨距指令为零，限幅式将是 no-op，故本族采用位置强制语义' }],
+        defaultTime_s: 20, timeRange: [2, 55],
+        closedLoopEffect: '两模式同生效（物理执行器）：β 0→16.5° 钉扎，Cp 骤降 0.480→0.167（λ 平衡点 5.69 左支），P_wt 10.00→3.47 kW、转速 180.6→127.0 rpm（MPPT 曲线跟随下行），馈线 20→26.53 kW；d_wt 持续 −6.53 kW（运行点偏离最优曲线的故障特征，不归零——与 sensor_drift 闭环归零对照）',
+        monitorEffect: '同闭环（物理执行器故障，与控制模式无关——FL monitorEffect「限幅作用在物理执行器上」同款措辞）',
+        causalTemplateId: 'wt-pitch-stuck'
+      }),
+      fault({
+        id: 'gust_step', family: 'gust_step', label: '阵风阶跃（风速增幅）', shortLabel: '阵风阶跃',
+        target: 'rotor',
+        description: '有效真实风速阶跃上升（物理输入，与控制模式无关）；默认参数跨额定区——功率封顶、转速锚定、桨距吸收。',
+        params: [{ key: 'magnitude', label: '阵风增幅', unit: 'm/s', min: 1.0, max: 3.0, step: 0.5, default: 2.0, precision: 1, help: '有效真实风速阶跃上升，两模式同生效；默认参数跨额定区——功率封顶 15 kW、转速锚定、桨距吸收（β 0→1.73°）' }],
+        defaultTime_s: 20, timeRange: [2, 55],
+        closedLoopEffect: '物理输入，与控制模式无关：亚额定段（gust +1.0，v=10 < v_rated）MPPT 新最优点 P_wt→13.72 kW、β 恒 0、d_wt 归零；跨额定段（默认 +2.0，v=11）P_ref 封顶 15 kW、转速锚定 212.3 rpm（ω_N 邻域）、桨距吸收 β 0→1.73°、d_wt 稳态 −3.26 kW（封顶工况合法残差）',
+        monitorEffect: '同闭环（物理输入，逐位同解——WT001_G2B_SPEC_APPROVED §3.3 复算实证）',
+        causalTemplateId: 'wt-gust-step'
+      })
+    ],
+    model: {
+      model_id: 'wt.aero.l0b',
+      model_version: '1.0.0',
+      assumptions: [
+        { id: 'A-wt-ideal-bus', text: '母线 400 V 等效理想，无电压/频率动态、无功与网损；等效母线是功率平衡抽象，不是电网模型。' },
+        { id: 'A-wt-cp-empirical', text: 'Cp 为经验解析式（c₁…c₆ 教学惯例参数组），非实测、非设备辨识；λ_opt/Cp_max 由数值最大化求得，按 15 位有效数字作登记可达精度登记（非闭式可复现值）。' },
+        { id: 'A-wt-single-mass', text: '传动链为单质量刚性轴集总（直驱教学等效，无变速箱、无轴系扭转模态）；J = 300 kg·m² 为教学整定等效值（假设非实测参数）。' },
+        { id: 'A-wt-mppt-omega', text: 'MPPT 为最优增益律 P_ref = k_opt·ω³（转速反馈，真实机组惯例的教学化）；不建模 I-V/工作点类约束面（变流器按受控功率源建模，可用功率保护钳位见 A-wt-guard）。' },
+        { id: 'A-wt-guard', text: '可用风功率保护钳位 P_v_cap = k_v·v_ctrl³（k_v 即理论最优曲线系数，γ ≡ 1）为防失速守卫：仅在转速低于最优点（λ < λ_opt）时绑定；风速传感器偏置经该钳位进入闭环（低估收紧、高估松开——单向性见规格 §3.5 角点）。' },
+        { id: 'A-wt-pitch-pro', text: '桨距为比例转速调节（β_ref = K_β·(ω−ω_N)，K_β = 3.0 °/(rad/s) 教学整定）+ 执行器一阶跟踪（τ_β = 0.5 s）；无积分抗饱和、无死区、无独立变桨（统一桨距角）。' },
+        { id: 'A-wt-ideal-converter', text: '全功率变流器理想：P_wt 以 τ_e = 1.0 s 一阶跟随目标，无开关动态、无效率曲线、无无功/穿越控制；额定封顶 P_rated = 15 kW 为模型结构设定。' },
+        { id: 'A-wt-ideal-feeder', text: '电网馈线为理想双向平衡源：P_grid = P_load − P_wt，瞬时补差，无爬坡限制、无额定约束、无倒送约束。' },
+        { id: 'A-wt-const-load', text: '负载恒定 30 kW；WT-001 无 load_step 族（不可调度电源的教学对照面，A-pv-const-load 同构）。' },
+        { id: 'A-wt-est-channel', text: 'P_wt,est 为 EMS 级风速折算估计，恒用测量风速 v_est = v_true + b(t)（不随运行模式切换）；d_wt 是测量链一致性的代数恒等，不是能量损失。' },
+        { id: 'A-wt-l0b', text: '变桨与功率控制为行为级闭环，不是经过验证的设备控制器。' }
+      ],
+      limitations: [
+        '尾流与塔影效应、风剪切与空间平均未建模（风速为单点等效输入，anemometer 与风轮同位置等效）；湍流场与随机风未建模（仅阶跃阵风，无连续气象动态）。',
+        '气弹耦合与疲劳载荷未建模（叶片柔性、振动模态、寿命面）。',
+        '传动链柔性（单质量刚性轴集总）、变速箱（直驱教学等效）、轴承摩擦与效率未建模（无独立机械效率项——气动→电功率链无集总 η，P_wt 由扭矩平衡直接给出）。',
+        '偏航系统与对风误差、机舱动态未建模。',
+        '发电机电磁暂态、变流器开关动态与效率曲线、无功/电压控制、故障穿越（LVRT/HVRT）未建模。',
+        '保护系统未建模：超速保护、桨距限速保护、cut-in/cut-out 切入切出（注册域 v ∈ [3,13] m/s 内不触发，未建模）、结冰与气象保护。',
+        '转速传感器通道理想化（ω 反馈无偏置族——转速传感器偏置教学点由 GT-001 承载，WT-001 不重复，scope 纪律）。',
+        '倒送域（load < P_wt 时 P_grid < 0）为理想双向馈线的合法工作区，不建模倒送约束（PV-001 同款）。',
+        'normalizeConfig 无跨参数校验（FL-001 同款先例），手拼配置可致 v_ctrl < 0 或 ω 越有效性域下界（负 λ/停机发散）——钳位方案为实现期决策点 WT-IMP-Q1（engine 侧钳位 or UI 联动校验，二选一须记录，PV-IMP-Q1 先例）。',
+        'L0b 行为级演示模型；非实测、非 Simulink、无实测对比；本模型为机械动态行为级并网演示（L0b），非机组/电网动态验证。'
+      ],
+      equations: [
+        { id: 'EQ-WT-1', latex_text: 'v_true(t) = v0 + Δv·1(t ≥ t0)（仅 gust_step）; b(t) = −B·1(t ≥ t0)（仅 v_sensor_bias，B ≥ 0 低估幅值）; v_ctrl = (monitor ∧ bias 故障) ? v_true : v_true + b(t); v_est = v_true + b(t)', note: '输入与测量/估计通道（t0 处右极限，post 采样行语义）；monitor 语义 = 偏置不进入物理回路（保护钳位改读真实风速），估计通道恒用测量' },
+        { id: 'EQ-WT-2', latex_text: 'Cp(λ,β) = c₁(c₂/λᵢ − c₃β − c₄)·e^(−c₅/λᵢ) + c₆λ; λᵢ = 1/(1/(λ+0.08β) − 0.035/(β³+1)); c₁…c₆ = 0.5176/116/0.4/5/21/0.0068; λ_opt = 8.100117280602777、Cp_max = 0.480011902827875（登记可达精度）', note: 'Cp 经验解析式（Heier/Slootweg 教学惯例参数组）——非实测、非设备辨识；λ_opt/Cp_max 由 golden-section 数值最大化求得，按 15 位有效数字作登记可达精度登记（非闭式可复现值）' },
+        { id: 'EQ-WT-3', latex_text: 'P_aero = Cp(λ,β)·½ρA·v_true³; λ = ωR/v_true', note: '风轮气动功率（ρ = 1.225 kg/m³、R、A 登记常量，规格 §1.3-a）' },
+        { id: 'EQ-WT-4', latex_text: 'P_ref = min(k_opt·ω³, P_rated, k_v·v_ctrl³); k_v = 13.717421124828531 W/(m/s)³（= 10000/729）; k_opt = 1.477220410253986 W/(rad/s)³; P_rated = 15 kW', note: '变流器目标三支路：MPPT 最优增益律（转速反馈）+ 额定封顶 + 可用风功率保护钳位（防失速守卫——亚额定左支 λ<λ_opt 时绑定）；设计点闭合 k_v·v0³ = k_opt·ω_opt³ = 10.000 kW（v0=9）；γ ≡ k_v/(Cp_max·½ρA) = 1' },
+        { id: 'EQ-WT-5', latex_text: 'β_ref = clamp(K_β·(ω − ω_N), 0, β_max); K_β = 3.0 °/(rad/s); β_max = 30°; ω_N = 21.654524572087702 rad/s（n_N = 206.785477557160 rpm）', note: '桨距比例转速调节（额定以上桨距吸收风速、转速锚定 ω_N 邻域；亚额定 ω<ω_N 时 β_ref = 0 自动退出——「桨距调转速」惯例的教学化）' },
+        { id: 'EQ-WT-6', latex_text: 'τ_e·dP_wt/dt + P_wt = P_ref, τ_e = 1.0 s, P_wt(0) = k_v·v0³; τ_β·dβ/dt + β = β_ref, τ_β = 0.5 s, β(0) = 0; 执行器激活窗内 β ≡ β_stuck（钉扎，跳过一阶跟随）', note: '变流器功率与桨距角一阶跟随（分段常值/缓变目标）；t0 后 P_wt 段内闭式精确指数（EQ-PV-4 同构）' },
+        { id: 'EQ-WT-7', latex_text: 'J·dω/dt = (P_aero − P_wt)/ω, J = 300 kg·m², ω(0) = λ_opt·v0/R', note: '传动链单质量一阶转速动态（非线性 RHS：Cp 耦合 + 1/ω 扭矩，不可手解——L0b 判据核心）；有效性域 ω ≥ 0.5·ω_opt(v0)（n ≥ 90.3 rpm）：停机/盘车工况未建模，注册域内不可达' },
+        { id: 'EQ-WT-8', latex_text: 'P_grid = P_load − P_wt,true; P_load = 30 kW; r_true ≡ 0; r_meas ≡ 0（定义恒等）; d_wt = P_wt,meas − P_wt,est = P_wt,true − k_v·v_est³', note: '理想瞬时平衡（馈线补差）与残差通道；健康测量下 d_wt ≤ 0 恒成立（Cp ≤ Cp_max），传感器偏置破坏该界（测量伪影特征）；封顶工况稳态 d_wt < 0 为合法残差（设计性偏离最优，非故障）' },
+        { id: 'EQ-WT-9', latex_text: 'E_x = ∫P_x dt（kW·s，÷3600 → kWh）; E_wt,est = ∫k_v·v_est³ dt（事件感知解析积分——v_est 分段常值）; ΔE_wt = E_wt,est − E_wt,true', note: '能量口径（本系统无 SOC——SOC_est 通道的功能位由 P_wt,est/ΔE_wt 承担，PV EQ-PV-7 同构）' }
+      ]
+    },
+    /* WT-001 无 P0 验收面（extension_preview：scope.js classify fall-through，规格 §5；
+       assertApprovedP0 对 WT 配置抛 SCOPE-E01）。acceptance 键仅登记锚点来源与
+     extension_preview 状态；验收锚点由 wt001_v1 golden 承载（WT-G2b-03 emit 冻结），
+     本键面不预填 keyValues（emit 前不落任何通过判据）。 */
+    acceptance: {
+      reference: 'WT001_G2B_SPEC_APPROVED v1.0 §3（锚点预填，终值由 wt001_v1 oracle emit 冻结，WT-G2b-03）；WT-001 为 extension_preview，无 P0 验收面',
+      exactness: 'WT-001 为扩展预览演示面：本节锚点数值仅作教学对照，不进入 P0 验收/golden 比对路径；验收锚点由 wt001_v1 golden 承载（WT-G2b-03 emit）'
+    }
+  };
+
+  /* ================================================================== */
   /* 因果模板（engine 用数值证据填充；页面只渲染 run.causal）              */
+  /* ================================================================== */
   /* layer: config = 配置事实 / mechanism = 模型机制 / observation = 数值观测 */
   /* 占位符：{t0} {mag} {unit} {sign} + engine 计算的观测事实               */
   /* ================================================================== */
@@ -7831,6 +8199,76 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       assumptions: ['A-ideal-bus', 'A-ideal-gen', 'A-l0'],
       limitations: ['不含变换器开关动态、效率曲线与保护逻辑。', '限幅为理想硬限幅，不是真实器件保护行为。', 'L0 演示模型：结论只在上述假设下成立。'],
       alternatives: [{ title: '若控制器能感知限幅并降额', text: '控制器会降低电流指令匹配实际能力，指令-实际偏差消失；本模型未建模该自适应逻辑。' }]
+    },
+    /* FL-001 thermal 轨叙事卡（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §6.4；V072 DEC-1 项 6
+       GT thermo_track 静态叙事卡先例同构，模板键名 thermal_track 沿「轨名_track」同构）。
+       定位声明：本卡是静态教学叙事面（跨深度对比卡），不是运行期故障因果模板——
+       engine.buildCausal 按 fault.family 分派模板（system.causalTemplates[family]），
+       既有 sensor_drift / actuator_fault 两模板零改动、运行期行为零变更；
+       本卡经 FL.systems.causalTemplate('FL-001', 'thermal_track') 供教学/对比面引用，
+       节点数值为 FLTH 规格 §3.1/§3.2 v1.0 口径复算预填值（终值由 fl001_v2 oracle emit
+       冻结，FLTH-G2b-03），不是经过验证的设备热学特性数字。 */
+    thermal_track: {
+      id: 'fl-thermal-compensation',
+      headline: '同一故障、两种模型深度：FL-001 L0（thermal_model=off）↔ L1-thermal（on）跨深度叙事卡（thermal_model=on 轨）',
+      mechanismSummary: '偏置 → 真实电流下降 → 焦耳热下降 → 热平衡左移：+10 A 偏置使闭环真实电流 25→15 A，热损耗 P_loss = I_true²·R_int(T_bat) 由 125 W 量级降至 45 W 量级，电池温度在短暂惯性过冲后转入降温恢复轨；热损耗由发电机补偿（模型记账口径，P_gen = P_load − P_bat + P_loss）。电气面（I/SOC/E_bat/r_meas）与 off 轨逐位同——跨深度分歧全部位于热面与损耗补偿面，是模型深度导致的表达力差异，不是精度优劣声明。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '偏置注入（两深度同一配置事实）', short: '电流通道 +10 A @ t=20 s',
+          layer: 'config', componentId: 'sensor', signalIds: ['bias_A'],
+          detail: '偏置写进电流测量通道（I_meas = I_true + b(t)）。这一步是配置事实，与 thermal_model 无关——off 轨与 on 轨的注入配置完全相同，电气面更新序也逐字相同（thermal on 不回写电气面），分歧从热面与损耗补偿面开始。'
+        },
+        {
+          id: 'n2', order: 2, title: '真实电流下降与损耗坍缩（电气面两深度同源）', short: 'I_true 25 → 15 A；焦耳热 125 → 45 W',
+          layer: 'observation', componentId: 'battery', signalIds: ['I_bat_true_A', 'P_loss_kW'],
+          detail: '闭环把真实电流从 25 A 拉向 I_ref − b = 15 A（与 off 轨逐位同）；on 轨新增的热面按 P_loss = I_true²·R_int(T_bat) 重算：t=20.0 为 0.132892 kW → 故障衰减后 t=60 为 0.047371 kW（I² 律 + 温度反馈）。off 轨无热力面（T_bat_K/P_loss_kW 全程 null）。'
+        },
+        {
+          id: 'n3', order: 3, title: '温升 → 过冲 → 降温恢复（L1 独有观测）', short: 'T_bat 304.463784 → 峰 304.639878 @22.1 s → 303.419884 K（t=60）',
+          layer: 'observation', componentId: 'battery', signalIds: ['T_bat_K'],
+          detail: 't=20.0 前健康温升轨达 304.463784 K（T 连续、事件行无跳变）；故障后电流衰减期损耗仍大于散热，温度惯性过冲至峰值 304.639878 K（t=22.1 s，+0.176 K），随后转入降温恢复：T(60) = 303.419884 K（渐近 302.862042 K）。这一整条温升/降温路径在 L0 轨完全不可见——模型深度导致的表达力差异。'
+        },
+        {
+          id: 'n4', order: 4, title: '热损耗由发电机补偿（模型记账口径）', short: 'P_gen(60) 24.000000 → 24.047371 kW',
+          layer: 'observation', componentId: 'generator', signalIds: ['P_gen_true_kW'],
+          detail: '守恒面 (a)（Q1 定案，CHG-20261107-01）：P_gen = P_load − P_bat + P_loss——损耗使电池包净馈入下降 P_loss，理想平衡源即时补齐（模型记账口径）；同故障 P_gen(60) 由 off 轨 24.000000 kW 变为 24.047371 kW，差值 = P_loss(60)。损耗同时加热电池包（EQ-FLTH-4）——「损耗不免费、有源可查、有温可测」。'
+        },
+        {
+          id: 'n5', order: 5, title: '能量账本与口径声明', short: 'E_source 0.3761111 → 0.3773898 kWh；电气面两深度逐位同',
+          layer: 'observation', componentId: 'bus', signalIds: ['r_true_kW', 'r_meas_kW'],
+          detail: 'E_loss(60) = 0.0012787 kWh、E_source = 0.3761111 → 0.3773898 kWh，恒等式 E_source + E_bat = E_load + E_loss（EQ-FLTH-9 检查式）。口径声明：①电气面（I/SOC/E_bat/r_meas）与 off 轨逐位同（热面对电气面零反馈，A-flth-no-feedback）；②max|r_meas| = 4.0 kW 是测量偏差，不是能量损失——r_meas 恒等式扩展含 −P_loss 项后 0.4·b 教学锚点在两深度保持纯净（Q3 定案）；③R0/α/C_bat/h 为教学整定值（非实测参数）。'
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '进入闭环反馈' },
+        { from: 'n2', to: 'n3', label: '热平衡左移' },
+        { from: 'n2', to: 'n4', label: '损耗补偿', dashed: true },
+        { from: 'n4', to: 'n5', label: '能量账本' },
+        { from: 'n3', to: 'n5', label: '口径与边界' }
+      ],
+      monitorNodes: [
+        {
+          id: 'm1', order: 1, title: '偏置注入（仅监测）', short: '偏置不进入物理回路',
+          layer: 'config', componentId: 'sensor', signalIds: ['bias_A'],
+          detail: '仅监测模式下偏置只污染测量通道，真实电流保持 25 A——热面与健康局（thermal on 无故障轨）逐点恒等：T_bat(60) = 309.953229 K（max|ΔT| = 0，偏置不进入物理回路的结构判据）。'
+        },
+        {
+          id: 'm2', order: 2, title: '测量面照常偏移', short: 'r_meas = +4.0 kW；P_gen(60) = 20.139754 kW',
+          layer: 'observation', componentId: 'bus', signalIds: ['r_meas_kW', 'P_gen_true_kW'],
+          detail: '测量偏差不进入物理回路，但测量面照常暴露：r_meas = +4.0 kW（0.4·b，是测量偏差，不是能量损失）；on 轨发电机出力含损耗补偿 P_gen(60) = 20.139754 kW（= 20.000 + 0.139754）。'
+        }
+      ],
+      monitorEdges: [
+        { from: 'm1', to: 'm2', label: '测量与真实分离' }
+      ],
+      assumptions: ['A-ideal-bus', 'A-ideal-gen', 'A-const-v', 'A-soc-linear', 'A-l0', 'A-fl-clamp', 'A-flth-lump', 'A-flth-params', 'A-flth-loss', 'A-flth-no-feedback', 'A-flth-stability', 'A-flth-l1'],
+      limitations: [
+        '本卡为 thermal_model=on 轨静态叙事面，不是运行期故障因果模板——运行期因果链仍按 fault.family 由既有模板分派。',
+        '引用数值为 FLTH 规格 §3.1/§3.2 v1.0 口径复算预填值（终值由 fl001_v2 oracle emit 冻结，FLTH-G2b-03）；R0/α/C_bat/h 为教学整定值，不对应任何真实电池包热特性。',
+        'thermal_model=off 轨无热力面（T_bat_K/P_loss_kW 全程 null）；跨深度对比只在 on 轨有 T_bat/P_loss 观测。',
+        '无热保护建模：load0=45 角点渐近 655.29 K 为合法演示值（thermal on 局限条目）。'
+      ],
+      alternatives: [{ title: '若切回 thermal_model=off 轨', text: '同故障电气面逐位不变（I/SOC/E_bat/r_meas 与 on 轨一致），热力面全程不可见（T_bat/P_loss null）、P_gen 无损耗补偿项（24.000000 kW）——「模型深度导致的表达力差异」，非精度优劣声明。' }]
     }
   };
 
@@ -8444,7 +8882,247 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     }
   };
 
-  var ALL = [FL001, FC001, GT001, PV001];
+  /* WT-001 因果模板三件（WT001_G2B_SPEC_APPROVED v1.0 §6.4；engine.buildCausal 按
+     fault.family 分派——键面 = family 名，id = causalTemplateId）。
+     占位符契约（engine.buildCausalFacts WT-001 分支，L3 接线）：{t0} {mag} {unit} {sign}
+     {faultLabel} {targetComponent} 为通用事实；WT 专属 = v_true_pre/v_true_post、
+     v_meas_pre/v_meas_post、P_ref_pre/P_ref_post、P_wt_pre/P_wt_60、P_grid_pre/P_grid_60、
+     P_load_pre/P_load_post/P_load_60、n_rotor_pre/n_rotor_60、beta_pre/beta_60、beta_stuck、
+     lambda_60、cp_60、d_wt_peak、d_wt_60、r_true_max、r_meas_max、E_wt、E_wt_est、E_wt_err
+     （PV-001 分支同构取数：series 采样 + metrics，见交接注记）。 */
+  WT001.causalTemplates = {
+    sensor_drift: {
+      id: 'wt-sensor-drift',
+      headline: 't={t0} s，{faultLabel}：{mag} {unit} 低估注入风速测量通道',
+      /* 核心教学点（§6.4）：闭环把低估故障吸收进自洽——保护钳位使真实出力恒等于被低估的
+         估计值，d_wt 瞬态后归零；r_meas ≡ 0（全功率通道健康）与 FL-001 的 +4 kW 对照；
+         转速上升 + 桨距介入为机械动态环节（PV 无此环节）。 */
+      mechanismSummary: '偏置污染风速测量通道 → 可用功率保护钳位按低估风速收紧 → 变流器目标功率被压低 → 真实出力 τ=1.0 s 跟随下行 → 转速上升、桨距介入（机械动态环节，PV 无此环节）→ 馈线补差增加。闭环把低估故障吸收进自洽：一致性残差 d_wt 瞬态 +{d_wt_peak} kW 后稳态归零（真实出力恒等于被低估的估计值）；r_meas ≡ 0 与 FL-001 传感器偏置的 +4 kW 测量残差形成教学对照。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '低估偏置注入', short: '风速偏置 −{mag} {unit}',
+          layer: 'config', componentId: 'anemometer', signalIds: ['bias_ms'],
+          detail: '因为 {t0} s 在{targetComponent}的测量通道注入了 {mag} {unit} 低估阶跃偏置（b(t) = −{mag}，{t0} s 前为 0），所以测量风速的生成规则变为 v_ctrl = v_true + b(t)。这是配置定义的故障事实，不是测量噪声，也不是模型推断。',
+          evidence: [{ varId: 'bias_ms', tStartOffset: -0.1, tEndOffset: 0.1, note: '事件前 b(t)=0，{t0} s 起 b(t)=−{mag} {unit}' }]
+        },
+        {
+          id: 'n2', order: 2, title: '测量风速下降', short: 'v_meas {v_meas_pre} → {v_meas_post} m/s',
+          layer: 'observation', componentId: 'anemometer', signalIds: ['v_meas_ms', 'v_true_ms'],
+          detail: '因为偏置直接叠加在测量通道上，所以控制面读数在 {t0} s 由 {v_meas_pre} m/s 跳到 {v_meas_post} m/s；真实风速 v_true 仍为 {v_true_post} m/s。EMS 估计通道恒用被低估的测量值（v_est = v_true + b(t)，不随运行模式切换）。',
+          evidence: [{ varId: 'v_meas_ms', tStartOffset: -0.1, tEndOffset: 0.1, note: '19.9 s {v_meas_pre} m/s → 20.0 s {v_meas_post} m/s' }]
+        },
+        {
+          id: 'n3', order: 3, title: '可用功率保护钳位收紧', short: 'P_v_cap 10.00 → {P_ref_post} kW',
+          layer: 'mechanism', componentId: 'converter', signalIds: ['P_wt_ref_kW'],
+          detail: '因为可用功率保护钳位 P_v_cap = k_v·v_ctrl³ 为防失速守卫（EQ-WT-4 第三支路），低估使钳位由 k_v·9³ = 10.00 kW 收紧到 {P_ref_post} kW，变流器目标功率 P_ref = min(k_opt·ω³, P_rated, k_v·v_ctrl³) 改由钳位支路绑定。',
+          evidence: [{ varId: 'P_wt_ref_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '目标功率保持 {P_ref_post} kW（钳位支路绑定），被污染的是风速输入通道' }]
+        },
+        {
+          id: 'n4', order: 4, title: '真实出力跟随下行', short: 'P_wt {P_wt_pre} → {P_wt_60} kW',
+          layer: 'observation', componentId: 'converter', signalIds: ['P_wt_true_kW'],
+          detail: '因为 P_wt 按受控功率源以 τ_e = 1.0 s 一阶跟随被压低的目标，所以真实出力从 {P_wt_pre} kW 降到 {P_wt_60} kW——恰等于被低估的估计值（闭环把测量故障吸收进自洽）。',
+          evidence: [{ varId: 'P_wt_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障时刻后真实出力一阶下行：20.0 s {P_wt_pre} kW → 60.0 s {P_wt_60} kW' }]
+        },
+        {
+          id: 'n5', order: 5, title: '转速上升、桨距介入（机械动态节点）', short: 'n {n_rotor_pre} → {n_rotor_60} rpm，β → {beta_60}°',
+          layer: 'observation', componentId: 'rotor', signalIds: ['n_rotor_rpm', 'beta_pitch_deg', 'lambda_tip'],
+          detail: '因为气动功率未变而出力被压低，净扭矩转正、转速由 {n_rotor_pre} rpm 升至 {n_rotor_60} rpm；ω 越过 ω_N 后桨距比例调节介入（β → {beta_60}°），λ 右支偏移至 {lambda_60}。环境变化在 PV 是解析映射，在 WT 要经过惯性与工作点漂移。',
+          evidence: [{ varId: 'n_rotor_rpm', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s {n_rotor_pre} rpm → 60.0 s {n_rotor_60} rpm（桨距随即介入）' }]
+        },
+        {
+          id: 'n6', order: 6, title: '馈线补差增加', short: 'P_grid {P_grid_pre} → {P_grid_60} kW',
+          layer: 'observation', componentId: 'grid', signalIds: ['P_grid_true_kW'],
+          detail: '因为负载恒定 {P_load_60} kW 且风电机组少发了功率，所以理想馈线的补差功率由 {P_grid_pre} kW 升到 {P_grid_60} kW（受电为正，瞬时补差）。',
+          evidence: [{ varId: 'P_grid_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s {P_grid_pre} kW → 60.0 s {P_grid_60} kW' }]
+        },
+        {
+          /* ⑦ 一致性残差：代数恒等（§6.4 / UI_COPY_GUARDRAILS 口径）。
+             d_wt 是测量链一致性的代数恒等，不是能量损失，也不是 ⑥ 的结果。 */
+          id: 'n7', order: 7, title: '最优曲线一致性残差', short: 'd_wt 瞬态 +{d_wt_peak} kW → 稳态 {d_wt_60} kW；r_meas = {r_meas_max}',
+          layer: 'observation', componentId: 'bus', signalIds: ['d_wt_kW', 'r_true_kW', 'r_meas_kW'],
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: 'd_wt = P_wt,meas − P_wt,est = P_wt,true − k_v·v_est³（代数恒等，不是能量损失）。估计通道按瞬时跳变、真实出力按 τ = 1.0 s 滞后，故 {t0} s 处 d_wt = +{d_wt_peak} kW，随后随真实出力压低到被低估的估计值而稳态归零（{d_wt_60} kW）——闭环把测量故障吸收进自洽。r_meas ≡ {r_meas_max}：全部功率测量通道健康，与 FL-001 传感器偏置的 +4 kW 测量残差形成教学对照；r_true ≡ {r_true_max}。能量账本：E_wt = {E_wt} kWh、E_wt,est = {E_wt_est} kWh、ΔE_wt = {E_wt_err} kWh（估计偏少）。',
+          evidence: [{ varId: 'd_wt_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障后 d_wt 从 +{d_wt_peak} kW 指数回归 0（稳态自洽）' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '注入测量通道' },
+        { from: 'n2', to: 'n3', label: '进入保护钳位' },
+        { from: 'n3', to: 'n4', label: '目标功率压低' },
+        { from: 'n4', to: 'n5', label: '净扭矩转正' },
+        { from: 'n5', to: 'n6', label: '馈线补差变化' },
+        { from: 'n2', to: 'n7', label: '测量通道偏差的代数当量', dashed: true }
+      ],
+      monitorNodes: [
+        {
+          id: 'm1', order: 1, title: '低估偏置注入（仅监测）', short: '风速偏置 −{mag} {unit}',
+          layer: 'config', componentId: 'anemometer', signalIds: ['bias_ms'],
+          detail: '因为 {t0} s 在{targetComponent}的测量通道注入了 {mag} {unit} 低估阶跃偏置，所以测量风速跳低 {mag} {unit}。本次运行是仅监测模式：偏置不进入物理回路，保护钳位改读真实风速。',
+          evidence: [{ varId: 'bias_ms', tStartOffset: -0.1, tEndOffset: 0.1, note: '事件前 b(t)=0，{t0} s 起 b(t)=−{mag} {unit}' }]
+        },
+        {
+          id: 'm2', order: 2, title: '真实出力不变', short: 'P_wt ≡ {P_wt_pre} kW（钳位松开）',
+          layer: 'mechanism', componentId: 'converter', signalIds: ['P_wt_true_kW'],
+          detail: '因为仅监测模式下保护钳位改读真实风速（钳位松开），所以真实出力保持 {P_wt_pre} kW、转速保持 {n_rotor_pre} rpm；故障只改变测量与估计，不改变物理状态。',
+          evidence: [{ varId: 'P_wt_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障期间真实出力保持 {P_wt_pre} kW' }]
+        },
+        {
+          id: 'm3', order: 3, title: '一致性残差持续暴露', short: 'd_wt ≡ +{d_wt_peak} kW',
+          layer: 'observation', componentId: 'bus', signalIds: ['d_wt_kW'],
+          detail: '因为估计通道恒用测量风速（不随运行模式切换），所以 d_wt = P_wt,true − k_v·v_est³ 在故障期间恒为 +{d_wt_peak} kW（界破坏特征，不归零）——健康测量下 d_wt ≤ 0 的界被测量伪影破坏，特征本身即检出依据；与闭环稳态归零形成对照。',
+          evidence: [{ varId: 'd_wt_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障期间 d_wt 恒为 +{d_wt_peak} kW' }]
+        },
+        {
+          id: 'm4', order: 4, title: '估计电能偏少', short: 'ΔE_wt = {E_wt_err} kWh',
+          layer: 'observation', componentId: 'converter', signalIds: ['P_wt_est_kW'],
+          detail: '因为估计按被低估的测量风速折算，所以 E_wt,est = {E_wt_est} kWh 低于真实 E_wt = {E_wt} kWh，ΔE_wt = {E_wt_err} kWh（估计偏少）；本系统无 SOC，SOC_est 通道的功能位由 P_wt,est/ΔE_wt 承担，真实电能与无故障基准相同。',
+          evidence: [{ varId: 'P_wt_est_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '估计功率阶跃后保持低位，与真实出力分离' }]
+        },
+        {
+          id: 'm5', order: 5, title: '馈线不变', short: 'P_grid ≡ {P_grid_pre} kW',
+          layer: 'observation', componentId: 'grid', signalIds: ['P_grid_true_kW'],
+          detail: '因为真实出力不变，所以馈线补差保持 {P_grid_pre} kW；测量面（v_meas、P_wt,est、d_wt）持续暴露低估偏置。',
+          evidence: [{ varId: 'P_grid_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障期间馈线功率保持 {P_grid_pre} kW' }]
+        }
+      ],
+      monitorEdges: [
+        { from: 'm1', to: 'm2', label: '不进入物理回路' },
+        { from: 'm1', to: 'm3', label: '估计通道读测量值' },
+        { from: 'm2', to: 'm4', label: '真实能量不变，仅估计偏移' },
+        { from: 'm1', to: 'm5', label: '测量与真实分离' }
+      ],
+      assumptions: ['A-wt-ideal-bus', 'A-wt-guard', 'A-wt-mppt-omega', 'A-wt-est-channel', 'A-wt-ideal-feeder', 'A-wt-const-load', 'A-wt-l0b'],
+      limitations: ['τ_e = 1.0 s 为行为级等效时间常数，非实测参数。', '风速传感器偏置经保护钳位与估计通道进入闭环（单向性：低估压低真实出力、高估零真实效应）。', 'L0b 演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若为仅监测模式', text: '偏置不进入物理回路（保护钳位改读真实风速），真实出力保持 10 kW，只有测量风速、估计功率与 d_wt ≡ +2.98 kW 持续暴露（界破坏特征）；ΔE_wt = −0.0331 kWh（估计偏少）。' }]
+    },
+    actuator_fault: {
+      id: 'wt-pitch-stuck',
+      headline: 't={t0} s，{faultLabel}：变桨卡涩钉扎于 β_stuck = {beta_stuck}°',
+      mechanismSummary: '变桨执行器位置强制钉扎（物理执行器故障，两模式同生效）→ 桨距角 β 0→{beta_stuck}° → Cp(λ,β) 骤降 → 气动功率坍缩 → 净扭矩为负、转速沿 MPPT 曲线下行 → 真实出力降至左支平衡 → 馈线补差上升。d_wt 持续 {d_wt_60} kW 不归零（运行点偏离最优曲线的故障特征——与 sensor_drift 闭环归零对照）。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '卡涩注入（位置强制）', short: 'β_stuck = {beta_stuck}°',
+          layer: 'config', componentId: 'pitch_act', signalIds: ['beta_stuck_deg'],
+          detail: '因为 {t0} s 变桨执行器卡涩于 β_stuck = 30° × {mag}% = {beta_stuck}° 偏转位置（位置强制语义），所以执行器激活窗内实际桨距角被钉扎：β ≡ β_stuck（跳过一阶跟随）。这是配置定义的故障事实；事件域信号自 t_start 生效，状态行取子步起点 pre 值。',
+          evidence: [{ varId: 'beta_stuck_deg', tStartOffset: -0.1, tEndOffset: 0.1, note: '{t0} s 前无钉扎值（null），之后 β_stuck = {beta_stuck}°' }]
+        },
+        {
+          id: 'n2', order: 2, title: '两模式同生效', short: '物理执行器故障：闭环与仅监测同',
+          layer: 'mechanism', componentId: 'pitch_act', signalIds: ['beta_pitch_deg', 'beta_cmd_deg'],
+          detail: '因为卡涩作用于物理执行器而非测量或指令通道，所以两种运行模式下物理过程相同；亚额定工况桨距指令 β_ref = 0，限幅式卡涩将是 no-op——本族因此采用位置强制语义（Q2 定案）。',
+          evidence: [{ varId: 'beta_pitch_deg', tStartOffset: -0.1, tEndOffset: 0.1, note: '实际桨距角钉扎于 {beta_stuck}°（与指令无关）' }]
+        },
+        {
+          id: 'n3', order: 3, title: 'Cp 骤降（气动效率坍缩）', short: 'cp 0.480 → {cp_60}（λ 左支 {lambda_60}）',
+          layer: 'mechanism', componentId: 'rotor', signalIds: ['cp_coeff', 'lambda_tip'],
+          detail: '因为桨距角 β = {beta_stuck}° 进入 Cp(λ,β) 经验式（EQ-WT-2/3），所以风能利用系数由最优值 0.480 骤降至 {cp_60}，气动功率沿 λ 左支坍缩。',
+          evidence: [{ varId: 'cp_coeff', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障后 Cp 骤降并稳定在左支平衡值附近' }]
+        },
+        {
+          id: 'n4', order: 4, title: '净扭矩为负、转速下行', short: 'n {n_rotor_pre} → {n_rotor_60} rpm',
+          layer: 'observation', componentId: 'rotor', signalIds: ['n_rotor_rpm', 'P_aero_kW'],
+          detail: '因为气动功率坍缩而电功率尚未跟上，净扭矩为负（J·dω/dt = (P_aero − P_wt)/ω），所以转速由 {n_rotor_pre} rpm 下行至 {n_rotor_60} rpm。',
+          evidence: [{ varId: 'n_rotor_rpm', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s {n_rotor_pre} rpm → 60.0 s {n_rotor_60} rpm' }]
+        },
+        {
+          id: 'n5', order: 5, title: 'MPPT 曲线跟随', short: 'P_wt {P_wt_pre} → {P_wt_60} kW',
+          layer: 'observation', componentId: 'converter', signalIds: ['P_wt_true_kW'],
+          detail: '因为转速沿 MPPT 最优曲线下行（k_opt·ω³ 支路绑定），所以真实出力从 {P_wt_pre} kW 降至 {P_wt_60} kW（左支平衡）。',
+          evidence: [{ varId: 'P_wt_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障时刻后真实出力一阶下行：20.0 s {P_wt_pre} kW → 60.0 s {P_wt_60} kW' }]
+        },
+        {
+          id: 'n6', order: 6, title: '馈线补差上升', short: 'P_grid {P_grid_pre} → {P_grid_60} kW',
+          layer: 'observation', componentId: 'grid', signalIds: ['P_grid_true_kW'],
+          detail: '因为负载恒定 {P_load_60} kW 且风电机组少发了功率，所以理想馈线的补差功率由 {P_grid_pre} kW 升到 {P_grid_60} kW（受电为正，瞬时补差）。',
+          evidence: [{ varId: 'P_grid_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s {P_grid_pre} kW → 60.0 s {P_grid_60} kW' }]
+        },
+        {
+          id: 'n7', order: 7, title: '偏离最优曲线的故障特征', short: 'd_wt 持续 {d_wt_60} kW；r_true/r_meas ≡ 0',
+          layer: 'observation', componentId: 'bus', signalIds: ['d_wt_kW', 'r_true_kW', 'r_meas_kW'],
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: 'd_wt = P_wt,true − k_v·v_est³（代数恒等，不是能量损失）：卡涩使运行点持续偏离最优曲线，d_wt 稳态 {d_wt_60} kW 不归零——与 sensor_drift 闭环归零（被吸收进自洽）形成对照。r_true ≡ {r_true_max}、r_meas ≡ {r_meas_max}（全功率测量通道健康）。',
+          evidence: [{ varId: 'd_wt_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障后 d_wt 持续为 {d_wt_60} kW（不归零）' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '位置强制' },
+        { from: 'n2', to: 'n3', label: '桨距角钉扎' },
+        { from: 'n3', to: 'n4', label: '气动功率坍缩' },
+        { from: 'n4', to: 'n5', label: 'MPPT 曲线跟随' },
+        { from: 'n5', to: 'n6', label: '馈线补差变化' },
+        { from: 'n3', to: 'n7', label: '偏离最优曲线', dashed: true }
+      ],
+      assumptions: ['A-wt-pitch-pro', 'A-wt-cp-empirical', 'A-wt-single-mass', 'A-wt-mppt-omega', 'A-wt-ideal-feeder', 'A-wt-l0b'],
+      limitations: ['卡涩为位置强制钉扎（非指令限幅）：执行器激活窗内 β ≡ β_stuck。', 'τ_β = 0.5 s 为行为级等效时间常数，非实测参数。', 'L0b 演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若为指令限幅式卡涩', text: '亚额定工况桨距指令为零，限幅式卡涩将是 no-op（故障零效果）——本族因此采用位置强制语义（WT-DRAFT-Q2 定案）。' }]
+    },
+    gust_step: {
+      id: 'wt-gust-step',
+      headline: 't={t0} s，{faultLabel}：有效真实风速阶跃 +{mag} {unit}',
+      mechanismSummary: '阵风是物理输入阶跃，与控制模式无关（两模式同解）：有效风速 v0 → v0+{mag} → MPPT 支路爬升或额定封顶 → 转速锚定 ω_N 邻域（跨额定区）→ 桨距吸收 → 馈线补差下降。d_wt 稳态 {d_wt_60} kW 为封顶工况合法残差——设计性偏离最优与故障性偏离的判读教学点。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '阵风注入', short: 'v_true {v_true_pre} → {v_true_post} m/s',
+          layer: 'config', componentId: 'rotor', signalIds: ['v_true_ms'],
+          detail: '因为 {t0} s 有效真实风速从 {v_true_pre} m/s 阶跃上升 {mag} {unit} 到 {v_true_post} m/s（物理输入，与控制模式无关），所以风轮的气动输入发生阶跃。这是配置定义的物理输入事实。',
+          evidence: [{ varId: 'v_true_ms', tStartOffset: -0.1, tEndOffset: 0.1, note: '19.9 s {v_true_pre} m/s → 20.0 s {v_true_post} m/s' }]
+        },
+        {
+          id: 'n2', order: 2, title: '两模式同解', short: '物理输入：闭环与仅监测同解',
+          layer: 'mechanism', componentId: 'rotor', signalIds: ['P_aero_kW'],
+          detail: '因为阵风作用于物理输入而非测量通道，所以两种运行模式下物理过程完全相同（复算实证全序列最大差 0）；气动功率随 v³ 抬升。',
+          evidence: [{ varId: 'P_aero_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: '气动功率随有效风速同步阶跃' }]
+        },
+        {
+          id: 'n3', order: 3, title: 'MPPT 爬升与额定封顶', short: 'P_ref → {P_ref_post} kW（封顶支路）',
+          layer: 'mechanism', componentId: 'converter', signalIds: ['P_wt_ref_kW'],
+          detail: '因为 P_ref = min(k_opt·ω³, P_rated, k_v·v_ctrl³)（EQ-WT-4），所以亚额定段（gust +1.0）按 MPPT 支路爬向新最优点、跨额定段（默认 +2.0，v=11）由 P_rated = 15 kW 支路封顶。',
+          evidence: [{ varId: 'P_wt_ref_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '目标功率爬升后封顶（跨额定段）' }]
+        },
+        {
+          id: 'n4', order: 4, title: '转速锚定', short: 'n {n_rotor_pre} → {n_rotor_60} rpm',
+          layer: 'observation', componentId: 'rotor', signalIds: ['n_rotor_rpm'],
+          detail: '因为额定区桨距调节把转速锚定在 ω_N 邻域（「桨距调转速」惯例的教学化），所以转速由 {n_rotor_pre} rpm 收敛到 {n_rotor_60} rpm。',
+          evidence: [{ varId: 'n_rotor_rpm', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s {n_rotor_pre} rpm → 60.0 s {n_rotor_60} rpm（ω_N 邻域）' }]
+        },
+        {
+          id: 'n5', order: 5, title: '桨距吸收', short: 'β 0 → {beta_60}°',
+          layer: 'observation', componentId: 'pitch_act', signalIds: ['beta_pitch_deg'],
+          detail: '因为额定以上功率过剩须由桨距吸收（β_ref = K_β·(ω − ω_N)），所以桨距角由 0° 一阶升至 {beta_60}°（β_max = 30° 内，钳位不活跃）。',
+          evidence: [{ varId: 'beta_pitch_deg', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障后桨距角一阶上升至 {beta_60}°' }]
+        },
+        {
+          id: 'n6', order: 6, title: '馈线补差下降', short: 'P_grid {P_grid_pre} → {P_grid_60} kW',
+          layer: 'observation', componentId: 'grid', signalIds: ['P_grid_true_kW'],
+          detail: '因为负载恒定 {P_load_60} kW 且风电机组多发了功率，所以理想馈线的补差功率由 {P_grid_pre} kW 降到 {P_grid_60} kW（受电为正，瞬时补差）。',
+          evidence: [{ varId: 'P_grid_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s {P_grid_pre} kW → 60.0 s {P_grid_60} kW' }]
+        },
+        {
+          id: 'n7', order: 7, title: '封顶工况合法残差', short: 'd_wt 稳态 {d_wt_60} kW；r_true ≡ {r_true_max}',
+          layer: 'observation', componentId: 'bus', signalIds: ['d_wt_kW', 'r_true_kW', 'r_meas_kW'],
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: 'd_wt = P_wt,true − k_v·v_est³（代数恒等，不是能量损失）：封顶工况稳态 {d_wt_60} kW 为设计性偏离最优的合法残差（非故障）——残差判读三分法：d_wt = 0（最优）/ 负（偏离最优：故障或封顶）/ 正（测量伪影）。r_true ≡ {r_true_max}、r_meas ≡ {r_meas_max}。',
+          evidence: [{ varId: 'd_wt_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '故障后 d_wt 瞬态 {d_wt_peak} kW 后稳定在 {d_wt_60} kW（封顶合法残差）' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '物理输入阶跃' },
+        { from: 'n2', to: 'n3', label: '目标支路切换' },
+        { from: 'n3', to: 'n4', label: '转速锚定' },
+        { from: 'n4', to: 'n5', label: '桨距吸收' },
+        { from: 'n5', to: 'n6', label: '馈线补差变化' },
+        { from: 'n3', to: 'n7', label: '封顶工况残差', dashed: true }
+      ],
+      assumptions: ['A-wt-mppt-omega', 'A-wt-guard', 'A-wt-pitch-pro', 'A-wt-ideal-converter', 'A-wt-single-mass', 'A-wt-const-load', 'A-wt-l0b'],
+      limitations: ['阵风为有效真实风速阶跃（无湍流场与连续气象动态）。', '注册域内 cut-in/cut-out 与超速保护不触发、未建模。', 'L0b 演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若阵风仅进入测量通道', text: '那将成为 v_sensor_bias 类故障：低估压低真实出力、高估零真实效应（保护钳位通道单向性）——与本物理输入阶跃（两模式同解）形成教学对照。' }]
+    }
+  };
+
+  var ALL = [FL001, FC001, GT001, PV001, WT001];
   var BY_ID = {};
   ALL.forEach(function (s) { BY_ID[s.id] = s; });
 
@@ -8529,6 +9207,9 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     };
     /* A-1：声明了惯性双轨的系统（GT-001）携带默认轨；未声明的系统不产生该字段 */
     if (s.defaults.inertia_model) cfg.inertia_model = s.defaults.inertia_model;
+    /* FLTH-G2b-04（FLTH §2.0）：声明了 thermal_model 的系统（FL-001，默认 off）同构盖章；
+       未声明的系统不产生该字段。engine validate 侧枚举守卫同构（engine.js thermal_model 分支）。 */
+    if (s.defaults.thermal_model) cfg.thermal_model = s.defaults.thermal_model;
     return cfg;
   }
 
@@ -8920,6 +9601,13 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     if (system.defaults && system.defaults.inertia_model && !out.inertia_model) {
       out.inertia_model = system.defaults.inertia_model;
     }
+    /* FL-001 thermal 双轨（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0，CHG-20261107-01 批准）：
+       声明了 thermal_model 的系统补默认轨（FL-001 默认 = off，FLTH-IMP-Q3 定案维持）；
+       off 轨 cfg 值不进 scenarioView 投影/哈希（schema.js 同 inertia_model 先例），off 路径
+       仿真行为零变化。 */
+    if (system.defaults && system.defaults.thermal_model && !out.thermal_model) {
+      out.thermal_model = system.defaults.thermal_model;
+    }
 
     var dInitial = deepClone(system.defaults.initial);
     out.initial = deepMerge(dInitial, isPlainObject(out.initial) ? out.initial : {});
@@ -9029,6 +9717,14 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       }
     }
 
+    /* FL-001 thermal 双轨（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0，CHG-20261107-01 批准；
+       仅声明了 defaults.thermal_model 的系统——FL-001，枚举 off|on，默认 off） */
+    if (system.defaults && system.defaults.thermal_model) {
+      if (config.thermal_model !== 'off' && config.thermal_model !== 'on') {
+        push('thermal_model', '必须为 off / on（当前 ' + String(config.thermal_model) + '）');
+      }
+    }
+
     var durForFault = (typeof duration === 'number' && isFinite(duration)) ? duration : system.duration_s;
 
     /* 故障 */
@@ -9042,6 +9738,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       /* PV-001 新轨（PV001_G2B_SPEC_APPROVED v1.0 §2）：shading_step 为 PV 专属物理输入族，
          按系统显式追加；FL/FC/GT 的家族分派面零改动 */
       if (system.id === 'PV-001') allowed = allowed.concat(['shading_step']);
+      /* WT-001 新轨（WT001_G2B_SPEC_APPROVED v1.0 §2.3，CHG-20261107-01 批准）：gust_step 为
+         WT 专属物理输入族（阵风阶跃——环境输入侧上行阶跃，不复用 load_step/shading_step），
+         按系统显式追加；FL/FC/GT/PV 的家族分派面零改动 */
+      if (system.id === 'WT-001') allowed = allowed.concat(['gust_step']);
       if (allowed.indexOf(fcfg.family) === -1) {
         push('fault.family', '必须为 none / sensor_drift / load_step / actuator_fault（当前 ' + String(fcfg.family) + '）');
       } else {
@@ -9126,6 +9826,15 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         if (typeof g0Init !== 'number' || !isFinite(g0Init)) push('initial.G0_W_m2', '必须是数字（单位 W/m²）');
         else if (g0Init < bounds.G0_W_m2.min - 1e-9 || g0Init > bounds.G0_W_m2.max + 1e-9) {
           push('initial.G0_W_m2', '必须在 ' + bounds.G0_W_m2.min + '–' + bounds.G0_W_m2.max + ' W/m² 之间（收到 ' + g0Init + '）');
+        }
+      }
+      /* WT-001 新轨：v0_ms 初始有效风速（m/s，域 [6,10]——有意封顶在 v_rated 之下，
+         健康初值全域解析，WT001_G2B_SPEC_APPROVED v1.0 §1.1） */
+      if (system.id === 'WT-001') {
+        var v0Init = init.v0_ms;
+        if (typeof v0Init !== 'number' || !isFinite(v0Init)) push('initial.v0_ms', '必须是数字（单位 m/s）');
+        else if (v0Init < bounds.v0_ms.min - 1e-9 || v0Init > bounds.v0_ms.max + 1e-9) {
+          push('initial.v0_ms', '必须在 ' + bounds.v0_ms.min + '–' + bounds.v0_ms.max + ' m/s 之间（收到 ' + v0Init + '）');
         }
       }
       /* 已知初始条件键面按 bounds 派生：FL/FC/GT 的 bounds = {load_kW, SOC_pct}，
@@ -9311,6 +10020,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
   }
 
   function simulateFL001(system, cfg, t) {
+    /* FL-001 thermal 轨分派（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0，CHG-20261107-01 批准；
+       R-8 守卫）：thermal_model = on 走 RK4 热力链 simulateFL001Thermal（§2.3 冻结更新序），
+       off 路径（plant 家族 + 内联 actuator 路径）逐字不动。 */
+    if (cfg.thermal_model === 'on') return simulateFL001Thermal(system, cfg, t);
     if (fl001PlantCapable(cfg)) return simulateFL001Plant(system, cfg, t);
     var n = t.length - 1;
     var dt = cfg.dt_s;
@@ -9388,6 +10101,145 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         E_bat_meas: intPbat + V * intB,
         intI: intI,
         intB: intB
+      }
+    };
+  }
+
+  /* ---------------- FL-001 L1 thermal 轨（电池单节点集总热模型） ----------------
+     FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2（方程/常量唯一权威文本，CHG-20261107-01 批准）
+     + §2.3（分区更新序冻结，oracle/引擎双侧复刻）。数值口径：
+     - 电气面 L0 序逐字保留（EQ-FLTH-1）：none/sensor_drift 家族走 plants/fl001.js 适配器
+       （plant.stepOf/bAt/iMeasAt 与 simulateFL001Plant 同源）、actuator_fault 走内联 foStep
+       路径（controlTarget/monitor/I_cap 语义与 simulateFL001 内联路径同构）——I 精确指数
+       子步、intI/intB 同源，thermal on 不回写电气面（§3.2 复算实证）；
+     - T_bat 经典 RK4 固定步长 h = DT_INT = 0.01（6000 子步/60 s，T-B 数值轨，不承诺跨语言
+       逐位）；RHS 内 I 冻结于子步起点值（FLTH-DRAFT-Q2 定案）；R_int(T) = R0·(1+α·(T−T_amb))
+       （EQ-FLTH-2）、P_loss = I²·R_int（EQ-FLTH-3）、C_bat·dT/dt = P_loss − h·(T−T_amb)
+       （EQ-FLTH-4，T_bat(0) = T_amb 冷启动）；常量为 §2.1 教学整定值（非实测）；
+     - E_loss 子步梯形累计（EQ-FLTH-8，FLTH-DRAFT-Q4 定案）；守恒面 (a)（FLTH-DRAFT-Q1 定案）：
+       P_gen = P_load − P_bat + P_loss（EQ-FLTH-5）、r_true/r_meas 定义恒等扩展含 −P_loss 项
+       （EQ-FLTH-6）；SOC/SOC_est/E_bat 面与 L0 record 逐字同（P_bat = 0.4·I 口径不动，
+       EQ-FLTH-7）；
+     - record(601 点)：由 (I_true, T_bat, b) 重算全部代数量；事件快照变量零扩展（维持 L0
+       变量集——T_bat 不入事件快照，§3.6 最小集声明）；t=20.0 行 T_bat = 故障前连续值、
+       I_true post 行语义与 L0 一致（§2.3 审查注记④——T 连续无跳变，偏置阶跃只作用于
+       测量通道与 target）；
+     - T_bat_K / P_loss_kW 两新信号（§1.2，全非盲显）仅 thermal on 轨填充；off 轨保持
+       makeSeries 的 null 初始化（GT 热信号 null 列先例）——engine 侧不得为 off 轨填任何值。 */
+  function simulateFL001Thermal(system, cfg, t) {
+    var n = t.length - 1;
+    var usePlant = fl001PlantCapable(cfg);
+    var plant = usePlant ? FL.core.plants.createFl001Plant(cfg) : null;
+    var V = 0.4;
+    /* §2.1 教学参数（教学整定值，非实测——60 s 窗内温升路径可见的显式缩放） */
+    var R0 = 0.2;         // 25 °C 参考内阻（Ω）
+    var ALPHA_R = 0.01;   // 内阻温度系数（1/K，正温度反馈）
+    var C_BAT = 300;      // 电池单节点集总热容（J/K）
+    var H_COOL = 10;      // 牛顿冷却系数（W/K）
+    var T_AMB = 298.15;   // 环境温度（K），T_bat(0) = T_amb
+    var family = cfg.fault.family;
+    var faulted = family !== 'none';
+    var tStart = faulted ? cfg.fault.t_start_s : null;
+    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
+    var monitor = cfg.feedback_mode === 'monitor';
+    var load0 = cfg.initial.load_kW;
+    var soc0 = cfg.initial.SOC_pct;
+    var I_ref = (load0 - 20) / V;
+    var isAct = family === 'actuator_fault';
+    var I_cap = isAct ? I_ref * magnitude / 100 : null;
+
+    /* EQ-FLTH-2/3：R_int(T) = R0·(1+α·(T−298.15))；P_loss = I²·R_int（W；kW 面 /1000） */
+    function pLossW(iA, tK) { var theta = tK - T_AMB; return iA * iA * R0 * (1 + ALPHA_R * theta); }
+    function pLossKw(iA, tK) { return pLossW(iA, tK) / 1000; }
+    /* EQ-FLTH-4 RK4 右端：dT/dt = (P_loss − h·θ)/C_bat（I 冻结于子步起点——Q2 定案） */
+    function rhsT(tK, iFroz) { return (pLossW(iFroz, tK) - H_COOL * (tK - T_AMB)) / C_BAT; }
+    /* 内联路径测量链（actuator 家族；none/sensor 家族走 plant.iMeasAt） */
+    function bAt(time) { return (family === 'sensor_drift' && tStart != null && time >= tStart - 1e-9) ? magnitude : 0; }
+
+    var series = makeSeries(system, n);
+    var I_true = usePlant ? plant.I_ref : I_ref;
+    var T_bat = T_AMB;
+    var intI = 0;
+    var intB = 0;
+    var intDemand = 0;
+    var eLoss = 0;   // ∫P_loss dt（kW·s，子步梯形——EQ-FLTH-8）
+
+    function record(k) {
+      var time = t[k];
+      var b = usePlant ? plant.bAt(time) : bAt(time);
+      var demand = load0;
+      var iTrue = I_true;
+      var iMeas = usePlant ? plant.iMeasAt(iTrue, time) : iTrue + b;
+      var pBat = V * iTrue;
+      var pBatMeas = V * iMeas;
+      var pLossKwNow = pLossKw(iTrue, T_bat);   /* 当前状态值（非累计值，§2.3 注记②） */
+      var pGen = demand - pBat + pLossKwNow;    /* EQ-FLTH-5（守恒面 (a)，Q1 定案） */
+      series.I_bat_true_A[k] = iTrue;
+      series.I_bat_meas_A[k] = iMeas;
+      series.I_ref_A[k] = I_ref;
+      series.bias_A[k] = b;
+      series.I_bat_cap_A[k] = (isAct && time >= tStart - 1e-9) ? I_cap : null;
+      series.P_bat_true_kW[k] = pBat;
+      series.P_bat_meas_kW[k] = pBatMeas;
+      series.P_gen_true_kW[k] = pGen;
+      series.P_gen_meas_kW[k] = pGen;
+      series.P_load_demand_kW[k] = demand;
+      series.P_load_served_kW[k] = demand;
+      series.V_bus_V[k] = 400;
+      series.SOC_true_pct[k] = soc0 - (V * intI) / (CAP_KWH * 3600) * 100;
+      series.SOC_est_pct[k] = soc0 - (V * intI + V * intB) / (CAP_KWH * 3600) * 100;
+      series.r_true_kW[k] = pGen + pBat - demand - pLossKwNow;     /* EQ-FLTH-6：定义恒等 ≡ 0 */
+      series.r_meas_kW[k] = pGen + pBatMeas - demand - pLossKwNow; /* EQ-FLTH-6：≡ 0.4·b（Q3） */
+      /* §1.2 两新热信号（仅 thermal on 轨填充；off 轨 null 列由 makeSeries 维持） */
+      series.T_bat_K[k] = T_bat;
+      series.P_loss_kW[k] = pLossKwNow;
+    }
+
+    record(0);
+    for (var k = 1; k <= n; k++) {
+      for (var j = 0; j < SUB; j++) {
+        var time = (k - 1) * SUB * DT_INT + j * DT_INT;
+        var b = usePlant ? plant.bAt(time) : bAt(time);
+        intDemand += load0 * DT_INT;
+        intB += b * DT_INT;
+        /* ① 电气面（L0 序保留，EQ-FLTH-1）：I_start = 子步起点值（同时是②的冻结输入） */
+        var iStart = I_true;
+        var tBat0 = T_bat;
+        var step;
+        if (usePlant) {
+          step = plant.stepOf(iStart, time, DT_INT);
+        } else {
+          var controlTarget = I_ref - (monitor ? 0 : b);
+          var target = controlTarget;
+          if (isAct && time >= tStart - 1e-9) target = Math.min(controlTarget, I_cap);
+          step = foStep(iStart, target, isAct ? 0.4 : 1.5, DT_INT);
+        }
+        I_true = step.y;
+        intI += step.integral;
+        /* ② RK4（EQ-FLTH-4；RHS 内 I 冻结于子步起点 iStart——Q2 定案） */
+        var k1 = rhsT(tBat0, iStart);
+        var k2 = rhsT(tBat0 + DT_INT / 2 * k1, iStart);
+        var k3 = rhsT(tBat0 + DT_INT / 2 * k2, iStart);
+        var k4 = rhsT(tBat0 + DT_INT * k3, iStart);
+        T_bat = tBat0 + DT_INT / 6 * (k1 + 2 * k2 + 2 * k3 + k4);
+        /* ③ E_loss 子步梯形（EQ-FLTH-8，Q4 定案）：½·(P_loss(I,T)_起点 + P_loss(I,T)_终点)·h */
+        eLoss += 0.5 * (pLossKw(iStart, tBat0) + pLossKw(I_true, T_bat)) * DT_INT;
+      }
+      record(k);
+    }
+    var intPbat = V * intI;
+    return {
+      series: series,
+      integrals: {
+        E_load: intDemand,
+        /* EQ-FLTH-8（守恒面 (a)）：E_source = E_load − E_bat + E_loss */
+        E_source: intDemand - intPbat + eLoss,
+        E_bat: intPbat,
+        E_bat_meas: intPbat + V * intB,
+        intI: intI,
+        intB: intB,
+        E_loss: eLoss   /* kW·s（EQ-FLTH-8 子步梯形损耗能量账本；E_loss 指标与 checks
+                           EQ-FLTH-9 分支按 FLTH-G2b-04 工作面承载） */
       }
     };
   }
@@ -9963,6 +10815,163 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     };
   }
 
+  /* ---------------- WT-001 风电机组（L0b · 机械动态行为级演示，单机并网等效） ----------------
+     WT001_G2B_SPEC_APPROVED v1.0 §1.3 EQ-WT-1..9（方程/常量唯一权威文本，CHG-20261107-01 批准）
+     + §1.3-b（冻结更新序，oracle/引擎双侧复刻）。数值口径：
+     - 状态 (ω, β, P_wt)；子步 h = DT_INT = 0.01（6000 子步/60 s）；事件输入（b/Δv）冻结于
+       子步起点右值（t=20 阶跃落在子步边界，无子步内间断——§1.3-b 审查注记④实现约束）；
+     - 冻结更新序（§1.3-b）：① 输入与控制面（v_true/v_ctrl/v_est/β_ref/P_ref 全用子步起点
+       右值；P_ref = min(k_opt·ω³, P_rated, k_v·v_ctrl³) 三支路 EQ-WT-4/5；v_ctrl 的 monitor
+       语义 = 偏置不进入物理回路、v_est 恒用测量 A-wt-est-channel）→ ② P_wt 精确指数 +
+       E_wt 子步解析积分（EQ-WT-6 前段）→ ③ β 精确指数、pitch_stuck 激活窗 β ≡ β_stuck 钉扎
+       （位置强制——WT-DRAFT-Q2 定案；EQ-WT-6 后段）→ ④ ω 前向 Euler（RHS 用②③后值与
+       子步起点 ω、冻结 v_true；EQ-WT-7）；
+     - 常量硬编码 §1.3-a 登记值（15 位；λ_opt/Cp_max 为数值最大化登记可达精度——不得运行内
+       重求导，批准轮 A-2 定案）；Cp 经验解析式（EQ-WT-2，教学惯例参数组，非实测、非设备
+       辨识）；运算序按方程文本，oracle 同序复刻；
+     - ω 有效性域守卫（WT-IMP-Q1 裁定：engine 侧钳位）：每子步 ω 更新后钳位至
+       ω ≥ 0.5·ω_opt(v0) = 0.5·λ_opt·v0/R——注册域内恒不触发（§3.5 最小裕度 11.5%）；手拼
+       配置越下界（停机/发散域）时钳位防 ω=0 分母奇点（EQ-WT-7）；本注释即该裁定的
+       run 元数据登记位（PV-IMP-Q1 引擎侧钳位 + 代码注释先例）；
+     - record(601 点)：状态行取子步起点值（t=20.0 行 = 状态 pre + 输入 post 右值——PV001
+       锚点口径 P_pv(20.1) = 11 − e^(−0.1) 同款）；代数量由 (ω, β, P_wt, v_true, v_ctrl,
+       v_est) 重算；beta_stuck_deg 仅 pitch_stuck 场景自 t_start 起有值（30°·magnitude%，
+       事件域信号——I_bat_cap_A 先例）；bias_ms 全程有值 0/−B；r_true/r_meas 定义恒等 ≡ 0
+       （EQ-WT-8）；E_wt,est 事件感知解析积分（v_est 分段常值，EQ-WT-9）。 */
+  function simulateWT001(system, cfg, t) {
+    var n = t.length - 1;
+    /* §1.3-a 常量表（登记值硬编码，15 位——不得运行内重求导，A-2 定案） */
+    var RHO = 1.225;                    // 空气密度（kg/m³，ISO 常温教学口径）
+    var C1 = 0.5176;                    // Cp 经验式系数组 c₁…c₆（教学惯例值，非实测）
+    var C2 = 116;
+    var C3 = 0.4;
+    var C4 = 5;
+    var C5 = 21;
+    var C6 = 0.0068;
+    var LAMBDA_OPT = 8.100117280602777; // 最优叶尖速比（数值最大化登记可达精度，非闭式可复现值）
+    var K_V = 13.717421124828531;       // 最优功率曲线系数 ≡ 可用功率钳位系数（W/(m/s)³ = 10000/729）
+    var A_ROT = 46.656738009239717;     // 风轮扫掠面积（m²，设计点导出）
+    var R_ROT = 3.853738569938033;      // 风轮半径（m，设计点导出）
+    var K_OPT = 1.477220410253986;      // MPPT 最优增益（W/(rad/s)³，设计点导出）
+    var P_RATED = 15000;                // 额定功率封顶（W）
+    var TAU_E = 1.0;                    // 变流器一阶时间常数（s）
+    var TAU_B = 0.5;                    // 变桨执行器一阶时间常数（s）
+    var J_WT = 300;                     // 传动链单质量等效惯量（kg·m²）
+    var K_BETA = 3.0;                   // 桨距比例增益（°/(rad/s)）
+    var BETA_MAX = 30;                  // 桨距上限（°，卡涩满度 β_full 同值）
+    var OMEGA_N = 21.654524572087702;   // 桨距调节转速参考（rad/s，设计点导出）
+    var family = cfg.fault.family;
+    var faulted = family !== 'none';
+    var tStart = faulted ? cfg.fault.t_start_s : null;
+    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
+    var monitor = cfg.feedback_mode === 'monitor';
+    var load0 = cfg.initial.load_kW;
+    var v0 = cfg.initial.v0_ms;
+    var isSensor = family === 'sensor_drift';       // v_sensor_bias（风速传感器偏置——低估方向）
+    var isStuck = family === 'actuator_fault';      // pitch_stuck（变桨卡涩——位置强制）
+    var isGust = family === 'gust_step';            // 阵风阶跃（物理输入）
+    var betaStuck = isStuck ? BETA_MAX * magnitude / 100 : null;   // 30°·magnitude%
+
+    /* EQ-WT-2：Cp(λ,β) = c₁(c₂/λᵢ − c₃β − c₄)·e^(−c₅/λᵢ) + c₆λ；
+       λᵢ = 1/(1/(λ+0.08β) − 0.035/(β³+1))（运算序按方程文本，oracle 同序复刻） */
+    function cpCoeff(lambda, beta) {
+      var li = 1 / (1 / (lambda + 0.08 * beta) - 0.035 / (beta * beta * beta + 1));
+      return C1 * (C2 / li - C3 * beta - C4) * Math.exp(-C5 / li) + C6 * lambda;
+    }
+    /* EQ-WT-1：输入通道（t0 处右极限，post 采样行语义，同 FL/FC/PV bAt 口径） */
+    function vTrueAt(time) { return (isGust && tStart != null && time >= tStart - 1e-9) ? v0 + magnitude : v0; }
+    function bWAt(time) { return (isSensor && tStart != null && time >= tStart - 1e-9) ? -magnitude : 0; }
+
+    var series = makeSeries(system, n);
+    var omega = LAMBDA_OPT * v0 / R_ROT;   /* EQ-WT-7：ω(0) = λ_opt·v0/R（登记值闭式，A-2②） */
+    var beta = 0;                          /* EQ-WT-6：β(0) = 0 */
+    var pWt = K_V * v0 * v0 * v0;          /* EQ-WT-6：P_wt(0) = k_v·v0³（W；v0=9 → 10 kW 设计点） */
+    var eWt = 0;        /* ∫P_wt,true dt（kW·s，② 子步解析积分） */
+    var eWtEst = 0;     /* ∫k_v·v_est³ dt（kW·s，事件感知解析积分——v_est 分段常值） */
+    var intDemand = 0;  /* ∫P_load dt（kW·s） */
+    /* ω 有效性域下界（WT-IMP-Q1）：0.5·ω_opt(v0) = 0.5·λ_opt·v0/R（登记值闭式） */
+    var omegaMin = 0.5 * LAMBDA_OPT * v0 / R_ROT;
+
+    function record(k) {
+      var time = t[k];
+      var vTrue = vTrueAt(time);
+      var bW = bWAt(time);
+      var vCtrl = (monitor && isSensor) ? vTrue : vTrue + bW;   /* EQ-WT-1 控制面 */
+      var vEst = vTrue + bW;                                    /* A-wt-est-channel：恒用测量 */
+      var lambda = omega * R_ROT / vTrue;
+      var cp = cpCoeff(lambda, beta);
+      var pWtKw = pWt / 1000;
+      var pWtEstKw = K_V * vEst * vEst * vEst / 1000;
+      var pGridKw = load0 - pWtKw;                              /* EQ-WT-8：馈线补差（受电为正） */
+      series.v_true_ms[k] = vTrue;
+      series.v_meas_ms[k] = vCtrl;      /* §1.2：v_meas_ms 承载控制面读数 v_ctrl */
+      series.bias_ms[k] = bW;
+      series.n_rotor_rpm[k] = omega * 30 / Math.PI;
+      series.lambda_tip[k] = lambda;
+      series.cp_coeff[k] = cp;
+      series.beta_pitch_deg[k] = beta;
+      series.beta_cmd_deg[k] = clamp(K_BETA * (omega - OMEGA_N), 0, BETA_MAX);   /* EQ-WT-5 */
+      series.beta_stuck_deg[k] = (isStuck && time >= tStart - 1e-9) ? betaStuck : null;
+      series.P_aero_kW[k] = cp * 0.5 * RHO * A_ROT * vTrue * vTrue * vTrue / 1000;   /* EQ-WT-3 */
+      series.P_wt_ref_kW[k] = Math.min(K_OPT * omega * omega * omega, P_RATED, K_V * vCtrl * vCtrl * vCtrl) / 1000;  /* EQ-WT-4 三支路 */
+      series.P_wt_true_kW[k] = pWtKw;
+      series.P_wt_meas_kW[k] = pWtKw;   /* 健康通道 */
+      series.P_wt_est_kW[k] = pWtEstKw;
+      series.d_wt_kW[k] = pWtKw - pWtEstKw;   /* EQ-WT-8：代数恒等（测量链一致性，不是能量损失） */
+      series.P_grid_true_kW[k] = pGridKw;
+      series.P_grid_meas_kW[k] = pGridKw; /* 健康通道 */
+      series.P_load_demand_kW[k] = load0;
+      series.P_load_served_kW[k] = load0;
+      series.V_bus_V[k] = 400;          /* MODEL_ASSUMPTION（A-wt-ideal-bus，非仿真状态） */
+      series.r_true_kW[k] = pWtKw + pGridKw - load0;   /* EQ-WT-8：定义恒等 ≡ 0 */
+      series.r_meas_kW[k] = pWtKw + pGridKw - load0;   /* EQ-WT-8：全功率通道健康 ≡ 0 */
+    }
+
+    record(0);
+    for (var k = 1; k <= n; k++) {
+      for (var j = 0; j < SUB; j++) {
+        var time = (k - 1) * SUB * DT_INT + j * DT_INT;
+        /* ① 输入与控制面（全部用子步起点右值；EQ-WT-1/4/5） */
+        var vTrue = vTrueAt(time);
+        var bW = bWAt(time);
+        var vCtrl = (monitor && isSensor) ? vTrue : vTrue + bW;
+        var vEst = vTrue + bW;
+        var betaRef = clamp(K_BETA * (omega - OMEGA_N), 0, BETA_MAX);
+        var pRef = Math.min(K_OPT * omega * omega * omega, P_RATED, K_V * vCtrl * vCtrl * vCtrl);
+        intDemand += load0 * DT_INT;
+        eWtEst += K_V * vEst * vEst * vEst * DT_INT / 1000;   /* E_wt,est（v_est 分段常值 → 精确） */
+        /* ② P_wt 精确指数（EQ-WT-6 前段）+ E_wt 子步解析积分 */
+        var pWtOld = pWt;
+        var aE = Math.exp(-DT_INT / TAU_E);
+        pWt = pRef + (pWtOld - pRef) * aE;
+        eWt += (pRef * DT_INT + (pWtOld - pRef) * TAU_E * (1 - aE)) / 1000;
+        /* ③ β 精确指数（EQ-WT-6 后段）；pitch_stuck 激活窗 β ≡ β_stuck（钉扎，位置强制——Q2） */
+        if (isStuck && tStart != null && time >= tStart - 1e-9) {
+          beta = betaStuck;
+        } else {
+          var aB = Math.exp(-DT_INT / TAU_B);
+          beta = betaRef + (beta - betaRef) * aB;
+        }
+        /* ④ ω 前向 Euler（EQ-WT-7；RHS 用②③后的 P_wt/β 与子步起点 ω、冻结 v_true） */
+        var lambda = omega * R_ROT / vTrue;
+        var pAero = cpCoeff(lambda, beta) * 0.5 * RHO * A_ROT * vTrue * vTrue * vTrue;
+        omega = omega + DT_INT * (pAero - pWt) / (J_WT * omega);
+        /* ω 有效性域守卫（WT-IMP-Q1：engine 侧钳位；注册域内恒不触发） */
+        if (omega < omegaMin) omega = omegaMin;
+      }
+      record(k);
+    }
+    return {
+      series: series,
+      integrals: {
+        E_load: intDemand,
+        E_wt_true: eWt,          /* kW·s（② 子步解析积分） */
+        E_wt_est: eWtEst,        /* kW·s（事件感知解析积分；ΔE_wt = E_est − E_true） */
+        E_grid: intDemand - eWt  /* EQ-WT-8/EQ-WT-9 定义恒等：E_wt + E_grid = E_load */
+      }
+    };
+  }
+
   /* ================================================================== */
   /* 观测噪声（仅 OBSERVATION 通道，确定性；默认关闭）                     */
   /* ================================================================== */
@@ -9985,9 +10994,14 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
 
     var k;
     if (system.id === 'FL-001') {
+      /* FL-001 thermal on（EQ-FLTH-6 定义恒等扩展，Q3 定案）：P_loss 为模型已知结构项，
+         测量链噪声 fixup 的 r_meas 同步扣 −P_loss——0.4·b 教学锚点在两深度一致；
+         off 轨不进入该分支（原逐字路径零变化）。 */
+      var thermalOn = cfg.thermal_model === 'on';
       for (k = 0; k < series.I_bat_meas_A.length; k++) {
         series.P_bat_meas_kW[k] = 0.4 * series.I_bat_meas_A[k];
         series.r_meas_kW[k] = series.P_gen_true_kW[k] + series.P_bat_meas_kW[k] - series.P_load_served_kW[k];
+        if (thermalOn) series.r_meas_kW[k] -= series.P_loss_kW[k];
       }
     } else if (system.id === 'FC-001') {
       for (k = 0; k < series.I_fc_meas_A.length; k++) {
@@ -10009,20 +11023,40 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         series.d_pv_kW[k] = series.P_pv_meas_kW[k] - series.P_pv_est_kW[k];
         series.r_meas_kW[k] = series.P_pv_meas_kW[k] + series.P_grid_meas_kW[k] - series.P_load_served_kW[k];
       }
+    } else if (system.id === 'WT-001') {
+      /* WT-001 新轨（WT001_G2B_SPEC_APPROVED v1.0 §1.2 / EQ-WT-8）：噪声开启时测量链派生量
+         随含噪测量通道重算（与 PV-001 测量链 fixup 同构；A-wt-est-channel）。估计通道恒用
+         测量风速（v_est = v_true + b，monitor 不切换）——v_meas_ms 列承载控制面读数
+         （monitor 下不含偏置），故估计通道按同一噪声实现（seed/信号 id/index 与上方加噪
+         循环一致）重算，而非读列。 */
+      var KwNoise = 13.717421124828531 / 1000;   /* EQ-WT-4 k_v（W/(m/s)³ → kW/(m/s)³） */
+      var sigmaV = (signalMeta(system, 'v_meas_ms') || {}).noiseSigma || 0;
+      for (k = 0; k < series.v_meas_ms.length; k++) {
+        var nV = sigmaV > 0 ? noise.level * sigmaV * FL.rng.noiseAt(seed, 'v_meas_ms', k) : 0;
+        var vEstN = series.v_true_ms[k] + series.bias_ms[k] + nV;
+        series.P_wt_est_kW[k] = KwNoise * vEstN * vEstN * vEstN;
+        series.d_wt_kW[k] = series.P_wt_meas_kW[k] - series.P_wt_est_kW[k];
+        series.r_meas_kW[k] = series.P_wt_meas_kW[k] + series.P_grid_meas_kW[k] - series.P_load_served_kW[k];
+      }
     }
   }
 
   /* ================================================================== */
   /* 事件 / 快照 / 真值                                                  */
   /* ================================================================== */
-  var EVENT_TYPE = { sensor_drift: 'sensor_bias', load_step: 'load_step', actuator_fault: 'actuator_limit', shading_step: 'shading_step' };
+  var EVENT_TYPE = { sensor_drift: 'sensor_bias', load_step: 'load_step', actuator_fault: 'actuator_limit', shading_step: 'shading_step', gust_step: 'gust_step' };
   var TARGET_SIGNAL = {
     'FL-001': { sensor_drift: 'bias_A', load_step: 'P_load_demand_kW', actuator_fault: 'I_bat_cap_A' },
     'FC-001': { sensor_drift: 'bias_A', load_step: 'P_load_demand_kW', actuator_fault: 'I_fc_cap_A' },
     'GT-001': { sensor_drift: 'n_meas_rpm', load_step: 'P_load_demand_kW', actuator_fault: 'P_gen_cap_kW' },
     /* PV-001 新轨（PV001_G2B_SPEC_APPROVED §2）：sensor_drift 注入点为辐照度偏置，
        shading_step 为物理输入阶跃（有效真实辐照度） */
-    'PV-001': { sensor_drift: 'bias_W_m2', shading_step: 'G_true_W_m2' }
+    'PV-001': { sensor_drift: 'bias_W_m2', shading_step: 'G_true_W_m2' },
+    /* WT-001 新轨（WT001_G2B_SPEC_APPROVED v1.0 §1.2/§2）：sensor_drift 注入点为风速测量
+       偏置（低估方向，bias_ms = −B）；pitch_stuck（actuator_fault）事件域信号为卡涩桨距角
+       （位置强制——Q2 定案，beta_stuck_deg 自 t_start 起有值）；gust_step 为物理输入阶跃
+       （有效真实风速 v_true） */
+    'WT-001': { sensor_drift: 'bias_ms', actuator_fault: 'beta_stuck_deg', gust_step: 'v_true_ms' }
   };
 
   function buildLabel(system, cfg) {
@@ -10050,15 +11084,34 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     var tStart = cfg.fault.t_start_s;
     var magText = formatAmount(cfg.fault.params.magnitude, p);
     var targetSignal = (TARGET_SIGNAL[system.id] && TARGET_SIGNAL[system.id][family]) || 'P_load_demand_kW';
+    /* WT-001 事件块按 wt001_v1 golden/oracle 通道口径（WT001_G2B_SPEC_APPROVED v1.0 §2，
+       Q2 定案）：pitch_stuck 为位置强制——event_type 用家族名 actuator_fault（非 FL/FC/GT
+       指令限幅语义 actuator_limit），幅值/单位随 target 通道量重铸 beta_stuck_deg =
+       30°·magnitude%（β_full = 30°，§1.3-a）；v_sensor_bias 幅值按通道符号 b(t) = −B
+       （低估为负）；gust_step 幅值/单位即通道量（v_true_ms，m/s）。其余系统事件面零变化
+       （FL actuator 沿参数面 magnitude/unit——fl001_v1/v2 golden 同源）。 */
+    var isWT = system.id === 'WT-001';
+    var evType = EVENT_TYPE[family] || 'fault';
+    var evMagnitude = cfg.fault.params.magnitude;
+    var evUnit = p.unit;
+    if (isWT) {
+      if (family === 'actuator_fault') {
+        evType = 'actuator_fault';
+        evMagnitude = 30 * evMagnitude / 100;
+        evUnit = '°';
+      } else if (family === 'sensor_drift') {
+        evMagnitude = -evMagnitude;
+      }
+    }
     var label = (def ? def.label : '故障') + ' ' + magText + ' @ ' + tStart.toFixed(1) + ' s';
     const out = [{
       event_id: 'EV-001',
-      event_type: EVENT_TYPE[family] || 'fault',
+      event_type: evType,
       trigger_s: tStart,
       target_signal: targetSignal,
       target_component: target,
-      magnitude: cfg.fault.params.magnitude,
-      unit: p.unit,
+      magnitude: evMagnitude,
+      unit: evUnit,
       phase: 'onset',
       label: label,
       description: def ? def.description : '',
@@ -10504,6 +11557,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     /* PV-001 新轨（PV001_G2B_SPEC_APPROVED §8 PV-G2b-04a / R-4 守卫）：显式分支必须置于
        else→GT001 兜底之前，禁止 PV-001 静默落入 GT 物理；三系统既有分支零改动。 */
     else if (system.id === 'PV-001') sim = simulatePV001(system, cfg, t);
+    /* WT-001 新轨（WT001_G2B_SPEC_APPROVED v1.0 §8 WT-G2b-04 / R-7 守卫）：显式分支必须置于
+       else→GT001 兜底之前——GT 轨数值与 WT 锚点不同，禁止 WT-001 静默落入 GT 物理；
+       四系统既有分支零改动。 */
+    else if (system.id === 'WT-001') sim = simulateWT001(system, cfg, t);
     else sim = simulateGT001(system, cfg, t);
 
     var series = sim.series;
@@ -11118,12 +12175,18 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         blindSafe: true,
         definition: '∫ P_load,served dt / 3600'
       });
+    /* A-3①（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §4 项 8，CHG-20261107-01）：
+       E_source 定义串 cfg 感知——FL thermal on 域（EQ-FLTH-5 守恒面 (a)）为
+       「P_gen := P_load − P_bat + P_loss 为定义（thermal on 记账口径）」；off 域维持
+       原串逐字不变（off 轨指标面零漂移，FLTH-G2b-04 off 轨逐位不变验收面）。 */
+    var flThermalOn = isFL && cfg.thermal_model === 'on';
     mk(isFL ? 'E_gen_true_60s' : 'E_source_kWh', srcLabel,
       eSource === null ? null : eSource / 3600, 'kWh', 5,
       null, {
         source_signal_ids: [srcSig],
         blindSafe: false,
-        definition: '∫ ' + srcSig + ' dt / 3600（' + srcLabel + '）；P_gen := P_load − P_bat 为定义'
+        definition: '∫ ' + srcSig + ' dt / 3600（' + srcLabel + '）；P_gen := P_load − P_bat' +
+          (flThermalOn ? ' + P_loss 为定义（thermal on 记账口径）' : ' 为定义')
       });
     mk(isFL ? 'E_bat_true_60s' : 'E_bat_kWh', '电池真实电能（带符号）',
       eBat === null ? null : eBat / 3600, 'kWh', 5,
@@ -11157,12 +12220,15 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       });
 
     /* ---- 残差 ---- */
+    /* 同型串 A-3①（metrics.js 原 :230，FLTH-G2b-04 工作面）：r_true 定义恒等式注记
+       thermal on 域同步扩式（EQ-FLTH-6 含 −P_loss 项）；off 域原串逐字不变。 */
     mk('max_abs_r_true_kW', '最大真实功率平衡残差', maxAbs(series.r_true_kW), 'kW', 6,
       'algebraic', {
         method_version: '1',
         source_signal_ids: ['r_true_kW'],
         blindSafe: false,
-        definition: 'max |r_true|；定义恒等式（P_gen := P_load − P_bat），仅作代数一致性回归，不是物理验证'
+        definition: 'max |r_true|；定义恒等式（P_gen := P_load − P_bat' +
+          (flThermalOn ? ' + P_loss' : '') + '），仅作代数一致性回归，不是物理验证'
       });
     mk(system.id === 'GT-001' ? 'max_abs_f_channel_diff_Hz' : 'max_abs_r_meas_kW',
       system.id === 'GT-001' ? '最大频率通道不一致' : '最大测量一致性残差',
@@ -11196,6 +12262,32 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
           blindSafe: true,
           definition: 't_f=20.0 s post 采样行的 I_meas（= I_true + b）'
         });
+
+      /* ---- FL-001 thermal on 域指标（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §4 项 8 /
+         FLTH-G2b-04 指标面，CHG-20261107-01）：与 fl001_v2 golden scalars 注册名对齐
+         （E_loss_kWh / T_bat_end_K）。E_loss 优先 integrals.E_loss（引擎子步梯形，
+         EQ-FLTH-8/Q4 定案；导入复核无 integrals 路径回退序列梯形）；T_bat_end_K 为
+         t=duration 采样行值（EQ-FLTH-4 RK4 热状态末值）。仅 thermal_model=on 产生——
+         off 轨指标面零漂移（T_bat_K/P_loss_kW 序列列 off 轨全程 null，GT 热信号先例）。 ---- */
+      if (cfg.thermal_model === 'on') {
+        var eLossKws = (integrals && isNum(integrals.E_loss)) ? integrals.E_loss : integrate(t, series.P_loss_kW);
+        mk('E_loss_kWh', '热损耗电能（记账口径）', isNum(eLossKws) ? eLossKws / 3600 : null, 'kWh', 7,
+          null, {
+            source_signal_ids: ['P_loss_kW'],
+            blindSafe: false,
+            definition: '∫ P_loss dt / 3600（子步梯形，EQ-FLTH-8/Q4；守恒面 (a) 账本 ' +
+              'E_source + E_bat = E_load + E_loss——P_loss 为模型记账项，不是能量损失）'
+          });
+        var tBatEnd = valueAt(t, series.T_bat_K, duration);
+        mk('T_bat_end_K', '电池温度末值', tBatEnd, 'K', 4,
+          'analytic', {
+            method_version: '1',
+            source_signal_ids: ['T_bat_K'],
+            time_window_s: [duration, duration],
+            blindSafe: false,
+            definition: 'T_bat(duration_s) 采样行值（EQ-FLTH-4 单节点集总热平衡 RK4 末状态；T_bat(0) = T_amb = 298.15 K 冷启动）'
+          });
+      }
     }
 
     /* ---- 故障元数据 ---- */
@@ -11368,6 +12460,66 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         });
     }
 
+    /* ---- WT-001 专属：能量账本 + 末值采样（EQ-WT-8/EQ-WT-9；与 wt001_v1 golden scalars
+         注册表同名（E_wt_true_kWh/E_wt_est_kWh/E_wt_err_kWh/E_grid_kWh），PV-001 能量账本
+         同构；WT-G2b-04 / CHG-20261107-01）。E_wt 取引擎子步解析积分（engine simulateWT001
+         integrals.E_wt_true/E_wt_est/E_grid 同源）；ΔE_wt = E_est − E_true（估计偏多为止）。
+         末值三项（P_wt_true_end_kW/P_grid_end_kW/d_wt_end_kW）为 L5 最小指标组
+         （valueAt 采样行值，I_true_26s_A 同法）。本系统无 SOC——SOC_est 通道功能位由
+         P_wt,est/ΔE_wt 承担（EQ-WT-9）。 ---- */
+    if (system.id === 'WT-001') {
+      var wtInt = integrals || {};
+      mk('E_wt_true_kWh', '风电真实电能', isNum(wtInt.E_wt_true) ? wtInt.E_wt_true / 3600 : null, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_wt_true_kW'],
+          blindSafe: false,
+          definition: '∫ P_wt,true dt / 3600（EQ-WT-9；子步解析积分真实能量口径）'
+        });
+      mk('E_wt_est_kWh', 'EMS 风速折算估计电能', isNum(wtInt.E_wt_est) ? wtInt.E_wt_est / 3600 : null, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_wt_est_kW'],
+          blindSafe: true,
+          definition: '∫ P_wt,est dt / 3600（EQ-WT-9 事件感知解析积分，v_est 分段常值；恒用测量风速，A-wt-est-channel；本系统无 SOC，SOC_est 通道的功能位承担者）'
+        });
+      mk('E_wt_err_kWh', '估计−真实电能差（ΔE_wt）',
+        (isNum(wtInt.E_wt_est) && isNum(wtInt.E_wt_true)) ? (wtInt.E_wt_est - wtInt.E_wt_true) / 3600 : null, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_wt_est_kW', 'P_wt_true_kW'],
+          blindSafe: false,
+          definition: 'ΔE_wt = E_wt,est − E_wt,true（EQ-WT-9；正 = 估计偏多，含测量偏置或执行器卡涩的贡献）'
+        });
+      mk('E_grid_kWh', '馈线受电电能', isNum(wtInt.E_grid) ? wtInt.E_grid / 3600 : null, 'kWh', 7,
+        null, {
+          source_signal_ids: ['P_grid_true_kW'],
+          blindSafe: false,
+          definition: '∫ P_grid,true dt / 3600（受电为正；E_wt + E_grid = E_load 为定义恒等，EQ-WT-8/EQ-WT-9）'
+        });
+      mk('P_wt_true_end_kW', '风电真实出力末值', valueAt(t, series.P_wt_true_kW, duration), 'kW', 4,
+        'analytic', {
+          method_version: '1',
+          source_signal_ids: ['P_wt_true_kW'],
+          time_window_s: [duration, duration],
+          blindSafe: false,
+          definition: 'P_wt,true(duration_s) 采样行值（60 s 末采样）'
+        });
+      mk('P_grid_end_kW', '馈线受电功率末值', valueAt(t, series.P_grid_true_kW, duration), 'kW', 4,
+        'analytic', {
+          method_version: '1',
+          source_signal_ids: ['P_grid_true_kW'],
+          time_window_s: [duration, duration],
+          blindSafe: false,
+          definition: 'P_grid,true(duration_s) 采样行值（60 s 末采样，受电为正）'
+        });
+      mk('d_wt_end_kW', '最优曲线一致性残差末值', valueAt(t, series.d_wt_kW, duration), 'kW', 4,
+        'analytic', {
+          method_version: '1',
+          source_signal_ids: ['d_wt_kW'],
+          time_window_s: [duration, duration],
+          blindSafe: false,
+          definition: 'd_wt(duration_s) 采样行值（EQ-WT-8 代数恒等，不是能量损失；健康测量下 d_wt ≤ 0 恒成立）'
+        });
+    }
+
     return metrics;
   }
 
@@ -11380,10 +12532,15 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
 /* owner: core-engine | module: checks | contract: docs/CONTRACT.md */
 /* quality_checks：契约 §4.8 检查（sampling / conservation-true / conservation-meas /
    units / soc-bounds / event-window / energy-balance）+ 系统专属 PHY 按系统分派
-   （GT：gt-energy-consistency / gt-bat-envelope；PV：pv-energy-consistency）。
+   （GT：gt-energy-consistency / gt-bat-envelope；PV：pv-energy-consistency；
+   WT：wt-energy-identity——WT001_G2B_SPEC_APPROVED v1.0 §8 WT-G2b-04）。
    soc-bounds/energy-balance 按 system.bounds 派生：声明 bounds.SOC_pct 的系统（FL/FC/GT）
    才检查；PV-001 无 SOC/E_bat 面，不派发（CHG-20261105-01 清算项 1，解除
-   CHG-20261104-10 锁定态），其能量恒等由 pv-energy-consistency 承载（EQ-PV-5/EQ-PV-7）。
+   CHG-20261104-10 锁定态），其能量恒等由 pv-energy-consistency 承载（EQ-PV-5/EQ-PV-7）；
+   WT-001 同款口径不派发（无 SOC/E_bat 面——WT001_G2B_SPEC_APPROVED v1.0 §1.1 无 SOC 键），
+   其能量恒等由 wt-energy-identity 承载（EQ-WT-8/EQ-WT-9）。
+   FL-001 energy-balance 于 thermal_model=on 分支扩判据 −E_loss（EQ-FLTH-9，守恒面 (a)，
+   CHG-20261107-01）；off/PV/FC/GT 路径零变化。
    不通过时页面必须显示"验证未通过"。 */
 (function () {
   'use strict';
@@ -11533,8 +12690,13 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     ));
 
     /* ---- conservation-true（PHY-01 定义自洽：G0-DEC-12 冻结 FL-001 容差 ≤1e-12 kW）----
-       注意：这是定义恒等式的代数一致性回归（P_gen := P_load − P_bat），
-       不是"物理守恒验证"，更不能表述为模型验证（MODEL_VALIDATION_SPEC §4.3）。 */
+       注意：这是定义恒等式的代数一致性回归（P_gen := P_load − P_bat；FL thermal on 域
+       EQ-FLTH-5/6 扩为 P_gen := P_load − P_bat + P_loss——r_true 信号定义式已由 engine
+       扩展，本检查残差判据与容差面不变），不是"物理守恒验证"，更不能表述为模型验证
+       （MODEL_VALIDATION_SPEC §4.3）。
+       WT-001 走通用 else 面（r_true/r_meas ≡ 0 定义恒等，EQ-WT-8）：tolTrue else 档 1e-12 kW
+       与 WT 规格 §4 项 3 WS-4（≤1e-12）对齐——通用面自动覆盖 WT，无专属分支；
+       r_meas 全功率通道健康（故障期仍 ≡ 0），conservation-meas 不会误入 warn 路径。 */
     var tolTrue = system.id === 'GT-001' ? 1e-9 : (system.id === 'FC-001' ? 1e-6 : 1e-12);
     var maxRt = maxAbs(series.r_true_kW);
     var trueOk = maxRt !== null && maxRt <= tolTrue;
@@ -11707,6 +12869,29 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       ));
     }
 
+    /* ---- WT-001 专属 PHY（WT001_G2B_SPEC_APPROVED v1.0 §8 WT-G2b-04；CHG-20261107-01）：
+         能量账本恒等 E_wt_true + E_grid_true = E_load（EQ-WT-8/EQ-WT-9 定义恒等；E_grid 由
+         引擎按 E_load − E_wt 承载，engine simulateWT001 integrals 同源）。容差对齐
+         pv-energy-consistency 量级口径 = wt001_v1 golden gate T-A E_kWh 1e-9 kWh（三账本
+         同源自 integrals，残差 fp 级）。本检查验证指标账本对恒等式的回归一致，
+         不是物理守恒验证。 ---- */
+    if (system.id === 'WT-001') {
+      var eWtTrue = metricValue(metrics, 'E_wt_true_kWh');
+      var eGridWt = metricValue(metrics, 'E_grid_kWh');
+      var eLoadWt = metricValue(metrics, 'E_load_kWh');
+      var residWt = (eWtTrue !== null && eGridWt !== null && eLoadWt !== null)
+        ? Math.abs(eWtTrue + eGridWt - eLoadWt) : null;
+      var okWt = residWt !== null && residWt <= 1e-9;
+      quality.push(check(
+        'wt-energy-identity', '能量账本恒等闭合（EQ-WT-8/EQ-WT-9 定义恒等）',
+        okWt ? 'pass' : 'fail',
+        '≤ 1e-9 kWh（wt001_v1 gate T-A E_kWh）',
+        residWt,
+        '|E_wt_true + E_grid − E_load| = ' + (residWt === null ? '不可用' : residWt.toExponential(2)) +
+          ' kWh（E_grid 按 E_load − E_wt 定义承载；定义恒等回归，不是物理守恒验证）'
+      ));
+    }
+
     /* ---- units ---- */
     var unitIssues = [];
     var declaredUnits = (system.model && FL.systems && FL.systems._raw && FL.systems._raw.units) ? FL.systems._raw.units : {};
@@ -11729,7 +12914,8 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
 
     /* ---- soc-bounds（按 system.bounds 派生：声明 bounds.SOC_pct 的系统（FL/FC/GT）才检查；
        PV-001 bounds 无 SOC_pct 键（有 load_kW/G0_W_m2），无 SOC 序列面，不派发——
-       CHG-20261105-01 清算项 1）---- */
+       CHG-20261105-01 清算项 1；WT-001 同款口径不派发（bounds 无 SOC_pct 键，initial 无
+       SOC 键——WT 无储能，WT001_G2B_SPEC_APPROVED v1.0 §1.1/§8 WT-G2b-04））---- */
     var socDeclared = !!(system.bounds && system.bounds.SOC_pct);
     if (socDeclared) {
       var socTrueRange = minMaxNonEmpty(series.SOC_true_pct);
@@ -11791,12 +12977,19 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
 
     /* ---- energy-balance（与 soc-bounds 同一 bounds 派生面：声明 bounds.SOC_pct 的系统
        （FL/FC/GT，均带 E_bat 电池面）才检查；PV-001 无 SOC/E_bat 面，不派发——
-       其能量恒等由专属 PHY 检查 pv-energy-consistency 承载。CHG-20261105-01 清算项 1）---- */
+       其能量恒等由专属 PHY 检查 pv-energy-consistency 承载。CHG-20261105-01 清算项 1；
+       WT-001 同款口径不派发，能量恒等由 wt-energy-identity 承载——WT-G2b-04）----
+       FL-001 thermal_model=on 分支（EQ-FLTH-9 检查式，FL001_THERMAL_G2B_SPEC_APPROVED
+       v1.0 §2.2.0 守恒面 (a) / FLTH-G2b-04，CHG-20261107-01）：判据扩为
+       E_source + E_bat − E_load − E_loss ≡ 0（E_source 已含损耗补偿，engine integrals
+       E_source = E_load − E_bat + E_loss 同源）；容差沿本检查既有 FL 档 1e-6 kWh 不变。
+       off/PV/FC/GT 路径零变化。 ---- */
     if (socDeclared) {
       var eSource = metricValue(metrics, 'E_source_kWh');
       var eBat = metricValue(metrics, 'E_bat_kWh');
       var eServed = metricValue(metrics, 'E_load_served_kWh');
       var balanceTol = system.id === 'GT-001' ? 1e-3 : (system.id === 'FC-001' ? 1e-3 : 1e-6);
+      var flThermalBal = system.id === 'FL-001' && !!(cfg && cfg.thermal_model === 'on');
       var residual = null;
       var balanceMsg;
       if (eSource === null || eBat === null || eServed === null) {
@@ -11813,6 +13006,15 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
           balanceMsg = '|E_gen + E_bat − E_load − E_rotor| = ' + residual.toExponential(3) +
             ' kWh（E_rotor = K_J·Δf/3600 = ' + eRotor.toExponential(3) + ' kWh）';
         }
+      } else if (flThermalBal) {
+        var eLossBal = metricValue(metrics, 'E_loss_kWh');
+        if (eLossBal === null) {
+          balanceMsg = '热域损耗指标不可用，无法校验含损耗项的能量平衡（EQ-FLTH-9）';
+        } else {
+          residual = Math.abs(eSource + eBat - eServed - eLossBal);
+          balanceMsg = '|E_source + E_bat − E_load − E_loss| = ' + residual.toExponential(3) +
+            ' kWh（E_loss = ' + eLossBal.toExponential(3) + ' kWh，thermal on 记账口径，EQ-FLTH-9）';
+        }
       } else {
         residual = Math.abs(eSource + eBat - eServed);
         balanceMsg = '|E_source + E_bat − E_load_served| = ' + residual.toExponential(3) + ' kWh';
@@ -11821,7 +13023,8 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       quality.push(check(
         'energy-balance', '电能平衡',
         balanceOk ? 'pass' : 'fail',
-        '≤ ' + balanceTol + ' kWh' + (system.id === 'GT-001' ? '（含转子动能变化项）' : ''),
+        '≤ ' + balanceTol + ' kWh' + (system.id === 'GT-001' ? '（含转子动能变化项）'
+          : (flThermalBal ? '（含热损耗记账项 E_loss，EQ-FLTH-9）' : '')),
         residual,
         balanceOk ? balanceMsg : ('电能平衡超差：' + balanceMsg)
       ));
@@ -12133,6 +13336,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
          events: [ { key: string(唯一), label?: string, family: string, params: object,
                      t_start_s: number, t_clear_s?: number|null(仅 GT-001×actuator_fault),
                      inertia_model?: 'swing'|'linear'|'thermo'(仅 GT-001，缺省解析为系统默认轨),
+                     thermal_model?: 'off'|'on'(仅 FL-001，缺省解析为系统默认轨),
                      feedback_mode: 'closed_loop'|'monitor' } ] }；
    - 事实源：src/core/systems.js（faults 目录 = family/params min-max-step/timeRange/defaultTime_s）
      + docs/FAULT_CATALOG.md（授权状态：非「已删除」方可准入）；
@@ -12155,11 +13359,17 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
   var FIXED_DT_S = 0.1;
 
   var TOP_KEYS = ['scenario_id', 'version', 'label', 'system', 'events'];
-  var EVENT_KEYS = ['key', 'label', 'family', 'params', 't_start_s', 't_clear_s', 'inertia_model', 'feedback_mode'];
+  /* thermal_model 显式 CHG 随 CHG-20261107-01 登记（FL001_THERMAL_G2B_SPEC_APPROVED v1.0
+     §2.0 / V080_WAVE_DESIGN DEC-2） */
+  var EVENT_KEYS = ['key', 'label', 'family', 'params', 't_start_s', 't_clear_s', 'inertia_model', 'thermal_model', 'feedback_mode'];
   /* 事件级模型深度轨（B-2 定案，CHG-20261104-12 ③）：枚举三值；缺省解析为系统默认轨
      （defaults.inertia_model，GT-001 = thermo，Q4 定案）；scenarioHash 含解析后的轨。
      跨深度对比场景（A 线教学 payoff）经该键显式钉轨。 */
   var INERTIA_MODELS = ['swing', 'linear', 'thermo'];
+  /* 事件级热模型轨（FLTH-G2b-04 / CHG-20261107-01）：枚举两值；缺省解析为系统默认轨
+     （defaults.thermal_model，FL-001 = off，FLTH-IMP-Q3 定案维持）；scenarioHash 含
+     解析后的轨（既有 FL 场景哈希变化属预期失效面，见 hashProjection 注）。 */
+  var THERMAL_MODELS = ['off', 'on'];
 
   /* 授权状态守卫（准入条件：非「已删除」）：事实源 docs/FAULT_CATALOG.md §1/§4。
      FL-001 load_step 已按 O-13（CHG-20261030-06）删除——systems.js 目录已不含该族，
@@ -12472,6 +13682,26 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       inertia = system.defaults.inertia_model;
     }
 
+    /* thermal_model（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0；显式 CHG 随
+       CHG-20261107-01 登记；可选事件级热模型轨，inertia_model 先例同构）：
+       枚举 off|on。缺省（不提供）解析为系统默认轨（defaults.thermal_model，FL-001 = off，
+       FLTH-IMP-Q3 定案维持）；未知值拒绝入结构化错误（既有闭合校验负例路径）；
+       未声明该轨的系统（FC/GT/PV/WT）上出现即拒绝（封闭白名单，t_clear_s/inertia_model
+       先例同构）。解析结果写入归一化事件并进入 scenarioHash。 */
+    var thermal = null;
+    var declaresThermal = !!(system && system.defaults && system.defaults.thermal_model);
+    if (ev.thermal_model !== undefined) {
+      if (!declaresThermal) {
+        errors.push({ field: at + '.thermal_model', message: '系统 ' + (system ? system.id : '?') + ' 未声明热模型轨（thermal_model 仅适用于声明该轨的系统）' });
+      } else if (THERMAL_MODELS.indexOf(ev.thermal_model) === -1) {
+        errors.push({ field: at + '.thermal_model', message: '必须为 off / on（收到 ' + String(ev.thermal_model) + '）' });
+      } else {
+        thermal = ev.thermal_model;
+      }
+    } else if (declaresThermal) {
+      thermal = system.defaults.thermal_model;
+    }
+
     /* feedback_mode */
     var mode = null;
     if (ev.feedback_mode === undefined) {
@@ -12488,6 +13718,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     if (label !== null) out.label = label;
     if (tClear !== null) out.t_clear_s = tClear;
     if (inertia !== null) out.inertia_model = inertia; /* 解析后的轨（缺省 = 系统默认轨）入归一化面与哈希 */
+    if (thermal !== null) out.thermal_model = thermal; /* 解析后的轨（缺省 = 系统默认轨）入归一化面与哈希 */
     return out;
   }
 
@@ -12505,11 +13736,16 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
   }
 
   /* 哈希投影：只含执行相关内容（version/system/事件序/key/family/已补齐 params/
-     t_start_s/t_clear_s/inertia_model(解析后的轨)/feedback_mode）；scenario_id 与 label
-     为元数据不入哈希。经 FL.core.hashObjectStrict（canonicalize v1 严格模式：对象键排序、
-     数组保序、数字最短往返）→ 键序不敏感、无随机、确定性（registry.js:3 canonical 口径）。
+     t_start_s/t_clear_s/inertia_model(解析后的轨)/thermal_model(解析后的轨)/feedback_mode）；
+     scenario_id 与 label 为元数据不入哈希。经 FL.core.hashObjectStrict（canonicalize v1
+     严格模式：对象键排序、数组保序、数字最短往返）→ 键序不敏感、无随机、确定性
+     （registry.js:3 canonical 口径）。
      inertia_model 缺省（FL/FC/PV 事件）为 undefined，canonicalize 按不存在处理——
-     既有 FL/FC/PV 场景哈希不变；GT 事件解析轨入哈希（B-2 定案的预期失效面）。 */
+     既有 FL/FC/PV 场景哈希不变；GT 事件解析轨入哈希（B-2 定案的预期失效面）。
+     thermal_model：未声明轨的系统为 undefined（哈希不变）；FL 事件解析轨（缺省 = off）
+     入哈希——既有 FL 场景哈希变化属预期失效面（CHG-20261107-01 显式 CHG 登记，
+     V080_WAVE_DESIGN §3「tests/registry.test.js per-Run config 哈希面随 scenario
+     thermal_model 键更新（预期失效，逐项登记）」）。 */
   function hashProjection(s) {
     return {
       version: s.version,
@@ -12522,6 +13758,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
           t_start_s: e.t_start_s,
           t_clear_s: e.t_clear_s, /* 缺省/无清除为 undefined，canonicalize 按不存在处理 */
           inertia_model: e.inertia_model, /* 解析后的模型深度轨（缺省系统为 undefined） */
+          thermal_model: e.thermal_model, /* 解析后的热模型轨（未声明系统为 undefined；FL 场景哈希变化 = 预期失效面） */
           feedback_mode: e.feedback_mode
         };
       })
@@ -12554,6 +13791,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     };
     /* 解析后的模型深度轨透传（B-2）：缺省轨已由 normalizeConfig 盖章，显式值仅覆盖时传入 */
     if (ev.inertia_model) patch.inertia_model = ev.inertia_model;
+    /* 解析后的热模型轨透传（FLTH-G2b-04，CHG-20261107-01）：缺省轨已由 normalizeConfig
+       盖章（engine normalizeConfig thermal_model 行），解析值（off/on）传给 Run cfg；
+       引擎 validateConfig 枚举守卫 + simulateFL001Thermal 分派承接口。 */
+    if (ev.thermal_model) patch.thermal_model = ev.thermal_model;
     return FL.core.createConfig(systemId, patch);
   }
 
@@ -12642,7 +13883,8 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
 /* owner: core-teaching | module: teaching | contract: FaultLab-evaluation/NEXT/V06_ROADMAP.md 主线 C「C-3」行
    + FaultLab-evaluation/NEXT/V070_WAVE_DESIGN.md DEC-5（CHG-20261104-10 批准，按推荐执行） */
 /* 教学路径核心（C-3 最小形态，DEC-5）：
-   - 3 条预设教学路径（FL-001 / FC-001 / GT-001 各 1 条），每条固定 5 步：
+   - 7 条预设教学路径（FL-001 / FC-001 / GT-001 / WT-001 主线 + GT/FL 跨深度扩展 ×2
+     + WT-001 阵风路径），每条固定 5 步：
      ① 传感器故障注入 → ② 闭环响应观察 → ③ 仅监测对照 → ④ 因果解释 → ⑤ 评测入口；
    - 每步 = { id, title, narrative（教学叙述卡文案）, view: { page, focus（焦点说明） },
               compare?（对照视角 { label, text }）, scenarioSpec?（第⑤步场景 JSON，schema v1） }；
@@ -12915,7 +14157,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
   /* ================================================================== */
   /* getTeachingPaths / exportTeachingPath                              */
   /* ================================================================== */
-  /* 返回 3 条预设路径的深克隆副本（外部改动不内渗；与 scenario.samples() 同口径） */
+  /* 返回 7 条预设路径（4 系统主线 + GT/FL 跨深度扩展 + WT 阵风）的深克隆副本（外部改动不内渗；与 scenario.samples() 同口径） */
   function getTeachingPaths() {
     return cloneTeachingPaths();
   }
@@ -12941,7 +14183,8 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
   }
 
   /* ================================================================== */
-  /* 预设路径数据（3 系统 × 5 步；事实源：systems.js + docs/FAULT_CATALOG.md）  */
+  /* 预设路径数据（7 条路径 = 4 系统主线 × 5 步 + GT/FL 跨深度扩展 + WT 阵风；     */
+  /* 事实源：systems.js + docs/FAULT_CATALOG.md + GTL1/FL001/WT001 G2B APPROVED 规格 */
   /* 文案口径：合成演示定位（L0 行为级演示 / 合成示例数据 synthetic）、解释已知故障 */
   /* 的传播路径、不做检测/定位/诊断声明；禁词零命中（tests/teaching.test.js 自查）。 */
   /* ================================================================== */
@@ -13103,7 +14346,203 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     ]
   };
 
-  var PATHS = [FL_PATH, FC_PATH, GT_PATH];
+  /* ---- GT-001 跨深度扩展路径（V072 清算项 7；GTL1_G2B_SPEC_APPROVED v1.0 §3.2 分歧表——
+        「同一系统、不同模型深度可对比」教学点；数值与 tests/engine-gt.test.js 跨深度分歧
+        断言同源：gt001_v2 冻结锚点 + thermo 轨 T-B 容差断言，非机组数据）。
+        独立路径（不扩既有 path-gt-001）保 DEC-5 5 步契约零改动。 ---- */
+  var GT_CROSS_SPEC = {
+    scenario_id: 'path-gt-001-cross-depth-eval',
+    version: 1,
+    label: 'GT-001 跨深度对比评测：同一故障 swing ↔ thermo 双轨成对运行',
+    system: 'GT-001',
+    events: [
+      { key: 'ev-sensor-thermo', label: '转速偏置 闭环 thermo 轨', family: 'sensor_drift', params: { magnitude: 0.3 }, t_start_s: 20, feedback_mode: 'closed_loop', inertia_model: 'thermo' },
+      { key: 'ev-sensor-swing', label: '转速偏置 闭环 swing 轨', family: 'sensor_drift', params: { magnitude: 0.3 }, t_start_s: 20, feedback_mode: 'closed_loop', inertia_model: 'swing' },
+      { key: 'ev-load-thermo', label: '负载阶跃 闭环 thermo 轨', family: 'load_step', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop', inertia_model: 'thermo' },
+      { key: 'ev-load-swing', label: '负载阶跃 闭环 swing 轨', family: 'load_step', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop', inertia_model: 'swing' }
+    ]
+  };
+
+  var GT_CROSS_PATH = {
+    pathId: 'path-gt-001-cross-depth',
+    title: '燃气涡轮：同一故障、两种模型深度',
+    system: 'GT-001',
+    goal: '在同一故障配置下并排运行 swing（L0b 遗留轨）与 thermo（L1 默认轨）两种模型深度，看清「控制器结构决定稳态、模型深度改变暂态路径与可观测面」：nadir、恢复速度、指令域语义与热力观测面的跨深度分歧。',
+    prerequisites: '建议先完成 path-gt-001 路径（转速偏置与双通道冗余）；知道 GT-001 声明三轨 inertia_model（thermo 默认 / swing / linear 遗留轨），同一故障可在不同模型深度下成对运行对照（事件级 inertia_model 键）。本页对比只在本演示模型假设内成立，非机组/电网动态验证。',
+    steps: [
+      stepInject(
+        'GT-001 默认运行在 thermo 轨（L1）：调速器燃料指令经压气机-燃烧室-透平效率链与燃烧室集总热惯性给出电功率；swing/linear 是遗留轨（L0b 行为级，无热力面）。本路径的主角不是新故障，而是模型深度：同一个故障写进两种深度的配置，各跑一条 Run，再看差异落在哪里。第一步先在系统页确认 topology 里的热力链组件与 thermo 默认轨标识。',
+        '系统页 · GT-001 拓扑与模型深度标识：thermo 默认轨（L1）与 swing/linear 遗留轨说明；热力链组件（压气机 → 燃烧室 → 透平）。'
+      ),
+      stepClosedLoop(
+        '闭环注入 +0.3 Hz 转速偏置（thermo 默认轨）：真实频率稳态仍收敛到 49.7 Hz——稳态由控制器结构（调速器积分）决定，与模型深度无关。分歧在暂态与观测面：thermo 轨能看到燃烧室出口温度 T3 从 1173 K 下探（t=60 采样 1044.16 K，趋向渐近稳态 1043.95 K）、透平出口温度 T4 降到 687.22 K——这是传感器偏置的热力学后果（燃料回落 → EGT 下探约 83 K），swing 轨完全没有这张观测面。t=60 采样频率 49.70050（thermo）vs 49.70548（swing）：thermo 回路增益 dP_gen/du ≈ 1.332（vs L0b 1.0），恢复更快。',
+        '信号页 · f_true_Hz 收敛 49.7 Hz；辅看 T3_out_K / T4_out_K 下探轨（swing 轨同列全程空白）与 Q_fuel_kW 燃料回落。',
+        { label: 'swing 轨视角', text: '同一偏置在 swing 轨：稳态同为 49.7 Hz、暂态路径不同（f(60)=49.70548）；T3/T4/Q_f 全程无观测面——模型深度决定你能看见什么。' }
+      ),
+      stepMonitorCompare(
+        '「同一故障、两种模型深度」并排（compare 面选同族不同轨的 Run）：负载阶跃 +10 kW 的频率最低点 nadir 49.590174（thermo）vs 49.589336（swing）——thermo 浅 8.4e-4 Hz，初瞬由摇摆方程主导所以几乎同；恢复速度分歧明显：f(60) 49.999347 vs 49.992213（thermo 快 7.1e-3 Hz）。注意指令域不可直比：thermo 稳态指令是燃料指令域 u_ss ≈ 19.65 kW_eq，swing 是功率指令域 P_gen_cmd ≈ 17.80 kW——同稳态、异指令，两个数字量纲语义不同。',
+        '对比页 · 同故障不同轨 Run 对照：load_step 双轨的 f_true（nadir 与恢复段分歧）+ T3 面有无；指令域两列分开读。',
+        { label: '执行器视角', text: '卡涩 50% 把分歧放大：swing 功率域钳位 P_gen 恰 20.000 kW，thermo 燃料域钳位 u_eff=20 经效率链给出 18.266 kW（Δ = −1.73 kW）——钳位语义域差异是跨深度教学点（第④步展开）。' }
+      ),
+      stepCausal(
+        '因果页的 GT thermo 轨叙事卡（gt-thermo-cross-depth）讲的是「测量偏置 → 效率链重新平衡」：偏置 b → 调速器误认为频率偏高 → 燃料指令下调 → 燃烧室能量平衡左移（T3 下探）→ P_gen 稳态偏移。注意 PV-001「测量偏置 → MPPT 重算目标」的类比在此不适用：GT 的调速器是积分结构，偏置不改变目标映射，而是被积分持续误调。执行器对比也在这里：同是 50% 卡涩，swing 钳电功率（20.000 kW）、thermo 钳燃料（链上 18.266 kW），f 稳态 49.791667 vs 49.719396；清除过冲 +0.213412 vs +0.3221 Hz。本页只解释运行前注入的已知故障在两种模型深度下的传播差异，不做检测、定位或诊断。',
+        '因果页 · thermo 轨跨深度叙事卡（gt-thermo-cross-depth 节点 ①→⑥）：n5 同故障暂态分歧表 + n6 口径与边界声明。'
+      ),
+      stepEval(
+        '评测入口：预置 4 事件成对场景——转速偏置与负载阶跃各按 thermo / swing 双轨成对运行（事件级 inertia_model 键，均 @20 s，锚点参数）。执行后逐对核对：负载阶跃对的 nadir（49.590174 vs 49.589336）与 f(60)（49.999347 vs 49.992213）；转速偏置对的 T3 观测面有无；swing 轨热力列全程空白本身就是要核对的结论——模型深度改变可观测面。',
+        '场景页 · 导入 4 事件成对场景 → 执行 → 按 inertia_model 分组核对 nadir / f(60) / T3 面；「载入查看」回到曲线与因果页。',
+        GT_CROSS_SPEC
+      )
+    ]
+  };
+
+  /* ---- WT-001：风电机组（v_sensor_bias 主线；WT001_G2B_SPEC_APPROVED v1.0 §2.1/§3.1/
+        §3.2 场景 A/A' 锚点——数值为复算预填口径，wt001_v1 golden emit 后以冻结值为准；
+        family/params 域以 systems.js WT-001 故障目录为事实源）。 ---- */
+  var WT_BIAS_SPEC = {
+    scenario_id: 'path-wt-001-eval',
+    version: 1,
+    label: 'WT-001 教学路径评测：风速偏置（闭环 / 仅监测）+ 变桨卡涩',
+    system: 'WT-001',
+    events: [
+      { key: 'ev-sensor-cl', label: '风速传感器偏置 闭环', family: 'sensor_drift', params: { magnitude: 1.0 }, t_start_s: 20, feedback_mode: 'closed_loop' },
+      { key: 'ev-sensor-mon', label: '风速传感器偏置 仅监测', family: 'sensor_drift', params: { magnitude: 1.0 }, t_start_s: 20, feedback_mode: 'monitor' },
+      { key: 'ev-pitch-cl', label: '变桨卡涩 闭环', family: 'actuator_fault', params: { magnitude: 55 }, t_start_s: 20, feedback_mode: 'closed_loop' }
+    ]
+  };
+
+  var WT_BIAS_PATH = {
+    pathId: 'path-wt-001-bias',
+    title: '风电机组：风速偏置与可用功率保护',
+    system: 'WT-001',
+    goal: '看清 1.0 m/s 风速测量低估如何经可用功率保护钳位把真实出力从 10.00 kW 压到 7.02 kW，并用 d_wt 三分法区分「闭环吸收（瞬态后归零）」与「仅监测暴露（持续不归零）」两种残差形态。',
+    prerequisites: '建议先完成 FL-001 路径（测量偏置与闭环反馈概念）；认识 WT-001 拓扑：风轮经全功率变流器接入 400 V 等效母线，与理想平衡馈线共同为 30 kW 恒定负载供电（L0b 机械动态行为级演示，非机组/电网动态验证）。',
+    steps: [
+      stepInject(
+        'WT-001 是 L0b 机械动态行为级演示模型：风轮转速为 ODE 状态、桨距执行器一阶跟踪、变流器按转速最优增益律给目标功率（额定 15 kW 封顶、可用风功率保护钳位）；解析方程 + 合成示例数据（synthetic），页面结论只在本演示假设内成立。第一步在风速测量通道注入 1.0 m/s 低估偏置（t = 20 s，运行前写进配置的已知故障事实）——与 FL-001 的电流偏置同属测量通道注入，但方向是低估：测量风速从 9 m/s 跳到 8 m/s。请在系统页拓扑里找到风速传感器（故障注入点）与「风轮 → 风速传感器 → 变流器」测量链路。',
+        '系统页 · 拓扑与组件卡：风速传感器（注入点）与「风轮 → 风速传感器 → 变流器」测量链路；注意变流器组件的 MPPT 与可用功率保护说明。'
+      ),
+      stepClosedLoop(
+        '闭环下变流器按被低估的测量风速重算可用功率上限：保护钳位从 k_v·9³ = 10.00 kW 收紧到 k_v·8³ = 7.02 kW，真实出力按 τ_e = 1.0 s 一阶跟随下行（P_wt(60) = 7.023320 kW）——测量偏差经保护钳位变成了真实出力下降。机械面是 WT 独有的观测点：净扭矩转正使转速上升（180.6 → 224.3 rpm），桨距随即介入（β → 5.51°），λ 在右支偏移。信号页把真实出力（下行）、转速（上行）与桨距（缓升）放进同一时间线。',
+        '信号页 · 三线同看：P_wt_true_kW（10.00→7.02 kW）、n_rotor_rpm（180.6→224.3 rpm）、beta_pitch_deg（0→5.51°）；辅看 P_grid_true_kW 抬升（20→22.98 kW）。',
+        { label: '仅监测视角', text: '同一偏置在仅监测模式下保护钳位改读真实风速（钳位松开）：真实出力恒 10.00 kW 不动，转速/桨距保持健康稳态——移动的只有测量值与估计通道。' }
+      ),
+      stepMonitorCompare(
+        '并排两条同故障 Run：闭环模式真实出力被压到 7.02 kW，仅监测模式恒 10.00 kW。判读核心是 d_wt（最优曲线一致性残差）的三分法：闭环下估计先跳下行、真实出力滞后跟随，保护钳位使真实出力恒等于被低估的估计值——d_wt 出现 +2.98 kW 瞬态后归零（闭环把测量故障吸收进自洽）；仅监测下真实出力不动而估计恒被低估，d_wt ≡ +2.98 kW 持续暴露（健康测量下 d_wt ≤ 0 的界被破坏——界破坏特征本身）。注意 r_meas ≡ 0：WT-001 全部功率测量通道健康（与 FL-001 的 +4 kW 测量残差形成教学对照）。',
+        '对比页 · 闭环 vs 仅监测：P_wt_true 分叉而 r_meas 同为 0；d_wt 一条瞬态归零、一条持续 +2.98 kW。',
+        { label: '闭环视角回看', text: '闭环下低估经保护钳位变成真实出力下降（10.00 → 7.02 kW）——保护把测量故障「当真」了。' }
+      ),
+      stepCausal(
+        '因果页沿「低估偏置注入 → 测量风速下降 → 保护钳位收紧 → 真实出力跟随下行 → 净扭矩转正、转速上升、桨距介入 → 馈线补差上升 → 一致性残差」的节点序解释已知故障的传播路径；机械动态节点（转速/桨距）是 WT 链上 PV 没有的环节。残差节点口径：d_wt 瞬态是估计通道先跳、真实出力滞后的代数恒等表现，不是能量转移的结果；r_meas ≡ 0 是全功率通道健康的定义恒等。本页只解释运行前注入的已知故障，不做检测、定位或诊断。',
+        '因果页 · wt-sensor-drift 因果链节点 ①→⑦：n5 机械动态节点（转速上升/桨距介入）与 n7 代数恒等节点（d_wt 瞬态后归零）。'
+      ),
+      stepEval(
+        '评测入口：本路径预置 3 事件场景（闭环 / 仅监测风速偏置 @1.0 m/s、变桨卡涩 55%，均 @20 s，参数取目录锚点值）。执行后重点核对：偏置闭环轨的保护钳位值（7.02 kW）与转速上行、仅监测轨的 d_wt 界破坏特征、卡涩轨与偏置轨的 d_wt 形态对照（闭环归零 / 持续 +2.98 / 持续 −6.53——三种残差形态）。',
+        '场景页 · 导入第⑤步场景 JSON → 校验 → 按事件序执行 3 Run；结果行核对 family / 模式 / 关键指标，「载入查看」回到曲线与因果页。',
+        WT_BIAS_SPEC
+      )
+    ]
+  };
+
+  /* ---- WT-001：阵风阶跃路径（gust_step 物理输入；WT001_G2B_SPEC_APPROVED v1.0 §2.3/
+        §3.3 场景 C 锚点——两模式同解复算实证 0.00e+00；亚额定对照 +1.0（v=10 < v_rated）。 ---- */
+  var WT_GUST_SPEC = {
+    scenario_id: 'path-wt-001-gust-eval',
+    version: 1,
+    label: 'WT-001 教学路径评测：阵风阶跃（跨额定闭环 / 仅监测同解 / 亚额定对照）',
+    system: 'WT-001',
+    events: [
+      { key: 'ev-gust-cl', label: '阵风 +2.0 闭环（跨额定区）', family: 'gust_step', params: { magnitude: 2.0 }, t_start_s: 20, feedback_mode: 'closed_loop' },
+      { key: 'ev-gust-mon', label: '阵风 +2.0 仅监测（同解对照）', family: 'gust_step', params: { magnitude: 2.0 }, t_start_s: 20, feedback_mode: 'monitor' },
+      { key: 'ev-gust-sub', label: '阵风 +1.0 闭环（亚额定 MPPT）', family: 'gust_step', params: { magnitude: 1.0 }, t_start_s: 20, feedback_mode: 'closed_loop' }
+    ]
+  };
+
+  var WT_GUST_PATH = {
+    pathId: 'path-wt-001-gust',
+    title: '风电机组：阵风阶跃与封顶工况',
+    system: 'WT-001',
+    goal: '看清 +2.0 m/s 阵风跨额定区后「额定封顶 + 转速锚定 + 桨距吸收」的协同，并用亚额定对照与仅监测同解认识 d_wt 的「封顶工况合法残差」——设计性偏离与故障性偏离的判读教学点。',
+    prerequisites: '建议先完成 path-wt-001-bias 路径（测量偏置与保护钳位概念）；知道 WT-001 为 L0b 机械动态行为级演示（无尾流/湍流/气弹模型），非机组/电网动态验证。',
+    steps: [
+      stepInject(
+        '阵风是物理输入阶跃（与 PV-001 遮挡、FL-001 负载冲击同属物理输入族，与传感器偏置不同族）：有效真实风速从 9 m/s 阶跃上升到 11 m/s（t = 20 s，默认 +2.0 跨额定区 v_rated = 10.302 m/s）。两模式同生效——这不是测量通道故障，不存在「仅监测可隔离」的路径。第一步先在系统页确认风轮组件的气动功率链（Cp(λ, β)）与变流器的额定封顶/可用功率保护说明。',
+        '系统页 · 风轮组件（气动功率 → 转速惯性）与变流器组件（MPPT + 额定封顶 + 保护钳位）说明卡。'
+      ),
+      stepClosedLoop(
+        '跨额定段（v = 11 m/s）可用风功率超过额定：MPPT 目标爬升后被额定封顶在 15 kW，转速锚定在额定邻域（n(60) = 212.3 rpm），桨距吸收多余气动功率（β 0 → 1.73°）——三条机制协同把运行点按在额定上。信号页看真实出力爬升到 15.00 kW 平台、转速收敛、桨距张开。',
+        '信号页 · P_wt_true_kW（10→15 kW 封顶平台）、n_rotor_rpm（180.6→212.3 rpm）、beta_pitch_deg（0→1.73°）。',
+        { label: '亚额定视角', text: '阵风 +1.0（v = 10 < v_rated）不触封顶：MPPT 直接给新最优点 P_wt → 13.72 kW、β 恒 0、d_wt 归零——亚额定与跨额定是两种完全不同的运行面。' }
+      ),
+      stepMonitorCompare(
+        '物理输入阶跃两模式同解（复算实证全序列逐位同）——并排两条 Run 应看到完全重合的曲线，这本身就是「偏置 vs 物理输入」的教学对照（FL-001/GT-001 的传感器偏置在仅监测下物理面恒不动；阵风没有这条隔离路径）。判读重点：d_wt 稳态 −3.26 kW 不是故障——真实出力被额定封顶在 15 kW 而估计按 v³ 折算约 18.26 kW，运行点偏离最优曲线是封顶工况的设计性偏离（合法残差）；与变桨卡涩的持续 −6.53 kW（故障性偏离）符号相同、机理不同——单看 d_wt 不能归因，要结合运行面。',
+        '对比页 · 闭环 vs 仅监测 gust Run 全序列重合；d_wt 稳态 −3.26 kW 与运行点（15 kW 封顶）并读。',
+        { label: '亚额定视角', text: '亚额定 +1.0 轨 d_wt(60) = 0：不触封顶时残差归零——「负 d_wt」只在封顶（设计性）或故障（故障性）时出现。' }
+      ),
+      stepCausal(
+        '因果页沿「阵风注入 → 两模式同解 → MPPT 爬升与额定封顶 → 转速锚定 → 桨距吸收 → 馈线变化 → 一致性残差」解释物理输入阶跃的传播路径；与传感器偏置链（wt-sensor-drift）对照读：物理输入阶跃没有「估计通道先跳」的伪影节点，d_wt 稳态负值是封顶工况合法残差（设计性偏离与故障性偏离的判读教学点）。本页只解释运行前注入的已知输入事件，不做检测、定位或诊断。',
+        '因果页 · wt-gust-step 因果链；n7 节点「封顶工况合法残差」与 wt-pitch-stuck 链 n7「故障特征不归零」的判读对照。'
+      ),
+      stepEval(
+        '评测入口：预置 3 事件场景（跨额定 +2.0 闭环 / 跨额定 +2.0 仅监测（同解对照）/ 亚额定 +1.0 闭环，均 @20 s，参数取目录锚点值）。执行后重点核对：闭环与仅监测 gust 轨逐位重合（物理输入）、跨额定轨的封顶平台与桨距、亚额定轨的 d_wt 归零。',
+        '场景页 · 导入 3 事件场景 → 执行 → 核对同解重合与封顶形态；「载入查看」回到曲线页。',
+        WT_GUST_SPEC
+      )
+    ]
+  };
+
+  /* ---- FL-001 跨深度扩展路径（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §3.2 分歧表——
+        「同一系统、不同模型深度可对比」教学点；L0 off ↔ L1 thermal 同故障成对运行
+        （事件级 thermal_model 键，沿 GT 跨深度路径 event 级 inertia_model 键先例）。
+        thermal 轨数值为规格预填口径，fl001_v2 golden emit 后以冻结值为准。
+        独立路径（不扩既有 path-fl-001）保 DEC-5 5 步契约零改动。 ---- */
+  var FL_CROSS_SPEC = {
+    scenario_id: 'path-fl-001-thermal-cross-depth-eval',
+    version: 1,
+    label: 'FL-001 跨深度对比评测：同一故障 thermal_model off ↔ on 成对运行',
+    system: 'FL-001',
+    events: [
+      { key: 'ev-sensor-off', label: '传感器偏置 闭环 off 轨', family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop', thermal_model: 'off' },
+      { key: 'ev-sensor-on', label: '传感器偏置 闭环 thermal 轨', family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop', thermal_model: 'on' },
+      { key: 'ev-actuator-off', label: '执行器限幅 闭环 off 轨', family: 'actuator_fault', params: { magnitude: 55 }, t_start_s: 20, feedback_mode: 'closed_loop', thermal_model: 'off' },
+      { key: 'ev-actuator-on', label: '执行器限幅 闭环 thermal 轨', family: 'actuator_fault', params: { magnitude: 55 }, t_start_s: 20, feedback_mode: 'closed_loop', thermal_model: 'on' }
+    ]
+  };
+
+  var FL_CROSS_PATH = {
+    pathId: 'path-fl-001-thermal-cross-depth',
+    title: '电池储能：同一故障、两种模型深度',
+    system: 'FL-001',
+    goal: '在同一故障配置下并排运行 thermal_model off（L0）与 on（L1 单节点集总热轨）两种模型深度，看清「模型深度导致的表达力差异」：热面温升/降温轨与损耗补偿只在 L1 轨可见，电气面（I/SOC/r_meas）两深度逐位同。',
+    prerequisites: '建议先完成 path-fl-001 路径（传感器偏置与闭环反馈）；知道 FL-001 默认运行在 off 轨（L0 行为级演示模型），thermal_model: on 为显式选择的 L1 单节点集总热轨（R0/α/C_bat/h 为教学整定值，非设备参数辨识）。',
+    steps: [
+      stepInject(
+        'FL-001 默认运行在 thermal_model off 轨（L0 行为级，无热面）；on 轨（L1）为单节点集总热模型：C_bat·dT_bat/dt = I²·R_int(T) − h·(T − T_amb)，T_bat(0) = T_amb = 298.15 K 冷启动，热损耗 P_loss = I²·R_int(T) 由理想发电机补偿（模型记账口径）。本路径的主角不是新故障，而是模型深度：同一个故障写进两种深度的配置各跑一条 Run（事件级 thermal_model 键显式钉轨）。第一步先在系统页浏览电池组件与热角色说明。',
+        '系统页 · FL-001 拓扑与电池组件卡；模型假设抽屉中【仅 thermal_model=on 适用】的假设条目（A-flth-lump / A-flth-params / A-flth-loss）。'
+      ),
+      stepClosedLoop(
+        '闭环注入 +10 A 电流偏置（thermal 轨）：电气面与 off 轨逐位同（I_true 25→15 A、SOC/SOC_est 同源；热面对电气面零反馈），分歧全部在热面与损耗补偿面——T_bat 从 298.15 K 爬升，故障后电流下降使损耗 125→45 W，温度出现「短暂续升 +0.176 K 后转入降温恢复轨」（T(20.0)=304.464 → 峰 304.640 K @ t≈22.1 → T(60)=303.420 K，渐近 302.862 K）；P_gen(60) 24.000000（off）→ 24.047371 kW（on），差额 +0.047371 kW 正是损耗补偿量。off 轨完全没有这张热观测面——模型深度导致的表达力差异。',
+        '信号页 · T_bat_K 升温-过冲-降温恢复轨（off 轨同列全程空白）与 P_loss_kW 回落；辅看 P_gen_true_kW 的补偿抬升。',
+        { label: 'off 轨视角', text: '同一偏置在 off 轨：I/SOC/r_meas 面完全一致，但 T_bat / P_loss / E_loss 无观测面——模型深度决定你能看见什么。' }
+      ),
+      stepMonitorCompare(
+        '「同一故障、两种模型深度」并排（对比页选同族不同 thermal_model 的 Run）：电源电能账本 E_source(60) 0.3761111（off）→ 0.3773898 kWh（on），差 0.0012787 kWh = E_loss（热损耗账本，EQ-FLTH-8）；max|r_meas| = 4.0 kW 两深度一致——r_meas 定义恒等含 −P_loss 项后 0.4·b 教学锚点保持纯净（+4 kW 是测量偏差的功率当量，不是能量转移的结果，两深度一致成立）。执行器限幅轨对照：T_bat 峰 304.505 K @ t≈20.5、T(60)=302.771 K（限幅 13.75 A 损耗更小、更深降温）。',
+        '对比页 · 同故障 off/on 成对 Run：T_bat / P_gen / E_source 三处分歧 + 电气面（I/SOC/r_meas）两深度一致。',
+        { label: '仅监测视角', text: '仅监测偏置不进入物理回路：thermal 轨 T_bat(60) = 309.953 K 与健康局逐点同——测量故障不在热面留痕。' }
+      ),
+      stepCausal(
+        '因果页的 thermal 变体（fl-thermal-compensation）讲「损耗补偿」：偏置 → 真实电流下降 → I²R 损耗回落 → 热平衡左移（T_bat 降温恢复）→ P_gen 补偿量回落——损耗在三处可见（P_gen、E_source、T_bat），不免费、有源可查、有温可测（模型记账口径）。注意教学参数定位：R0/α/C_bat/h 为教学整定值（非设备参数辨识），量级按「60 s 演示窗内温升路径可见」整定。本页只解释运行前注入的已知故障在两种模型深度下的传播差异，不做检测、定位或诊断。',
+        '因果页 · thermal 变体节点（T_bat 温升/降温路径 + P_gen 补偿节点）；对照 off 轨既有 sensor-drift-feedback 链（零改动）。'
+      ),
+      stepEval(
+        '评测入口：预置 4 事件成对场景——传感器偏置与执行器限幅各按 thermal_model off / on 成对运行（事件级 thermal_model 键，均 @20 s，锚点参数）。执行后逐对核对：偏置对的 T_bat 恢复轨形状（峰 304.640 K @ t≈22.1）、P_gen(60) 补偿差（24.000000 vs 24.047371 kW）、限幅对的更深降温（T(60)=302.771 K）；off 轨热面列全程空白本身就是要核对的结论——模型深度导致的表达力差异。',
+        '场景页 · 导入 4 事件成对场景 → 执行 → 按 thermal_model 分组核对 T_bat / P_gen / E_source；「载入查看」回到曲线与因果页。',
+        FL_CROSS_SPEC
+      )
+    ]
+  };
+
+  var PATHS = [FL_PATH, FC_PATH, GT_PATH, GT_CROSS_PATH, WT_BIAS_PATH, WT_GUST_PATH, FL_CROSS_PATH];
 
   /* ================================================================== */
   /* 挂载                                                               */
@@ -19540,10 +20979,13 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
   <script>
 /* ===== src/ui/pages/home.js ===== */
 /* owner: lab-pages | module: page-home | contract: docs/CONTRACT.md */
-/* 实验首页：Hero（价值主张 + 信任标签）、四系统选择卡、选中系统的实验详情、
+/* 实验首页：Hero（价值主张 + 信任标签）、五系统选择卡、选中系统的实验详情、
    三个问题、参数摘要（标预设值）、建议体验路径、模型假设抽屉、3 步快速讲解浮层、
    故障原理解剖（测量偏置系统渲染参数化静态图解，其余渲染声明性机制卡）、
-   恢复上次实验 / 继续当前实验。 */
+   恢复上次实验 / 继续当前实验。
+   v0.8.0 UI 接线路（CHG-20261107-01）：WT-001 入卡（L0b 徽章）；FL-001 卡与详情的
+   level/summary 按 cfg.thermal_model 经 systems.js FL001.levelFor/summaryFor 派生
+   （systems.js:378-395 L4 派生入口，on 轨显示 L1 标签，off/无 cfg 域零变化）。 */
 (function () {
   'use strict';
   const FL = window.FL = window.FL || {};
@@ -19559,8 +21001,8 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     {
       icon: 'layers',
       title: '选择一个系统',
-      text: '四个行为级能源系统（L0 / L1）共用同一套五页面。FL-001 电池储能为基准实验：默认在 20 s 注入 +10 A 电流传感器偏置。',
-      bullets: ['FL-001 电池储能（基准）', 'FC-001 燃料电池（扩展）', 'GT-001 燃气涡轮（扩展）', 'PV-001 光伏并网（扩展）']
+      text: '五个行为级能源系统（L0 / L0b / L1）共用同一套五页面。FL-001 电池储能为基准实验：默认在 20 s 注入 +10 A 电流传感器偏置。',
+      bullets: ['FL-001 电池储能（基准）', 'FC-001 燃料电池（扩展）', 'GT-001 燃气涡轮（扩展）', 'PV-001 光伏并网（扩展）', 'WT-001 风电机组（扩展）']
     },
     {
       icon: 'sliders',
@@ -19598,6 +21040,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
      在闭环中移动」的系统成立——FL-001 / FC-001（电流）、GT-001（转速偏置→反馈频率）。
      PV-001 的被偏置辐照度真值 G_true 恒定，闭环响应在功率量（EQ-PV-3/4 一阶跟随），
      三面板形状不成立 → 渲染声明性机制卡（fault 定义自带 closedLoopEffect / monitorEffect）。
+     WT-001（v0.8.0）与 PV 同走声明性卡：被偏置的风速真值 v_true 是环境输入、闭环中不移动，
+     反馈经可用功率保护钳位作用在功率面（真实出力/转速/桨距按机械动态移动，
+     WT001_G2B_SPEC_APPROVED v1.0 §2.1 closedLoopEffect 声明）——机械动态声明性机制卡
+     沿 PV 声明性卡体例渲染，数值一律来自 systems.js fault 定义。
      未登记系统或非 sensor_drift 默认故障一律走机制卡。 */
   const PRINCIPLE_DIAGRAM = {
     'FL-001': { quantity: '电流', trueSym: 'I_true', measSym: 'I_meas', unit: 'A' },
@@ -19699,12 +21145,35 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
   function modeText(mode) { return mode === 'monitor' ? '仅监测' : '闭环演示'; }
 
   /* 卡片/详情徽章的 level 前缀取自 SystemDef.level 真实字符串（如
-     'L0 · 光伏并网等效演示（G2b 已批准）' → 'L0'；GT-001 thermo 后为 L1），
+     'L0 · 光伏并网等效演示（G2b 已批准）' → 'L0'；GT-001 thermo 后为 L1；
+     WT-001 为 'L0b · 机械动态行为级演示（G2b 已批准）' → 'L0b'——[a-z] 尾缀
+     兼容 L0b（WT001_G2B_SPEC_APPROVED v1.0 §6.1 层级标签）），
      不再写死 'L0b'（v0.7 残留清算：PV-001 为 L0，授权状态按 FAULT_CATALOG 仍为
      extension_preview，故徽章措辞保持「扩展预览」）。 */
   function levelPrefix(sysDef) {
-    const m = /^L\d/.exec(String((sysDef && sysDef.level) || ''));
+    const m = /^L\d[a-z]?/.exec(String((sysDef && sysDef.level) || ''));
     return m ? m[0] : 'L0';
+  }
+
+  /* FL-001 thermal cfg 感知 level/summary（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §6.4；
+     派生入口 = systems.js FL001.levelFor/summaryFor（FLTH-IMP-Q2 落地面，systems.js:386-395），
+     off（或缺省/未知 cfg）返回与静态字段同值——off 域零变化）。cfg 取当前 activeRun 的
+     config（且属于该系统时）；非 FL 系统无 levelFor 入口时恒读静态 level 字段。 */
+  function cfgOf(sysDef, state0) {
+    const run = state0 && state0.activeRun;
+    return (run && sysDef && run.systemId === sysDef.id && run.config) ? run.config : null;
+  }
+  function levelTextOf(sysDef, state0) {
+    if (sysDef && typeof sysDef.levelFor === 'function') {
+      try { return String(sysDef.levelFor(cfgOf(sysDef, state0)) || sysDef.level); } catch (e) { /* 回落静态字段 */ }
+    }
+    return (sysDef && sysDef.level) || 'L0';
+  }
+  function summaryTextOf(sysDef, state0) {
+    if (sysDef && typeof sysDef.summaryFor === 'function') {
+      try { return String(sysDef.summaryFor(cfgOf(sysDef, state0)) || sysDef.summary); } catch (e) { /* 回落静态字段 */ }
+    }
+    return (sysDef && sysDef.summary) || '';
   }
 
   function previewBadgeLabel(sysDef) {
@@ -19844,8 +21313,8 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       el('div', { class: 'section-head home-section-head' }, [
         el('div', {}, [
           el('div', { class: 'eyebrow' }, '01 / 选择实验系统'),
-          el('h2', { class: 'section-title home-section-title' }, '四个系统，同一条验证路径'),
-          el('p', { class: 'section-sub' }, 'FL-001 电池储能为基准实验；FC-001、GT-001 与 PV-001 展示同一套页面如何驱动不同能源系统与故障家族。')
+          el('h2', { class: 'section-title home-section-title' }, '五个系统，同一条验证路径'),
+          el('p', { class: 'section-sub' }, 'FL-001 电池储能为基准实验；FC-001、GT-001、PV-001 与 WT-001 展示同一套页面如何驱动不同能源系统与故障家族。')
         ]),
         el('span', { class: 'badge', 'data-tone': 'info' }, 'L0 · 行为级')
       ])
@@ -19856,6 +21325,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
   function buildSystemCards(systems) {
     ui.clear(local.refs.cardsGrid);
     local.refs.cards = {};
+    local.refs.cardLevels = {};
     systems.forEach((s) => {
       const def = getDef(s.id);
       const fault = firstFault(def);
@@ -19864,6 +21334,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       const badgeLabel = isBaseline ? '基准实验'
         : isApprovedFc ? '已验收（1.1.0）' : previewBadgeLabel(s);
       const badgeTone = isBaseline ? 'acc' : isApprovedFc ? 'warm' : 'neutral';
+      /* 卡内 level 文本挂 ref：refresh() 里按 cfg.thermal_model 经 levelFor 派生刷新
+         （FL-001 thermal on 运行显示 L1 标签；其余系统恒为静态 level 字段）。 */
+      const levelEl = el('span', { class: 'home-sys-level' }, s.level || 'L0');
+      local.refs.cardLevels[s.id] = levelEl;
       const card = el('button', {
         class: 'home-sys-card fl-card fl-card--hover', type: 'button',
         'aria-pressed': 'false', 'data-system': s.id,
@@ -19880,12 +21354,25 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
           el('span', { class: 'home-sys-fault-text' }, faultSummary(fault))
         ]),
         el('span', { class: 'home-sys-foot' }, [
-          el('span', { class: 'home-sys-level' }, s.level || 'L0'),
+          levelEl,
           el('span', { class: 'home-sys-select' }, [el('span', {}, '查看实验详情'), ui.icon('arrow-right', { size: 13 })])
         ])
       ]);
       local.refs.cards[s.id] = card;
       local.refs.cardsGrid.appendChild(card);
+    });
+  }
+
+  /* 卡片 level 文本 cfg 刷新（FL-001 thermal on 显示 L1 标签；FL001_THERMAL_G2B_SPEC
+     _APPROVED v1.0 §6.4 / systems.js:378-395 派生入口）。其余系统 cfgOf 恒 null、
+     levelFor 缺省回落静态字段——非 FL 卡文本零漂移。 */
+  function refreshCardLevels(state0) {
+    const levels = local.refs.cardLevels || {};
+    Object.keys(levels).forEach((id) => {
+      const def = getDef(id);
+      if (!def) return;
+      const text = levelTextOf(def, state0);
+      if (levels[id].textContent !== text) levels[id].textContent = text;
     });
   }
 
@@ -20125,13 +21612,13 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
           el('span', { class: 'eyebrow' }, '02 / 实验详情 · ' + sysDef.experimentCode),
           sBaselineBadge(sysDef)
         ]),
-        el('span', { class: 'badge', 'data-tone': 'neutral' }, sysDef.level || 'L0')
+        el('span', { class: 'badge', 'data-tone': 'neutral' }, levelTextOf(sysDef, st))
       ]),
       el('div', { class: 'panel-body home-detail-body' }, [
         el('div', { class: 'home-detail-headline' }, [
           el('h3', { class: 'home-detail-title display' }, sysDef.experimentName || sysDef.title),
           el('p', { class: 'home-detail-tagline' }, sysDef.tagline || ''),
-          el('p', { class: 'home-detail-summary' }, sysDef.summary || '')
+          el('p', { class: 'home-detail-summary' }, summaryTextOf(sysDef, st) || '')
         ]),
         el('div', { class: 'home-block home-questions' }, [
           el('div', { class: 'home-block-head' }, [
@@ -20527,6 +22014,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     const sysDef = getDef(selected);
     renderHero(state0, systems, sysDef, selected);
     renderCards(selected);
+    refreshCardLevels(state0);
     renderDetail(sysDef, selected, state0);
     renderRuns(state0);
   }
@@ -24512,7 +26000,15 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
        展示单位跟随信号自身单位，不得标注为 kW）。gtThermoChain = thermo 轨效率链通道
        （P_gen = η_m·(P_turb − P_comp)，kW 域），供展开面热力逐项展示；swing/linear
        遗留轨该三信号全程 null（无热力面），不解析。 */
-    gtThermoChain: ['Q_fuel_kW', 'P_comp_kW', 'P_turb_kW']
+    gtThermoChain: ['Q_fuel_kW', 'P_comp_kW', 'P_turb_kW'],
+    /* WT-001 键（v0.8.0 UI 接线路，WT001_G2B_SPEC_APPROVED v1.0 §1.2/§6.4）：WT 全部
+       功率测量通道健康——r_true ≡ 0 且 r_meas ≡ 0（全场景逐点，与 FL-001 的
+       r_meas = 0.4·b 教学对照）；测量侧一致性通道由最优曲线一致性残差 d_wt 承载
+       （代数恒等 d_wt = P_wt,meas − P_wt,est，不是能量损失：闭环吸收瞬态后归零 /
+       仅监测界破坏 +2.98 持续 / 封顶工况合法残差 −3.26——三分法判读）。wtMeas 与
+       pvMeas 同款并行展示口径（r_meas ≈ 0 时 d_wt 行不缺位）。r_true/r_meas 信号 id
+       与既有 rTrue/rMeas 键同字面（WT signals 定义同名），无需新键。 */
+    wtMeas: ['d_wt_kW']
   };
 
   let el = null;
@@ -25649,12 +27145,22 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     const batMeas = findSignalByCandidates(run, RESIDUAL_CANDIDATES.batMeas);
     const loadSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.load);
     const rotorSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.rotor);
-    /* PV-001 键（r_meas→d_pv 口径）与 GT thermo 键解析 */
+    /* PV-001 键（r_meas→d_pv 口径）、WT-001 键（r_meas→d_wt 口径）与 GT thermo 键解析 */
     const pvSourceSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.pvSource);
     const pvMeasSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.pvMeas);
+    const wtMeasSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.wtMeas);
     const chainSigs = RESIDUAL_CANDIDATES.gtThermoChain
       .map((id) => findSignalByCandidates(run, [id]))
-      .filter((sig) => sig && run.timeseries && run.timeseries.signals && run.timeseries.signals[sig.id]);
+      .filter((sig) => {
+        if (!sig) return false;
+        /* swing/linear 遗留轨该三信号为全程 null 的占位数组（无热力面）——须有有限值才解析 */
+        const arr = run.timeseries && run.timeseries.signals ? run.timeseries.signals[sig.id] : null;
+        if (!Array.isArray(arr)) return false;
+        for (let i = 0; i < arr.length; i++) {
+          if (typeof arr[i] === 'number' && isFinite(arr[i])) return true;
+        }
+        return false;
+      });
     /* 一致性通道展示单位跟随信号自身单位（GT 的 f_channel_diff_Hz 是 Hz 域，不是 kW） */
     const measUnit = sigMeas ? unitOf(sigMeas) : 'kW';
     const sameDomain = !!sigMeas && !!sigTrue && unitOf(sigMeas) === unitOf(sigTrue);
@@ -25668,7 +27174,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     }
     if (!ev) {
       body.appendChild(el('p', { class: 'cc-card-desc' }, '本运行没有故障事件，真实与测量平衡残差都应接近 0，不存在需要解释的残差现象。'));
-      body.appendChild(el('div', { class: 'cc-resid-summary' }, residualSummaryRows(run, state.currentTime, sigTrue, sigMeas, pvMeasSig)));
+      body.appendChild(el('div', { class: 'cc-resid-summary' }, residualSummaryRows(run, state.currentTime, sigTrue, sigMeas, pvMeasSig, wtMeasSig)));
       return card;
     }
     if (peak == null || peak <= 1e-6) {
@@ -25676,10 +27182,11 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         UI.icon('info', { size: 14 }),
         el('div', {}, '本次运行的最大测量一致性残差 ≈ 0，未出现可解释的残差异常；页面不推断未观测的原因。')
       ]));
-      /* PV-001（r_meas→d_pv 口径）：r_meas 恒为 0 本身是教学点，功率测量通道全健康；
-         测量侧一致性由 d_pv 承载——r_meas ≈ 0 时并行展示 d_pv 通道，不把两者混同。 */
-      if (pvMeasSig) {
-        body.appendChild(el('div', { class: 'cc-resid-summary' }, residualSummaryRows(run, state.currentTime, sigTrue, sigMeas, pvMeasSig)));
+      /* PV-001（r_meas→d_pv 口径）/ WT-001（r_meas→d_wt 口径）：r_meas 恒为 0 本身是
+         教学点，功率测量通道全健康；测量侧一致性由 d_pv / d_wt 承载——r_meas ≈ 0 时
+         并行展示系统专属一致性通道，不把两者混同。 */
+      if (pvMeasSig || wtMeasSig) {
+        body.appendChild(el('div', { class: 'cc-resid-summary' }, residualSummaryRows(run, state.currentTime, sigTrue, sigMeas, pvMeasSig, wtMeasSig)));
       }
       return card;
     }
@@ -25710,6 +27217,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         summary.appendChild(residualSummaryRow(run, sigTrue, tEval, true));
         summary.appendChild(residualSummaryRow(run, sigMeas, tEval, true));
         if (pvMeasSig) summary.appendChild(residualSummaryRow(run, pvMeasSig, tEval, true));
+        if (wtMeasSig) summary.appendChild(residualSummaryRow(run, wtMeasSig, tEval, true));
         summary.appendChild(el('div', { class: 'tiny muted' }, '评估时刻：t = ' + FMT.time(tEval) +
           (st.currentTime < ev.trigger_s ? '（故障尚未开始，已取故障期间末点）' : '（当前时刻）')));
       };
@@ -25804,13 +27312,15 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       withLabel ? el('span', { class: 'tiny muted' }, 't=' + FMT.num(t, 1) + ' s') : null
     ]);
   }
-  /* 摘要行组装：r_true / r_meas（一致性通道）+ 可选系统专属通道（PV-001 的 d_pv，
-     r_meas→d_pv 口径——r_meas 恒 0 与 d_pv 并行展示，不混同）。 */
-  function residualSummaryRows(run, t, sigTrue, sigMeas, pvMeasSig) {
+  /* 摘要行组装：r_true / r_meas（一致性通道）+ 可选系统专属通道（PV-001 的 d_pv、
+     WT-001 的 d_wt——r_meas→系统专属一致性通道口径，r_meas 恒 0 与专属通道并行
+     展示，不混同）。 */
+  function residualSummaryRows(run, t, sigTrue, sigMeas, pvMeasSig, wtMeasSig) {
     const rows = [];
     if (sigTrue) rows.push(residualSummaryRow(run, sigTrue, t));
     if (sigMeas) rows.push(residualSummaryRow(run, sigMeas, t));
     if (pvMeasSig) rows.push(residualSummaryRow(run, pvMeasSig, t));
+    if (wtMeasSig) rows.push(residualSummaryRow(run, wtMeasSig, t));
     return rows;
   }
   /* 逐项信号表（展开面复用：残差项 / GT thermo 效率链通道） */
@@ -26102,7 +27612,13 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
      PV-001 无储能、无电池与 SOC 通道（不可调度电源，EQ-PV-7：SOC_est 功能位由
      P_pv,est/ΔE_pv 承担），energy-source 组改用 PV 能量账本四指标（metrics.js
      PV-001 专属段注册名）；soc 组保留原指标行（PV 的这些指标由引擎注册为
-     unavailable → 值面显示「不可用」，不填 0），仅替换说明防止误读。 */
+     unavailable → 值面显示「不可用」，不填 0），仅替换说明防止误读。
+     WT-001（v0.8.0 UI 接线路，CHG-20261107-01）：与 PV-001 同构的无储能适配——
+     energy-source 组改用 WT 能量账本四指标（E_wt/E_grid，PV 命名先例同构）、
+     soc 组仅替换说明；另设 wt-mechanical 组（onlySystems=['WT-001']，其余系统
+     不渲染本组）承载机械/出力面四项（P_wt / n_rotor / beta / d_wt）。指标 id 按
+     信号 id 组织（L5 metrics.js WT 指标段未落地；metricLoose 前缀兼容可吸收
+     注册名尾缀差，落地后如 id 不同须回改对齐——交接注记已登记）。 */
   const METRIC_GROUPS = [
     {
       id: 'energy-load', title: '负载需求电能 / 实际服务电能',
@@ -26118,6 +27634,11 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
           title: '光伏电能 / 馈线受电电能积分',
           desc: '光伏阵列真实电能、EMS 辐照度折算估计电能、两者之差（ΔE_pv）与馈线受电电能；E_pv + E_grid = E_load 为定义恒等（EQ-PV-7）。',
           metrics: ['E_pv_true_kWh', 'E_pv_est_kWh', 'E_pv_err_kWh', 'E_grid_kWh']
+        },
+        'WT-001': {
+          title: '风电电能 / 馈线受电电能积分',
+          desc: '风电机组真实电能、EMS 风速折算估计电能、两者之差（ΔE_wt）与馈线受电电能；E_wt + E_grid = E_load 为定义恒等（WT-001 无储能，r_true ≡ 0 的能量口径）。',
+          metrics: ['E_wt_true_kWh', 'E_wt_est_kWh', 'E_wt_err_kWh', 'E_grid_kWh']
         }
       }
     },
@@ -26128,6 +27649,9 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       bySystem: {
         'PV-001': {
           desc: 'PV-001 无储能（结构上无 SOC 键），本组指标对光伏运行显示「不可用」；SOC_est 通道的功能位由 P_pv,est / ΔE_pv 承担（见上一组）。'
+        },
+        'WT-001': {
+          desc: 'WT-001 无储能（结构上无 SOC 键），本组指标对风电机组显示「不可用」；EMS 风速折算估计出力的功能位由 P_wt,est / ΔE_wt 承担（见上一组）。'
         }
       }
     },
@@ -26135,6 +27659,18 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       id: 'residual', title: '最大功率平衡残差',
       desc: '最大真实守恒残差 max|r_true| 与最大测量一致性残差 max|r_meas|，两者含义不同，不得混用。',
       metrics: ['max_abs_r_true_kW', 'max_abs_r_meas_kW']
+    },
+    {
+      id: 'wt-mechanical', title: '风电出力与机械动态（WT-001）',
+      onlySystems: ['WT-001'],
+      desc: '风电机组专属运行面：真实出力、风轮转速、桨距角与最优曲线一致性残差 d_wt（d_wt 是测量通道对最优曲线的代数偏离，不是能量损失；其余系统不显示本组）。',
+      metrics: ['P_wt_true_kW', 'n_rotor_rpm', 'beta_pitch_deg', 'd_wt_kW'],
+      fallbackLabels: {
+        P_wt_true_kW: '风电真实出力（信号 id 口径）',
+        n_rotor_rpm: '风轮转速（信号 id 口径）',
+        beta_pitch_deg: '桨距角（信号 id 口径）',
+        d_wt_kW: '最优曲线一致性残差（信号 id 口径）'
+      }
     },
     {
       id: 'fault', title: '故障激活信息',
@@ -26720,7 +28256,11 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     ]));
 
     const grid = el('div', { class: 'cp-metric-grid' });
-    METRIC_GROUPS.forEach((group) => {
+    const pairSystemId = systemOfPair(data);
+    METRIC_GROUPS.forEach((baseGroup) => {
+      /* onlySystems：系统专属组（WT-001 机械面）——其余系统不渲染本组卡 */
+      if (baseGroup.onlySystems && baseGroup.onlySystems.indexOf(pairSystemId) === -1) return;
+      const group = groupForSystem(baseGroup, pairSystemId);
       const card = el('section', {
         class: 'cp-cat fl-card' + (group.accent ? ' is-accent' : ''),
         'data-cat': group.id,
@@ -26746,6 +28286,11 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       const rowsHost = el('div', { class: 'cp-cat-rows' });
       group.metrics.forEach((metricId) => {
         const entry = metricEntry(data, metricId);
+        /* 指标尚未注册（L5 metrics.js WT 段落地前）时行显示「不可用」；
+           fallbackLabels 只替换显示标签，不改变数值来源（仍只读 run.metrics/pairs）。 */
+        if (!entry.baseline && !entry.trial && group.fallbackLabels && group.fallbackLabels[metricId]) {
+          entry.label = group.fallbackLabels[metricId];
+        }
         const b = valueText(entry, 'base');
         const t = valueText(entry, 'trial');
         const d = deltaText(entry);
@@ -27693,14 +29238,17 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     }
     return FALLBACK_AGENTS;
   }
-  /* Arena 盲测池显式排除 PV-001（PV001_G2B_SPEC_APPROVED v1.0 §5 / DEC-2，CHG-20261104-10）：
-     PV-001 已注册进 systems.js 全注册表（systems.list() 默认返回 4 系统），但 Arena 盲测
-     依赖既有 blind_observable 三值映射面，PV 的 d_pv/P_pv,est 等盲包可见性裁定（exposure
-     三值映射验证轮）未做——入池须显式 CHG 并同步 blind_observable 通道面裁定，此前在此过滤。 */
+  /* Arena 盲测池显式排除 PV-001（PV001_G2B_SPEC_APPROVED v1.0 §5 / DEC-2，CHG-20261104-10）
+     与 WT-001（WT001_G2B_SPEC_APPROVED v1.0 §5 / §1.2 v1.0 注记 B-3，CHG-20261107-01）：
+     两系统均已注册进 systems.js 全注册表（systems.list() 返回 5 系统），但 Arena 盲测
+     依赖既有 blind_observable 三值映射面，PV 的 d_pv/P_pv,est 与 WT 的 d_wt/P_wt,est 等
+     盲包可见性裁定（exposure 三值映射验证轮）未做——WT 规格 §5 明文「入池延后至三值映射
+     验证轮，届时须显式 CHG 并同步 blind_observable 通道面裁定」，此前在此过滤。 */
   function systemList() {
-    /* 守卫（DEC-2 / CHG-20261104-10；PV001_G2B_SPEC_APPROVED §5）：
-       PV-001 显式排除 Arena 盲测池——依据见本函数上方注释块。 */
-    const ARENA_EXCLUDED = ['PV-001'];
+    /* 守卫（DEC-2 / CHG-20261104-10；PV001_G2B_SPEC_APPROVED §5。WT-001 同款：
+       WT001_G2B_SPEC_APPROVED §1.2 exposure 三值映射注记 B-3 / §5，CHG-20261107-01）：
+       PV-001 / WT-001 显式排除 Arena 盲测池——依据见本函数上方注释块。 */
+    const ARENA_EXCLUDED = ['PV-001', 'WT-001'];
     try {
       const list = api.systems && api.systems.list ? api.systems.list() : [];
       if (list && list.length) return list.filter((s) => ARENA_EXCLUDED.indexOf(s.id) === -1);
@@ -28916,13 +30464,30 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
      PV-001：focal_change 的焦点信号即 P_pv_true_kW（metrics.js FOCAL_SIGNAL 映射，
      故障时刻→结束的真实出力变化量）；ΔE_pv（E_pv_err_kWh）承担 SOC_est 的功能位
      （EQ-PV-7），E_grid_kWh 为馈线受电口径（E_pv + E_grid = E_load 定义恒等）。
-     PV-001 无储能/无 SOC，故不取 SOC 类指标（缺失显示 不可用，见 pickMetrics）。 */
+     PV-001 无储能/无 SOC，故不取 SOC 类指标（缺失显示 不可用，见 pickMetrics）。
+     WT-001（v0.8.0 UI 接线路，CHG-20261107-01）：无储能/无 SOC 同款口径——
+     focal_change（焦点信号 P_wt_true_kW，待 L5 FOCAL_SIGNAL 注册）+ ΔE_wt
+     （E_wt_err_kWh，EMS 风速折算估计电能差）+ 最优曲线一致性残差 d_wt_kW；
+     id 与 compare.js bySystem WT-001 组一致，未注册的 id 被 pickMetrics 跳过
+     （缺失不显示、不填 0）。 */
   const METRIC_PICK = {
     'FL-001': ['focal_change_A', 'SOC_err_end_pp', 'E_bat_true_60s'],
     'FC-001': ['focal_change', 'SOC_err_pp', 'E_bat_kWh'],
     'GT-001': ['focal_change', 'f_nadir_Hz'],
-    'PV-001': ['focal_change', 'E_pv_err_kWh', 'E_grid_kWh']
+    'PV-001': ['focal_change', 'E_pv_err_kWh', 'E_grid_kWh'],
+    'WT-001': ['focal_change', 'E_wt_err_kWh', 'd_wt_kW']
   };
+  /* FL-001 thermal_model 事件/Run 展示（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0：
+     off|on 单键枚举，默认 off；L5 在 src/core/scenario.js EVENT_KEYS 白名单加
+     thermal_model 后，事件卡/Run 行按 cfg 展示键值）。 */
+  const THERMAL_LABEL = { on: '热模型 on', off: '热模型 off' };
+  function thermalChipOf(value) {
+    if (value !== 'on' && value !== 'off') return null;
+    return ui.chip(THERMAL_LABEL[value], {
+      tone: value === 'on' ? 'warm' : 'neutral',
+      title: 'thermal_model = ' + value + '（FL-001 模型深度开关：off = L0 行为级轨，on = L1 单节点集总热轨）'
+    });
+  }
   const MAX_ERROR_ROWS = 12;
 
   let api = null;
@@ -29458,6 +31023,9 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     if (typeof ev.t_clear_s === 'number') {
       chips.push(ui.chip('清除 ' + fmt().time(ev.t_clear_s), { title: 't_clear_s = ' + ev.t_clear_s + ' s' }));
     }
+    /* FL-001 thermal_model 事件列（L5 EVENT_KEYS 白名单加键后可解析展示；缺省不显示） */
+    const thermalChip = thermalChipOf(ev.thermal_model);
+    if (thermalChip) chips.push(thermalChip);
     const paramChips = Object.keys(ev.params || {}).map((k) => {
       const p = def && def.params ? def.params.filter((pp) => pp.key === k)[0] : null;
       const label = p && p.label ? p.label : k;
@@ -29518,8 +31086,12 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       h('span', { class: 'scn-run-family' }, ui.badge(
         familyLabel(run.systemId, ev ? ev.family : (run.config.fault ? run.config.fault.family : '')),
         { tone: 'danger' })),
-      h('span', { class: 'scn-run-mode' }, ui.chip(modeLabel(run.config.feedback_mode),
-        { tone: run.config.feedback_mode === 'monitor' ? 'neutral' : 'acc' })),
+      h('span', { class: 'scn-run-mode' }, [
+        ui.chip(modeLabel(run.config.feedback_mode),
+          { tone: run.config.feedback_mode === 'monitor' ? 'neutral' : 'acc' }),
+        /* FL-001 thermal_model Run 列（off/on；defaults盖章后 FL Run 恒带键，其余系统不显示） */
+        thermalChipOf(run.config.thermal_model)
+      ]),
       h('div', { class: 'scn-run-metrics' }, metricNodes),
       h('span', { class: 'scn-run-hash mono', title: 'config_hash ' + (run.configHash || '') },
         fmt().hash(run.configHash || '')),
@@ -29560,9 +31132,11 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
 /* owner: teaching-ui | module: page-teaching | contract: FaultLab-evaluation/NEXT/V070_WAVE_DESIGN.md DEC-5（C-3 最小形态·UI 接线，CHG-20261104-10）
    =========================================================================
    教学路径引导页（页面键 teaching，导航 08）：
-   - 数据源：FL.core.teaching.getTeachingPaths()（src/core/teaching.js，3 条预设 × 固定 5 步，
-     DEC-5：注入→闭环观察→仅监测对照→因果→评测入口）；本页零新执行语义（I-6）；
-   - 路径选择：3 张预设卡（pathId / title / system / goal / prerequisites）；
+   - 数据源：FL.core.teaching.getTeachingPaths()（src/core/teaching.js，7 条预设 × 固定 5 步：
+     FL/FC/GT/WT 主线 + GT/FL 跨深度扩展 + WT 阵风——v0.8.0 UI 接线路 CHG-20261107-01，
+     路径数据事实源在 src/core/teaching.js PATHS，本页只渲染）；
+     DEC-5：注入→闭环观察→仅监测对照→因果→评测入口；本页零新执行语义（I-6）；
+   - 路径选择：预设卡（pathId / title / system / goal / prerequisites）；
    - 步骤卡：narrative（教学叙述）+ compare（可选对照视角）+ view.focus（焦点说明）；
      「进入视图」= 按 step.view.page 深链跳转既有页面，并以 toast 提示焦点说明
      （view.focus 是给读者的「看什么」文字说明，不解析为 DOM 选择器——不触碰目标页语义）；
@@ -29693,15 +31267,19 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
 
   function buildHero() {
     refs.heroStatus = h('span', { class: 'badge', 'data-tone': 'neutral' }, '未选择路径');
+    /* 路径计数徽章挂 ref：syncAll 装载 paths 后按实际条数刷新（数据事实源
+       src/core/teaching.js PATHS，页面不写死条数——v0.8.0 五系统接线路）。 */
+    refs.heroCount = ui.badge('预设教学路径 × 5 步', { tone: 'info' });
     return h('header', { class: 'tea-hero' }, [
       h('div', { class: 'tea-hero-main' }, [
         h('div', { class: 'eyebrow' }, 'C-3 · TEACHING PATHS'),
         h('h1', { class: 'tea-title' }, ['教学', h('em', {}, '路径')]),
         h('p', { class: 'tea-sub' },
-          '三条预设教学路径（FL-001 / FC-001 / GT-001，每条固定 5 步）：先在运行前配置里注入已知故障，' +
-          '再依次观察闭环响应、对照仅监测模式、读取因果解释，最后进入评测入口。页面结论只在本演示假设内成立。'),
+          '预设教学路径（FL-001 / FC-001 / GT-001 / WT-001 主线 + GT/FL 跨模型深度扩展，每条固定 5 步）：' +
+          '先在运行前配置里注入已知故障，再依次观察闭环响应、对照仅监测模式、读取因果解释，最后进入评测入口。' +
+          '页面结论只在本演示假设内成立。'),
         h('div', { class: 'tea-hero-tags' }, [
-          ui.badge('预设 3 路径 × 5 步', { tone: 'info' }),
+          refs.heroCount,
           ui.badge('视图深链', { tone: 'neutral' }),
           ui.badge('零新执行语义', { tone: 'acc' })
         ])
@@ -29717,7 +31295,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         h('div', { class: 'panel-head-main' }, [
           h('span', { class: 'eyebrow' }, 'PATHS'),
           h('span', { class: 'panel-title' }, '选择一条教学路径'),
-          h('span', { class: 'panel-sub' }, '三条预设路径各绑定一个系统，固定 5 步（DEC-5 模板）')
+          h('span', { class: 'panel-sub' }, '预设路径各绑定一个系统，固定 5 步（DEC-5 模板）')
         ]),
         ui.badge('schema v' + (function () {
           const T = teachingModule();
@@ -29769,6 +31347,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     if (!local.paths) {
       local.paths = T.getTeachingPaths();
     }
+    if (refs.heroCount) refs.heroCount.textContent = '预设 ' + local.paths.length + ' 路径 × 5 步';
     renderSelection();
   }
 

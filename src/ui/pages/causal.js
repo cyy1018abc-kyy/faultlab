@@ -46,7 +46,15 @@
        展示单位跟随信号自身单位，不得标注为 kW）。gtThermoChain = thermo 轨效率链通道
        （P_gen = η_m·(P_turb − P_comp)，kW 域），供展开面热力逐项展示；swing/linear
        遗留轨该三信号全程 null（无热力面），不解析。 */
-    gtThermoChain: ['Q_fuel_kW', 'P_comp_kW', 'P_turb_kW']
+    gtThermoChain: ['Q_fuel_kW', 'P_comp_kW', 'P_turb_kW'],
+    /* WT-001 键（v0.8.0 UI 接线路，WT001_G2B_SPEC_APPROVED v1.0 §1.2/§6.4）：WT 全部
+       功率测量通道健康——r_true ≡ 0 且 r_meas ≡ 0（全场景逐点，与 FL-001 的
+       r_meas = 0.4·b 教学对照）；测量侧一致性通道由最优曲线一致性残差 d_wt 承载
+       （代数恒等 d_wt = P_wt,meas − P_wt,est，不是能量损失：闭环吸收瞬态后归零 /
+       仅监测界破坏 +2.98 持续 / 封顶工况合法残差 −3.26——三分法判读）。wtMeas 与
+       pvMeas 同款并行展示口径（r_meas ≈ 0 时 d_wt 行不缺位）。r_true/r_meas 信号 id
+       与既有 rTrue/rMeas 键同字面（WT signals 定义同名），无需新键。 */
+    wtMeas: ['d_wt_kW']
   };
 
   let el = null;
@@ -1183,9 +1191,10 @@
     const batMeas = findSignalByCandidates(run, RESIDUAL_CANDIDATES.batMeas);
     const loadSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.load);
     const rotorSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.rotor);
-    /* PV-001 键（r_meas→d_pv 口径）与 GT thermo 键解析 */
+    /* PV-001 键（r_meas→d_pv 口径）、WT-001 键（r_meas→d_wt 口径）与 GT thermo 键解析 */
     const pvSourceSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.pvSource);
     const pvMeasSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.pvMeas);
+    const wtMeasSig = findSignalByCandidates(run, RESIDUAL_CANDIDATES.wtMeas);
     const chainSigs = RESIDUAL_CANDIDATES.gtThermoChain
       .map((id) => findSignalByCandidates(run, [id]))
       .filter((sig) => {
@@ -1211,7 +1220,7 @@
     }
     if (!ev) {
       body.appendChild(el('p', { class: 'cc-card-desc' }, '本运行没有故障事件，真实与测量平衡残差都应接近 0，不存在需要解释的残差现象。'));
-      body.appendChild(el('div', { class: 'cc-resid-summary' }, residualSummaryRows(run, state.currentTime, sigTrue, sigMeas, pvMeasSig)));
+      body.appendChild(el('div', { class: 'cc-resid-summary' }, residualSummaryRows(run, state.currentTime, sigTrue, sigMeas, pvMeasSig, wtMeasSig)));
       return card;
     }
     if (peak == null || peak <= 1e-6) {
@@ -1219,10 +1228,11 @@
         UI.icon('info', { size: 14 }),
         el('div', {}, '本次运行的最大测量一致性残差 ≈ 0，未出现可解释的残差异常；页面不推断未观测的原因。')
       ]));
-      /* PV-001（r_meas→d_pv 口径）：r_meas 恒为 0 本身是教学点，功率测量通道全健康；
-         测量侧一致性由 d_pv 承载——r_meas ≈ 0 时并行展示 d_pv 通道，不把两者混同。 */
-      if (pvMeasSig) {
-        body.appendChild(el('div', { class: 'cc-resid-summary' }, residualSummaryRows(run, state.currentTime, sigTrue, sigMeas, pvMeasSig)));
+      /* PV-001（r_meas→d_pv 口径）/ WT-001（r_meas→d_wt 口径）：r_meas 恒为 0 本身是
+         教学点，功率测量通道全健康；测量侧一致性由 d_pv / d_wt 承载——r_meas ≈ 0 时
+         并行展示系统专属一致性通道，不把两者混同。 */
+      if (pvMeasSig || wtMeasSig) {
+        body.appendChild(el('div', { class: 'cc-resid-summary' }, residualSummaryRows(run, state.currentTime, sigTrue, sigMeas, pvMeasSig, wtMeasSig)));
       }
       return card;
     }
@@ -1253,6 +1263,7 @@
         summary.appendChild(residualSummaryRow(run, sigTrue, tEval, true));
         summary.appendChild(residualSummaryRow(run, sigMeas, tEval, true));
         if (pvMeasSig) summary.appendChild(residualSummaryRow(run, pvMeasSig, tEval, true));
+        if (wtMeasSig) summary.appendChild(residualSummaryRow(run, wtMeasSig, tEval, true));
         summary.appendChild(el('div', { class: 'tiny muted' }, '评估时刻：t = ' + FMT.time(tEval) +
           (st.currentTime < ev.trigger_s ? '（故障尚未开始，已取故障期间末点）' : '（当前时刻）')));
       };
@@ -1347,13 +1358,15 @@
       withLabel ? el('span', { class: 'tiny muted' }, 't=' + FMT.num(t, 1) + ' s') : null
     ]);
   }
-  /* 摘要行组装：r_true / r_meas（一致性通道）+ 可选系统专属通道（PV-001 的 d_pv，
-     r_meas→d_pv 口径——r_meas 恒 0 与 d_pv 并行展示，不混同）。 */
-  function residualSummaryRows(run, t, sigTrue, sigMeas, pvMeasSig) {
+  /* 摘要行组装：r_true / r_meas（一致性通道）+ 可选系统专属通道（PV-001 的 d_pv、
+     WT-001 的 d_wt——r_meas→系统专属一致性通道口径，r_meas 恒 0 与专属通道并行
+     展示，不混同）。 */
+  function residualSummaryRows(run, t, sigTrue, sigMeas, pvMeasSig, wtMeasSig) {
     const rows = [];
     if (sigTrue) rows.push(residualSummaryRow(run, sigTrue, t));
     if (sigMeas) rows.push(residualSummaryRow(run, sigMeas, t));
     if (pvMeasSig) rows.push(residualSummaryRow(run, pvMeasSig, t));
+    if (wtMeasSig) rows.push(residualSummaryRow(run, wtMeasSig, t));
     return rows;
   }
   /* 逐项信号表（展开面复用：残差项 / GT thermo 效率链通道） */

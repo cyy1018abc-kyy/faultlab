@@ -1,8 +1,11 @@
 /* owner: lab-pages | module: page-home | contract: docs/CONTRACT.md */
-/* 实验首页：Hero（价值主张 + 信任标签）、四系统选择卡、选中系统的实验详情、
+/* 实验首页：Hero（价值主张 + 信任标签）、五系统选择卡、选中系统的实验详情、
    三个问题、参数摘要（标预设值）、建议体验路径、模型假设抽屉、3 步快速讲解浮层、
    故障原理解剖（测量偏置系统渲染参数化静态图解，其余渲染声明性机制卡）、
-   恢复上次实验 / 继续当前实验。 */
+   恢复上次实验 / 继续当前实验。
+   v0.8.0 UI 接线路（CHG-20261107-01）：WT-001 入卡（L0b 徽章）；FL-001 卡与详情的
+   level/summary 按 cfg.thermal_model 经 systems.js FL001.levelFor/summaryFor 派生
+   （systems.js:378-395 L4 派生入口，on 轨显示 L1 标签，off/无 cfg 域零变化）。 */
 (function () {
   'use strict';
   const FL = window.FL = window.FL || {};
@@ -18,8 +21,8 @@
     {
       icon: 'layers',
       title: '选择一个系统',
-      text: '四个行为级能源系统（L0 / L1）共用同一套五页面。FL-001 电池储能为基准实验：默认在 20 s 注入 +10 A 电流传感器偏置。',
-      bullets: ['FL-001 电池储能（基准）', 'FC-001 燃料电池（扩展）', 'GT-001 燃气涡轮（扩展）', 'PV-001 光伏并网（扩展）']
+      text: '五个行为级能源系统（L0 / L0b / L1）共用同一套五页面。FL-001 电池储能为基准实验：默认在 20 s 注入 +10 A 电流传感器偏置。',
+      bullets: ['FL-001 电池储能（基准）', 'FC-001 燃料电池（扩展）', 'GT-001 燃气涡轮（扩展）', 'PV-001 光伏并网（扩展）', 'WT-001 风电机组（扩展）']
     },
     {
       icon: 'sliders',
@@ -57,6 +60,10 @@
      在闭环中移动」的系统成立——FL-001 / FC-001（电流）、GT-001（转速偏置→反馈频率）。
      PV-001 的被偏置辐照度真值 G_true 恒定，闭环响应在功率量（EQ-PV-3/4 一阶跟随），
      三面板形状不成立 → 渲染声明性机制卡（fault 定义自带 closedLoopEffect / monitorEffect）。
+     WT-001（v0.8.0）与 PV 同走声明性卡：被偏置的风速真值 v_true 是环境输入、闭环中不移动，
+     反馈经可用功率保护钳位作用在功率面（真实出力/转速/桨距按机械动态移动，
+     WT001_G2B_SPEC_APPROVED v1.0 §2.1 closedLoopEffect 声明）——机械动态声明性机制卡
+     沿 PV 声明性卡体例渲染，数值一律来自 systems.js fault 定义。
      未登记系统或非 sensor_drift 默认故障一律走机制卡。 */
   const PRINCIPLE_DIAGRAM = {
     'FL-001': { quantity: '电流', trueSym: 'I_true', measSym: 'I_meas', unit: 'A' },
@@ -158,12 +165,35 @@
   function modeText(mode) { return mode === 'monitor' ? '仅监测' : '闭环演示'; }
 
   /* 卡片/详情徽章的 level 前缀取自 SystemDef.level 真实字符串（如
-     'L0 · 光伏并网等效演示（G2b 已批准）' → 'L0'；GT-001 thermo 后为 L1），
+     'L0 · 光伏并网等效演示（G2b 已批准）' → 'L0'；GT-001 thermo 后为 L1；
+     WT-001 为 'L0b · 机械动态行为级演示（G2b 已批准）' → 'L0b'——[a-z] 尾缀
+     兼容 L0b（WT001_G2B_SPEC_APPROVED v1.0 §6.1 层级标签）），
      不再写死 'L0b'（v0.7 残留清算：PV-001 为 L0，授权状态按 FAULT_CATALOG 仍为
      extension_preview，故徽章措辞保持「扩展预览」）。 */
   function levelPrefix(sysDef) {
-    const m = /^L\d/.exec(String((sysDef && sysDef.level) || ''));
+    const m = /^L\d[a-z]?/.exec(String((sysDef && sysDef.level) || ''));
     return m ? m[0] : 'L0';
+  }
+
+  /* FL-001 thermal cfg 感知 level/summary（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §6.4；
+     派生入口 = systems.js FL001.levelFor/summaryFor（FLTH-IMP-Q2 落地面，systems.js:386-395），
+     off（或缺省/未知 cfg）返回与静态字段同值——off 域零变化）。cfg 取当前 activeRun 的
+     config（且属于该系统时）；非 FL 系统无 levelFor 入口时恒读静态 level 字段。 */
+  function cfgOf(sysDef, state0) {
+    const run = state0 && state0.activeRun;
+    return (run && sysDef && run.systemId === sysDef.id && run.config) ? run.config : null;
+  }
+  function levelTextOf(sysDef, state0) {
+    if (sysDef && typeof sysDef.levelFor === 'function') {
+      try { return String(sysDef.levelFor(cfgOf(sysDef, state0)) || sysDef.level); } catch (e) { /* 回落静态字段 */ }
+    }
+    return (sysDef && sysDef.level) || 'L0';
+  }
+  function summaryTextOf(sysDef, state0) {
+    if (sysDef && typeof sysDef.summaryFor === 'function') {
+      try { return String(sysDef.summaryFor(cfgOf(sysDef, state0)) || sysDef.summary); } catch (e) { /* 回落静态字段 */ }
+    }
+    return (sysDef && sysDef.summary) || '';
   }
 
   function previewBadgeLabel(sysDef) {
@@ -303,8 +333,8 @@
       el('div', { class: 'section-head home-section-head' }, [
         el('div', {}, [
           el('div', { class: 'eyebrow' }, '01 / 选择实验系统'),
-          el('h2', { class: 'section-title home-section-title' }, '四个系统，同一条验证路径'),
-          el('p', { class: 'section-sub' }, 'FL-001 电池储能为基准实验；FC-001、GT-001 与 PV-001 展示同一套页面如何驱动不同能源系统与故障家族。')
+          el('h2', { class: 'section-title home-section-title' }, '五个系统，同一条验证路径'),
+          el('p', { class: 'section-sub' }, 'FL-001 电池储能为基准实验；FC-001、GT-001、PV-001 与 WT-001 展示同一套页面如何驱动不同能源系统与故障家族。')
         ]),
         el('span', { class: 'badge', 'data-tone': 'info' }, 'L0 · 行为级')
       ])
@@ -315,6 +345,7 @@
   function buildSystemCards(systems) {
     ui.clear(local.refs.cardsGrid);
     local.refs.cards = {};
+    local.refs.cardLevels = {};
     systems.forEach((s) => {
       const def = getDef(s.id);
       const fault = firstFault(def);
@@ -323,6 +354,10 @@
       const badgeLabel = isBaseline ? '基准实验'
         : isApprovedFc ? '已验收（1.1.0）' : previewBadgeLabel(s);
       const badgeTone = isBaseline ? 'acc' : isApprovedFc ? 'warm' : 'neutral';
+      /* 卡内 level 文本挂 ref：refresh() 里按 cfg.thermal_model 经 levelFor 派生刷新
+         （FL-001 thermal on 运行显示 L1 标签；其余系统恒为静态 level 字段）。 */
+      const levelEl = el('span', { class: 'home-sys-level' }, s.level || 'L0');
+      local.refs.cardLevels[s.id] = levelEl;
       const card = el('button', {
         class: 'home-sys-card fl-card fl-card--hover', type: 'button',
         'aria-pressed': 'false', 'data-system': s.id,
@@ -339,12 +374,25 @@
           el('span', { class: 'home-sys-fault-text' }, faultSummary(fault))
         ]),
         el('span', { class: 'home-sys-foot' }, [
-          el('span', { class: 'home-sys-level' }, s.level || 'L0'),
+          levelEl,
           el('span', { class: 'home-sys-select' }, [el('span', {}, '查看实验详情'), ui.icon('arrow-right', { size: 13 })])
         ])
       ]);
       local.refs.cards[s.id] = card;
       local.refs.cardsGrid.appendChild(card);
+    });
+  }
+
+  /* 卡片 level 文本 cfg 刷新（FL-001 thermal on 显示 L1 标签；FL001_THERMAL_G2B_SPEC
+     _APPROVED v1.0 §6.4 / systems.js:378-395 派生入口）。其余系统 cfgOf 恒 null、
+     levelFor 缺省回落静态字段——非 FL 卡文本零漂移。 */
+  function refreshCardLevels(state0) {
+    const levels = local.refs.cardLevels || {};
+    Object.keys(levels).forEach((id) => {
+      const def = getDef(id);
+      if (!def) return;
+      const text = levelTextOf(def, state0);
+      if (levels[id].textContent !== text) levels[id].textContent = text;
     });
   }
 
@@ -584,13 +632,13 @@
           el('span', { class: 'eyebrow' }, '02 / 实验详情 · ' + sysDef.experimentCode),
           sBaselineBadge(sysDef)
         ]),
-        el('span', { class: 'badge', 'data-tone': 'neutral' }, sysDef.level || 'L0')
+        el('span', { class: 'badge', 'data-tone': 'neutral' }, levelTextOf(sysDef, st))
       ]),
       el('div', { class: 'panel-body home-detail-body' }, [
         el('div', { class: 'home-detail-headline' }, [
           el('h3', { class: 'home-detail-title display' }, sysDef.experimentName || sysDef.title),
           el('p', { class: 'home-detail-tagline' }, sysDef.tagline || ''),
-          el('p', { class: 'home-detail-summary' }, sysDef.summary || '')
+          el('p', { class: 'home-detail-summary' }, summaryTextOf(sysDef, st) || '')
         ]),
         el('div', { class: 'home-block home-questions' }, [
           el('div', { class: 'home-block-head' }, [
@@ -986,6 +1034,7 @@
     const sysDef = getDef(selected);
     renderHero(state0, systems, sysDef, selected);
     renderCards(selected);
+    refreshCardLevels(state0);
     renderDetail(sysDef, selected, state0);
     renderRuns(state0);
   }

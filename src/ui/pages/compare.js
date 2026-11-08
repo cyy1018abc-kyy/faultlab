@@ -14,7 +14,13 @@
      PV-001 无储能、无电池与 SOC 通道（不可调度电源，EQ-PV-7：SOC_est 功能位由
      P_pv,est/ΔE_pv 承担），energy-source 组改用 PV 能量账本四指标（metrics.js
      PV-001 专属段注册名）；soc 组保留原指标行（PV 的这些指标由引擎注册为
-     unavailable → 值面显示「不可用」，不填 0），仅替换说明防止误读。 */
+     unavailable → 值面显示「不可用」，不填 0），仅替换说明防止误读。
+     WT-001（v0.8.0 UI 接线路，CHG-20261107-01）：与 PV-001 同构的无储能适配——
+     energy-source 组改用 WT 能量账本四指标（E_wt/E_grid，PV 命名先例同构）、
+     soc 组仅替换说明；另设 wt-mechanical 组（onlySystems=['WT-001']，其余系统
+     不渲染本组）承载机械/出力面四项（P_wt / n_rotor / beta / d_wt）。指标 id 按
+     信号 id 组织（L5 metrics.js WT 指标段未落地；metricLoose 前缀兼容可吸收
+     注册名尾缀差，落地后如 id 不同须回改对齐——交接注记已登记）。 */
   const METRIC_GROUPS = [
     {
       id: 'energy-load', title: '负载需求电能 / 实际服务电能',
@@ -30,6 +36,11 @@
           title: '光伏电能 / 馈线受电电能积分',
           desc: '光伏阵列真实电能、EMS 辐照度折算估计电能、两者之差（ΔE_pv）与馈线受电电能；E_pv + E_grid = E_load 为定义恒等（EQ-PV-7）。',
           metrics: ['E_pv_true_kWh', 'E_pv_est_kWh', 'E_pv_err_kWh', 'E_grid_kWh']
+        },
+        'WT-001': {
+          title: '风电电能 / 馈线受电电能积分',
+          desc: '风电机组真实电能、EMS 风速折算估计电能、两者之差（ΔE_wt）与馈线受电电能；E_wt + E_grid = E_load 为定义恒等（WT-001 无储能，r_true ≡ 0 的能量口径）。',
+          metrics: ['E_wt_true_kWh', 'E_wt_est_kWh', 'E_wt_err_kWh', 'E_grid_kWh']
         }
       }
     },
@@ -40,6 +51,9 @@
       bySystem: {
         'PV-001': {
           desc: 'PV-001 无储能（结构上无 SOC 键），本组指标对光伏运行显示「不可用」；SOC_est 通道的功能位由 P_pv,est / ΔE_pv 承担（见上一组）。'
+        },
+        'WT-001': {
+          desc: 'WT-001 无储能（结构上无 SOC 键），本组指标对风电机组显示「不可用」；EMS 风速折算估计出力的功能位由 P_wt,est / ΔE_wt 承担（见上一组）。'
         }
       }
     },
@@ -47,6 +61,18 @@
       id: 'residual', title: '最大功率平衡残差',
       desc: '最大真实守恒残差 max|r_true| 与最大测量一致性残差 max|r_meas|，两者含义不同，不得混用。',
       metrics: ['max_abs_r_true_kW', 'max_abs_r_meas_kW']
+    },
+    {
+      id: 'wt-mechanical', title: '风电出力与机械动态（WT-001）',
+      onlySystems: ['WT-001'],
+      desc: '风电机组专属运行面：真实出力、风轮转速、桨距角与最优曲线一致性残差 d_wt（d_wt 是测量通道对最优曲线的代数偏离，不是能量损失；其余系统不显示本组）。',
+      metrics: ['P_wt_true_kW', 'n_rotor_rpm', 'beta_pitch_deg', 'd_wt_kW'],
+      fallbackLabels: {
+        P_wt_true_kW: '风电真实出力（信号 id 口径）',
+        n_rotor_rpm: '风轮转速（信号 id 口径）',
+        beta_pitch_deg: '桨距角（信号 id 口径）',
+        d_wt_kW: '最优曲线一致性残差（信号 id 口径）'
+      }
     },
     {
       id: 'fault', title: '故障激活信息',
@@ -634,6 +660,8 @@
     const grid = el('div', { class: 'cp-metric-grid' });
     const pairSystemId = systemOfPair(data);
     METRIC_GROUPS.forEach((baseGroup) => {
+      /* onlySystems：系统专属组（WT-001 机械面）——其余系统不渲染本组卡 */
+      if (baseGroup.onlySystems && baseGroup.onlySystems.indexOf(pairSystemId) === -1) return;
       const group = groupForSystem(baseGroup, pairSystemId);
       const card = el('section', {
         class: 'cp-cat fl-card' + (group.accent ? ' is-accent' : ''),
@@ -660,6 +688,11 @@
       const rowsHost = el('div', { class: 'cp-cat-rows' });
       group.metrics.forEach((metricId) => {
         const entry = metricEntry(data, metricId);
+        /* 指标尚未注册（L5 metrics.js WT 段落地前）时行显示「不可用」；
+           fallbackLabels 只替换显示标签，不改变数值来源（仍只读 run.metrics/pairs）。 */
+        if (!entry.baseline && !entry.trial && group.fallbackLabels && group.fallbackLabels[metricId]) {
+          entry.label = group.fallbackLabels[metricId];
+        }
         const b = valueText(entry, 'base');
         const t = valueText(entry, 'trial');
         const d = deltaText(entry);

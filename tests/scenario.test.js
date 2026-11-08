@@ -499,6 +499,91 @@ ok(gtTrackRes.runs[1].timeseries.signals.T3_out_K.every((v) => v === null) &&
   'GT Run2/3（swing/linear 钉轨）无热力面（跨深度对比经钉轨可达）');
 eq(gtTrackRes.runs[1].role, 'fault', 'GT 钉轨 swing 闭环 Run role=fault（轨不影响 role 派生）');
 
+/* ------------------------------------------------------------------ *
+ * 8. 事件级 thermal_model 键（FLTH-G2b-04 / CHG-20261107-01；FL001_THERMAL_
+ *    G2B_SPEC_APPROVED v1.0 §2.0：枚举 off|on / 缺省解析为系统默认轨
+ *    （FL-001=off，FLTH-IMP-Q3 定案维持）/ 解析值入 scenarioHash——既有 FL
+ *    场景哈希变化属预期失效面；未声明该轨的系统出现即拒绝）
+ * ------------------------------------------------------------------ */
+const FL_THERM_EV = { key: 'ev1', family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop' };
+
+/* 合法两值：显式钉轨保留进归一化事件 */
+['off', 'on'].forEach((track) => {
+  const p = SC.parseScenario(scen('FL-001', [Object.assign(clone(FL_THERM_EV), { thermal_model: track })]));
+  ok(p.ok && p.scenario.events[0].thermal_model === track,
+    'FL 事件 thermal_model=' + track + ' 解析通过并保留（合法两值枚举）', JSON.stringify(p.errors));
+});
+
+/* 缺省（不提供）解析为系统默认轨（FL-001 = off，FLTH-IMP-Q3 定案维持） */
+const pFlDefault = SC.parseScenario(scen('FL-001', [clone(FL_THERM_EV)]));
+ok(pFlDefault.ok && pFlDefault.scenario.events[0].thermal_model === 'off',
+  'FL 事件缺省 thermal_model 解析为系统默认轨 off（FLTH-IMP-Q3 定案维持）', JSON.stringify(pFlDefault.errors));
+
+/* 未声明该轨的系统（FC/GT/PV/WT）上出现即拒绝（封闭白名单，t_clear_s/inertia_model 先例同构） */
+neg(scen('FC-001', [ev({ thermal_model: 'on' })]),
+  'N54 FC 事件带 thermal_model（系统未声明热模型轨）', 'events[0].thermal_model', '未声明热模型轨');
+neg(scen('GT-001', [Object.assign(clone(GT_TRACK_EV), { thermal_model: 'off' })]),
+  'N55 GT 事件带 thermal_model', 'events[0].thermal_model', '未声明热模型轨');
+neg(scen('PV-001', [{ key: 'a', family: 'sensor_drift', params: { magnitude: 100 }, t_start_s: 20, feedback_mode: 'closed_loop', thermal_model: 'on' }]),
+  'N56 PV 事件带 thermal_model', 'events[0].thermal_model', '未声明热模型轨');
+neg(scen('WT-001', [{ key: 'a', family: 'sensor_drift', params: { magnitude: 1 }, t_start_s: 20, feedback_mode: 'closed_loop', thermal_model: 'on' }]),
+  'N57 WT 事件带 thermal_model', 'events[0].thermal_model', '未声明热模型轨');
+
+/* 非法值拒绝（枚举两值之外 / 非字符串） */
+neg(scen('FL-001', [Object.assign(clone(FL_THERM_EV), { thermal_model: 'dual' })]),
+  'N58 FL thermal_model 非法值（枚举外）', 'events[0].thermal_model', '必须为 off / on');
+neg(scen('FL-001', [Object.assign(clone(FL_THERM_EV), { thermal_model: 42 })]),
+  'N59 FL thermal_model 非字符串', 'events[0].thermal_model', '必须为 off / on');
+
+/* scenarioHash 含解析后的轨：缺省解析轨与显式 off 同哈希；off/on 互异 */
+const hFlDefault = SC.scenarioHash(scen('FL-001', [clone(FL_THERM_EV)]));
+const hFlOff = SC.scenarioHash(scen('FL-001', [Object.assign(clone(FL_THERM_EV), { thermal_model: 'off' })]));
+const hFlOn = SC.scenarioHash(scen('FL-001', [Object.assign(clone(FL_THERM_EV), { thermal_model: 'on' })]));
+eq(hFlDefault, hFlOff, 'scenarioHash：缺省解析轨与显式 off 同哈希（缺省=off 入哈希）');
+ok(hFlOff !== hFlOn, 'scenarioHash：解析轨入哈希——off/on 互异（既有 FL 场景哈希变化=预期失效面，FLTH §2.0）');
+eq(SC.scenarioHash(reverseKeysDeep(scen('FL-001', [Object.assign(clone(FL_THERM_EV), { thermal_model: 'on' })]))), hFlOn,
+  'FL 钉轨场景键序倒置 → 同 scenarioHash');
+const pFlIdem = SC.parseScenario(pFlDefault.scenario);
+ok(pFlIdem.ok && SC.scenarioHash(pFlIdem.scenario) === hFlDefault, 'FL 归一化场景（缺省轨已解析）再哈希幂等');
+eq(pFL.scenario.events[0].thermal_model, 'off',
+  'FL3 既有多事件场景（本文件 §1 FL3，无轨键）归一化后解析轨 thermal_model=off 在场——既有 FL 场景哈希变化属预期失效面（FLTH §2.0/§2.4，CHG-20261107-01 显式 CHG）');
+
+/* executeScenario：解析轨透传引擎配置；跨深度对比场景经显式钉轨可达 */
+const FL_TRACKS = scen('FL-001', [
+  Object.assign(clone(FL_THERM_EV), { key: 'ev-off' }),
+  Object.assign(clone(FL_THERM_EV), { key: 'ev-on', thermal_model: 'on' })
+]);
+const flTrackRes = SC.executeScenario(FL_TRACKS, { runIdPrefix: 'FL-TRACK', createdAt: TS });
+eq(flTrackRes.runs.length, 2, 'FL 两轨场景执行 2 Run');
+eq(flTrackRes.runs[0].config.thermal_model, 'off', 'FL Run1（缺省）config.thermal_model=off（解析轨透传引擎，normalizeConfig 盖章）');
+eq(flTrackRes.runs[1].config.thermal_model, 'on', 'FL Run2（显式钉轨）config.thermal_model=on');
+eq(flTrackRes.scenarioHash, SC.scenarioHash(FL_TRACKS), 'FL 两轨场景 scenarioHash 与独立计算一致');
+eq(FL.registry.verifyRunHash(flTrackRes.runs[0]), true, 'FL Run1 run_hash 自校验通过');
+eq(FL.registry.verifyRunHash(flTrackRes.runs[1]), true, 'FL Run2 run_hash 自校验通过');
+ok(flTrackRes.runs[0].manifest.run_hash !== flTrackRes.runs[1].manifest.run_hash,
+  'FL 两 Run run_hash 互异（热力序列面差异承载轨差——config_hash 面不投影 thermal_model，契约面哈希零变化）');
+ok(flTrackRes.runs[1].timeseries.signals.T_bat_K.every((v) => v !== null),
+  'FL Run2（on）热力信号面填充（T_bat_K 全程有值）');
+ok(flTrackRes.runs[0].timeseries.signals.T_bat_K.every((v) => v === null),
+  'FL Run1（off）无热力面（T_bat_K 全程 null——遗留轨结构性缺席，GT 八信号先例）');
+
+/* execute off 等价：场景缺省轨 Run 与手工显式 off Run 逐位一致（off 路径仿真行为零变化，
+   FLTH §2.0④） */
+const manualOff = FL.registry.createRun({
+  config: FL.core.createConfig('FL-001', {
+    feedback_mode: 'closed_loop',
+    fault: { family: 'sensor_drift', t_start_s: 20, params: { magnitude: 10 } },
+    thermal_model: 'off',
+    noise: { enabled: false }
+  }),
+  runId: 'MAN-OFF',
+  createdAt: TS
+});
+eq(flTrackRes.runs[0].manifest.config_hash, manualOff.manifest.config_hash, 'FL 缺省轨 Run config_hash = 手工显式 off Run');
+ok(JSON.stringify(flTrackRes.runs[0].timeseries) === JSON.stringify(manualOff.timeseries),
+  'FL 缺省轨 Run 时间序列与手工显式 off Run 逐点一致（off 等价）');
+eq(flTrackRes.runs[0].manifest.run_hash, manualOff.manifest.run_hash, 'FL 缺省轨 Run run_hash = 手工显式 off Run（t/signals/events/metrics/checks 内容面全等）');
+
 
 console.log('\n================================================');
 console.log('PASS ' + pass + ' / FAIL ' + fail + (fail ? '  ✗' : '  ✓'));

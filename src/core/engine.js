@@ -177,6 +177,13 @@
     if (system.defaults && system.defaults.inertia_model && !out.inertia_model) {
       out.inertia_model = system.defaults.inertia_model;
     }
+    /* FL-001 thermal 双轨（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0，CHG-20261107-01 批准）：
+       声明了 thermal_model 的系统补默认轨（FL-001 默认 = off，FLTH-IMP-Q3 定案维持）；
+       off 轨 cfg 值不进 scenarioView 投影/哈希（schema.js 同 inertia_model 先例），off 路径
+       仿真行为零变化。 */
+    if (system.defaults && system.defaults.thermal_model && !out.thermal_model) {
+      out.thermal_model = system.defaults.thermal_model;
+    }
 
     var dInitial = deepClone(system.defaults.initial);
     out.initial = deepMerge(dInitial, isPlainObject(out.initial) ? out.initial : {});
@@ -286,6 +293,14 @@
       }
     }
 
+    /* FL-001 thermal 双轨（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0，CHG-20261107-01 批准；
+       仅声明了 defaults.thermal_model 的系统——FL-001，枚举 off|on，默认 off） */
+    if (system.defaults && system.defaults.thermal_model) {
+      if (config.thermal_model !== 'off' && config.thermal_model !== 'on') {
+        push('thermal_model', '必须为 off / on（当前 ' + String(config.thermal_model) + '）');
+      }
+    }
+
     var durForFault = (typeof duration === 'number' && isFinite(duration)) ? duration : system.duration_s;
 
     /* 故障 */
@@ -299,6 +314,10 @@
       /* PV-001 新轨（PV001_G2B_SPEC_APPROVED v1.0 §2）：shading_step 为 PV 专属物理输入族，
          按系统显式追加；FL/FC/GT 的家族分派面零改动 */
       if (system.id === 'PV-001') allowed = allowed.concat(['shading_step']);
+      /* WT-001 新轨（WT001_G2B_SPEC_APPROVED v1.0 §2.3，CHG-20261107-01 批准）：gust_step 为
+         WT 专属物理输入族（阵风阶跃——环境输入侧上行阶跃，不复用 load_step/shading_step），
+         按系统显式追加；FL/FC/GT/PV 的家族分派面零改动 */
+      if (system.id === 'WT-001') allowed = allowed.concat(['gust_step']);
       if (allowed.indexOf(fcfg.family) === -1) {
         push('fault.family', '必须为 none / sensor_drift / load_step / actuator_fault（当前 ' + String(fcfg.family) + '）');
       } else {
@@ -383,6 +402,15 @@
         if (typeof g0Init !== 'number' || !isFinite(g0Init)) push('initial.G0_W_m2', '必须是数字（单位 W/m²）');
         else if (g0Init < bounds.G0_W_m2.min - 1e-9 || g0Init > bounds.G0_W_m2.max + 1e-9) {
           push('initial.G0_W_m2', '必须在 ' + bounds.G0_W_m2.min + '–' + bounds.G0_W_m2.max + ' W/m² 之间（收到 ' + g0Init + '）');
+        }
+      }
+      /* WT-001 新轨：v0_ms 初始有效风速（m/s，域 [6,10]——有意封顶在 v_rated 之下，
+         健康初值全域解析，WT001_G2B_SPEC_APPROVED v1.0 §1.1） */
+      if (system.id === 'WT-001') {
+        var v0Init = init.v0_ms;
+        if (typeof v0Init !== 'number' || !isFinite(v0Init)) push('initial.v0_ms', '必须是数字（单位 m/s）');
+        else if (v0Init < bounds.v0_ms.min - 1e-9 || v0Init > bounds.v0_ms.max + 1e-9) {
+          push('initial.v0_ms', '必须在 ' + bounds.v0_ms.min + '–' + bounds.v0_ms.max + ' m/s 之间（收到 ' + v0Init + '）');
         }
       }
       /* 已知初始条件键面按 bounds 派生：FL/FC/GT 的 bounds = {load_kW, SOC_pct}，
@@ -568,6 +596,10 @@
   }
 
   function simulateFL001(system, cfg, t) {
+    /* FL-001 thermal 轨分派（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0，CHG-20261107-01 批准；
+       R-8 守卫）：thermal_model = on 走 RK4 热力链 simulateFL001Thermal（§2.3 冻结更新序），
+       off 路径（plant 家族 + 内联 actuator 路径）逐字不动。 */
+    if (cfg.thermal_model === 'on') return simulateFL001Thermal(system, cfg, t);
     if (fl001PlantCapable(cfg)) return simulateFL001Plant(system, cfg, t);
     var n = t.length - 1;
     var dt = cfg.dt_s;
@@ -645,6 +677,145 @@
         E_bat_meas: intPbat + V * intB,
         intI: intI,
         intB: intB
+      }
+    };
+  }
+
+  /* ---------------- FL-001 L1 thermal 轨（电池单节点集总热模型） ----------------
+     FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2（方程/常量唯一权威文本，CHG-20261107-01 批准）
+     + §2.3（分区更新序冻结，oracle/引擎双侧复刻）。数值口径：
+     - 电气面 L0 序逐字保留（EQ-FLTH-1）：none/sensor_drift 家族走 plants/fl001.js 适配器
+       （plant.stepOf/bAt/iMeasAt 与 simulateFL001Plant 同源）、actuator_fault 走内联 foStep
+       路径（controlTarget/monitor/I_cap 语义与 simulateFL001 内联路径同构）——I 精确指数
+       子步、intI/intB 同源，thermal on 不回写电气面（§3.2 复算实证）；
+     - T_bat 经典 RK4 固定步长 h = DT_INT = 0.01（6000 子步/60 s，T-B 数值轨，不承诺跨语言
+       逐位）；RHS 内 I 冻结于子步起点值（FLTH-DRAFT-Q2 定案）；R_int(T) = R0·(1+α·(T−T_amb))
+       （EQ-FLTH-2）、P_loss = I²·R_int（EQ-FLTH-3）、C_bat·dT/dt = P_loss − h·(T−T_amb)
+       （EQ-FLTH-4，T_bat(0) = T_amb 冷启动）；常量为 §2.1 教学整定值（非实测）；
+     - E_loss 子步梯形累计（EQ-FLTH-8，FLTH-DRAFT-Q4 定案）；守恒面 (a)（FLTH-DRAFT-Q1 定案）：
+       P_gen = P_load − P_bat + P_loss（EQ-FLTH-5）、r_true/r_meas 定义恒等扩展含 −P_loss 项
+       （EQ-FLTH-6）；SOC/SOC_est/E_bat 面与 L0 record 逐字同（P_bat = 0.4·I 口径不动，
+       EQ-FLTH-7）；
+     - record(601 点)：由 (I_true, T_bat, b) 重算全部代数量；事件快照变量零扩展（维持 L0
+       变量集——T_bat 不入事件快照，§3.6 最小集声明）；t=20.0 行 T_bat = 故障前连续值、
+       I_true post 行语义与 L0 一致（§2.3 审查注记④——T 连续无跳变，偏置阶跃只作用于
+       测量通道与 target）；
+     - T_bat_K / P_loss_kW 两新信号（§1.2，全非盲显）仅 thermal on 轨填充；off 轨保持
+       makeSeries 的 null 初始化（GT 热信号 null 列先例）——engine 侧不得为 off 轨填任何值。 */
+  function simulateFL001Thermal(system, cfg, t) {
+    var n = t.length - 1;
+    var usePlant = fl001PlantCapable(cfg);
+    var plant = usePlant ? FL.core.plants.createFl001Plant(cfg) : null;
+    var V = 0.4;
+    /* §2.1 教学参数（教学整定值，非实测——60 s 窗内温升路径可见的显式缩放） */
+    var R0 = 0.2;         // 25 °C 参考内阻（Ω）
+    var ALPHA_R = 0.01;   // 内阻温度系数（1/K，正温度反馈）
+    var C_BAT = 300;      // 电池单节点集总热容（J/K）
+    var H_COOL = 10;      // 牛顿冷却系数（W/K）
+    var T_AMB = 298.15;   // 环境温度（K），T_bat(0) = T_amb
+    var family = cfg.fault.family;
+    var faulted = family !== 'none';
+    var tStart = faulted ? cfg.fault.t_start_s : null;
+    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
+    var monitor = cfg.feedback_mode === 'monitor';
+    var load0 = cfg.initial.load_kW;
+    var soc0 = cfg.initial.SOC_pct;
+    var I_ref = (load0 - 20) / V;
+    var isAct = family === 'actuator_fault';
+    var I_cap = isAct ? I_ref * magnitude / 100 : null;
+
+    /* EQ-FLTH-2/3：R_int(T) = R0·(1+α·(T−298.15))；P_loss = I²·R_int（W；kW 面 /1000） */
+    function pLossW(iA, tK) { var theta = tK - T_AMB; return iA * iA * R0 * (1 + ALPHA_R * theta); }
+    function pLossKw(iA, tK) { return pLossW(iA, tK) / 1000; }
+    /* EQ-FLTH-4 RK4 右端：dT/dt = (P_loss − h·θ)/C_bat（I 冻结于子步起点——Q2 定案） */
+    function rhsT(tK, iFroz) { return (pLossW(iFroz, tK) - H_COOL * (tK - T_AMB)) / C_BAT; }
+    /* 内联路径测量链（actuator 家族；none/sensor 家族走 plant.iMeasAt） */
+    function bAt(time) { return (family === 'sensor_drift' && tStart != null && time >= tStart - 1e-9) ? magnitude : 0; }
+
+    var series = makeSeries(system, n);
+    var I_true = usePlant ? plant.I_ref : I_ref;
+    var T_bat = T_AMB;
+    var intI = 0;
+    var intB = 0;
+    var intDemand = 0;
+    var eLoss = 0;   // ∫P_loss dt（kW·s，子步梯形——EQ-FLTH-8）
+
+    function record(k) {
+      var time = t[k];
+      var b = usePlant ? plant.bAt(time) : bAt(time);
+      var demand = load0;
+      var iTrue = I_true;
+      var iMeas = usePlant ? plant.iMeasAt(iTrue, time) : iTrue + b;
+      var pBat = V * iTrue;
+      var pBatMeas = V * iMeas;
+      var pLossKwNow = pLossKw(iTrue, T_bat);   /* 当前状态值（非累计值，§2.3 注记②） */
+      var pGen = demand - pBat + pLossKwNow;    /* EQ-FLTH-5（守恒面 (a)，Q1 定案） */
+      series.I_bat_true_A[k] = iTrue;
+      series.I_bat_meas_A[k] = iMeas;
+      series.I_ref_A[k] = I_ref;
+      series.bias_A[k] = b;
+      series.I_bat_cap_A[k] = (isAct && time >= tStart - 1e-9) ? I_cap : null;
+      series.P_bat_true_kW[k] = pBat;
+      series.P_bat_meas_kW[k] = pBatMeas;
+      series.P_gen_true_kW[k] = pGen;
+      series.P_gen_meas_kW[k] = pGen;
+      series.P_load_demand_kW[k] = demand;
+      series.P_load_served_kW[k] = demand;
+      series.V_bus_V[k] = 400;
+      series.SOC_true_pct[k] = soc0 - (V * intI) / (CAP_KWH * 3600) * 100;
+      series.SOC_est_pct[k] = soc0 - (V * intI + V * intB) / (CAP_KWH * 3600) * 100;
+      series.r_true_kW[k] = pGen + pBat - demand - pLossKwNow;     /* EQ-FLTH-6：定义恒等 ≡ 0 */
+      series.r_meas_kW[k] = pGen + pBatMeas - demand - pLossKwNow; /* EQ-FLTH-6：≡ 0.4·b（Q3） */
+      /* §1.2 两新热信号（仅 thermal on 轨填充；off 轨 null 列由 makeSeries 维持） */
+      series.T_bat_K[k] = T_bat;
+      series.P_loss_kW[k] = pLossKwNow;
+    }
+
+    record(0);
+    for (var k = 1; k <= n; k++) {
+      for (var j = 0; j < SUB; j++) {
+        var time = (k - 1) * SUB * DT_INT + j * DT_INT;
+        var b = usePlant ? plant.bAt(time) : bAt(time);
+        intDemand += load0 * DT_INT;
+        intB += b * DT_INT;
+        /* ① 电气面（L0 序保留，EQ-FLTH-1）：I_start = 子步起点值（同时是②的冻结输入） */
+        var iStart = I_true;
+        var tBat0 = T_bat;
+        var step;
+        if (usePlant) {
+          step = plant.stepOf(iStart, time, DT_INT);
+        } else {
+          var controlTarget = I_ref - (monitor ? 0 : b);
+          var target = controlTarget;
+          if (isAct && time >= tStart - 1e-9) target = Math.min(controlTarget, I_cap);
+          step = foStep(iStart, target, isAct ? 0.4 : 1.5, DT_INT);
+        }
+        I_true = step.y;
+        intI += step.integral;
+        /* ② RK4（EQ-FLTH-4；RHS 内 I 冻结于子步起点 iStart——Q2 定案） */
+        var k1 = rhsT(tBat0, iStart);
+        var k2 = rhsT(tBat0 + DT_INT / 2 * k1, iStart);
+        var k3 = rhsT(tBat0 + DT_INT / 2 * k2, iStart);
+        var k4 = rhsT(tBat0 + DT_INT * k3, iStart);
+        T_bat = tBat0 + DT_INT / 6 * (k1 + 2 * k2 + 2 * k3 + k4);
+        /* ③ E_loss 子步梯形（EQ-FLTH-8，Q4 定案）：½·(P_loss(I,T)_起点 + P_loss(I,T)_终点)·h */
+        eLoss += 0.5 * (pLossKw(iStart, tBat0) + pLossKw(I_true, T_bat)) * DT_INT;
+      }
+      record(k);
+    }
+    var intPbat = V * intI;
+    return {
+      series: series,
+      integrals: {
+        E_load: intDemand,
+        /* EQ-FLTH-8（守恒面 (a)）：E_source = E_load − E_bat + E_loss */
+        E_source: intDemand - intPbat + eLoss,
+        E_bat: intPbat,
+        E_bat_meas: intPbat + V * intB,
+        intI: intI,
+        intB: intB,
+        E_loss: eLoss   /* kW·s（EQ-FLTH-8 子步梯形损耗能量账本；E_loss 指标与 checks
+                           EQ-FLTH-9 分支按 FLTH-G2b-04 工作面承载） */
       }
     };
   }
@@ -1220,6 +1391,163 @@
     };
   }
 
+  /* ---------------- WT-001 风电机组（L0b · 机械动态行为级演示，单机并网等效） ----------------
+     WT001_G2B_SPEC_APPROVED v1.0 §1.3 EQ-WT-1..9（方程/常量唯一权威文本，CHG-20261107-01 批准）
+     + §1.3-b（冻结更新序，oracle/引擎双侧复刻）。数值口径：
+     - 状态 (ω, β, P_wt)；子步 h = DT_INT = 0.01（6000 子步/60 s）；事件输入（b/Δv）冻结于
+       子步起点右值（t=20 阶跃落在子步边界，无子步内间断——§1.3-b 审查注记④实现约束）；
+     - 冻结更新序（§1.3-b）：① 输入与控制面（v_true/v_ctrl/v_est/β_ref/P_ref 全用子步起点
+       右值；P_ref = min(k_opt·ω³, P_rated, k_v·v_ctrl³) 三支路 EQ-WT-4/5；v_ctrl 的 monitor
+       语义 = 偏置不进入物理回路、v_est 恒用测量 A-wt-est-channel）→ ② P_wt 精确指数 +
+       E_wt 子步解析积分（EQ-WT-6 前段）→ ③ β 精确指数、pitch_stuck 激活窗 β ≡ β_stuck 钉扎
+       （位置强制——WT-DRAFT-Q2 定案；EQ-WT-6 后段）→ ④ ω 前向 Euler（RHS 用②③后值与
+       子步起点 ω、冻结 v_true；EQ-WT-7）；
+     - 常量硬编码 §1.3-a 登记值（15 位；λ_opt/Cp_max 为数值最大化登记可达精度——不得运行内
+       重求导，批准轮 A-2 定案）；Cp 经验解析式（EQ-WT-2，教学惯例参数组，非实测、非设备
+       辨识）；运算序按方程文本，oracle 同序复刻；
+     - ω 有效性域守卫（WT-IMP-Q1 裁定：engine 侧钳位）：每子步 ω 更新后钳位至
+       ω ≥ 0.5·ω_opt(v0) = 0.5·λ_opt·v0/R——注册域内恒不触发（§3.5 最小裕度 11.5%）；手拼
+       配置越下界（停机/发散域）时钳位防 ω=0 分母奇点（EQ-WT-7）；本注释即该裁定的
+       run 元数据登记位（PV-IMP-Q1 引擎侧钳位 + 代码注释先例）；
+     - record(601 点)：状态行取子步起点值（t=20.0 行 = 状态 pre + 输入 post 右值——PV001
+       锚点口径 P_pv(20.1) = 11 − e^(−0.1) 同款）；代数量由 (ω, β, P_wt, v_true, v_ctrl,
+       v_est) 重算；beta_stuck_deg 仅 pitch_stuck 场景自 t_start 起有值（30°·magnitude%，
+       事件域信号——I_bat_cap_A 先例）；bias_ms 全程有值 0/−B；r_true/r_meas 定义恒等 ≡ 0
+       （EQ-WT-8）；E_wt,est 事件感知解析积分（v_est 分段常值，EQ-WT-9）。 */
+  function simulateWT001(system, cfg, t) {
+    var n = t.length - 1;
+    /* §1.3-a 常量表（登记值硬编码，15 位——不得运行内重求导，A-2 定案） */
+    var RHO = 1.225;                    // 空气密度（kg/m³，ISO 常温教学口径）
+    var C1 = 0.5176;                    // Cp 经验式系数组 c₁…c₆（教学惯例值，非实测）
+    var C2 = 116;
+    var C3 = 0.4;
+    var C4 = 5;
+    var C5 = 21;
+    var C6 = 0.0068;
+    var LAMBDA_OPT = 8.100117280602777; // 最优叶尖速比（数值最大化登记可达精度，非闭式可复现值）
+    var K_V = 13.717421124828531;       // 最优功率曲线系数 ≡ 可用功率钳位系数（W/(m/s)³ = 10000/729）
+    var A_ROT = 46.656738009239717;     // 风轮扫掠面积（m²，设计点导出）
+    var R_ROT = 3.853738569938033;      // 风轮半径（m，设计点导出）
+    var K_OPT = 1.477220410253986;      // MPPT 最优增益（W/(rad/s)³，设计点导出）
+    var P_RATED = 15000;                // 额定功率封顶（W）
+    var TAU_E = 1.0;                    // 变流器一阶时间常数（s）
+    var TAU_B = 0.5;                    // 变桨执行器一阶时间常数（s）
+    var J_WT = 300;                     // 传动链单质量等效惯量（kg·m²）
+    var K_BETA = 3.0;                   // 桨距比例增益（°/(rad/s)）
+    var BETA_MAX = 30;                  // 桨距上限（°，卡涩满度 β_full 同值）
+    var OMEGA_N = 21.654524572087702;   // 桨距调节转速参考（rad/s，设计点导出）
+    var family = cfg.fault.family;
+    var faulted = family !== 'none';
+    var tStart = faulted ? cfg.fault.t_start_s : null;
+    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
+    var monitor = cfg.feedback_mode === 'monitor';
+    var load0 = cfg.initial.load_kW;
+    var v0 = cfg.initial.v0_ms;
+    var isSensor = family === 'sensor_drift';       // v_sensor_bias（风速传感器偏置——低估方向）
+    var isStuck = family === 'actuator_fault';      // pitch_stuck（变桨卡涩——位置强制）
+    var isGust = family === 'gust_step';            // 阵风阶跃（物理输入）
+    var betaStuck = isStuck ? BETA_MAX * magnitude / 100 : null;   // 30°·magnitude%
+
+    /* EQ-WT-2：Cp(λ,β) = c₁(c₂/λᵢ − c₃β − c₄)·e^(−c₅/λᵢ) + c₆λ；
+       λᵢ = 1/(1/(λ+0.08β) − 0.035/(β³+1))（运算序按方程文本，oracle 同序复刻） */
+    function cpCoeff(lambda, beta) {
+      var li = 1 / (1 / (lambda + 0.08 * beta) - 0.035 / (beta * beta * beta + 1));
+      return C1 * (C2 / li - C3 * beta - C4) * Math.exp(-C5 / li) + C6 * lambda;
+    }
+    /* EQ-WT-1：输入通道（t0 处右极限，post 采样行语义，同 FL/FC/PV bAt 口径） */
+    function vTrueAt(time) { return (isGust && tStart != null && time >= tStart - 1e-9) ? v0 + magnitude : v0; }
+    function bWAt(time) { return (isSensor && tStart != null && time >= tStart - 1e-9) ? -magnitude : 0; }
+
+    var series = makeSeries(system, n);
+    var omega = LAMBDA_OPT * v0 / R_ROT;   /* EQ-WT-7：ω(0) = λ_opt·v0/R（登记值闭式，A-2②） */
+    var beta = 0;                          /* EQ-WT-6：β(0) = 0 */
+    var pWt = K_V * v0 * v0 * v0;          /* EQ-WT-6：P_wt(0) = k_v·v0³（W；v0=9 → 10 kW 设计点） */
+    var eWt = 0;        /* ∫P_wt,true dt（kW·s，② 子步解析积分） */
+    var eWtEst = 0;     /* ∫k_v·v_est³ dt（kW·s，事件感知解析积分——v_est 分段常值） */
+    var intDemand = 0;  /* ∫P_load dt（kW·s） */
+    /* ω 有效性域下界（WT-IMP-Q1）：0.5·ω_opt(v0) = 0.5·λ_opt·v0/R（登记值闭式） */
+    var omegaMin = 0.5 * LAMBDA_OPT * v0 / R_ROT;
+
+    function record(k) {
+      var time = t[k];
+      var vTrue = vTrueAt(time);
+      var bW = bWAt(time);
+      var vCtrl = (monitor && isSensor) ? vTrue : vTrue + bW;   /* EQ-WT-1 控制面 */
+      var vEst = vTrue + bW;                                    /* A-wt-est-channel：恒用测量 */
+      var lambda = omega * R_ROT / vTrue;
+      var cp = cpCoeff(lambda, beta);
+      var pWtKw = pWt / 1000;
+      var pWtEstKw = K_V * vEst * vEst * vEst / 1000;
+      var pGridKw = load0 - pWtKw;                              /* EQ-WT-8：馈线补差（受电为正） */
+      series.v_true_ms[k] = vTrue;
+      series.v_meas_ms[k] = vCtrl;      /* §1.2：v_meas_ms 承载控制面读数 v_ctrl */
+      series.bias_ms[k] = bW;
+      series.n_rotor_rpm[k] = omega * 30 / Math.PI;
+      series.lambda_tip[k] = lambda;
+      series.cp_coeff[k] = cp;
+      series.beta_pitch_deg[k] = beta;
+      series.beta_cmd_deg[k] = clamp(K_BETA * (omega - OMEGA_N), 0, BETA_MAX);   /* EQ-WT-5 */
+      series.beta_stuck_deg[k] = (isStuck && time >= tStart - 1e-9) ? betaStuck : null;
+      series.P_aero_kW[k] = cp * 0.5 * RHO * A_ROT * vTrue * vTrue * vTrue / 1000;   /* EQ-WT-3 */
+      series.P_wt_ref_kW[k] = Math.min(K_OPT * omega * omega * omega, P_RATED, K_V * vCtrl * vCtrl * vCtrl) / 1000;  /* EQ-WT-4 三支路 */
+      series.P_wt_true_kW[k] = pWtKw;
+      series.P_wt_meas_kW[k] = pWtKw;   /* 健康通道 */
+      series.P_wt_est_kW[k] = pWtEstKw;
+      series.d_wt_kW[k] = pWtKw - pWtEstKw;   /* EQ-WT-8：代数恒等（测量链一致性，不是能量损失） */
+      series.P_grid_true_kW[k] = pGridKw;
+      series.P_grid_meas_kW[k] = pGridKw; /* 健康通道 */
+      series.P_load_demand_kW[k] = load0;
+      series.P_load_served_kW[k] = load0;
+      series.V_bus_V[k] = 400;          /* MODEL_ASSUMPTION（A-wt-ideal-bus，非仿真状态） */
+      series.r_true_kW[k] = pWtKw + pGridKw - load0;   /* EQ-WT-8：定义恒等 ≡ 0 */
+      series.r_meas_kW[k] = pWtKw + pGridKw - load0;   /* EQ-WT-8：全功率通道健康 ≡ 0 */
+    }
+
+    record(0);
+    for (var k = 1; k <= n; k++) {
+      for (var j = 0; j < SUB; j++) {
+        var time = (k - 1) * SUB * DT_INT + j * DT_INT;
+        /* ① 输入与控制面（全部用子步起点右值；EQ-WT-1/4/5） */
+        var vTrue = vTrueAt(time);
+        var bW = bWAt(time);
+        var vCtrl = (monitor && isSensor) ? vTrue : vTrue + bW;
+        var vEst = vTrue + bW;
+        var betaRef = clamp(K_BETA * (omega - OMEGA_N), 0, BETA_MAX);
+        var pRef = Math.min(K_OPT * omega * omega * omega, P_RATED, K_V * vCtrl * vCtrl * vCtrl);
+        intDemand += load0 * DT_INT;
+        eWtEst += K_V * vEst * vEst * vEst * DT_INT / 1000;   /* E_wt,est（v_est 分段常值 → 精确） */
+        /* ② P_wt 精确指数（EQ-WT-6 前段）+ E_wt 子步解析积分 */
+        var pWtOld = pWt;
+        var aE = Math.exp(-DT_INT / TAU_E);
+        pWt = pRef + (pWtOld - pRef) * aE;
+        eWt += (pRef * DT_INT + (pWtOld - pRef) * TAU_E * (1 - aE)) / 1000;
+        /* ③ β 精确指数（EQ-WT-6 后段）；pitch_stuck 激活窗 β ≡ β_stuck（钉扎，位置强制——Q2） */
+        if (isStuck && tStart != null && time >= tStart - 1e-9) {
+          beta = betaStuck;
+        } else {
+          var aB = Math.exp(-DT_INT / TAU_B);
+          beta = betaRef + (beta - betaRef) * aB;
+        }
+        /* ④ ω 前向 Euler（EQ-WT-7；RHS 用②③后的 P_wt/β 与子步起点 ω、冻结 v_true） */
+        var lambda = omega * R_ROT / vTrue;
+        var pAero = cpCoeff(lambda, beta) * 0.5 * RHO * A_ROT * vTrue * vTrue * vTrue;
+        omega = omega + DT_INT * (pAero - pWt) / (J_WT * omega);
+        /* ω 有效性域守卫（WT-IMP-Q1：engine 侧钳位；注册域内恒不触发） */
+        if (omega < omegaMin) omega = omegaMin;
+      }
+      record(k);
+    }
+    return {
+      series: series,
+      integrals: {
+        E_load: intDemand,
+        E_wt_true: eWt,          /* kW·s（② 子步解析积分） */
+        E_wt_est: eWtEst,        /* kW·s（事件感知解析积分；ΔE_wt = E_est − E_true） */
+        E_grid: intDemand - eWt  /* EQ-WT-8/EQ-WT-9 定义恒等：E_wt + E_grid = E_load */
+      }
+    };
+  }
+
   /* ================================================================== */
   /* 观测噪声（仅 OBSERVATION 通道，确定性；默认关闭）                     */
   /* ================================================================== */
@@ -1242,9 +1570,14 @@
 
     var k;
     if (system.id === 'FL-001') {
+      /* FL-001 thermal on（EQ-FLTH-6 定义恒等扩展，Q3 定案）：P_loss 为模型已知结构项，
+         测量链噪声 fixup 的 r_meas 同步扣 −P_loss——0.4·b 教学锚点在两深度一致；
+         off 轨不进入该分支（原逐字路径零变化）。 */
+      var thermalOn = cfg.thermal_model === 'on';
       for (k = 0; k < series.I_bat_meas_A.length; k++) {
         series.P_bat_meas_kW[k] = 0.4 * series.I_bat_meas_A[k];
         series.r_meas_kW[k] = series.P_gen_true_kW[k] + series.P_bat_meas_kW[k] - series.P_load_served_kW[k];
+        if (thermalOn) series.r_meas_kW[k] -= series.P_loss_kW[k];
       }
     } else if (system.id === 'FC-001') {
       for (k = 0; k < series.I_fc_meas_A.length; k++) {
@@ -1266,20 +1599,40 @@
         series.d_pv_kW[k] = series.P_pv_meas_kW[k] - series.P_pv_est_kW[k];
         series.r_meas_kW[k] = series.P_pv_meas_kW[k] + series.P_grid_meas_kW[k] - series.P_load_served_kW[k];
       }
+    } else if (system.id === 'WT-001') {
+      /* WT-001 新轨（WT001_G2B_SPEC_APPROVED v1.0 §1.2 / EQ-WT-8）：噪声开启时测量链派生量
+         随含噪测量通道重算（与 PV-001 测量链 fixup 同构；A-wt-est-channel）。估计通道恒用
+         测量风速（v_est = v_true + b，monitor 不切换）——v_meas_ms 列承载控制面读数
+         （monitor 下不含偏置），故估计通道按同一噪声实现（seed/信号 id/index 与上方加噪
+         循环一致）重算，而非读列。 */
+      var KwNoise = 13.717421124828531 / 1000;   /* EQ-WT-4 k_v（W/(m/s)³ → kW/(m/s)³） */
+      var sigmaV = (signalMeta(system, 'v_meas_ms') || {}).noiseSigma || 0;
+      for (k = 0; k < series.v_meas_ms.length; k++) {
+        var nV = sigmaV > 0 ? noise.level * sigmaV * FL.rng.noiseAt(seed, 'v_meas_ms', k) : 0;
+        var vEstN = series.v_true_ms[k] + series.bias_ms[k] + nV;
+        series.P_wt_est_kW[k] = KwNoise * vEstN * vEstN * vEstN;
+        series.d_wt_kW[k] = series.P_wt_meas_kW[k] - series.P_wt_est_kW[k];
+        series.r_meas_kW[k] = series.P_wt_meas_kW[k] + series.P_grid_meas_kW[k] - series.P_load_served_kW[k];
+      }
     }
   }
 
   /* ================================================================== */
   /* 事件 / 快照 / 真值                                                  */
   /* ================================================================== */
-  var EVENT_TYPE = { sensor_drift: 'sensor_bias', load_step: 'load_step', actuator_fault: 'actuator_limit', shading_step: 'shading_step' };
+  var EVENT_TYPE = { sensor_drift: 'sensor_bias', load_step: 'load_step', actuator_fault: 'actuator_limit', shading_step: 'shading_step', gust_step: 'gust_step' };
   var TARGET_SIGNAL = {
     'FL-001': { sensor_drift: 'bias_A', load_step: 'P_load_demand_kW', actuator_fault: 'I_bat_cap_A' },
     'FC-001': { sensor_drift: 'bias_A', load_step: 'P_load_demand_kW', actuator_fault: 'I_fc_cap_A' },
     'GT-001': { sensor_drift: 'n_meas_rpm', load_step: 'P_load_demand_kW', actuator_fault: 'P_gen_cap_kW' },
     /* PV-001 新轨（PV001_G2B_SPEC_APPROVED §2）：sensor_drift 注入点为辐照度偏置，
        shading_step 为物理输入阶跃（有效真实辐照度） */
-    'PV-001': { sensor_drift: 'bias_W_m2', shading_step: 'G_true_W_m2' }
+    'PV-001': { sensor_drift: 'bias_W_m2', shading_step: 'G_true_W_m2' },
+    /* WT-001 新轨（WT001_G2B_SPEC_APPROVED v1.0 §1.2/§2）：sensor_drift 注入点为风速测量
+       偏置（低估方向，bias_ms = −B）；pitch_stuck（actuator_fault）事件域信号为卡涩桨距角
+       （位置强制——Q2 定案，beta_stuck_deg 自 t_start 起有值）；gust_step 为物理输入阶跃
+       （有效真实风速 v_true） */
+    'WT-001': { sensor_drift: 'bias_ms', actuator_fault: 'beta_stuck_deg', gust_step: 'v_true_ms' }
   };
 
   function buildLabel(system, cfg) {
@@ -1307,15 +1660,34 @@
     var tStart = cfg.fault.t_start_s;
     var magText = formatAmount(cfg.fault.params.magnitude, p);
     var targetSignal = (TARGET_SIGNAL[system.id] && TARGET_SIGNAL[system.id][family]) || 'P_load_demand_kW';
+    /* WT-001 事件块按 wt001_v1 golden/oracle 通道口径（WT001_G2B_SPEC_APPROVED v1.0 §2，
+       Q2 定案）：pitch_stuck 为位置强制——event_type 用家族名 actuator_fault（非 FL/FC/GT
+       指令限幅语义 actuator_limit），幅值/单位随 target 通道量重铸 beta_stuck_deg =
+       30°·magnitude%（β_full = 30°，§1.3-a）；v_sensor_bias 幅值按通道符号 b(t) = −B
+       （低估为负）；gust_step 幅值/单位即通道量（v_true_ms，m/s）。其余系统事件面零变化
+       （FL actuator 沿参数面 magnitude/unit——fl001_v1/v2 golden 同源）。 */
+    var isWT = system.id === 'WT-001';
+    var evType = EVENT_TYPE[family] || 'fault';
+    var evMagnitude = cfg.fault.params.magnitude;
+    var evUnit = p.unit;
+    if (isWT) {
+      if (family === 'actuator_fault') {
+        evType = 'actuator_fault';
+        evMagnitude = 30 * evMagnitude / 100;
+        evUnit = '°';
+      } else if (family === 'sensor_drift') {
+        evMagnitude = -evMagnitude;
+      }
+    }
     var label = (def ? def.label : '故障') + ' ' + magText + ' @ ' + tStart.toFixed(1) + ' s';
     const out = [{
       event_id: 'EV-001',
-      event_type: EVENT_TYPE[family] || 'fault',
+      event_type: evType,
       trigger_s: tStart,
       target_signal: targetSignal,
       target_component: target,
-      magnitude: cfg.fault.params.magnitude,
-      unit: p.unit,
+      magnitude: evMagnitude,
+      unit: evUnit,
       phase: 'onset',
       label: label,
       description: def ? def.description : '',
@@ -1761,6 +2133,10 @@
     /* PV-001 新轨（PV001_G2B_SPEC_APPROVED §8 PV-G2b-04a / R-4 守卫）：显式分支必须置于
        else→GT001 兜底之前，禁止 PV-001 静默落入 GT 物理；三系统既有分支零改动。 */
     else if (system.id === 'PV-001') sim = simulatePV001(system, cfg, t);
+    /* WT-001 新轨（WT001_G2B_SPEC_APPROVED v1.0 §8 WT-G2b-04 / R-7 守卫）：显式分支必须置于
+       else→GT001 兜底之前——GT 轨数值与 WT 锚点不同，禁止 WT-001 静默落入 GT 物理；
+       四系统既有分支零改动。 */
+    else if (system.id === 'WT-001') sim = simulateWT001(system, cfg, t);
     else sim = simulateGT001(system, cfg, t);
 
     var series = sim.series;

@@ -30,6 +30,23 @@
 | `load_step`（原 load_step_10kW） | load_step | 功率阶跃 | load | （曾 +5…20 kW） | — | **已删除**（O-13，CHG-20261030-06；归档 `NEXT/evidence/g2b/load_step-removed-contract-text.md`） | — | — |
 | `converter_current_limit` | actuator_fault | 执行器限幅（比例钳位） | converter（双向 DC/DC） | I_cap = I_ref × magnitude%，20…85%，默认 55%（→13.75 A） | t=20 s（域 [2,55]） | **G2b 已批准（CHG-20261104-03）→ 实现已落地（2026-11-04，FLEXT-G2b-01/02/04）**；系统 scope 维持 approved_p0；族级白名单已按 FLEXT §4 显式 CHG 面扩展（scope.js `APPROVED.families` 增 actuator_fault，锚定 55% @20.0 s → classify=approved_p0，非锚定参数仍 extension_preview） | fl001_v1（4 Run，2026-11-04 重出，含 actuator_closed_loop；approval CHG-20261104-07） | actuator-limit |
 
+**thermal 轨注记（FLTH-G2b-03，2026-11-08 落地；`FL001_THERMAL_G2B_SPEC_APPROVED.md` v1.0，CHG-20261107-01 批准链）**：
+FL-001 增 `thermal_model: "off"|"on"` 配置开关（默认 **off**——off 轨 = 上表 L0 物理面 +
+fl001_v1 golden 零变化，本注记不改变上表任何故障族行）。on 域内电池新增单节点集总热容
+温度状态 T_bat（EQ-FLTH-4：C_bat·dT_bat/dt = P_loss − h·(T_bat − T_amb)，T_bat(0)=T_amb=298.15 K
+冷启动）与焦耳热损耗 P_loss = I_true²·R_int(T_bat)（EQ-FLTH-2/3，R_int(T)=R0·(1+α·(T−298.15))），
+P_gen 定义式扩展为 P_load − P_bat + P_loss（EQ-FLTH-5，守恒面 (a) Q1 定案）、r_true/r_meas
+定义恒等扩展含 −P_loss 项（EQ-FLTH-6，r_meas 教学锚点 0.4·b 保持）、E_loss 子步梯形账本
+（EQ-FLTH-8，Q4 定案）、检查式 E_source + E_bat ≡ E_load + E_loss（EQ-FLTH-9，checks.js
+thermal on 分支）——方程集 **EQ-FLTH-1…9**（故障族注入面与电气面 EQ-FLTH-1 原样，thermal
+on 不回写电气面）。on 轨 golden = **fl001_v2**（4 Run 全部 thermal_model=on，镜像 fl001_v1
+全集；schema v2、method_id=fl001_thermal_rk4_dt0.01、gate tier **T-B**、supersedes=fl001_v1
+（off 轨字节冻结留档）、model_version 1.1.0、units 增 T:K；oracle
+`tools/oracle/fl001_l1_oracle.py` 出生即 oracle_base 接入；verify_golden 注册行
+`fl001_l1` 已追加、默认（无参）运行扩为 fl001 + fl001_l1 双 golden 顺序验证——V080
+DEC-6 步①并入口径）。系统 scope 维持 **approved_p0**（thermal 轨为模型面扩展、非新故障族；
+默认 off ⇒ P0/盲包语义零变化）。
+
 **实现事实（A-3 评审输入；2026-11-04 实现落地已补齐）**：引擎 `simulateFL001`（engine.js:549–619）——健康/传感器轨
 一阶闭环 τ=1.5 s 跟踪 I_ref=25 A；actuator 轨 target = min(controlTarget, I_cap)、
 **τ=0.4 s**（engine.js:610–611）；I_bat_cap_A 信号自 t_start 起有效、其余场景 null；
@@ -98,6 +115,7 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | FC actuator_fault | 同上 | G2b 已批准并实现落地（同上） | 同上 |
 | GT sensor_drift / load_step / actuator_fault | §3.3 恢复条件清单 9 项全闭（GT G2b）+ L1 热力轨 G2b 批准（GTL1_G2B_SPEC_APPROVED v1.0，CHG-20261104-12） | extension_preview | GT001_G2B_SPEC_APPROVED + GTL1_G2B_SPEC_APPROVED + golden gt001_v2/v3（thermo 默认轨 → v3；swing/linear 遗留轨 → v2/v1 字节冻结留档） |
 | PV `G_sensor_bias` / `shading_step` | §8.2 新系统 G2b（PV001_G2B_SPEC_APPROVED，CHG-20261104-10 批准链） | extension_preview | PV001_G2B_SPEC_APPROVED + golden pv001_v1；SA-24 不动（scope.js 对 PV-001 全场景 fall-through 返回 extension_preview 即正确语义，classify/assertApprovedP0 零改动） |
+| WT `v_sensor_bias` / `pitch_stuck` / `gust_step` | §8.2 新系统 G2b（WT001_G2B_SPEC_APPROVED，CHG-20261107-01 批准链） | extension_preview | WT001_G2B_SPEC_APPROVED + golden wt001_v1；SA-24 不动（scope.js 对 WT-001 全场景 fall-through 返回 extension_preview 即正确语义，classify/assertApprovedP0 零改动，PV 同款）；gust_step 为新族名登记（§7 节） |
 
 ## 5. 状态勘误表（冻结时点后的授权状态变化登记于此）
 
@@ -109,6 +127,8 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | 2026-11-04 | FC-001 load_step_10kW / valve_stuck | G2b 已批准 → **实现已落地**（FC-G2b-02/04：A-fc-dispatcher + EQ-6 登记、I_fc_ref_A formula 一般式化、closedLoopEffect 级联措辞、limitations 包络越界域声明；golden fc001_v1 5 Run 重出（method_version analytic_flux.2、model_version 1.1.0），approval CHG-20261104-06；系统 scope 维持 approved_fc、FC 族条件扩为四族——锚定条件 classify=approved_fc） | FCEXT_G2B_SPEC_APPROVED v1.1 §1.2/§1.4/§3/§5 + V060_WAVE_DESIGN（CHG-20261104-05） |
 | 2026-11-04 | PV-001 `G_sensor_bias` / `shading_step` | **新系统登记（新增 §6 节）→ extension_preview**（PV G2b 批准 CHG-20261104-10；oracle `tools/oracle/pv001_oracle.py` + golden pv001_v1 4 Run 首签（schema v2、method pv001_analytic、gate T-A，approval=CHG-20261104-10 批准链）+ verify_golden 注册行落地，PV-G2b-03；引擎 PV 轨/systems.js 由 PV-G2b-04 同波接入） | PV001_G2B_SPEC_APPROVED v1.0 §2/§4 + V070_WAVE_DESIGN DEC-1/DEC-3（CHG-20261104-10） |
 | 2026-11-05 | GT-001 sensor_drift / load_step / actuator_fault（三族） | **L1 热力轨（thermo）G2b 批准并实现落地 → 三轨制 + thermo 默认**（§3 节更新：golden 增 gt001_v3 6 Run——schema v2、method gt001_l1_rk4_dt0.01、gate tier T-B（库内首个）、oracle `tools/oracle/gt001_l1_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261104-12 批准链首签；supersedes 链 v3→v2→v1，v1/v2 字节冻结留档、gt001_oracle.py 冻结归档债零触碰；verify_golden gt001 注册行重指向 gt001_v3 + T-B tier 参数化分派，fl001/fc001/pv001 T-A 路径零改动回归 exit 0；默认轨 swing→thermo 翻转（Q4 定案）；授权状态维持 extension_preview 不变、族白名单零改动） | GTL1_G2B_SPEC_APPROVED v1.0 §2/§3.3.1/§4 + ORACLE_INTERFACE_D2 §5.2 GTL1-G2b-03 触发处置登记 + CHG-20261104-12（Q1…Q5 定案） |
+| 2026-11-08 | FL-001（三族不变，模型轨面） | **thermal 轨（thermal_model=on）G2b 批准并实现落地 → off/on 双轨制 + off 默认**（§1 节增 thermal 轨注记行：golden 增 fl001_v2 4 Run 全部 on——schema v2、method fl001_thermal_rk4_dt0.01、gate tier T-B、supersedes=fl001_v1、model_version 1.1.0、oracle `tools/oracle/fl001_l1_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261107-01 批准链首签；EQ-FLTH-1…9 登记；verify_golden `fl001_l1` 注册行 + T-B series_limit 三分支补全（`_A`→I_A 键新分支、r_true/r_meas 判别前置于 `_kW` 解除遮蔽——gt001_v3 r_true_kW 六 Run 散差实测 0.0 后统一前移，B-3 裁定）+ 默认运行扩为 fl001+fl001_l1 双 golden；off 轨/fl001_v1 零变化；系统 scope 维持 approved_p0、族白名单零改动） | FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2/§4（项 4/6/7/8）+ V080_WAVE_DESIGN DEC-2/DEC-6 + CHG-20261107-01 |
+| 2026-11-08 | WT-001 `v_sensor_bias` / `pitch_stuck` / `gust_step` | **新系统登记（新增 §7 节）→ extension_preview**（WT G2b 批准 CHG-20261107-01；oracle `tools/oracle/wt001_oracle.py` + golden wt001_v1 5 Run 首签（schema v2、method wt001_l0b_euler_dt0.01、gate T-A，approval=CHG-20261107-01 批准链首签）+ verify_golden 注册行落地，WT-G2b-03；`gust_step` 为新族名（不复用 shading_step/load_step——环境输入侧上行气象阶跃，§2.3 族名裁定）；引擎 WT 轨/systems.js 由 WT-G2b-04 同波接入） | WT001_G2B_SPEC_APPROVED v1.0 §2/§4 + V080_WAVE_DESIGN DEC-4（CHG-20261107-01） |
 
 ## 6. PV-001 光伏逆变器（L0，scope=extension_preview）
 
@@ -142,12 +162,60 @@ PV-G2b-04 显式工作面（engine.js 分派链 engine.js:1421-1423 现 else→G
 'FL-001' 配置 fall-through 返回 extension_preview（scope.js:82 现状即正确语义，零改动）；
 assertApprovedP0 对 PV 配置抛 SCOPE-E01（验收路径关闭，规格 §5）。
 
+## 7. WT-001 风力发电机组（L0b，scope=extension_preview）
+
+> 新增节（2026-11-08，WT-G2b-03，V080_WAVE_DESIGN DEC-4）。规格权威文本 =
+> `NEXT/WT001_G2B_SPEC_APPROVED.md` v1.0（CHG-20261107-01 批准链，WT-DRAFT-Q1/Q2/Q3
+> 定案已落正文）。时间尺度沿用 §0（采样 0.1 s、仿真窗 60 s、默认注入 t=20 s、601 点网格；
+> 引擎/oracle 子步 h=0.01 s、6000 子步）。WT-001 定位 **L0b 机械动态行为级演示**
+> （WT-DRAFT-Q3 定案）：风轮单质量惯性 + 变桨一阶跟踪 + 可用功率保护钳位；
+> 不可调度电源（风机 × 电阻性馈线 20 kW 需求，无储能/无 SOC 键，load_step 族不适用）；
+> 测量冗余特征由一致性残差 d_wt 承载（运行点偏离 MPPT 最优曲线的功率差；r_true/r_meas
+> 逐点恒 ≡ 0（WS-4），与 FL-001 的 r_meas = 0.4·b 教学对照）。事件幅值符号口径：
+> `v_sensor_bias` 序列列 `bias_ms` 与事件 magnitude 按**低估方向同号登记为 −B**
+> （closed_loop_fault/monitor_only 的 fault.bias_ms=−1.0、event magnitude=−1.0 m/s；
+> RUNS magnitude 参数保持正值 B=1.0 表低估幅值——L2 oracle 登记口径，L8/引擎侧对齐）。
+
+| fault id | 家族 | 类型 | 作用位置 | 幅值参数 | 默认时刻 | 授权状态 | golden | 因果模板 |
+|---|---|---|---|---|---|---|---|---|
+| `v_sensor_bias` | sensor_drift | 测量阶跃偏置（风速，**低估方向单向族**：高估零真实效应、仅估计通道暴露） | sensor（风速计 anemometer——保护钳位与估计通道注入点） | 低估幅值 0.5…3.0 m/s，step 0.5，默认 1.0 m/s（b(t) = −B·1(t≥t0)，EQ-WT-1；闭环：保护钳位 10.00→7.02 kW 收紧、P_wt 下行、转速升、d_wt 瞬态 +2.98 kW 后归零——低估被闭环吸收进自洽；监测：真实出力不变、d_wt ≡ +2.98 kW 持续暴露） | t=20 s（域 [2,55]） | **extension_preview**（WT G2b 已批准，`WT001_G2B_SPEC_APPROVED.md`） | wt001_v1（5 Run：healthy + closed_loop_fault + monitor_only + pitch_stuck_closed_loop + gust_closed_loop；schema v2、approval CHG-20261107-01 批准链首签） | wt-sensor-drift |
+| `pitch_stuck` | actuator_fault | 执行器**位置强制**（变桨卡涩——与 FL/FC/GT 指令限幅模式不同：亚额定桨距指令为零，限幅式将是 no-op，故采位置强制 β ≡ β_stuck，Q2 定案） | pitch_act（变桨执行器） | β_stuck = 30° × magnitude%，20…85%，step 5，默认 55%（→16.5°）（闭环与监测同生效——物理执行器故障：Cp 0.480→0.167、P_wt 10.00→3.47 kW、d_wt 持续 −6.53 kW 不归零） | t=20 s（域 [2,55]） | **extension_preview**（同上） | wt001_v1（同上；beta_stuck_deg 事件域信号，非 stuck 场景整列 null——I_bat_cap_A 先例） | wt-pitch-stuck |
+| `gust_step` | gust_step（**新族**——环境输入侧上行气象阶跃，作用位置与因果方向不同于 PV shading 下行/负载侧需求，不复用族名） | 物理输入阶跃（有效真实风速 v0 → v0+Δv，EQ-WT-1） | rotor（风轮） | 阵风增幅 1.0…3.0 m/s，step 0.5，默认 +2.0 m/s（v 9→11，跨额定区 v_rated=10.302 m/s：P_ref 封顶 15 kW、转速锚定 212.3 rpm、桨距吸收 β 0→1.73°、d_wt 稳态 −3.26 kW 合法残差） | t=20 s（域 [2,55]） | **extension_preview**（同上） | wt001_v1（同上；**gust monitor 不重复入 golden**——物理输入与控制模式无关、两模式逐位同解 WS-7 实证 0 差，FLEXT §2 项 1 / PV shading 先例） | wt-gust-step |
+
+**实现事实（WT-G2b-03，2026-11-08 本波落地；引擎轨见下）**：独立 oracle
+`tools/oracle/wt001_oracle.py`（方程唯一权威 = 规格 §1.3 EQ-WT-1…9；不 import src/**、
+不与 FL/FC/GT/PV oracle 共享公式常量；Cp 度制、HALF_RHO_A = 28.577252030659327 预乘、
+λ_opt/cp_max/k_v/area 等常量按规格 15 位登记值、ω(0) = 18.916969639327981 登记值、
+t≥t0 判定带 1e-9 守卫、状态行 = 子步起点值/代数量行内重算的冻结更新序；自检
+WS-1…WS-8，含 **pitch_stuck 域扫描 emit 硬条件**（mag 20…85% 步 5，λ_eq > 0.5·λ_opt
+恒成立、ω 不越下界，越界即 emit 拒绝写盘——GTL1 §3.3.1 A-2 同款纪律）+ **UI 全域
+8 角点端点抽查**（v0∈{6,10} × {bias −3、stuck 85%、gust +3、健康局}：P_wt ∈ [0.37,15.0] kW、
+n ∈ [67.17,242.58] rpm、β ≤ 25.5°、最小稳定裕度 11.5%，§3.5 v1.0 全域界逐位复现））；
+golden wt001_v1（schema v2：golden_schema_version="v2"、model_version="1.0.0"、
+method_id="wt001_l0b_euler_dt0.01"、engine_baseline/backend=null、units 增 wind:m/s 与
+angle:°、generated_by 一段式、approval 三字段非 null；gate **T-A** = E_kWh 1e-9 /
+P_kW rtol 1e-12 atol 1e-15 / n_rpm_atol 1e-9 / r_true_kW 1e-12 / I_A rtol 1e-12 atol 1e-15
+（bias_ms 命中 startswith("bias") 分支所必需）/ t_s 1e-9——无 d_wt_atol 键（d_wt_kW 走
+`_kW` 支路 → P_kW_atol，B-2 死键删除）；SERIES_IDS = t + §1.2 全表 22 信号 = 23 项，
+beta_stuck_deg 为唯一事件域 null 列）；verify_golden 注册行已追加（scalars：
+E_wt_true/E_wt_est/E_wt_err/E_grid/E_load_kWh 五能量键；i_true/i_meas =
+P_wt_true_kW/P_wt_meas_kW；event_tol=P_kW_atol——verify_golden 参数化逻辑零改动，T-A 路径）。
+**引擎/systems.js**：simulateWT001 新轨 + WT001 SystemDef（22 信号/A-wt-* 11 条/
+limitations 10 项/EQ-WT-1…9/initial v0_ms）+ checks.js WT 能量恒等分支 + UI 接线
+（home 五系统/compare/scenario/teaching/ARENA_EXCLUDED 增 'WT-001'）为 WT-G2b-04 面，
+本波 v0.8 内落地。
+**scope 现状**：系统级与族级均 extension_preview——scope.js `classify` 对 systemId ≠
+'FL-001' 配置 fall-through 返回 extension_preview（PV 同款语义，零改动，无白名单挂载）；
+assertApprovedP0 对 WT 配置抛 SCOPE-E01（验收路径关闭，规格 §5）。
+
 
 
 ---
 
-**文件结束**。FAULT_CATALOG v1.3（2026-11-05：GT-001 L1 thermo 轨三轨制更新见 §3/§4/§5
-（GTL1-G2b-03，CHG-20261104-12 批准链，系统级/族级 scope=extension_preview 维持）；v1.2 =
-2026-11-04 v1.1 实现落地更新 + 新增 §6 PV-001 节（PV-G2b-03，CHG-20261104-10 批准链）；
-冻结时点 = A-2/A-3 评审包提交时）。
+**文件结束**。FAULT_CATALOG v1.4（2026-11-08：§1 FL-001 增 thermal 轨注记行 + §4/§5 登记 +
+新增 §7 WT-001 节（三族含新族 gust_step；WT-G2b-03/FLTH-G2b-03，CHG-20261107-01 批准链，
+系统级/族级 scope 维持不变——FL approved_p0 / WT extension_preview）；v1.3 = 2026-11-05
+GT-001 L1 thermo 轨三轨制更新见 §3/§4/§5（GTL1-G2b-03，CHG-20261104-12 批准链，
+系统级/族级 scope=extension_preview 维持）；v1.2 = 2026-11-04 v1.1 实现落地更新 + 新增
+§6 PV-001 节（PV-G2b-03，CHG-20261104-10 批准链）；冻结时点 = A-2/A-3 评审包提交时）。
 维护规则：族增删/参数域变更/授权状态变化 → 先更本目录 §5 勘误表并登记 CHG，再动 systems.js。

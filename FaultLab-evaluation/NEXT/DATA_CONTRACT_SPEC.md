@@ -31,12 +31,18 @@
 | 字段 | 语义 | 变更规则 |
 |---|---|---|
 | `schema_version` | 数据对象结构版本（本文件 `1.0.0`） | 字段增删/语义变更 → 升 minor/major |
-| `model_version` | 物理模型定义版本（FL-001 `fl001.1`） | 方程/参数/事件语义任一变更 → 升版并重建 golden |
+| `model_version` | 物理模型定义版本（FL-001 当前 `1.1.0`——thermal 轨 fl001_v2 起归一三段式；存量 off 轨 golden fl001_v1 记录值 `fl001.1` 字节冻结留档、双版本并存口径，B-1 失效面清偿） | 方程/参数/事件语义任一变更 → 升版并重建 golden |
 | `engine_version` | 实现版本（`0.1.0`） | 代码行为变化 → 升版；数值变化须同时升 `model_version` |
 | `bundle_schema_version` | 证据包格式版本（`v1`） | 导出/导入格式变化 → 升版并保证 `n-1→n` 迁移 |
 
 运行结果必须与三元组同时绑定：`RunManifest.engine_version / model_version / schema_version`；
 对比页的"模型/时钟/初始条件一致"检查必须比较三元组，而非只比 `model_version`。
+
+**扩展 golden 指针（FLTH-G2b-03 / WT-G2b-03，CHG-20261107-01 批准链；本节字段面不变）**：
+FL-001 thermal 轨 golden `fl001_v2`（schema v2、gate tier **T-B**、model_version `1.1.0`、
+units 增 `T:K`、supersedes=fl001_v1）与 WT-001 golden `wt001_v1`（schema v2、gate **T-A**、
+model_version `1.0.0`、units 增 `wind:m/s`/`angle:°`）已入 `data/golden/`——物理与容差
+权威文本 = `FL001_THERMAL_G2B_SPEC_APPROVED.md` / `WT001_G2B_SPEC_APPROVED.md` v1.0。
 
 ### 1.2 单位字典（量纲注册表）
 
@@ -108,7 +114,7 @@
 |---|---|---|---|
 | `schema_version` | string | `"1.0.0"` | |
 | `model_id` | string | `"fl001"` | P0 固定 |
-| `model_version` | string | `"fl001.1"` | |
+| `model_version` | string | `"1.1.0"` | （B-1 归一；旧存档 `fl001.1` 重放非阻断——该值不参与 classify 校验） |
 | `duration_s` | number | 60（P0） | |
 | `dt_s` | number | 0.1（P0） | |
 | `fault_time_s` | number | 20.0；`round(t_f/dt)` 必须精确对齐 | |
@@ -125,7 +131,7 @@
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `model_id` / `model_version` | string | `fl001` / `fl001.1` |
+| `model_id` / `model_version` | string | `fl001` / `1.1.0`（B-1 归一；fl001_v1 冻结记录值 `fl001.1` 留档） |
 | `equation_id` | string[] | `["I_true_closed","I_true_monitor","I_meas_bias","P_bat","P_gen_balance","SOC_coulomb"]` |
 | `unit_system` | string | `"SI-derived: A,kW,kWh,V,s,%,pp"` |
 | `assumptions` | `{id,text}[]` | 例：`A-ideal-bus`、`A-ideal-gen`、`A-no-noise`、`A-coulomb-soc` |
@@ -507,8 +513,8 @@ project(run, level) -> ProjectedRun
 ## 10. 附录 A：FL-001 三运行关键片段
 
 ```jsonc
-// config.baseline
-{"schema_version":"1.0.0","model_id":"fl001","model_version":"fl001.1","duration_s":60,"dt_s":0.1,
+// config.baseline（model_version 为 B-1 归一值 '1.1.0'；旧存档 'fl001.1' 重放非阻断）
+{"schema_version":"1.0.0","model_id":"fl001","model_version":"1.1.0","duration_s":60,"dt_s":0.1,
  "bias_A":0,"fault_time_s":20.0,"feedback_mode":"closed_loop","initial_SOC_pct":60,"initial_load_kW":30,"noise":null}
 
 // events.json（closed_loop_fault / monitor_only 相同事件，配置值不同）

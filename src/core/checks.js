@@ -1,10 +1,15 @@
 /* owner: core-engine | module: checks | contract: docs/CONTRACT.md */
 /* quality_checks：契约 §4.8 检查（sampling / conservation-true / conservation-meas /
    units / soc-bounds / event-window / energy-balance）+ 系统专属 PHY 按系统分派
-   （GT：gt-energy-consistency / gt-bat-envelope；PV：pv-energy-consistency）。
+   （GT：gt-energy-consistency / gt-bat-envelope；PV：pv-energy-consistency；
+   WT：wt-energy-identity——WT001_G2B_SPEC_APPROVED v1.0 §8 WT-G2b-04）。
    soc-bounds/energy-balance 按 system.bounds 派生：声明 bounds.SOC_pct 的系统（FL/FC/GT）
    才检查；PV-001 无 SOC/E_bat 面，不派发（CHG-20261105-01 清算项 1，解除
-   CHG-20261104-10 锁定态），其能量恒等由 pv-energy-consistency 承载（EQ-PV-5/EQ-PV-7）。
+   CHG-20261104-10 锁定态），其能量恒等由 pv-energy-consistency 承载（EQ-PV-5/EQ-PV-7）；
+   WT-001 同款口径不派发（无 SOC/E_bat 面——WT001_G2B_SPEC_APPROVED v1.0 §1.1 无 SOC 键），
+   其能量恒等由 wt-energy-identity 承载（EQ-WT-8/EQ-WT-9）。
+   FL-001 energy-balance 于 thermal_model=on 分支扩判据 −E_loss（EQ-FLTH-9，守恒面 (a)，
+   CHG-20261107-01）；off/PV/FC/GT 路径零变化。
    不通过时页面必须显示"验证未通过"。 */
 (function () {
   'use strict';
@@ -127,9 +132,14 @@
       T3_out_K: 1, T2_out_K: 1, p2_out_kPa: 1, T4_out_K: 1,
       Q_fuel_kW: 1, P_comp_kW: 1, P_turb_kW: 1, eta_cycle_pct: 1
     };
+    /* FL-001 thermal 轨专属热力信号（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §1.2 两信号）：
+       thermal_model=off 默认轨无热力面——两信号全程 null 属结构性缺席（GT thermo 同款
+       先例；spec §3.5 明文「off 轨全程 null」），off 轨不计为 NaN 违规。 */
+    var FL_THERMAL_SIGNALS = { T_bat_K: 1, P_loss_kW: 1 };
     Object.keys(series).forEach(function (id) {
       var isOptional = /(_cap_A|_cap_kW)$/.test(id) ||
-        (THERMO_ONLY_SIGNALS[id] && !(cfg && cfg.inertia_model === 'thermo'));
+        (THERMO_ONLY_SIGNALS[id] && !(cfg && cfg.inertia_model === 'thermo')) ||
+        (FL_THERMAL_SIGNALS[id] && !(cfg && cfg.thermal_model === 'on'));
       var arr = series[id] || [];
       for (var i = 0; i < arr.length; i++) {
         var v = arr[i];
@@ -148,14 +158,19 @@
       n,
       (lengthsOk && gridOk && nanCount === 0)
         ? ('601 点采样网格一致，' + Object.keys(series).length + ' 个信号等长，无 NaN/Inf' +
-          (nullOptionalCount ? ('；' + nullOptionalCount + ' 个可选点位为 null（cap 信号未生效时段：actuator 轨为 t < t_start 前置窗，其余场景全程未生效；thermo 专属热力信号在 swing/linear 遗留轨全程为 null——无热力面）') : ''))
+          (nullOptionalCount ? ('；' + nullOptionalCount + ' 个可选点位为 null（cap 信号未生效时段：actuator 轨为 t < t_start 前置窗，其余场景全程未生效；thermo 专属热力信号在 swing/linear 遗留轨全程为 null——无热力面；FL thermal 专属热力信号 T_bat_K/P_loss_kW 在 thermal_model=off 轨全程为 null——无热力面）') : ''))
         : ('采样检查失败：长度' + (lengthsOk ? '一致' : '不一致(' + badSignal + ')') +
           '，网格' + (gridOk ? '正确' : '错误') + '，非法数值 ' + nanCount + ' 个')
     ));
 
     /* ---- conservation-true（PHY-01 定义自洽：G0-DEC-12 冻结 FL-001 容差 ≤1e-12 kW）----
-       注意：这是定义恒等式的代数一致性回归（P_gen := P_load − P_bat），
-       不是"物理守恒验证"，更不能表述为模型验证（MODEL_VALIDATION_SPEC §4.3）。 */
+       注意：这是定义恒等式的代数一致性回归（P_gen := P_load − P_bat；FL thermal on 域
+       EQ-FLTH-5/6 扩为 P_gen := P_load − P_bat + P_loss——r_true 信号定义式已由 engine
+       扩展，本检查残差判据与容差面不变），不是"物理守恒验证"，更不能表述为模型验证
+       （MODEL_VALIDATION_SPEC §4.3）。
+       WT-001 走通用 else 面（r_true/r_meas ≡ 0 定义恒等，EQ-WT-8）：tolTrue else 档 1e-12 kW
+       与 WT 规格 §4 项 3 WS-4（≤1e-12）对齐——通用面自动覆盖 WT，无专属分支；
+       r_meas 全功率通道健康（故障期仍 ≡ 0），conservation-meas 不会误入 warn 路径。 */
     var tolTrue = system.id === 'GT-001' ? 1e-9 : (system.id === 'FC-001' ? 1e-6 : 1e-12);
     var maxRt = maxAbs(series.r_true_kW);
     var trueOk = maxRt !== null && maxRt <= tolTrue;
@@ -328,6 +343,29 @@
       ));
     }
 
+    /* ---- WT-001 专属 PHY（WT001_G2B_SPEC_APPROVED v1.0 §8 WT-G2b-04；CHG-20261107-01）：
+         能量账本恒等 E_wt_true + E_grid_true = E_load（EQ-WT-8/EQ-WT-9 定义恒等；E_grid 由
+         引擎按 E_load − E_wt 承载，engine simulateWT001 integrals 同源）。容差对齐
+         pv-energy-consistency 量级口径 = wt001_v1 golden gate T-A E_kWh 1e-9 kWh（三账本
+         同源自 integrals，残差 fp 级）。本检查验证指标账本对恒等式的回归一致，
+         不是物理守恒验证。 ---- */
+    if (system.id === 'WT-001') {
+      var eWtTrue = metricValue(metrics, 'E_wt_true_kWh');
+      var eGridWt = metricValue(metrics, 'E_grid_kWh');
+      var eLoadWt = metricValue(metrics, 'E_load_kWh');
+      var residWt = (eWtTrue !== null && eGridWt !== null && eLoadWt !== null)
+        ? Math.abs(eWtTrue + eGridWt - eLoadWt) : null;
+      var okWt = residWt !== null && residWt <= 1e-9;
+      quality.push(check(
+        'wt-energy-identity', '能量账本恒等闭合（EQ-WT-8/EQ-WT-9 定义恒等）',
+        okWt ? 'pass' : 'fail',
+        '≤ 1e-9 kWh（wt001_v1 gate T-A E_kWh）',
+        residWt,
+        '|E_wt_true + E_grid − E_load| = ' + (residWt === null ? '不可用' : residWt.toExponential(2)) +
+          ' kWh（E_grid 按 E_load − E_wt 定义承载；定义恒等回归，不是物理守恒验证）'
+      ));
+    }
+
     /* ---- units ---- */
     var unitIssues = [];
     var declaredUnits = (system.model && FL.systems && FL.systems._raw && FL.systems._raw.units) ? FL.systems._raw.units : {};
@@ -350,7 +388,8 @@
 
     /* ---- soc-bounds（按 system.bounds 派生：声明 bounds.SOC_pct 的系统（FL/FC/GT）才检查；
        PV-001 bounds 无 SOC_pct 键（有 load_kW/G0_W_m2），无 SOC 序列面，不派发——
-       CHG-20261105-01 清算项 1）---- */
+       CHG-20261105-01 清算项 1；WT-001 同款口径不派发（bounds 无 SOC_pct 键，initial 无
+       SOC 键——WT 无储能，WT001_G2B_SPEC_APPROVED v1.0 §1.1/§8 WT-G2b-04））---- */
     var socDeclared = !!(system.bounds && system.bounds.SOC_pct);
     if (socDeclared) {
       var socTrueRange = minMaxNonEmpty(series.SOC_true_pct);
@@ -412,12 +451,19 @@
 
     /* ---- energy-balance（与 soc-bounds 同一 bounds 派生面：声明 bounds.SOC_pct 的系统
        （FL/FC/GT，均带 E_bat 电池面）才检查；PV-001 无 SOC/E_bat 面，不派发——
-       其能量恒等由专属 PHY 检查 pv-energy-consistency 承载。CHG-20261105-01 清算项 1）---- */
+       其能量恒等由专属 PHY 检查 pv-energy-consistency 承载。CHG-20261105-01 清算项 1；
+       WT-001 同款口径不派发，能量恒等由 wt-energy-identity 承载——WT-G2b-04）----
+       FL-001 thermal_model=on 分支（EQ-FLTH-9 检查式，FL001_THERMAL_G2B_SPEC_APPROVED
+       v1.0 §2.2.0 守恒面 (a) / FLTH-G2b-04，CHG-20261107-01）：判据扩为
+       E_source + E_bat − E_load − E_loss ≡ 0（E_source 已含损耗补偿，engine integrals
+       E_source = E_load − E_bat + E_loss 同源）；容差沿本检查既有 FL 档 1e-6 kWh 不变。
+       off/PV/FC/GT 路径零变化。 ---- */
     if (socDeclared) {
       var eSource = metricValue(metrics, 'E_source_kWh');
       var eBat = metricValue(metrics, 'E_bat_kWh');
       var eServed = metricValue(metrics, 'E_load_served_kWh');
       var balanceTol = system.id === 'GT-001' ? 1e-3 : (system.id === 'FC-001' ? 1e-3 : 1e-6);
+      var flThermalBal = system.id === 'FL-001' && !!(cfg && cfg.thermal_model === 'on');
       var residual = null;
       var balanceMsg;
       if (eSource === null || eBat === null || eServed === null) {
@@ -434,6 +480,15 @@
           balanceMsg = '|E_gen + E_bat − E_load − E_rotor| = ' + residual.toExponential(3) +
             ' kWh（E_rotor = K_J·Δf/3600 = ' + eRotor.toExponential(3) + ' kWh）';
         }
+      } else if (flThermalBal) {
+        var eLossBal = metricValue(metrics, 'E_loss_kWh');
+        if (eLossBal === null) {
+          balanceMsg = '热域损耗指标不可用，无法校验含损耗项的能量平衡（EQ-FLTH-9）';
+        } else {
+          residual = Math.abs(eSource + eBat - eServed - eLossBal);
+          balanceMsg = '|E_source + E_bat − E_load − E_loss| = ' + residual.toExponential(3) +
+            ' kWh（E_loss = ' + eLossBal.toExponential(3) + ' kWh，thermal on 记账口径，EQ-FLTH-9）';
+        }
       } else {
         residual = Math.abs(eSource + eBat - eServed);
         balanceMsg = '|E_source + E_bat − E_load_served| = ' + residual.toExponential(3) + ' kWh';
@@ -442,7 +497,8 @@
       quality.push(check(
         'energy-balance', '电能平衡',
         balanceOk ? 'pass' : 'fail',
-        '≤ ' + balanceTol + ' kWh' + (system.id === 'GT-001' ? '（含转子动能变化项）' : ''),
+        '≤ ' + balanceTol + ' kWh' + (system.id === 'GT-001' ? '（含转子动能变化项）'
+          : (flThermalBal ? '（含热损耗记账项 E_loss，EQ-FLTH-9）' : '')),
         residual,
         balanceOk ? balanceMsg : ('电能平衡超差：' + balanceMsg)
       ));

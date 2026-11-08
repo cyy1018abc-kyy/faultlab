@@ -1080,3 +1080,67 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   home 文案变化；FL/FC/GT 行为零变化。证据 `evidence/g8/v072-release.md`。
   **推送按用户裁定暂缓（与 v0.7.1 同批）**。
   批准人：用户（CHG-20261105-01 授权链）；记录人：实现 Agent。
+
+- `CHG-20261107-01`：**A-4b/B-2 G2b 批准 + V080_WAVE_DESIGN v1 批准（v0.8.0 实现波）**。
+  用户 2026-11-07 指令「按照计划方案，统一采用推荐决策，采用并发多个子智能体来加速任务」
+  （GTL1-G2b-02 先例：用户指令链即书面批准记录）。
+  ① **A-4b FL-001 热模型 G2b 批准**：FLTH-G2b-02 收口——v0.7.2 双路评审
+     （A:PASS_WITH_CONDITIONS 4 / B:PASS_WITH_CONDITIONS 3）七项条件全按推荐处置
+     （A-1 两角点 P_gen 修正 21.769954/20.139754、A-2 FL-7 判据改双实现散差×≥10 或
+     ≥1e-9 K 冻结制、A-3 涟漪表补 metrics 定义串 on 域变体 + keyValues off 域声明、
+     A-4 四项 P3 勘正、B-1 model_version 1.1.0 归一涟漪面、B-2 两门禁面（off→fl001_v1/
+     on→fl001_v2 分派，v2 emit 通过前 on 轨不进 P0 验收）、B-3 T-B 分支 r_true_kW 路由）；
+     FLTH-DRAFT-Q1…Q4 全采推荐（守恒面 (a) 进母线平衡／I 冻结子步起点／r_meas 同轮扩展／
+     E_loss 子步梯形）；`FL001_THERMAL_G2B_SPEC_APPROVED.md` v1.0 生效（更名自 DRAFT）；
+  ② **B-2 WT-001 风电 G2b 批准**：WT-G2b-02 收口——双路评审（A:3/B:4 条件）七项全按
+     推荐处置（A-1 β(20.0)=0.0 状态 pre + beta_stuck_deg 事件域、A-2 λ_opt 改登记可达
+     精度、A-3 §3.5 包络按 UI 全域重述、B-1 禁词改写 ALLOW 句式、B-2 d_wt_atol 死键删除、
+     B-3 exposure 三值映射工作面 + 行号更正、B-4 字面触发项闭合登记）；WT-DRAFT-Q1…Q3
+     全采推荐（保护钳位+估计通道／pitch_stuck 位置强制／L0b 机械动态行为级）；
+     `WT001_G2B_SPEC_APPROVED.md` v1.0 生效；
+  ③ **V080_WAVE_DESIGN v1 生效——DEC-1…8 全采推荐项**：实现波（FLTH-G2b-03/04 +
+     WT-G2b-03/04）入本波；残留三项处置（①bias_A 分域修复随本 CHG、②CONTRACT §4.8
+     订正、③thermo_track 运行期分派登记不顺延）；步数账 28→30（+2：verify_golden wt001
+     第 29 步 + engine-wt.test.js 第 30 步；FL 侧并入步①与既有步），预算 ≤29→≤31 申报；
+     版本节奏 v0.8.0 单发（A-5/B-3/C-5/D-5 顺延 v0.9 登记）；push 暂缓延续（v0.7.1+
+     v0.7.2+v0.8.0 将来同批）；
+  ④ 实现波授权（并发子智能体，五阶段：批准轮 2 路 → 实现 7 路 → 注册/文档 1 路 →
+     tests/构建 2 路 → 全量门禁）；**既有 6 golden 字节冻结、既有 4 oracle 零触碰、
+     FL off 轨 run_hash 逐位不变、Arena 盲包语义零变化（FL 默认 off、WT 显式排除）**；
+  ⑤ **CHG-20261107-02 预留**（v0.8.0 发布）。
+  批准人：用户（2026-11-07「统一采用推荐决策」）；记录人：实现 Agent。
+
+- `CHG-20261107-02`：**v0.8.0 发布（G8）——A-4b FL 热模型 + B-2 WT-001 风电批准与实现轮 +
+  残留①②**。V080_WAVE_DESIGN 波次（批准轮 2 路 + 动态工作流 dwfrun-e1799f2f 八阶段 12 路，
+  配额中断一次零损失续跑；门禁修复环 1 轮）。交付：
+  ① **批准轮**：`FL001_THERMAL_G2B_SPEC_APPROVED.md` v1.0（七条件落正文 + Q1…Q4 定案：
+     守恒面 (a)/I 冻结子步起点/r_meas 同轮扩展/E_loss 子步梯形）+
+     `WT001_G2B_SPEC_APPROVED.md` v1.0（七条件 + Q1…Q3 定案：保护钳位+估计通道/位置强制/
+     L0b；A-3 全域包络复算 λ_eq 裕度 11.5% 维持）；批准轮实证两项 verify_golden 缺陷
+     （T-B r_true 死支 + fl001_v2 `_A` 缺口）入规格 §4；
+  ② **A-4b 实现**：fl001_l1_oracle.py（RK4 dt0.01、FL-1…8、oracle_base 出生接入）+
+     **fl001_v2** golden 4 Run T-B 首签（锚点 39/39 复现 worst 4.5e-07）+ engine
+     simulateFL001Thermal early-return（off 路径逐字不动）+ systems.js thermal 全面
+     （model_version 1.1.0/levelFor 派生/defaults.thermal_model='off'）+ scenario
+     thermal_model 键（显式 CHG）+ checks EQ-FLTH-9 分支 + metrics 定义串 on 变体 +
+     E_loss_kWh/T_bat_end_K；engine↔oracle T_bat 散差实测 0.00e+0；
+  ③ **B-2 实现**：wt001_oracle.py（WS-1…8、15 位常量硬编码——重求导 4 ulp 漂移实证）+
+     **wt001_v1** golden 5 Run T-A 首签（WS-6 64/64、gust 两模式位级 0 差）+ engine
+     simulateWT001（§1.3-b 冻结序）+ 分派链显式 WT 分支（R-7 守卫）+ WT SystemDef 全量
+     （22 信号/3 族/EQ-WT-1…9/A-wt-11）+ ARENA_EXCLUDED + checks wt-energy-identity +
+     schema UNIT_DICT m/s·°·'-' + v0_ms 导出面 + UI 五系统 + teaching WT×2/FL 跨深度×1 +
+     **tests/engine-wt.test.js 新建 228 断言**；
+  ④ **golden 注册面**：MODELS["fl001_l1"]（22 标量全量）/"wt001" 注册 + T-B `_A` 分支 +
+     r_true/r_meas 前置解除死支（gt001_v3 散差 0 实证后统一前移，六 verify 全绿）+ 默认无参
+     双 golden；FAULT_CATALOG v1.4 + CONTRACT §4.8 订正（残留②）+ MODEL_VALIDATION/
+     DATA_CONTRACT fl001.1 双版清偿；
+  ⑤ **残留①**：bias_A 分域修复（hasCurrentDomainBiasSignal 按信号目录分派，faulted PV
+     不再 CN-E02）；残留③ thermo_track 运行期分派维持顺延 v0.9；
+  ⑥ **构建**：FaultLab.html 重打包 1527.5 KiB + file:// 冒烟 61×3 轮（按 e2e 镜像重建，
+     冒烟脚本未固化为新增残留①）。
+  验证：run-g2 **30/30 PASS 两次独立**（工作流内 + Lead 复验 38096ms；+2 步：verify wt001
+  第 29/engine-wt 第 30，预算 ≤31）；e2e 57/57；copy-guard 0 命中；**既有 6 golden 字节
+  零变更**、4 oracle 零触碰；FL off 轨 fl001_v1 比对零回归。新增残留：file:// 冒烟脚本
+  未固化／CDP 深度走查留 v0.9／thermo_track 运行期分派。证据
+  `evidence/g8/v080-release.md`。**推送按用户裁定暂缓（v0.7.1+v0.7.2+v0.8.0 同批）**。
+  批准人：用户（CHG-20261107-01 授权链）；记录人：Lead Agent。

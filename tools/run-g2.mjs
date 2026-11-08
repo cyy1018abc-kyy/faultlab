@@ -1,9 +1,9 @@
 /**
  * run-g2.mjs — G2 验收四件套聚合器（P0b-05 / G0-DEC-16；V0.3.0 T1 追溯增强）。
  *
- *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，28 步全量）
+ *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，30 步全量）
  *   node tools/run-g2.mjs --skip-e2e # 跳过浏览器 E2E（CI 无 Chrome 时）
- *   node tools/run-g2.mjs --tier core     # 只跑 core 层（22 步；部分运行，非全量门禁）
+ *   node tools/run-g2.mjs --tier core     # 只跑 core 层（24 步；部分运行，非全量门禁）
  *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（6 步；部分运行）
  *
  * D-1 tier 分层（CHG-20261104-08 DEC-3，采纳 D1_LITE_ASSESSMENT 方案 C）：
@@ -21,6 +21,9 @@
  *   PV-001 接线（第 27/28 步，core 层，CHG-20261104-10 / V070_WAVE_DESIGN）：
  *             verify_golden pv001（第 5 个 golden，PV-G2b-03 批准链）+
  *             tests/engine-pv.test.js（PV-001 引擎 ↔ golden pv001_v1 4 Run 一致性）
+ *   WT-001 接线（第 29/30 步，core 层，CHG-20261107-01 / V080_WAVE_DESIGN DEC-6）：
+ *             verify_golden wt001（第 6 个 golden，WT-G2b-03 批准链）+
+ *             tests/engine-wt.test.js（WT-001 引擎 ↔ golden wt001_v1 5 Run 一致性）
  *
  * V0.3.0 追溯增强（不改变 19 步测试、执行顺序与 PASS/FAIL 判据）：
  *   - 代码版本：commit_sha / branch / worktree_dirty（含脏文件清单）
@@ -107,27 +110,33 @@ const STEPS = [
   { id: '+ arena.test.js（既有回归）', cmd: 'node', args: ['tests/arena.test.js'], tier: 'extended' },
   { id: 'C-2 scenario.test.js（场景编排回归：负例/roundtrip/执行等价，S5 第 26 步）', cmd: 'node', args: ['tests/scenario.test.js'], tier: 'core' },
   { id: 'PV-001 verify_golden pv001（第 5 个 golden，PV-G2b-03 / CHG-20261104-10 批准链，第 27 步）', cmd: 'python', args: ['scripts/verify_golden.py', 'pv001'], tier: 'core' },
-  { id: 'PV-001 engine-pv.test.js（引擎↔golden pv001_v1 4 Run 一致性 + R-4 守卫，第 28 步）', cmd: 'node', args: ['tests/engine-pv.test.js'], tier: 'core' }
+  { id: 'PV-001 engine-pv.test.js（引擎↔golden pv001_v1 4 Run 一致性 + R-4 守卫，第 28 步）', cmd: 'node', args: ['tests/engine-pv.test.js'], tier: 'core' },
+  { id: 'WT-001 verify_golden wt001（第 6 个 golden，WT-G2b-03 / CHG-20261107-01 批准链，第 29 步）', cmd: 'python', args: ['scripts/verify_golden.py', 'wt001'], tier: 'core' },
+  { id: 'WT-001 engine-wt.test.js（引擎↔golden wt001_v1 5 Run 一致性 + R-7 守卫，第 30 步）', cmd: 'node', args: ['tests/engine-wt.test.js'], tier: 'core' }
 ];
 
 /* ------------------------------------- 步数账与 tier 口径（I-7 / D-1 DEC-3） *
  * tier 判定口径（CHG-20261104-08 DEC-3，采纳 D1_LITE_ASSESSMENT 方案 C，
  * 与该文件「实施追记 §7」一致）：
- *   core     = 门禁主干——verify_golden 四系统（FL/FC/GT/PV-001）+ property_harness
- *              模型侧不变量 + engine/engine-fc/engine-gt/engine-pv 对 golden +
+ *   core     = 门禁主干——verify_golden 五系统（FL/FC/GT/PV-001/WT-001）+
+ *              property_harness 模型侧不变量 + engine/engine-fc/engine-gt/
+ *              engine-pv/engine-wt 对 golden +
  *              plants/schema/registry/
  *              bundle/event-phase/core.test/scenario.test 等核心回归 + G4 守卫族
  *              （scope-guard/compare/causal-rules/copy-guard）+ e2e + perf
  *              （G2 四件套之②缺一不可，随主干）；
  *   extended = 扩展面——backend（admission/bridge）、arena（protocol-negative/
  *              arena.test）、fmu-admission、report。
- *   当前构成：28 步 = core 22 + extended 6。
+ *   当前构成：30 步 = core 24 + extended 6。
  * 步数账纪律（V06_ROADMAP I-7：步数增长须有预算与分层）：
  *   1. 每步必须带合法 tier 标签（下方护栏强制），新增步须同时声明归属层与预算来源；
  *   2. 任何增删步必须在 CHG 登记步数账（删几步/增几步/理由/归属卡），预算线沿用
  *      DEC-E 口径（单波 ≤ +1；CHG-20261104-08 预算 ≤27 已兑现，CHG-20261104-10
- *      登记 26→28、预算 ≤29 已兑现；当前波 CHG-20261104-12（GT-L1 实现轮，
- *      GTL1-IMP-Q1）0 增步维持 28，预算 ≤29 沿用）；
+ *      登记 26→28、预算 ≤29 已兑现；CHG-20261104-12（GT-L1 实现轮，GTL1-IMP-Q1）
+ *      0 增步维持 28；当前波 CHG-20261107-01（V080_WAVE_DESIGN DEC-6）28→30、
+ *      预算 ≤29→≤31 显式申报——FL 侧零新增步（verify_golden 步①同一 python 调用
+ *      内双 golden 顺序验证，FLTH §7.3「优先并入现有步」口径），WT 侧 +2 步
+ *      （A-4b 并入口径已用足、B-2 新系统 5 Run golden + 引擎轨无法并入既有步））；
  *   3. 步数账变迁：18→19（plants，CHG-20261030-07）→24（G2b/V3 系列与回归挂入）→
  *      25（property_harness，DEC-E 24→25）→25（D-1 分层：仅加 tier 标签与 --tier
  *      参数，0 增步，CHG-20261104-08 DEC-3）→26（S5 测试接线：scenario.test.js
@@ -137,7 +146,11 @@ const STEPS = [
  *      CHG-20261104-10）→28（GT-L1 实现轮：verify_golden gt001 步 id 不变、
  *      oracle/golden 重指向 gt001_l1_oracle/gt001_v3（T-B），engine-gt thermo
  *      变体并入既有 engine-gt.test.js 步——0 增步，28 维持，预算 ≤29 沿用
- *      （GTL1-IMP-Q1，优先并入现有步），CHG-20261104-12）。
+ *      （GTL1-IMP-Q1，优先并入现有步），CHG-20261104-12）→
+ *      30（WT-001 接线（V080_WAVE_DESIGN DEC-6，CHG-20261107-01）：verify_golden
+ *      wt001 挂第 29 步、engine-wt.test.js 挂第 30 步，均 core 层，单波 +2，
+ *      预算 ≤29→≤31 显式申报；同波 FL 侧零新增步——fl001_l1 双 golden 并入
+ *      步①同一 python 调用，FLTH §7.3 口径）。
  * 部分运行 ≠ 全量门禁：--tier core/extended 与 --skip-e2e 同为部分运行，不产生
  *   「部分执行 = 门禁通过」的新路径；发布门（G7/G8）与 CHG 验收句必须引用
  *   --tier all 全量运行（报告 tier 字段 + execution.command 可机检）。

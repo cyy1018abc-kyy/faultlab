@@ -2,7 +2,8 @@
    + FaultLab-evaluation/NEXT/V070_WAVE_DESIGN.md DEC-5（CHG-20261104-10）
    教学路径核心测试（C-3 最小形态）：
    A. 模块形态 + view.page 校验表与 src/ui/shell.js PAGES 键源码交叉核对；
-   B. 4 条预设路径（3 系统 + GT 跨深度扩展，V072 清算项 7）全部过 validateTeachingPath +
+   B. 7 条预设路径（4 系统主线 + GT 跨深度扩展 + WT ×2 + FL thermal 跨深度，
+      v0.8.0 UI 接线路 CHG-20261107-01）全部过 validateTeachingPath +
       元数据 / 5 步结构 / 导出原语断言；
    C. 校验器负例（8 类）+ 装载顺序守卫 + warning 面；
    D. narrative/文案禁词自检：读 tools/copy-guard.mjs BANNED 数组（33 模式）对路径内
@@ -57,13 +58,16 @@ eq(JSON.stringify(TC.SHELL_PAGE_KEYS), JSON.stringify(shellIds), 'SHELL_PAGE_KEY
 eq(TC.SHELL_PAGE_KEYS.length, 9, '页面键数=9（home/system/signals/causal/compare/arena/scenario/teaching/leaderboard，UI 接线路 CHG-20261104-10 增补）');
 
 /* ------------------------------------------------------------------ *
- * B. 3 条预设路径全部过 validateTeachingPath                           *
+ * B. 预设路径全部过 validateTeachingPath                               *
+ * （计数断言随路径数据面机械适配：3→4 为 V072 清算项 7 先例；4→7 为
+ *    v0.8.0 UI 接线路 CHG-20261107-01——WT-001 ×2 + FL thermal 跨深度 ×1；
+ *    新路径的专项断言归 L9b 测试路。）                                     *
  * ------------------------------------------------------------------ */
 section('B. 预设路径校验 + 结构 + 导出原语');
 const paths = TC.getTeachingPaths();
-eq(paths.length, 4, 'getTeachingPaths 返回 4 条（3 系统 + GT 跨深度扩展，V072 清算项 7）');
-eq(new Set(paths.map((p) => p.pathId)).size, 4, 'pathId 唯一');
-['FL-001', 'FC-001', 'GT-001'].forEach((sid) => {
+eq(paths.length, 7, 'getTeachingPaths 返回 7 条（4 系统主线 + GT 跨深度 + WT ×2 + FL thermal 跨深度，v0.8.0 CHG-20261107-01）');
+eq(new Set(paths.map((p) => p.pathId)).size, 7, 'pathId 唯一');
+['FL-001', 'FC-001', 'GT-001', 'WT-001'].forEach((sid) => {
   ok(paths.some((p) => p.system === sid), '存在 ' + sid + ' 路径');
 });
 
@@ -308,4 +312,4 @@ if (fail) {
   console.log('================================================');
   process.exit(1);
 }
-console.log('教学路径核心（C-3 DEC-5）测试全部通过：4 路径校验（含 GT 跨深度扩展）/ 负例 8 类 + 守卫 / 禁词 33 模式子串自检 / FL 3 Run 执行冒烟。');
+console.log('教学路径核心（C-3 DEC-5）测试全部通过：7 路径校验（含 GT/FL 跨深度扩展 + WT ×2）/ 负例 8 类 + 守卫 / 禁词 33 模式子串自检 / FL 3 Run 执行冒烟。');

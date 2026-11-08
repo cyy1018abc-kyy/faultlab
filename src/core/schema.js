@@ -20,7 +20,11 @@
     's': 'time', '%': 'percent', 'pp': 'percent_point',
     'Hz': 'frequency', 'rpm': 'speed',
     'W/m²': 'irradiance', /* PV-001 新轨（PV001_G2B_SPEC_APPROVED v1.0 §8 C-3/C-6）：纯增项 */
-    'K': 'temperature', 'kPa': 'pressure' /* GT-001 L1 thermo 轨（GTL1-IMP-Q2，CHG-20261104-12）：纯增项 */
+    'K': 'temperature', 'kPa': 'pressure', /* GT-001 L1 thermo 轨（GTL1-IMP-Q2，CHG-20261104-12）：纯增项 */
+    /* WT-001 L0b 轨（WT001_G2B_SPEC_APPROVED v1.0 §1.2/§4 项 5/§8 WT-G2b-03，CHG-20261107-01）：
+       纯增项——'m/s'（风速 3 信号）/'°'（桨距角 3 信号）/'-'（λ/Cp 无量纲 2 信号，§1.2 信号表）；
+       量纲类名沿 golden units 表命名（§4 项 5 "wind":"m/s","angle":"°"）。 */
+    'm/s': 'wind', '°': 'angle', '-': 'dimensionless'
   };
   var P0_UNITS = ['A', 'kW', 'kWh', 'V', 's', '%', 'pp'];
 
@@ -125,6 +129,10 @@
          G0_W_m2 仅 PV-001 声明：其他系统 undefined → 不进入投影/哈希（inertia_model 同款先例，
          GTL1_G2B_SPEC_APPROVED v1.0 §2.4）。 */
       initial_G0_W_m2: cfg.initial && cfg.initial.G0_W_m2,
+      /* B-2 WT-001（WT001_G2B_SPEC_APPROVED v1.0 §1.1，WT-G2b-03，CHG-20261107-01）：
+         initial v0_ms 键面按 system.bounds 派生（R-8 同款）——WT-001 声明 v0_ms ∈ [6,10]；
+         其他系统 undefined → 不进入投影/哈希（G0_W_m2 / inertia_model 同款先例）。 */
+      initial_v0_ms: cfg.initial && cfg.initial.v0_ms,
       /* A-1 惯性双轨 → L1 三轨（GTL1_G2B_SPEC_APPROVED v1.0 §2.4；GT-001 声明；
          其他系统 undefined → 不进入投影/哈希） */
       inertia_model: cfg.inertia_model,
@@ -132,17 +140,42 @@
     };
   }
 
-  /* R-8（CHG-20261105-01 清算项 2）：按 model_id 反查 system.bounds，派生 initial 键面。
-     systems 未装载 / 未知 model_id → null（调用方回退 FL/FC/GT 既有键面，行为逐字等价）。 */
-  function resolveInitialBounds(modelId) {
+  /* R-8（CHG-20261105-01 清算项 2）：按 model_id 反查 SystemDef 原始引用。
+     systems 未装载 / 未知 model_id → null（调用方回退既有行为，行为逐字等价）。 */
+  function resolveSystemDef(modelId) {
     if (!FL.systems || !FL.systems._raw || typeof FL.systems._raw.all !== 'function') return null;
     var all = FL.systems._raw.all();
     if (!Array.isArray(all)) return null;
     for (var i = 0; i < all.length; i++) {
       var s = all[i];
-      if (s && s.model && s.model.model_id === modelId && s.bounds) return s.bounds;
+      if (s && s.model && s.model.model_id === modelId) return s;
     }
     return null;
+  }
+
+  function resolveInitialBounds(modelId) {
+    var sys = resolveSystemDef(modelId);
+    return (sys && sys.bounds) ? sys.bounds : null;
+  }
+
+  /* 残留①（CHG-20261107-01 ③；v072-release §4 项 1）：bias_A 契约键在投影面统一承载
+     fault.params.magnitude（scenarioView 键名沿契约 §2.1 历史面——哈希输入零变化），
+     但 |b|≤20 A 是电流域物理界，只对偏置信号为电流域 bias_A 的系统适用。
+     分派口径（选型登记）：按系统信号目录是否存在 id='bias_A' 的信号——契约键与信号
+     目录同名同域，最诚实且免维护系统清单（新系统落地即自动取得正确域语义）。
+     FL-001/FC-001 信号目录声明 bias_A（单位 A）→ 检查适用（既有行为逐字保持）；
+     PV-001 偏置信号为 bias_W_m2（W/m² 域）、GT-001 为转速偏置（Hz 域）、WT-001 为
+     bias_ms（m/s 域）→ 其 faulted Run 幅值不属电流域，A 域检查不适用（旧实现按 A 域
+     误校 → faulted PV Run 导出/导入误报 CN-E02，v072-release §4 项 1 登记在案）。
+     反查失败（systems 未装载/未知 model_id）回退既有行为（检查生效）。 */
+  function hasCurrentDomainBiasSignal(modelId) {
+    var sys = resolveSystemDef(modelId);
+    if (!sys) return true; /* 回退：既有行为 */
+    var signals = sys.signals || [];
+    for (var i = 0; i < signals.length; i++) {
+      if (signals[i] && signals[i].id === 'bias_A') return true;
+    }
+    return false;
   }
 
   function validateScenarioConfig(sc, opts) {
@@ -176,7 +209,7 @@
     if (!isNum(sc.bias_A)) bad('bias_A', 'bias_A 必须是数字', '检查配置');
     else if (opts.p0frozen && Math.abs(sc.bias_A) > 0 && Math.abs(sc.bias_A - 10) > 1e-12) {
       bad('bias_A', 'P0 冻结 bias_A=+10（当前 ' + String(sc.bias_A) + '）', '参数编辑属 P1 范围');
-    } else if (Math.abs(sc.bias_A) > 20) {
+    } else if (hasCurrentDomainBiasSignal(sc.model_id) && Math.abs(sc.bias_A) > 20) {
       bad('bias_A', 'bias_A 幅值超出模型物理范围（|b| ≤ 20 A）', '修改参数后重试');
     }
     if (sc.feedback_mode !== 'closed_loop' && sc.feedback_mode !== 'monitor') {
@@ -211,6 +244,19 @@
                  sc.initial_G0_W_m2 > initBounds.G0_W_m2.max + 1e-9) {
         bad('initial_G0_W_m2', 'initial_G0_W_m2 必须在 ' + initBounds.G0_W_m2.min + '–' +
           initBounds.G0_W_m2.max + ' W/m² 之间', '检查配置');
+      }
+    }
+    /* B-2 WT-001（WT001_G2B_SPEC_APPROVED v1.0 §1.1，WT-G2b-03，CHG-20261107-01）：
+       initial_v0_ms 校验补入（域取 bounds.v0_ms，声明才要求——R-8 G0_W_m2 同款；
+       WT-001 声明 [6,10] m/s，§1.1）。bounds 驱动、无系统清单硬编码：WT-001 SystemDef
+       落地（WT-G2b-04）即自动纳入。声明面之外的初值键处置不变；反查失败回退既有键面。 */
+    if (initBounds && initBounds.v0_ms) {
+      if (!isNum(sc.initial_v0_ms)) {
+        bad('initial_v0_ms', 'initial_v0_ms 必须是数字（m/s）', '检查配置');
+      } else if (sc.initial_v0_ms < initBounds.v0_ms.min - 1e-9 ||
+                 sc.initial_v0_ms > initBounds.v0_ms.max + 1e-9) {
+        bad('initial_v0_ms', 'initial_v0_ms 必须在 ' + initBounds.v0_ms.min + '–' +
+          initBounds.v0_ms.max + ' m/s 之间', '检查配置');
       }
     }
     if (sc.noise !== null && sc.noise !== undefined) {

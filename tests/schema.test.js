@@ -82,12 +82,37 @@ code(contract.validateSignalCatalog([Object.assign({}, gtCat[0], { unit: '°F' }
   '未知温度单位仍拒绝（K/kPa 为纯增项，非单位面放开）');
 
 /* ------------------------------------------------------------------ *
+ * 1d. WT-001 SignalCatalog + UNIT_DICT m/s·°·- 扩展（WT-G2b-03，CHG-20261107-01；
+ *     WT001_G2B_SPEC_APPROVED v1.0 §1.2 信号表/§4 项 5 units 増注——schema.js
+ *     UNIT_DICT 纯增项，PV 'W/m²' / GT 'K'·'kPa' 同款先例）
+ * ------------------------------------------------------------------ */
+eq(contract.UNIT_DICT['m/s'], 'wind', "UNIT_DICT 增 'm/s' → wind（WT-001 风速通道纯增项）");
+eq(contract.UNIT_DICT['°'], 'angle', "UNIT_DICT 增 '°' → angle（WT-001 桨距角通道纯增项）");
+eq(contract.UNIT_DICT['-'], 'dimensionless', "UNIT_DICT 增 '-' → dimensionless（WT λ/cp 无量纲信号纯增项）");
+const wtSys001 = FL.systems._raw.get('WT-001');
+const wtCat = wtSys001.signals.map((s) => Object.assign({}, s));
+eq(wtCat.length, 22, 'WT-001 信号目录 22 项（规格 §1.2）');
+eq(contract.validateSignalCatalog(wtCat).length, 0, 'WT-001 SignalCatalog 校验通过（m/s·°·- 通道过 CN-E02）');
+const wtMs = wtCat.filter((s) => s.unit === 'm/s').map((s) => s.id);
+const wtDeg = wtCat.filter((s) => s.unit === '°').map((s) => s.id);
+const wtDim = wtCat.filter((s) => s.unit === '-').map((s) => s.id);
+eq(wtMs.join(','), 'v_true_ms,v_meas_ms,bias_ms', "WT-001 m/s 风速信号 3 项（v_true/v_meas/bias）");
+eq(wtDeg.join(','), 'beta_pitch_deg,beta_cmd_deg,beta_stuck_deg', "WT-001 ° 桨距信号 3 项（pitch/cmd/stuck）");
+eq(wtDim.join(','), 'lambda_tip,cp_coeff', "WT-001 '-' 无量纲信号 2 项（λ_tip/cp，§4 项 5：无量纲不入单位表口径随 golden units 面）");
+wtCat.forEach((s) => {
+  ok(contract.UNIT_DICT[s.unit] !== undefined, 'WT 信号 ' + s.id + ' 单位在字典内（' + s.unit + '）');
+  ok(contract.EXPOSURES.indexOf(s.exposure) !== -1, 'WT 信号 ' + s.id + ' exposure 合法（' + s.exposure + '）');
+});
+code(contract.validateSignalCatalog([Object.assign({}, wtCat[0], { unit: 'mph' })]), 'CN-E02',
+  '未知风速单位仍拒绝（m/s·°·- 为纯增项，非单位面放开）');
+
+/* ------------------------------------------------------------------ *
  * 2. ScenarioConfig §2.1 视图与校验（T-07 负例子集）
  * ------------------------------------------------------------------ */
 const cfgFault = core.createConfig('FL-001', {});
 const scFault = contract.scenarioView(cfgFault);
 eq(scFault.model_id, 'fl001', 'scenarioView.model_id=fl001（契约 §1.1）');
-eq(scFault.model_version, 'fl001.1', 'scenarioView.model_version=fl001.1');
+eq(scFault.model_version, '1.1.0', 'scenarioView.model_version=1.1.0（三段式 v2 归一样式，L4 模型版本涟漪——L6 交接翻转清单项）');
 eq(scFault.bias_A, 10, 'scenarioView.bias_A=+10');
 eq(scFault.fault_time_s, 20, 'scenarioView.fault_time_s=20.0');
 eq(scFault.feedback_mode, 'closed_loop', 'scenarioView.feedback_mode');
@@ -133,6 +158,60 @@ code(contract.validateScenarioConfig(Object.assign({}, scFault, { model_id: 'x-u
   '未知 model_id 反查失败回退既有键面（SOC 域校验仍生效）');
 eq(contract.validateScenarioConfig(Object.assign({}, scFault, { initial_G0_W_m2: 1000 })).length, 0,
   'FL 场景携带声明面外初值键处置保持（不要求、不新增拒绝）');
+
+/* ------------------------------------------------------------------ *
+ * 2c. WT-001 initial_v0_ms 导出面正反例（B-2 / WT-G2b-03，CHG-20261107-01；
+ *     WT001_G2B_SPEC_APPROVED v1.0 §1.1：bounds.v0_ms = [6,10] m/s——R-8
+ *     bounds 驱动自动纳入（resolveInitialBounds 泛化 + scenarioView.initial_v0_ms
+ *     投影），非硬编码系统清单；正例 7 / 反例 11 逐项登记）
+ * ------------------------------------------------------------------ */
+const wtBase = core.createConfig('WT-001', { fault: { family: 'none', faultId: null, t_start_s: 20, params: { magnitude: 0 } } });
+const scWT = contract.scenarioView(wtBase);
+/* 正例 7 */
+eq(scWT.initial_v0_ms, 9, 'WT scenarioView.initial_v0_ms=9（R-8 投影补入）');
+eq(scWT.initial_SOC_pct, undefined, 'WT scenarioView 无 initial_SOC_pct（无储能键面，§1.1）');
+eq(scWT.initial_G0_W_m2, undefined, 'WT scenarioView 无 initial_G0_W_m2（PV 专属键不渗入 WT 投影）');
+eq(contract.validateScenarioConfig(scWT).length, 0, 'WT-001 Run 导出校验通过（R-8：声明才要求，不再报 CN-E02）');
+eq(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: 6 })).length, 0, 'WT v0=6（bounds 下界端点）通过');
+eq(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: 10 })).length, 0, 'WT v0=10（bounds 上界端点）通过');
+eq(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: 7.5 })).length, 0, 'WT v0=7.5（域内非整值）通过');
+/* 反例 11 */
+code(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: 5.9 })), 'CN-E02', 'WT v0 低于 bounds 下界 6 拒绝');
+code(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: 10.1 })), 'CN-E02', 'WT v0 高于 bounds 上界 10 拒绝');
+code(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: 0 })), 'CN-E02', 'WT v0=0（域外）拒绝');
+code(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: NaN })), 'CN-E02', 'WT v0 NaN 拒绝');
+code(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: Infinity })), 'CN-E02', 'WT v0 Infinity 拒绝');
+code(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: '9' })), 'CN-E02', 'WT v0 字符串类型拒绝');
+code(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: null })), 'CN-E02', 'WT v0 null 拒绝');
+(function v0Missing() {
+  const noV0 = Object.assign({}, scWT);
+  delete noV0.initial_v0_ms;
+  code(contract.validateScenarioConfig(noV0), 'CN-E02', 'WT v0 缺失拒绝（声明即要求，G0_W_m2 同款）');
+})();
+code(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: 6 - 1e-7 })), 'CN-E02',
+  'WT v0=6−1e-7（1e-9 域容差外侧）拒绝');
+code(contract.validateScenarioConfig(Object.assign({}, scWT, { initial_v0_ms: 10 + 1e-7 })), 'CN-E02',
+  'WT v0=10+1e-7（1e-9 域容差外侧）拒绝');
+code(contract.validateScenarioConfig(Object.assign({}, scWT, { model_id: 'x-unknown' })), 'CN-E02',
+  'WT v0 面：未知 model_id 反查失败回退既有键面（SOC 域校验仍生效）');
+
+/* ------------------------------------------------------------------ *
+ * 2d. faulted PV Run 导出不再 CN-E02（残留① L6 修复断言固化，CHG-20261107-01）：
+ *     bias_A 契约键在投影面统一承载 fault.params.magnitude，但 |b|≤20 A 是电流域
+ *     物理界——分派口径按系统信号目录是否存在 id='bias_A' 信号（FL/FC 生效，
+ *     PV/GT/WT 豁免，反查失败回退生效）；FL/FC 既有域校验逐字保持。
+ * ------------------------------------------------------------------ */
+const pvFaulted = core.createConfig('PV-001', { fault: { family: 'sensor_drift', t_start_s: 20 } });
+const scPVf = contract.scenarioView(pvFaulted);
+eq(scPVf.bias_A, 100, 'faulted PV 导出 bias_A 键承载偏置幅值 +100（键名沿契约 §2.1 历史面）');
+eq(contract.validateScenarioConfig(scPVf).length, 0, 'faulted PV Run 导出校验通过（不再误报 CN-E02——残留①固化）');
+const pvShade = core.createConfig('PV-001', { fault: { family: 'shading_step', t_start_s: 20 } });
+eq(contract.validateScenarioConfig(contract.scenarioView(pvShade)).length, 0,
+  'faulted PV shading_step（−300 W/m²）导出校验通过（W/m² 域幅值不适用电流域检查）');
+eq(contract.validateScenarioConfig(Object.assign({}, scPVf, { bias_A: 1000 })).length, 0,
+  'PV 偏置幅值不适用电流域 |b|≤20 检查（bias_A 分派按信号目录是否存在 bias_A 信号，残留①口径）');
+code(contract.validateScenarioConfig(Object.assign({}, scFault, { model_id: 'x-unknown', bias_A: 30 })), 'CN-E02',
+  '电流域检查反查失败回退生效（FL |b|≤20 在未知 model_id 下仍拒绝）');
 
 /* ------------------------------------------------------------------ *
  * 3. TimeSeries §2.4（n 由参数派生，禁止硬编码 601；T-07 / SA-01）

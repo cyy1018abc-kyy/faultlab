@@ -1,7 +1,8 @@
 /* owner: core-teaching | module: teaching | contract: FaultLab-evaluation/NEXT/V06_ROADMAP.md 主线 C「C-3」行
    + FaultLab-evaluation/NEXT/V070_WAVE_DESIGN.md DEC-5（CHG-20261104-10 批准，按推荐执行） */
 /* 教学路径核心（C-3 最小形态，DEC-5）：
-   - 3 条预设教学路径（FL-001 / FC-001 / GT-001 各 1 条），每条固定 5 步：
+   - 7 条预设教学路径（FL-001 / FC-001 / GT-001 / WT-001 主线 + GT/FL 跨深度扩展 ×2
+     + WT-001 阵风路径），每条固定 5 步：
      ① 传感器故障注入 → ② 闭环响应观察 → ③ 仅监测对照 → ④ 因果解释 → ⑤ 评测入口；
    - 每步 = { id, title, narrative（教学叙述卡文案）, view: { page, focus（焦点说明） },
               compare?（对照视角 { label, text }）, scenarioSpec?（第⑤步场景 JSON，schema v1） }；
@@ -274,7 +275,7 @@
   /* ================================================================== */
   /* getTeachingPaths / exportTeachingPath                              */
   /* ================================================================== */
-  /* 返回 4 条预设路径（3 系统 + GT 跨深度扩展）的深克隆副本（外部改动不内渗；与 scenario.samples() 同口径） */
+  /* 返回 7 条预设路径（4 系统主线 + GT/FL 跨深度扩展 + WT 阵风）的深克隆副本（外部改动不内渗；与 scenario.samples() 同口径） */
   function getTeachingPaths() {
     return cloneTeachingPaths();
   }
@@ -300,8 +301,8 @@
   }
 
   /* ================================================================== */
-  /* 预设路径数据（4 条路径 = 3 系统 × 5 步 + GT 跨深度扩展路径 × 5 步；           */
-  /* 事实源：systems.js + docs/FAULT_CATALOG.md + GTL1_G2B_SPEC_APPROVED §3.2）    */
+  /* 预设路径数据（7 条路径 = 4 系统主线 × 5 步 + GT/FL 跨深度扩展 + WT 阵风；     */
+  /* 事实源：systems.js + docs/FAULT_CATALOG.md + GTL1/FL001/WT001 G2B APPROVED 规格 */
   /* 文案口径：合成演示定位（L0 行为级演示 / 合成示例数据 synthetic）、解释已知故障 */
   /* 的传播路径、不做检测/定位/诊断声明；禁词零命中（tests/teaching.test.js 自查）。 */
   /* ================================================================== */
@@ -513,7 +514,153 @@
     ]
   };
 
-  var PATHS = [FL_PATH, FC_PATH, GT_PATH, GT_CROSS_PATH];
+  /* ---- WT-001：风电机组（v_sensor_bias 主线；WT001_G2B_SPEC_APPROVED v1.0 §2.1/§3.1/
+        §3.2 场景 A/A' 锚点——数值为复算预填口径，wt001_v1 golden emit 后以冻结值为准；
+        family/params 域以 systems.js WT-001 故障目录为事实源）。 ---- */
+  var WT_BIAS_SPEC = {
+    scenario_id: 'path-wt-001-eval',
+    version: 1,
+    label: 'WT-001 教学路径评测：风速偏置（闭环 / 仅监测）+ 变桨卡涩',
+    system: 'WT-001',
+    events: [
+      { key: 'ev-sensor-cl', label: '风速传感器偏置 闭环', family: 'sensor_drift', params: { magnitude: 1.0 }, t_start_s: 20, feedback_mode: 'closed_loop' },
+      { key: 'ev-sensor-mon', label: '风速传感器偏置 仅监测', family: 'sensor_drift', params: { magnitude: 1.0 }, t_start_s: 20, feedback_mode: 'monitor' },
+      { key: 'ev-pitch-cl', label: '变桨卡涩 闭环', family: 'actuator_fault', params: { magnitude: 55 }, t_start_s: 20, feedback_mode: 'closed_loop' }
+    ]
+  };
+
+  var WT_BIAS_PATH = {
+    pathId: 'path-wt-001-bias',
+    title: '风电机组：风速偏置与可用功率保护',
+    system: 'WT-001',
+    goal: '看清 1.0 m/s 风速测量低估如何经可用功率保护钳位把真实出力从 10.00 kW 压到 7.02 kW，并用 d_wt 三分法区分「闭环吸收（瞬态后归零）」与「仅监测暴露（持续不归零）」两种残差形态。',
+    prerequisites: '建议先完成 FL-001 路径（测量偏置与闭环反馈概念）；认识 WT-001 拓扑：风轮经全功率变流器接入 400 V 等效母线，与理想平衡馈线共同为 30 kW 恒定负载供电（L0b 机械动态行为级演示，非机组/电网动态验证）。',
+    steps: [
+      stepInject(
+        'WT-001 是 L0b 机械动态行为级演示模型：风轮转速为 ODE 状态、桨距执行器一阶跟踪、变流器按转速最优增益律给目标功率（额定 15 kW 封顶、可用风功率保护钳位）；解析方程 + 合成示例数据（synthetic），页面结论只在本演示假设内成立。第一步在风速测量通道注入 1.0 m/s 低估偏置（t = 20 s，运行前写进配置的已知故障事实）——与 FL-001 的电流偏置同属测量通道注入，但方向是低估：测量风速从 9 m/s 跳到 8 m/s。请在系统页拓扑里找到风速传感器（故障注入点）与「风轮 → 风速传感器 → 变流器」测量链路。',
+        '系统页 · 拓扑与组件卡：风速传感器（注入点）与「风轮 → 风速传感器 → 变流器」测量链路；注意变流器组件的 MPPT 与可用功率保护说明。'
+      ),
+      stepClosedLoop(
+        '闭环下变流器按被低估的测量风速重算可用功率上限：保护钳位从 k_v·9³ = 10.00 kW 收紧到 k_v·8³ = 7.02 kW，真实出力按 τ_e = 1.0 s 一阶跟随下行（P_wt(60) = 7.023320 kW）——测量偏差经保护钳位变成了真实出力下降。机械面是 WT 独有的观测点：净扭矩转正使转速上升（180.6 → 224.3 rpm），桨距随即介入（β → 5.51°），λ 在右支偏移。信号页把真实出力（下行）、转速（上行）与桨距（缓升）放进同一时间线。',
+        '信号页 · 三线同看：P_wt_true_kW（10.00→7.02 kW）、n_rotor_rpm（180.6→224.3 rpm）、beta_pitch_deg（0→5.51°）；辅看 P_grid_true_kW 抬升（20→22.98 kW）。',
+        { label: '仅监测视角', text: '同一偏置在仅监测模式下保护钳位改读真实风速（钳位松开）：真实出力恒 10.00 kW 不动，转速/桨距保持健康稳态——移动的只有测量值与估计通道。' }
+      ),
+      stepMonitorCompare(
+        '并排两条同故障 Run：闭环模式真实出力被压到 7.02 kW，仅监测模式恒 10.00 kW。判读核心是 d_wt（最优曲线一致性残差）的三分法：闭环下估计先跳下行、真实出力滞后跟随，保护钳位使真实出力恒等于被低估的估计值——d_wt 出现 +2.98 kW 瞬态后归零（闭环把测量故障吸收进自洽）；仅监测下真实出力不动而估计恒被低估，d_wt ≡ +2.98 kW 持续暴露（健康测量下 d_wt ≤ 0 的界被破坏——界破坏特征本身）。注意 r_meas ≡ 0：WT-001 全部功率测量通道健康（与 FL-001 的 +4 kW 测量残差形成教学对照）。',
+        '对比页 · 闭环 vs 仅监测：P_wt_true 分叉而 r_meas 同为 0；d_wt 一条瞬态归零、一条持续 +2.98 kW。',
+        { label: '闭环视角回看', text: '闭环下低估经保护钳位变成真实出力下降（10.00 → 7.02 kW）——保护把测量故障「当真」了。' }
+      ),
+      stepCausal(
+        '因果页沿「低估偏置注入 → 测量风速下降 → 保护钳位收紧 → 真实出力跟随下行 → 净扭矩转正、转速上升、桨距介入 → 馈线补差上升 → 一致性残差」的节点序解释已知故障的传播路径；机械动态节点（转速/桨距）是 WT 链上 PV 没有的环节。残差节点口径：d_wt 瞬态是估计通道先跳、真实出力滞后的代数恒等表现，不是能量转移的结果；r_meas ≡ 0 是全功率通道健康的定义恒等。本页只解释运行前注入的已知故障，不做检测、定位或诊断。',
+        '因果页 · wt-sensor-drift 因果链节点 ①→⑦：n5 机械动态节点（转速上升/桨距介入）与 n7 代数恒等节点（d_wt 瞬态后归零）。'
+      ),
+      stepEval(
+        '评测入口：本路径预置 3 事件场景（闭环 / 仅监测风速偏置 @1.0 m/s、变桨卡涩 55%，均 @20 s，参数取目录锚点值）。执行后重点核对：偏置闭环轨的保护钳位值（7.02 kW）与转速上行、仅监测轨的 d_wt 界破坏特征、卡涩轨与偏置轨的 d_wt 形态对照（闭环归零 / 持续 +2.98 / 持续 −6.53——三种残差形态）。',
+        '场景页 · 导入第⑤步场景 JSON → 校验 → 按事件序执行 3 Run；结果行核对 family / 模式 / 关键指标，「载入查看」回到曲线与因果页。',
+        WT_BIAS_SPEC
+      )
+    ]
+  };
+
+  /* ---- WT-001：阵风阶跃路径（gust_step 物理输入；WT001_G2B_SPEC_APPROVED v1.0 §2.3/
+        §3.3 场景 C 锚点——两模式同解复算实证 0.00e+00；亚额定对照 +1.0（v=10 < v_rated）。 ---- */
+  var WT_GUST_SPEC = {
+    scenario_id: 'path-wt-001-gust-eval',
+    version: 1,
+    label: 'WT-001 教学路径评测：阵风阶跃（跨额定闭环 / 仅监测同解 / 亚额定对照）',
+    system: 'WT-001',
+    events: [
+      { key: 'ev-gust-cl', label: '阵风 +2.0 闭环（跨额定区）', family: 'gust_step', params: { magnitude: 2.0 }, t_start_s: 20, feedback_mode: 'closed_loop' },
+      { key: 'ev-gust-mon', label: '阵风 +2.0 仅监测（同解对照）', family: 'gust_step', params: { magnitude: 2.0 }, t_start_s: 20, feedback_mode: 'monitor' },
+      { key: 'ev-gust-sub', label: '阵风 +1.0 闭环（亚额定 MPPT）', family: 'gust_step', params: { magnitude: 1.0 }, t_start_s: 20, feedback_mode: 'closed_loop' }
+    ]
+  };
+
+  var WT_GUST_PATH = {
+    pathId: 'path-wt-001-gust',
+    title: '风电机组：阵风阶跃与封顶工况',
+    system: 'WT-001',
+    goal: '看清 +2.0 m/s 阵风跨额定区后「额定封顶 + 转速锚定 + 桨距吸收」的协同，并用亚额定对照与仅监测同解认识 d_wt 的「封顶工况合法残差」——设计性偏离与故障性偏离的判读教学点。',
+    prerequisites: '建议先完成 path-wt-001-bias 路径（测量偏置与保护钳位概念）；知道 WT-001 为 L0b 机械动态行为级演示（无尾流/湍流/气弹模型），非机组/电网动态验证。',
+    steps: [
+      stepInject(
+        '阵风是物理输入阶跃（与 PV-001 遮挡、FL-001 负载冲击同属物理输入族，与传感器偏置不同族）：有效真实风速从 9 m/s 阶跃上升到 11 m/s（t = 20 s，默认 +2.0 跨额定区 v_rated = 10.302 m/s）。两模式同生效——这不是测量通道故障，不存在「仅监测可隔离」的路径。第一步先在系统页确认风轮组件的气动功率链（Cp(λ, β)）与变流器的额定封顶/可用功率保护说明。',
+        '系统页 · 风轮组件（气动功率 → 转速惯性）与变流器组件（MPPT + 额定封顶 + 保护钳位）说明卡。'
+      ),
+      stepClosedLoop(
+        '跨额定段（v = 11 m/s）可用风功率超过额定：MPPT 目标爬升后被额定封顶在 15 kW，转速锚定在额定邻域（n(60) = 212.3 rpm），桨距吸收多余气动功率（β 0 → 1.73°）——三条机制协同把运行点按在额定上。信号页看真实出力爬升到 15.00 kW 平台、转速收敛、桨距张开。',
+        '信号页 · P_wt_true_kW（10→15 kW 封顶平台）、n_rotor_rpm（180.6→212.3 rpm）、beta_pitch_deg（0→1.73°）。',
+        { label: '亚额定视角', text: '阵风 +1.0（v = 10 < v_rated）不触封顶：MPPT 直接给新最优点 P_wt → 13.72 kW、β 恒 0、d_wt 归零——亚额定与跨额定是两种完全不同的运行面。' }
+      ),
+      stepMonitorCompare(
+        '物理输入阶跃两模式同解（复算实证全序列逐位同）——并排两条 Run 应看到完全重合的曲线，这本身就是「偏置 vs 物理输入」的教学对照（FL-001/GT-001 的传感器偏置在仅监测下物理面恒不动；阵风没有这条隔离路径）。判读重点：d_wt 稳态 −3.26 kW 不是故障——真实出力被额定封顶在 15 kW 而估计按 v³ 折算约 18.26 kW，运行点偏离最优曲线是封顶工况的设计性偏离（合法残差）；与变桨卡涩的持续 −6.53 kW（故障性偏离）符号相同、机理不同——单看 d_wt 不能归因，要结合运行面。',
+        '对比页 · 闭环 vs 仅监测 gust Run 全序列重合；d_wt 稳态 −3.26 kW 与运行点（15 kW 封顶）并读。',
+        { label: '亚额定视角', text: '亚额定 +1.0 轨 d_wt(60) = 0：不触封顶时残差归零——「负 d_wt」只在封顶（设计性）或故障（故障性）时出现。' }
+      ),
+      stepCausal(
+        '因果页沿「阵风注入 → 两模式同解 → MPPT 爬升与额定封顶 → 转速锚定 → 桨距吸收 → 馈线变化 → 一致性残差」解释物理输入阶跃的传播路径；与传感器偏置链（wt-sensor-drift）对照读：物理输入阶跃没有「估计通道先跳」的伪影节点，d_wt 稳态负值是封顶工况合法残差（设计性偏离与故障性偏离的判读教学点）。本页只解释运行前注入的已知输入事件，不做检测、定位或诊断。',
+        '因果页 · wt-gust-step 因果链；n7 节点「封顶工况合法残差」与 wt-pitch-stuck 链 n7「故障特征不归零」的判读对照。'
+      ),
+      stepEval(
+        '评测入口：预置 3 事件场景（跨额定 +2.0 闭环 / 跨额定 +2.0 仅监测（同解对照）/ 亚额定 +1.0 闭环，均 @20 s，参数取目录锚点值）。执行后重点核对：闭环与仅监测 gust 轨逐位重合（物理输入）、跨额定轨的封顶平台与桨距、亚额定轨的 d_wt 归零。',
+        '场景页 · 导入 3 事件场景 → 执行 → 核对同解重合与封顶形态；「载入查看」回到曲线页。',
+        WT_GUST_SPEC
+      )
+    ]
+  };
+
+  /* ---- FL-001 跨深度扩展路径（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §3.2 分歧表——
+        「同一系统、不同模型深度可对比」教学点；L0 off ↔ L1 thermal 同故障成对运行
+        （事件级 thermal_model 键，沿 GT 跨深度路径 event 级 inertia_model 键先例）。
+        thermal 轨数值为规格预填口径，fl001_v2 golden emit 后以冻结值为准。
+        独立路径（不扩既有 path-fl-001）保 DEC-5 5 步契约零改动。 ---- */
+  var FL_CROSS_SPEC = {
+    scenario_id: 'path-fl-001-thermal-cross-depth-eval',
+    version: 1,
+    label: 'FL-001 跨深度对比评测：同一故障 thermal_model off ↔ on 成对运行',
+    system: 'FL-001',
+    events: [
+      { key: 'ev-sensor-off', label: '传感器偏置 闭环 off 轨', family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop', thermal_model: 'off' },
+      { key: 'ev-sensor-on', label: '传感器偏置 闭环 thermal 轨', family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop', thermal_model: 'on' },
+      { key: 'ev-actuator-off', label: '执行器限幅 闭环 off 轨', family: 'actuator_fault', params: { magnitude: 55 }, t_start_s: 20, feedback_mode: 'closed_loop', thermal_model: 'off' },
+      { key: 'ev-actuator-on', label: '执行器限幅 闭环 thermal 轨', family: 'actuator_fault', params: { magnitude: 55 }, t_start_s: 20, feedback_mode: 'closed_loop', thermal_model: 'on' }
+    ]
+  };
+
+  var FL_CROSS_PATH = {
+    pathId: 'path-fl-001-thermal-cross-depth',
+    title: '电池储能：同一故障、两种模型深度',
+    system: 'FL-001',
+    goal: '在同一故障配置下并排运行 thermal_model off（L0）与 on（L1 单节点集总热轨）两种模型深度，看清「模型深度导致的表达力差异」：热面温升/降温轨与损耗补偿只在 L1 轨可见，电气面（I/SOC/r_meas）两深度逐位同。',
+    prerequisites: '建议先完成 path-fl-001 路径（传感器偏置与闭环反馈）；知道 FL-001 默认运行在 off 轨（L0 行为级演示模型），thermal_model: on 为显式选择的 L1 单节点集总热轨（R0/α/C_bat/h 为教学整定值，非设备参数辨识）。',
+    steps: [
+      stepInject(
+        'FL-001 默认运行在 thermal_model off 轨（L0 行为级，无热面）；on 轨（L1）为单节点集总热模型：C_bat·dT_bat/dt = I²·R_int(T) − h·(T − T_amb)，T_bat(0) = T_amb = 298.15 K 冷启动，热损耗 P_loss = I²·R_int(T) 由理想发电机补偿（模型记账口径）。本路径的主角不是新故障，而是模型深度：同一个故障写进两种深度的配置各跑一条 Run（事件级 thermal_model 键显式钉轨）。第一步先在系统页浏览电池组件与热角色说明。',
+        '系统页 · FL-001 拓扑与电池组件卡；模型假设抽屉中【仅 thermal_model=on 适用】的假设条目（A-flth-lump / A-flth-params / A-flth-loss）。'
+      ),
+      stepClosedLoop(
+        '闭环注入 +10 A 电流偏置（thermal 轨）：电气面与 off 轨逐位同（I_true 25→15 A、SOC/SOC_est 同源；热面对电气面零反馈），分歧全部在热面与损耗补偿面——T_bat 从 298.15 K 爬升，故障后电流下降使损耗 125→45 W，温度出现「短暂续升 +0.176 K 后转入降温恢复轨」（T(20.0)=304.464 → 峰 304.640 K @ t≈22.1 → T(60)=303.420 K，渐近 302.862 K）；P_gen(60) 24.000000（off）→ 24.047371 kW（on），差额 +0.047371 kW 正是损耗补偿量。off 轨完全没有这张热观测面——模型深度导致的表达力差异。',
+        '信号页 · T_bat_K 升温-过冲-降温恢复轨（off 轨同列全程空白）与 P_loss_kW 回落；辅看 P_gen_true_kW 的补偿抬升。',
+        { label: 'off 轨视角', text: '同一偏置在 off 轨：I/SOC/r_meas 面完全一致，但 T_bat / P_loss / E_loss 无观测面——模型深度决定你能看见什么。' }
+      ),
+      stepMonitorCompare(
+        '「同一故障、两种模型深度」并排（对比页选同族不同 thermal_model 的 Run）：电源电能账本 E_source(60) 0.3761111（off）→ 0.3773898 kWh（on），差 0.0012787 kWh = E_loss（热损耗账本，EQ-FLTH-8）；max|r_meas| = 4.0 kW 两深度一致——r_meas 定义恒等含 −P_loss 项后 0.4·b 教学锚点保持纯净（+4 kW 是测量偏差的功率当量，不是能量转移的结果，两深度一致成立）。执行器限幅轨对照：T_bat 峰 304.505 K @ t≈20.5、T(60)=302.771 K（限幅 13.75 A 损耗更小、更深降温）。',
+        '对比页 · 同故障 off/on 成对 Run：T_bat / P_gen / E_source 三处分歧 + 电气面（I/SOC/r_meas）两深度一致。',
+        { label: '仅监测视角', text: '仅监测偏置不进入物理回路：thermal 轨 T_bat(60) = 309.953 K 与健康局逐点同——测量故障不在热面留痕。' }
+      ),
+      stepCausal(
+        '因果页的 thermal 变体（fl-thermal-compensation）讲「损耗补偿」：偏置 → 真实电流下降 → I²R 损耗回落 → 热平衡左移（T_bat 降温恢复）→ P_gen 补偿量回落——损耗在三处可见（P_gen、E_source、T_bat），不免费、有源可查、有温可测（模型记账口径）。注意教学参数定位：R0/α/C_bat/h 为教学整定值（非设备参数辨识），量级按「60 s 演示窗内温升路径可见」整定。本页只解释运行前注入的已知故障在两种模型深度下的传播差异，不做检测、定位或诊断。',
+        '因果页 · thermal 变体节点（T_bat 温升/降温路径 + P_gen 补偿节点）；对照 off 轨既有 sensor-drift-feedback 链（零改动）。'
+      ),
+      stepEval(
+        '评测入口：预置 4 事件成对场景——传感器偏置与执行器限幅各按 thermal_model off / on 成对运行（事件级 thermal_model 键，均 @20 s，锚点参数）。执行后逐对核对：偏置对的 T_bat 恢复轨形状（峰 304.640 K @ t≈22.1）、P_gen(60) 补偿差（24.000000 vs 24.047371 kW）、限幅对的更深降温（T(60)=302.771 K）；off 轨热面列全程空白本身就是要核对的结论——模型深度导致的表达力差异。',
+        '场景页 · 导入 4 事件成对场景 → 执行 → 按 thermal_model 分组核对 T_bat / P_gen / E_source；「载入查看」回到曲线与因果页。',
+        FL_CROSS_SPEC
+      )
+    ]
+  };
+
+  var PATHS = [FL_PATH, FC_PATH, GT_PATH, GT_CROSS_PATH, WT_BIAS_PATH, WT_GUST_PATH, FL_CROSS_PATH];
 
   /* ================================================================== */
   /* 挂载                                                               */

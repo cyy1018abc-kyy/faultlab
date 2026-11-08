@@ -113,7 +113,225 @@ Object.keys(RUNS).forEach((key) => {
     pass++;
     ok(true, key + ' 601 点逐点匹配 golden：' + sid + '（max diff ' + worst.toExponential(2) + '）');
   });
+  /* off 轨热信号两列全程 null（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §3.3 项 3：makeSeries
+     按 SystemDef.signals 建列、null 初始化维持——thermal off 轨无热力面，GT 热信号先例；
+     L4 信号目录 +2 的序列面结构断言，并入步 1）。 */
+  ['T_bat_K', 'P_loss_kW'].forEach((tid) => {
+    const col = run.timeseries.signals[tid];
+    ok(Array.isArray(col) && col.length === golden.sampling.n && col.every((v) => v === null),
+      key + '：off 轨 ' + tid + ' 全列 null（' + golden.sampling.n + ' 点，thermal off 结构缺席）');
+  });
 });
+
+/* ------------------------------------------------------------------ *
+ * 1b. FL thermal on 四轨引擎 ↔ fl001_v2 golden（gate T-B）——并入步 1
+ *     （ALINE §2 步数纪律；FLTH-G2b-03/04，CHG-20261107-01）。golden 由
+ *     tools/oracle/fl001_l1_oracle.py 发射（engine 只读比对，不写 golden）；
+ *     比对按 golden.series 键集迭代，引擎侧额外列（I_ref_A/P_gen_meas_kW/V_bus_V）
+ *     不进比对（engine-pv 体例）。四轨 = healthy/closed_loop_fault/monitor_only/
+ *     actuator_closed_loop，全部 thermal_model=on。
+ * ------------------------------------------------------------------ */
+const GOLDEN2_PATH = path.join(__dirname, '..', 'data', 'golden', 'fl001_v2.json');
+const golden2 = JSON.parse(fs.readFileSync(GOLDEN2_PATH, 'utf8'));
+const TOL2 = golden2.tolerances.gate;
+eq(golden2.golden_id, 'fl001_v2', 'fl001_v2：golden id');
+eq(TOL2.tier, 'T-B', 'fl001_v2：gate tier=T-B（FL 规格 §4 项 6，同法 RK4 独立双实现）');
+eq(golden2.method_id, 'fl001_thermal_rk4_dt0.01', 'fl001_v2：method_id（RK4 dt=0.01 数值轨）');
+eq(golden2.model_version, '1.1.0', 'fl001_v2：model_version=1.1.0（B-1 三段式 v2 归一样式）');
+eq(golden2.thermal_model, 'on', 'fl001_v2：thermal_model=on（cfg 键入 config 块，gt001_v3 先例）');
+ok(String(golden2.supersedes).indexOf('fl001_v1') === 0,
+  'fl001_v2：supersedes=fl001_v1（off 轨字节冻结留档，存档场次继续引用 v1）');
+ok(typeof golden2.approval.approved_golden_sha256 === 'string' && golden2.approval.approved_golden_sha256.length === 64,
+  'fl001_v2：approval 已回填（approved_golden_sha256 64 hex）');
+
+const RUNS2_CFG = {
+  healthy: { fault: { family: 'none' }, feedback_mode: 'closed_loop' },
+  closed_loop_fault: { fault: { family: 'sensor_drift' }, feedback_mode: 'closed_loop' },
+  monitor_only: { fault: { family: 'sensor_drift' }, feedback_mode: 'monitor' },
+  actuator_closed_loop: { fault: { family: 'actuator_fault' }, feedback_mode: 'closed_loop' }
+};
+const RUNS2 = {};
+Object.keys(golden2.runs).forEach((key) => {
+  const cfg2 = core.createConfig('FL-001', Object.assign({ thermal_model: 'on' },
+    JSON.parse(JSON.stringify(RUNS2_CFG[key]))));
+  RUNS2[key] = core.simulate(cfg2, { runId: 'GOLDEN2-' + key });
+});
+
+/* gate T-B 容差分类映射（序列；scripts/verify_golden.py series_limit T-B 分支同构：
+   _A→I、_K→T、r_true/r_meas 专键、SOC→pp、其余 kW 类按点幅值） */
+function seriesLimit2(sid, gref) {
+  if (sid === 't') return TOL2.t_s;
+  if (sid === 'T_bat_K') return TOL2.T_K_atol;
+  if (sid === 'r_true_kW') return TOL2.r_true_kW;
+  if (sid === 'r_meas_kW') return TOL2.r_meas_kW_atol;
+  if (sid.slice(-2) === '_A') return Math.max(TOL2.I_A_atol, TOL2.I_A_rtol * Math.max(1, Math.abs(gref)));
+  if (sid.indexOf('SOC') === 0 || sid.slice(-4) === '_pct') return TOL2.SOC_pp;
+  return Math.max(TOL2.P_kW_atol, TOL2.P_kW_rtol * Math.max(1, Math.abs(gref)));
+}
+/* gate T-B 容差分类映射（scalars）：kWh→E、K→T、A·s 由 SOC 账本恒等派生（×3600 同测度）、
+   A→I、kW→P、r 专键；t→t_s（L8 注册「kWh 5 项走 E_kWh，其余走 SOC_pp」同域口径的
+   量纲化细化） */
+function scalarLimit2(key, gval) {
+  if (key.indexOf('_kWh') !== -1) return TOL2.E_kWh;
+  if (key === 'T_bat_end_K') return TOL2.T_K_atol;
+  if (key === 't_19p9_s') return TOL2.t_s;
+  if (key === 'max_abs_r_true_kW') return TOL2.r_true_kW;
+  if (key === 'max_abs_r_meas_kW') return TOL2.r_meas_kW_atol;
+  if (key.indexOf('int_') === 0) return TOL2.SOC_pp * 3600;
+  if (key.indexOf('SOC') !== -1 || key.indexOf('_pp') !== -1) return TOL2.SOC_pp;
+  if (key.slice(-2) === '_A') return Math.max(TOL2.I_A_atol, TOL2.I_A_rtol * Math.max(1, Math.abs(gval)));
+  return Math.max(TOL2.P_kW_atol, TOL2.P_kW_rtol * Math.abs(gval));
+}
+
+let thermalTSpread = 0; /* 引擎↔oracle T_bat 序列散差（四轨最大；见汇总行裕度证据） */
+
+Object.keys(RUNS2).forEach((key) => {
+  const run2 = RUNS2[key];
+  const g2 = golden2.runs[key];
+  const n2 = golden2.sampling.n;
+  eq(run2.timeseries.t.length, n2, key + '（thermal on）：601 点');
+  eq(run2.config.thermal_model, golden2.config.thermal_model, key + '（thermal on）：config.thermal_model 与 golden 同轨');
+
+  /* 全序列逐点（golden 16 序列键集；null 严格一致——I_bat_cap_A 前置窗禁止 null→0 coerce） */
+  let over2 = 0;
+  let worst2 = 0;
+  const missing2 = [];
+  Object.keys(g2.series).forEach((sid) => {
+    const mine = sid === 't' ? run2.timeseries.t : run2.timeseries.signals[sid];
+    if (!mine || mine.length !== n2) { missing2.push(sid); return; }
+    if (sid === 'T_bat_K') {
+      for (let i = 0; i < n2; i++) thermalTSpread = Math.max(thermalTSpread, Math.abs(g2.series[sid][i] - mine[i]));
+    }
+    for (let i = 0; i < n2; i++) {
+      const gv = g2.series[sid][i];
+      const av = mine[i];
+      if (gv === null || av === null) {
+        if (gv !== av) {
+          failures.push({ name: key + '（thermal on）' + sid + '@' + i, detail: 'null 不一致：engine=' + av + ' golden=' + gv });
+          fail++;
+          return;
+        }
+        continue;
+      }
+      const d = Math.abs(gv - av);
+      if (d > worst2) worst2 = d;
+      if (d > seriesLimit2(sid, gv)) over2++;
+    }
+  });
+  eq(missing2.length, 0, key + '（thermal on）：golden ' + Object.keys(g2.series).length +
+    ' 序列在引擎中齐备（含 t 列）', missing2.join(','));
+  ok(over2 === 0, key + '（thermal on）：序列逐点 ≤ gate T-B 容差（超差 0 点；最大绝对偏差 ' +
+    worst2.toExponential(2) + '）');
+
+  /* scalars 全量（22 项）：引擎复算 vs golden。E_bat_meas/int_I 无独立引擎指标——
+     由 SOC 账本恒等派生（∫I、∫b 与 SOC 同一积分内核，EQ-FLTH-7：SOC=SOC0−100·∫P_bat/(40·3600)，
+     V=0.4 kW/A ⇒ E_bat_meas = E_bat_true + 0.4·(SOC_true_end−SOC_est_end)、
+     int_I = (SOC0−SOC_true_end)·3600 A·s）；healthy 的 I_meas_20post 沿 fl001_v1 §3b 先例
+     取序列值（golden 亦为序列推导值，engine 对 family=none 记不可用 null）。 */
+  const sig2 = run2.timeseries.signals;
+  const met2 = {};
+  run2.metrics.forEach((m) => { met2[m.metric_id] = m.value; });
+  const socT2 = met2.SOC_true_end_pct;
+  const socE2 = met2.SOC_est_end_pct;
+  const soc02 = run2.config.initial.SOC_pct;
+  const D2 = {
+    E_bat_true_kWh: met2.E_bat_true_60s,
+    E_bat_meas_kWh: met2.E_bat_true_60s + 0.4 * (socT2 - socE2),
+    E_gen_true_kWh: met2.E_gen_true_60s,
+    E_load_served_kWh: met2.E_load_served_60s,
+    E_loss_kWh: met2.E_loss_kWh,
+    SOC_true_end_pct: socT2,
+    SOC_est_end_pct: socE2,
+    SOC_err_end_pp: met2.SOC_err_end_pp,
+    I_true_19p9_A: sig2.I_bat_true_A[199],
+    I_meas_19p9_A: sig2.I_bat_meas_A[199],
+    t_19p9_s: run2.timeseries.t[199],
+    I_true_20post_A: sig2.I_bat_true_A[200],
+    I_meas_20post_A: key === 'healthy' ? sig2.I_bat_meas_A[200] : met2.I_meas_20post_A,
+    I_true_21p5_A: sig2.I_bat_true_A[215],
+    I_true_26_A: sig2.I_bat_true_A[260],
+    I_true_60_A: sig2.I_bat_true_A[600],
+    P_bat_true_21p5_kW: sig2.P_bat_true_kW[215],
+    P_gen_true_21p5_kW: sig2.P_gen_true_kW[215],
+    max_abs_r_true_kW: met2.max_abs_r_true_kW,
+    max_abs_r_meas_kW: met2.max_abs_r_meas_kW,
+    int_I_true_60s_As: (soc02 - socT2) * 3600,
+    T_bat_end_K: met2.T_bat_end_K
+  };
+  const S2 = g2.scalars;
+  const badS2 = [];
+  Object.keys(S2).forEach((k) => {
+    if (!(k in D2)) { badS2.push(k + ' 未复算'); return; }
+    const d = Math.abs(D2[k] - S2[k]);
+    if (!(d <= scalarLimit2(k, S2[k]))) badS2.push(k + ' ' + D2[k] + ' vs ' + S2[k]);
+  });
+  eq(Object.keys(S2).length, 22, key + '（thermal on）：golden scalars 面 22 项');
+  eq(badS2.length, 0, key + '（thermal on）：scalars 全量对 golden（gate T-B 分类容差）', badS2.join(' | '));
+
+  /* golden metrics 块（11 项镜像面）对引擎指标；healthy 跳过 I_meas_20post_A
+     （fl001_v1 §3b 同款：引擎 family=none 记不可用 null，golden 记序列推导值 25——
+     既有可用性语义不动，healthy 已由序列逐点 + scalars 面覆盖） */
+  const gmBad2 = [];
+  Object.keys(g2.metrics).forEach((mid) => {
+    if (key === 'healthy' && mid === 'I_meas_20post_A') return;
+    const em = run2.metrics.filter((x) => x.metric_id === mid)[0];
+    if (!em) { gmBad2.push(mid + ' 缺'); return; }
+    const gv2 = g2.metrics[mid].value;
+    if (gv2 === null || em.value === null) { if (em.value !== gv2) gmBad2.push(mid + ' null 不一致'); return; }
+    const lim = mid.indexOf('kWh') !== -1 ? TOL2.E_kWh
+      : mid === 'max_abs_r_meas_kW' ? TOL2.r_meas_kW_atol
+      : mid === 'max_abs_r_true_kW' ? TOL2.r_true_kW
+      : mid.indexOf('SOC') !== -1 || mid.indexOf('_pp') !== -1 ? TOL2.SOC_pp
+      : Math.max(TOL2.I_A_atol, TOL2.I_A_rtol * Math.max(1, Math.abs(gv2))); /* focal_change_A / I 类 → I 口径 */
+    if (!(Math.abs(em.value - gv2) <= lim)) gmBad2.push(mid);
+  });
+  eq(gmBad2.length, 0, key + '（thermal on）：golden metrics 块（11 项镜像面）对引擎指标', gmBad2.join(','));
+
+  /* thermal on 专属指标在场（metrics.js cfg.thermal_model==='on' 分支；off 轨不产生） */
+  ok(met2.E_loss_kWh !== undefined && met2.T_bat_end_K !== undefined,
+    key + '（thermal on）：E_loss_kWh/T_bat_end_K 指标在场');
+
+  /* 事件面（故障局）：1 事件 + pre/post 快照相位值对 golden 变量集逐位一致
+     （golden 变量集 = L0 最小集 §3.6；引擎侧快照变量随信号目录机械增长，
+     golden 未钉的额外键不进比对——engine-pv 体例） */
+  if ((g2.events || []).length) {
+    eq(run2.events.length, 1, key + '（thermal on）：1 事件');
+    const ge2 = g2.events[0];
+    const fe2 = run2.events[0];
+    eq(fe2.trigger_s, ge2.trigger_s, key + '（thermal on）：事件时刻 20 s');
+    eq(fe2.event_type, ge2.event_type, key + '（thermal on）：event_type');
+    eq(fe2.faultId, ge2.fault_id, key + '（thermal on）：faultId 与 golden 同源（目录 id）');
+    const fp2 = run2.snapshots.find((x) => x.snapshot_id === fe2.preSnapshotId);
+    const fq2 = run2.snapshots.find((x) => x.snapshot_id === fe2.postSnapshotId);
+    ok(!!fp2 && !!fq2, key + '（thermal on）：pre/post 快照经引用可达');
+    const preBad2 = [];
+    const postBad2 = [];
+    Object.keys(ge2.snapshots[0].variables).forEach((vid) => {
+      if (fp2.variables[vid] !== ge2.snapshots[0].variables[vid]) preBad2.push(vid);
+      if (fq2.variables[vid] !== ge2.snapshots[1].variables[vid]) postBad2.push(vid);
+    });
+    eq(preBad2.length + postBad2.length, 0, key + '（thermal on）：pre/post 快照相位值与 golden 逐位一致',
+      preBad2.concat(postBad2).join(','));
+  } else {
+    eq(run2.events.length, 0, key + '（thermal on）：健康局无事件');
+  }
+});
+
+/* FL-6 监控轨热面恒等（oracle self-check FL-6 同构判据落引擎层，FL 规格 §3.2 行 5）：
+   monitor T_bat ≡ healthy T_bat、P_loss ≡ healthy P_loss（601 点逐位 —— 偏置不进入
+   物理回路的结构判据；I ≡ 25 A 同热轨 ⇒ P_loss 亦恒等） */
+(function monitorThermalIdentity() {
+  const mon = RUNS2.monitor_only.timeseries.signals;
+  const base = RUNS2.healthy.timeseries.signals;
+  let tBreak = -1;
+  let pBreak = -1;
+  for (let i = 0; i < RUNS2.monitor_only.timeseries.t.length; i++) {
+    if (tBreak === -1 && mon.T_bat_K[i] !== base.T_bat_K[i]) tBreak = i;
+    if (pBreak === -1 && mon.P_loss_kW[i] !== base.P_loss_kW[i]) pBreak = i;
+  }
+  eq(tBreak, -1, 'FL-6：monitor T_bat ≡ healthy T_bat（601 点逐位，热面恒等结构判据）', '首个破坏点 @' + tBreak);
+  eq(pBreak, -1, 'FL-6：monitor P_loss ≡ healthy P_loss（601 点逐位，I≡25 同热轨）', '首个破坏点 @' + pBreak);
+})();
 
 /* 2. §3.2 关键点（SA-04/05/06/10 + 19.9/pre/post） */
 const cl = RUNS.closed_loop_fault;
@@ -273,6 +491,54 @@ ok(CONFIGS.closed_loop_fault.systemId === 'FL-001'
   && CONFIGS.closed_loop_fault.fault.params.magnitude === 10
   && CONFIGS.closed_loop_fault.fault.t_start_s === 20, 'SA-24：P0 白名单 FL-001/sensor_drift/10A/20s');
 
+/* 10b. FL thermal 分派守卫（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0/§2.4；并入步 10）：
+   缺省→off 轨（run_hash 口径与 golden fl001_v1 一致）、'on'→thermal 轨、非法值被 validate 拒。
+   run_hash 输入含 config_hash/model_hash/signals/events/metrics/checks（registry.js
+   runHashInput）——off 轨 config_hash 走 contract scenarioView 投影（不投影 off 轨键，
+   engine.js:180-183 注释），与 fl001_v1 时代口径一致；on/off 轨区分由 run_hash 的
+   序列内容（T_bat_K/P_loss_kW null↔数值）承载。 */
+(function thermalDispatchGuard() {
+  /* 缺省 → off 轨：normalizeConfig 盖章（engine.js thermal_model 分支） */
+  const cfgDefault = core.createConfig('FL-001', {});
+  eq(cfgDefault.thermal_model, 'off', '分派守卫：cfg.thermal_model 缺省盖章 = off（normalizeConfig）');
+  const cfgExplicitOff = core.createConfig('FL-001', { thermal_model: 'off' });
+  eq(cfgExplicitOff.thermal_model, 'off', '分派守卫：显式 off 配置盖章一致');
+  const runDefault = FL.registry.createRun({ config: cfgDefault, runId: 'DISPATCH-OFF-DEFAULT' });
+  const runExplicitOff = FL.registry.createRun({ config: cfgExplicitOff, runId: 'DISPATCH-OFF-EXPLICIT' });
+  eq(runDefault.configHash, runExplicitOff.configHash, '分派守卫：缺省与显式 off configHash 同值（盖章幂等）');
+  eq(FL.registry.verifyRunHash(runDefault), true, '分派守卫：off 轨 run_hash 可重算');
+  eq(FL.registry.verifyRunHash(runExplicitOff), true, '分派守卫：显式 off run_hash 可重算');
+  ok(runDefault.timeseries.signals.T_bat_K.every((v) => v === null) &&
+    runDefault.timeseries.signals.P_loss_kW.every((v) => v === null),
+  '分派守卫：缺省轨 T_bat_K/P_loss_kW 全列 null（= off 轨）');
+  eq(runDefault.metrics.filter((m) => m.metric_id === 'E_loss_kWh' || m.metric_id === 'T_bat_end_K').length, 0,
+    '分派守卫：off 轨无 E_loss/T_bat_end 指标（metrics 面 off 零漂移）');
+
+  /* 'on' → thermal 轨：热状态面 + thermal 专属指标在场，run_hash 与 off 不同 */
+  const runOn = FL.registry.createRun({
+    config: core.createConfig('FL-001', { thermal_model: 'on' }), runId: 'DISPATCH-ON'
+  });
+  eq(runOn.config.thermal_model, 'on', '分派守卫：on 配置盖章');
+  ok(runOn.timeseries.signals.T_bat_K[0] === 298.15 && isFinite(runOn.timeseries.signals.T_bat_K[600]),
+    '分派守卫：on 轨热状态面在场（T_bat(0)=298.15 冷启动、T_bat(60) 有限值）');
+  ok(runOn.metrics.some((m) => m.metric_id === 'E_loss_kWh') &&
+    runOn.metrics.some((m) => m.metric_id === 'T_bat_end_K'),
+  '分派守卫：on 轨 E_loss/T_bat_end 指标在场');
+  ok(runOn.runHash !== runDefault.runHash, '分派守卫：on/off run_hash 不同（序列内容承载轨区分）');
+  eq(FL.registry.verifyRunHash(runOn), true, '分派守卫：on 轨 run_hash 可重算');
+
+  /* 非法值被 validateConfig 拒（枚举 off|on；engine.js validateConfig thermal_model 分支） */
+  const vBad = core.validateConfig(core.createConfig('FL-001', { thermal_model: 'auto' }));
+  eq(vBad.ok, false, '分派守卫：thermal_model 非法值被 validateConfig 拒');
+  eq(vBad.errors[0].field, 'thermal_model', '分派守卫：拒绝字段 = thermal_model');
+
+  /* 仅声明 defaults.thermal_model 的系统（FL-001）携带该键；其余系统 undefined
+     （scenario 键哈希零漂移面——L5 检查编排交接） */
+  ['FC-001', 'GT-001', 'PV-001'].forEach((sid) => {
+    eq(core.createConfig(sid, {}).thermal_model, undefined, '分派守卫：' + sid + ' 无 thermal_model 键（未声明轨）');
+  });
+})();
+
 /* 11. method 标注（G0-DEC-06：golden 断言用 analytic_flux；导出契约字段） */
 eq(metricOf(cl, 'E_bat_true_60s').method, 'analytic_flux', 'E 指标 method=analytic_flux');
 eq(metricOf(cl, 'E_bat_true_60s').method_version, 'analytic_flux.1', 'method_version=analytic_flux.1');
@@ -300,3 +566,9 @@ if (fail) {
   process.exit(1);
 }
 console.log('引擎对解析 golden 全点比对通过（4 Run × 601 点 + actuator 闭环/monitor 逐位等价 + 标量 + 指标 + PHY/SA）。');
+console.log('FL thermal on（fl001_v2 四轨，gate T-B）：全序列/22 标量/11 指标/事件比对通过；' +
+  '引擎↔oracle T_bat 序列散差 max = ' + thermalTSpread.toExponential(2) + ' K' +
+  (thermalTSpread > 0
+    ? '（gate T_K_atol = 1e-2，裕度 ×' + (1e-2 / thermalTSpread).toExponential(1) + '，≥×10 达标——FL 规格 §4 项 6③）'
+    : '（与 oracle 发射面逐位一致；gate T_K_atol = 1e-2 裕度 ≫×10 达标——FL 规格 §4 项 6③）') +
+  '。oracle↔golden 新鲜度由 verify_golden fl001_l1（25/25 pass）独立承载。');

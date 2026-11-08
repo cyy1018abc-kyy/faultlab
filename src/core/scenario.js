@@ -8,6 +8,7 @@
          events: [ { key: string(唯一), label?: string, family: string, params: object,
                      t_start_s: number, t_clear_s?: number|null(仅 GT-001×actuator_fault),
                      inertia_model?: 'swing'|'linear'|'thermo'(仅 GT-001，缺省解析为系统默认轨),
+                     thermal_model?: 'off'|'on'(仅 FL-001，缺省解析为系统默认轨),
                      feedback_mode: 'closed_loop'|'monitor' } ] }；
    - 事实源：src/core/systems.js（faults 目录 = family/params min-max-step/timeRange/defaultTime_s）
      + docs/FAULT_CATALOG.md（授权状态：非「已删除」方可准入）；
@@ -30,11 +31,17 @@
   var FIXED_DT_S = 0.1;
 
   var TOP_KEYS = ['scenario_id', 'version', 'label', 'system', 'events'];
-  var EVENT_KEYS = ['key', 'label', 'family', 'params', 't_start_s', 't_clear_s', 'inertia_model', 'feedback_mode'];
+  /* thermal_model 显式 CHG 随 CHG-20261107-01 登记（FL001_THERMAL_G2B_SPEC_APPROVED v1.0
+     §2.0 / V080_WAVE_DESIGN DEC-2） */
+  var EVENT_KEYS = ['key', 'label', 'family', 'params', 't_start_s', 't_clear_s', 'inertia_model', 'thermal_model', 'feedback_mode'];
   /* 事件级模型深度轨（B-2 定案，CHG-20261104-12 ③）：枚举三值；缺省解析为系统默认轨
      （defaults.inertia_model，GT-001 = thermo，Q4 定案）；scenarioHash 含解析后的轨。
      跨深度对比场景（A 线教学 payoff）经该键显式钉轨。 */
   var INERTIA_MODELS = ['swing', 'linear', 'thermo'];
+  /* 事件级热模型轨（FLTH-G2b-04 / CHG-20261107-01）：枚举两值；缺省解析为系统默认轨
+     （defaults.thermal_model，FL-001 = off，FLTH-IMP-Q3 定案维持）；scenarioHash 含
+     解析后的轨（既有 FL 场景哈希变化属预期失效面，见 hashProjection 注）。 */
+  var THERMAL_MODELS = ['off', 'on'];
 
   /* 授权状态守卫（准入条件：非「已删除」）：事实源 docs/FAULT_CATALOG.md §1/§4。
      FL-001 load_step 已按 O-13（CHG-20261030-06）删除——systems.js 目录已不含该族，
@@ -347,6 +354,26 @@
       inertia = system.defaults.inertia_model;
     }
 
+    /* thermal_model（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0；显式 CHG 随
+       CHG-20261107-01 登记；可选事件级热模型轨，inertia_model 先例同构）：
+       枚举 off|on。缺省（不提供）解析为系统默认轨（defaults.thermal_model，FL-001 = off，
+       FLTH-IMP-Q3 定案维持）；未知值拒绝入结构化错误（既有闭合校验负例路径）；
+       未声明该轨的系统（FC/GT/PV/WT）上出现即拒绝（封闭白名单，t_clear_s/inertia_model
+       先例同构）。解析结果写入归一化事件并进入 scenarioHash。 */
+    var thermal = null;
+    var declaresThermal = !!(system && system.defaults && system.defaults.thermal_model);
+    if (ev.thermal_model !== undefined) {
+      if (!declaresThermal) {
+        errors.push({ field: at + '.thermal_model', message: '系统 ' + (system ? system.id : '?') + ' 未声明热模型轨（thermal_model 仅适用于声明该轨的系统）' });
+      } else if (THERMAL_MODELS.indexOf(ev.thermal_model) === -1) {
+        errors.push({ field: at + '.thermal_model', message: '必须为 off / on（收到 ' + String(ev.thermal_model) + '）' });
+      } else {
+        thermal = ev.thermal_model;
+      }
+    } else if (declaresThermal) {
+      thermal = system.defaults.thermal_model;
+    }
+
     /* feedback_mode */
     var mode = null;
     if (ev.feedback_mode === undefined) {
@@ -363,6 +390,7 @@
     if (label !== null) out.label = label;
     if (tClear !== null) out.t_clear_s = tClear;
     if (inertia !== null) out.inertia_model = inertia; /* 解析后的轨（缺省 = 系统默认轨）入归一化面与哈希 */
+    if (thermal !== null) out.thermal_model = thermal; /* 解析后的轨（缺省 = 系统默认轨）入归一化面与哈希 */
     return out;
   }
 
@@ -380,11 +408,16 @@
   }
 
   /* 哈希投影：只含执行相关内容（version/system/事件序/key/family/已补齐 params/
-     t_start_s/t_clear_s/inertia_model(解析后的轨)/feedback_mode）；scenario_id 与 label
-     为元数据不入哈希。经 FL.core.hashObjectStrict（canonicalize v1 严格模式：对象键排序、
-     数组保序、数字最短往返）→ 键序不敏感、无随机、确定性（registry.js:3 canonical 口径）。
+     t_start_s/t_clear_s/inertia_model(解析后的轨)/thermal_model(解析后的轨)/feedback_mode）；
+     scenario_id 与 label 为元数据不入哈希。经 FL.core.hashObjectStrict（canonicalize v1
+     严格模式：对象键排序、数组保序、数字最短往返）→ 键序不敏感、无随机、确定性
+     （registry.js:3 canonical 口径）。
      inertia_model 缺省（FL/FC/PV 事件）为 undefined，canonicalize 按不存在处理——
-     既有 FL/FC/PV 场景哈希不变；GT 事件解析轨入哈希（B-2 定案的预期失效面）。 */
+     既有 FL/FC/PV 场景哈希不变；GT 事件解析轨入哈希（B-2 定案的预期失效面）。
+     thermal_model：未声明轨的系统为 undefined（哈希不变）；FL 事件解析轨（缺省 = off）
+     入哈希——既有 FL 场景哈希变化属预期失效面（CHG-20261107-01 显式 CHG 登记，
+     V080_WAVE_DESIGN §3「tests/registry.test.js per-Run config 哈希面随 scenario
+     thermal_model 键更新（预期失效，逐项登记）」）。 */
   function hashProjection(s) {
     return {
       version: s.version,
@@ -397,6 +430,7 @@
           t_start_s: e.t_start_s,
           t_clear_s: e.t_clear_s, /* 缺省/无清除为 undefined，canonicalize 按不存在处理 */
           inertia_model: e.inertia_model, /* 解析后的模型深度轨（缺省系统为 undefined） */
+          thermal_model: e.thermal_model, /* 解析后的热模型轨（未声明系统为 undefined；FL 场景哈希变化 = 预期失效面） */
           feedback_mode: e.feedback_mode
         };
       })
@@ -429,6 +463,10 @@
     };
     /* 解析后的模型深度轨透传（B-2）：缺省轨已由 normalizeConfig 盖章，显式值仅覆盖时传入 */
     if (ev.inertia_model) patch.inertia_model = ev.inertia_model;
+    /* 解析后的热模型轨透传（FLTH-G2b-04，CHG-20261107-01）：缺省轨已由 normalizeConfig
+       盖章（engine normalizeConfig thermal_model 行），解析值（off/on）传给 Run cfg；
+       引擎 validateConfig 枚举守卫 + simulateFL001Thermal 分派承接口。 */
+    if (ev.thermal_model) patch.thermal_model = ev.thermal_model;
     return FL.core.createConfig(systemId, patch);
   }
 
