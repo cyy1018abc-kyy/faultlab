@@ -3,7 +3,7 @@
   "target": {
     "path": "FaultLab.html",
     "absolute": "E:\\Users\\amdir\\Desktop\\FaultLab — Virtual Energy Lab\\FaultLab.html",
-    "bytes": 1564189
+    "bytes": 1577387
   },
   "protocol": "file:",
   "assertions_per_round": 61,
@@ -34,14 +34,14 @@
     }
   },
   "code": {
-    "commit_sha": "85f5c808a5992ed01c65ee94e3d5d7f452414d9e",
+    "commit_sha": "4c9c57c3e4ad37641d26effa211ac06a483e545a",
     "branch": "main",
     "worktree_dirty": true
   },
   "execution": {
     "command": "node tools/file-smoke.mjs",
-    "started_at": "2026-11-08T23:05:26.585Z",
-    "generated_at": "2026-11-08T23:05:41.466Z",
-    "duration_ms": 14881
+    "started_at": "2026-11-08T23:29:28.174Z",
+    "generated_at": "2026-11-08T23:29:43.053Z",
+    "duration_ms": 14879
   }
 }

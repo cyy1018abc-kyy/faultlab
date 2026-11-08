@@ -2003,12 +2003,15 @@
       alternatives: [{ title: '若阀门未卡涩', text: '调速器能把频率恢复到 50 Hz，电池回到 5 kW；本模型未建模阀门机械动态与保护动作。' }]
     },
     /* GT-001 thermo 轨叙事卡（V072 清算项 6/7；GTL1_G2B_SPEC_APPROVED v1.0 §3.2 分歧表）。
-       定位声明：本卡是静态教学叙事面（跨深度对比卡），不是运行期故障因果模板——
-       engine.buildCausal 按 fault.family 分派模板（system.causalTemplates[family]），
-       既有 sensor_drift / load_step / actuator_fault 三模板零改动、运行期行为零变更；
-       本卡经 FL.systems.causalTemplate('GT-001', 'thermo_track') 供教学/对比面引用，
-       节点数值为 §3.2 v1.0 口径（与 tests/engine-gt.test.js 跨深度分歧断言同源：
-       gt001_v2 冻结锚点 + thermo 轨 T-B 容差断言），不是经过验证的设备特性数字。 */
+       定位声明（V090 DEC-5 运行期自动挂载落地后更新）：本卡是跨深度对比教学卡，
+       非主链分派键——GT thermo 轨 Run（inertia_model=thermo ∧ family≠none）经
+       engine.buildCausal 自动挂载为 causal.thermoTrackCard 附加字段（与主链同一
+       构建机制产出，字段面同构，engine.js DEC-5 挂载块；run_hash 不含 causal），
+       主链仍按 fault.family 由既有 sensor_drift / load_step / actuator_fault 三模板
+       分派；本卡另经 FL.systems.causalTemplate('GT-001', 'thermo_track') 供静态
+       教学/对比面引用，节点数值为 §3.2 v1.0 口径（与 tests/engine-gt.test.js 跨深度
+       分歧断言同源：gt001_v2 冻结锚点 + thermo 轨 T-B 容差断言），不是经过验证的
+       设备特性数字。 */
     thermo_track: {
       id: 'gt-thermo-cross-depth',
       headline: '同一故障、两种模型深度：GT-001 L0b swing ↔ L1 thermo 跨深度叙事卡（thermo 默认轨）',
@@ -2075,7 +2078,7 @@
       ],
       assumptions: ['A-gtl1-idealgas', 'A-gtl1-chain-qs', 'A-gtl1-combustor-lump', 'A-gtl1-fuel-map', 'A-gtl1-speed-coupling', 'A-gtl1-rotor-balance', 'A-gtl1-actuator-cmd-domain', 'A-gtl1-l1'],
       limitations: [
-        '本卡为 thermo 轨静态叙事面，不是运行期故障因果模板——运行期因果链仍按 fault.family 由既有三模板分派。',
+        '本卡为 thermo 轨跨深度叙事卡，非主链分派键——GT thermo 轨 Run 经 buildCausal 自动挂载为 causal.thermoTrackCard 附加字段（主链仍按 fault.family 分派）。',
         '引用数值为库内双实现复现值（gt001_v2 冻结锚点 / thermo 轨 T-B 容差断言），非机组数据；不外推到真实设备。',
         'swing/linear 遗留轨无热力面（八个热力信号全程 null）；跨深度对比只在 thermo 轨有 T3/T4 观测。'
       ],

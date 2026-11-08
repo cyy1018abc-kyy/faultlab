@@ -1,13 +1,19 @@
-# V1_FACES — v1.0 契约面冻结准备清单（DEC-6）
+# V1_FACES — v1.0 契约面冻结清单（已生效）
 
+> **v1.0.0 冻结转正记录（2026-11-08，CHG-20261108-04）**：用户 v1.0.0 发布指令（清算→冻结
+> 顺序执行）→ **本文 §2 八面全部转正为冻结状态**（面②先前已冻结；面①③④⑤⑥⑦⑧由
+> 「演进中（additive-only）」转正为「冻结（v1.0.0，additive-only）」——additive 语义不变：
+> 冻结面仍允许 additive 增长=minor，breaking=major+迁移指南五件套）；§3 breaking 政策
+> （含 §3.4 golden 字节冻结特别条款）**同步生效**；§4 #9（33/33 复跑）/#10（本文转正+
+> 迁移义务声明）/#11（残留两项裁定=修复，随 CHG-20261108-03 落地）全部闭合；§5 六项
+> 待定按推荐裁定（见 §5 末裁定记录）。转正前状态（T6 提案→双路清算→33 步门禁）见文末
+> 「转正前历史」注记。
 > **性质**：v1.0 收敛准备文档（T6 起草，2026-11-08）——**本文是准备清单，不构成冻结本身**
 > （V090_WAVE_DESIGN DEC-6 原文口径：「v1.0 前置文档，不构成冻结本身」）。本文列出 v1.0 将
 > 承诺冻结的八个契约面，逐面标注状态（冻结 / 演进中 / 待定）并给出「承诺内容」与
 > 「不在承诺内」的诚实边界；附 breaking-change 政策与 v1.0 收敛条件核对表。
-> **授权记录**：CHG-20261108-01（V090_WAVE_DESIGN §1 DEC-6，采推荐项；并发子智能体授权）。
-> **冻结动作**：= **v1.0.0 发布 CHG（用户批准）**——届时本文 §2 标注逐面转正为批准状态、
-> §3 breaking 政策生效、§4 核对表逐项复核。**在 v1.0 发布 CHG 批准前，本文任何标注都不是
-> 承诺**；v0.x 阶段的实际约束仍以既有 CHG / 批准规格文档为准（本文只是把它们盘点成清单）。
+> **授权记录**：CHG-20261108-01（V090_WAVE_DESIGN §1 DEC-6，采推荐项；并发子智能体授权）；
+> **冻结生效**：CHG-20261108-04（v1.0.0 发布 CHG，用户 v1.0.0 发布指令链）。
 > **输入**：V090_WAVE_DESIGN（DEC-6）｜ V06_ROADMAP §3 v1.0.0 行 ｜ ORACLE_INTERFACE_D2 ｜
 > ARENA_EVAL_PROTOCOL_APPROVED v1.1 ｜ ALINE_MODEL_DEPTH_DESIGN §3 ｜
 > src/core/{systems,scenario,schema,scope,engine,registry}.js ｜ scripts/verify_golden.py ｜
@@ -25,7 +31,8 @@
 - **是**：v1.0 API 承诺（V06_ROADMAP §3 v1.0.0 行「SystemDef/Scenario/EvalAgent 契约冻结」）
   的**逐面盘点与状态提案**——把库内事实上已稳定的契约面列成清单，供 v1.0 发布 CHG 逐项转正。
 - **不是**：冻结宣告。三层边界：
-  1. 本文标注（冻结/演进中/待定）是 **T6 提案状态**，未经用户批准；
+  1. 本文标注（冻结/演进中/待定）原为 **T6 提案状态**——**已被 CHG-20261104-08→CHG-20261108-04
+     冻结转正取代**（八面经用户 v1.0.0 发布指令批准转正为冻结，见文首转正记录）；
   2. v1.0 前，各面仍按既有治理节奏演进（G2b/CHG/波次设计），本文不改任何演进路径；
   3. v1.0 发布 CHG 才是冻结的法律事实——批准内容以该 CHG 文本为准，本文与之冲突时以 CHG 为准。
 - **覆盖声明**：八面 = V090_WAVE_DESIGN DEC-6 枚举的八个面（DEC-6 原文列举：SystemDef schema、
@@ -46,18 +53,18 @@
 
 | # | 面 | 状态 | 一句话理由 |
 |---|---|---|---|
-| ① | SystemDef schema（五系统实例+字段面） | 演进中（additive-only） | 新系统（B-3 MG-001 等）与新字段是路线图内增长；既有实例字段语义已稳定 |
+| ① | SystemDef schema（五系统实例+字段面） | **冻结（v1.0.0，additive-only）** | 新系统（B-3 MG-001 等）与新字段是路线图内增长；既有实例字段语义已稳定 |
 | ② | golden schema v2（含 T-B 分支/tier 制度） | **冻结** | 证据链面：字段面已规格化收口、既有 golden 字节冻结；v1.0 起只应存在预声明留位 |
-| ③ | scenario schema v1（含 inertia_model/thermal_model 键 + C-5 信封） | 演进中（additive-only） | 未来系统轨键沿 inertia/thermal 先例 additive；closed-world 纪律已定型 |
-| ④ | oracle_base 契约（oracle 接口/审批/写盘） | 演进中（additive-only） | 六成员签名稳定，机制层助手面可 additive；遗留豁免面为登记在案的历史债 |
-| ⑤ | eval protocol v2（盲包/score_hash） | 演进中（additive-only） | 协议 v1.1 已批准且 MVP 落地；负例规格只增不减；包格式演进走新 schema id |
-| ⑥ | scope 三档 classify | 演进中（additive-only） | 三值语义与守卫纪律已稳定；白名单扩张随 G2b 批准 additive |
-| ⑦ | run-g2 步账门禁（tier/预算制） | 演进中（additive-only） | 四件套构成与步数账纪律是制度面；步清单本身在预算制下持续增删 |
-| ⑧ | copy-guard 词表制度 | 演进中（additive-only） | 制度（扫描域/次序/退出码/记录义务）稳定；词表随新教学面增长 |
+| ③ | scenario schema v1（含 inertia_model/thermal_model 键 + C-5 信封） | **冻结（v1.0.0，additive-only）** | 未来系统轨键沿 inertia/thermal 先例 additive；closed-world 纪律已定型 |
+| ④ | oracle_base 契约（oracle 接口/审批/写盘） | **冻结（v1.0.0，additive-only）** | 六成员签名稳定，机制层助手面可 additive；遗留豁免面为登记在案的历史债 |
+| ⑤ | eval protocol v2（盲包/score_hash） | **冻结（v1.0.0，additive-only）** | 协议 v1.1 已批准且 MVP 落地；负例规格只增不减；包格式演进走新 schema id |
+| ⑥ | scope 三档 classify | **冻结（v1.0.0，additive-only）** | 三值语义与守卫纪律已稳定；白名单扩张随 G2b 批准 additive |
+| ⑦ | run-g2 步账门禁（tier/预算制） | **冻结（v1.0.0，additive-only）** | 四件套构成与步数账纪律是制度面；步清单本身在预算制下持续增删 |
+| ⑧ | copy-guard 词表制度 | **冻结（v1.0.0，additive-only）** | 制度（扫描域/次序/退出码/记录义务）稳定；词表随新教学面增长 |
 
 ---
 
-### 面① SystemDef schema（五系统实例 + 字段面）——演进中（additive-only）
+### 面① SystemDef schema（五系统实例 + 字段面）——冻结（v1.0.0，additive-only）
 
 **事实源**：src/core/systems.js（FL001 :119 / FC001 :401 / GT001 :625 / PV001 :913 / WT001 :1130；
 注册表 `ALL` :2483；`FL.systems` 公共 API :2586-2596；UNITS 字典 :110-114）；字段面文档
@@ -140,7 +147,7 @@ approval §3.3、backend 留位 §3.4、正交性 §3.5）；data/golden/ 既有
 
 ---
 
-### 面③ scenario schema v1（含 inertia_model / thermal_model 键 + C-5 信封）——演进中（additive-only）
+### 面③ scenario schema v1（含 inertia_model / thermal_model 键 + C-5 信封）——冻结（v1.0.0，additive-only）
 
 **事实源**：src/core/scenario.js——SCHEMA_VERSION=1 :29、MAX_EVENTS=12 :30、固定网格 60/0.1
 :35、TOP_KEYS :38、EVENT_KEYS :41、INERTIA_MODELS ['swing','linear','thermo'] :45、
@@ -177,7 +184,7 @@ THERMAL_MODELS ['off','on'] :49；normalizeScenario 封闭校验 :118 起；公�
 
 ---
 
-### 面④ oracle_base 契约（oracle 接口 / 审批 / 写盘）——演进中（additive-only）
+### 面④ oracle_base 契约（oracle 接口 / 审批 / 写盘）——冻结（v1.0.0，additive-only）
 
 **事实源**：ORACLE_INTERFACE_D2 §2 归一契约（:90-113）与 §4 机制层提供面（:187-199）；
 tools/oracle/oracle_base.py（自检 `python -I tools/oracle/oracle_base.py`——本 ask 实跑 exit 0）；
@@ -207,7 +214,7 @@ gt001_l1_oracle / pv001_oracle / wt001_oracle + emit_golden.py + properties/prop
 
 ---
 
-### 面⑤ eval protocol v2（盲包 / score_hash）——演进中（additive-only）
+### 面⑤ eval protocol v2（盲包 / score_hash）——冻结（v1.0.0，additive-only）
 
 **事实源**：ARENA_EVAL_PROTOCOL_APPROVED.md v1.1（批准记录 CHG-20261030-03，G6-WS-D 关闭）——
 盲包 schema §5（faultlab.arena.round.v2 / match.v2，:95-119）、sealedProjection 并集规则
@@ -242,7 +249,7 @@ tools/run-g2.mjs:107）。
 
 ---
 
-### 面⑥ scope 三档 classify——演进中（additive-only）
+### 面⑥ scope 三档 classify——冻结（v1.0.0，additive-only）
 
 **事实源**：src/core/scope.js——APPROVED 常量 :17-30、classify :42-83、assertApprovedP0
 :94-111（SCOPE-E01 + 后端 Run 强制 extension_preview 分支 :95-102）、`FL.scope` API :113-118；
@@ -266,7 +273,7 @@ run-g2 步 14（tools/run-g2.mjs:102 scope-guard.test.js）。
 
 ---
 
-### 面⑦ run-g2 步账门禁（tier / 预算制）——演进中（additive-only）
+### 面⑦ run-g2 步账门禁（tier / 预算制）——冻结（v1.0.0，additive-only）
 
 **事实源**：tools/run-g2.mjs——四件套构成 :14；--tier 参数 :46-58；STEPS 31 步清单 :88-120
 （第 31 步 = file-smoke.mjs file:// 发布能力冒烟，:119，core 层——本波 T5 落地，本 ask 以
@@ -297,7 +304,7 @@ extended 6」:135）；tier 护栏（无标签/非法标签 exit 2）:174-181；
 
 ---
 
-### 面⑧ copy-guard 词表制度——演进中（additive-only）
+### 面⑧ copy-guard 词表制度——冻结（v1.0.0，additive-only）
 
 **事实源**：tools/copy-guard.mjs——扫描域 SCOPES=['src'] :15、BANNED 禁词 33 模式 :18-26
 （含电网/惯量/一次调频验证类禁词——孤岛/并网表述红线的机检面）、ALLOW 批准否定/限定串
@@ -391,7 +398,11 @@ package/发布证据与 CHG 文本中）：
 | 10 | 文档完整 | 现有：docs/{CONTRACT,FAULT_CATALOG v1.4,SCOPE,REFERENCES,METRICS_P1,AGENT_PROTOCOL} + NEXT 规格族 + tools/oracle/README + 本文。发布轮补：本文 §2 标注经发布 CHG 转正、迁移指南义务声明生效（§3.3）、面③/#10 残留裁定 | docs/ 与 NEXT/ 列目录实证 | ⏳ 发布轮动作 |
 | 11 | 残留登记（本 ask 发现，非 V06 原文项） | ①scenario.js 系统枚举错误文案未含 WT-001（:150/:157；解析行为不受影响——本 ask Node 探针实证 WT-001 可解析）；②tests/teaching.test.js 与 tests/leaderboard.test.js 未入 run-g2 步账（各自独立可跑、当前实跑均绿）——v1.0 发布轮裁定补挂（预算制内）或登记豁免 | 本文面③/面⑦「不在承诺内」 | 🔶 收敛前裁定 |
 
-**判读**：11 项中 8 项已达成、2 项为发布轮动作（随 v0.9.0 G 门禁与发布 CHG 兑现）、1 项
+**判读（v1.0.0 发布时点复核，CHG-20261108-04）**：#9 已兑现（run-g2 **33/33** 两次独立
+PASS——工作流内 + 主流程复验 57896ms，含新增 teaching/leaderboard 两步）；#10 已兑现（本文
+转正 + 迁移义务声明生效——五件套义务随 §3.3 对未来 breaking 持续适用）；#11 已裁定=**修复**
+（scenario 枚举文案动态派生 ×2 + teaching/leaderboard 补挂步 32/33，随 CHG-20261108-03
+落地）。**11/11 全部闭合**。原文判读存档：11 项中 8 项已达成、2 项为发布轮动作（随 v0.9.0 G 门禁与发布 CHG 兑现）、1 项
 残留待裁定。**无阻塞性缺口**——v1.0 收敛的剩余工作全部是「复跑门禁 + 文档转正 + 残留
 裁定」，无新增仿真轨、无新系统依赖。
 
@@ -418,7 +429,33 @@ package/发布证据与 CHG 文本中）：
 
 ---
 
-**声明重申**：本文是 v1.0 收敛的**准备清单**；冻结动作 = v1.0.0 发布 CHG（用户批准）。
-在批准前，本文标注不改变任何既有治理路径、不构成对任何面的承诺。
+## 7. 冻结执行记录（2026-11-08，CHG-20261108-04——§6 五步逐项闭合）
 
-**文件结束**。V1_FACES v1（2026-11-08，T6 起草，CHG-20261108-01 / V090_WAVE_DESIGN DEC-6）。
+1. **逐面转正 ✅**：§2 八面经用户 v1.0.0 发布指令（清算→冻结顺序执行）全部转正为
+   **冻结（v1.0.0，additive-only）**；各面「不在承诺内」清单随面一并转正（诚实边界是
+   承诺的一部分）；面② golden schema v2 先前已冻结，本次确认；
+2. **§3 breaking 政策批准生效 ✅**：major+迁移指南五件套义务、§3.4 golden 字节冻结特别
+   条款（强于 semver）、additive 边界（不改既有哈希输出/不翻既有门禁判据）、政策自指条款；
+3. **§4 复核 ✅**：run-g2 `--tier all` **33/33** 两次独立（工作流内 + 主流程复验 57896ms）
+   + verify_golden 五模型全 exit 0 + oracle_base 自检 exit 0 + copy-guard 0 命中，报告随
+   `evidence/g8/v100-release.md` 归档；#11 两残留裁定=**修复**（scenario 枚举动态派生 ×2 +
+   teaching/leaderboard 补挂步 32/33，CHG-20261108-03）；
+4. **§5 六项裁定 ✅**（全按推荐）：① MG-001=**v1.0.x 首项**（草案+双路评审已就绪，批准
+   轮修订清单 v090-release §3）；② A-5 三提案=v1.0 后逐步 G2b（FC P1→FL P2→GT P3）；
+   ③ D-3 FMU=样本到即插；④ 插件化=维持不做（触发条件出现再议）；⑤ golden backend 信息块=
+   维持留位；⑥ #11 两残留=修复（已落地）；
+5. **归档 ✅**：本文作为 v1.0.0 发布证据（`evidence/g8/v100-release.md`）的输入件归档；
+   行号快照声明维持（v1.0.x 维护轮按符号锚点重对）。
+
+**登记（v1.0.x 清算清单，不阻塞冻结）**：FC thermal_track 卡自述复核（现状事实准确）；
+engine.js:261 validateConfig 枚举文案派生化；scenario.js:7 头注释契约行同步；
+systems.js thermo_track 卡定位声明随下次触碰复核；FaultLab.html 差异随重打包收敛。
+
+---
+
+**声明（v1.0.0 起语义更新）**：本文 §2 八面自 CHG-20261108-04 起**处于冻结状态**——
+breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor；冻结前的历史声明
+（「准备清单不构成冻结」）作为 T6 时点记录保留于上文。
+
+**文件结束**。V1_FACES v1（2026-11-08，T6 起草，CHG-20261108-01）→ v1.0.0 冻结转正
+（CHG-20261108-04，用户 v1.0.0 发布指令链）。

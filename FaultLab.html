@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   FaultLab — Virtual Energy Lab V0.1 (single-file offline build)
-  built: 2026-11-07 19:48:59
+  built: 2026-11-08 17:26:36
   css files inlined: 10, js files inlined: 33
   Source of truth: index.html + src/ + css/. Rebuild with: python tools/build.py
   Data note: analytic / behaviour-level (L0) demo model — not Simulink, not measured field data.
@@ -8645,12 +8645,15 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       alternatives: [{ title: '若阀门未卡涩', text: '调速器能把频率恢复到 50 Hz，电池回到 5 kW；本模型未建模阀门机械动态与保护动作。' }]
     },
     /* GT-001 thermo 轨叙事卡（V072 清算项 6/7；GTL1_G2B_SPEC_APPROVED v1.0 §3.2 分歧表）。
-       定位声明：本卡是静态教学叙事面（跨深度对比卡），不是运行期故障因果模板——
-       engine.buildCausal 按 fault.family 分派模板（system.causalTemplates[family]），
-       既有 sensor_drift / load_step / actuator_fault 三模板零改动、运行期行为零变更；
-       本卡经 FL.systems.causalTemplate('GT-001', 'thermo_track') 供教学/对比面引用，
-       节点数值为 §3.2 v1.0 口径（与 tests/engine-gt.test.js 跨深度分歧断言同源：
-       gt001_v2 冻结锚点 + thermo 轨 T-B 容差断言），不是经过验证的设备特性数字。 */
+       定位声明（V090 DEC-5 运行期自动挂载落地后更新）：本卡是跨深度对比教学卡，
+       非主链分派键——GT thermo 轨 Run（inertia_model=thermo ∧ family≠none）经
+       engine.buildCausal 自动挂载为 causal.thermoTrackCard 附加字段（与主链同一
+       构建机制产出，字段面同构，engine.js DEC-5 挂载块；run_hash 不含 causal），
+       主链仍按 fault.family 由既有 sensor_drift / load_step / actuator_fault 三模板
+       分派；本卡另经 FL.systems.causalTemplate('GT-001', 'thermo_track') 供静态
+       教学/对比面引用，节点数值为 §3.2 v1.0 口径（与 tests/engine-gt.test.js 跨深度
+       分歧断言同源：gt001_v2 冻结锚点 + thermo 轨 T-B 容差断言），不是经过验证的
+       设备特性数字。 */
     thermo_track: {
       id: 'gt-thermo-cross-depth',
       headline: '同一故障、两种模型深度：GT-001 L0b swing ↔ L1 thermo 跨深度叙事卡（thermo 默认轨）',
@@ -8717,7 +8720,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       ],
       assumptions: ['A-gtl1-idealgas', 'A-gtl1-chain-qs', 'A-gtl1-combustor-lump', 'A-gtl1-fuel-map', 'A-gtl1-speed-coupling', 'A-gtl1-rotor-balance', 'A-gtl1-actuator-cmd-domain', 'A-gtl1-l1'],
       limitations: [
-        '本卡为 thermo 轨静态叙事面，不是运行期故障因果模板——运行期因果链仍按 fault.family 由既有三模板分派。',
+        '本卡为 thermo 轨跨深度叙事卡，非主链分派键——GT thermo 轨 Run 经 buildCausal 自动挂载为 causal.thermoTrackCard 附加字段（主链仍按 fault.family 分派）。',
         '引用数值为库内双实现复现值（gt001_v2 冻结锚点 / thermo 轨 T-B 容差断言），非机组数据；不外推到真实设备。',
         'swing/linear 遗留轨无热力面（八个热力信号全程 null）；跨深度对比只在 thermo 轨有 T3/T4 观测。'
       ],
@@ -11420,38 +11423,12 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     return { description: interpolate(map[system.id] || '仅监测模式下真实状态保持不变，只有测量通道偏移。', facts) };
   }
 
-  function buildCausal(ctx) {
+  /* 模板 → 因果卡构建（DEC-5 v0.9.0 残留清算②抽取：原 buildCausal 内联主体原样上移，
+     主链与 thermo_track 挂载卡共用同一套节点/证据/边/机制构建代码——挂载卡与主链
+     卡字段面完全同构（同 10 字段），挂载仅使 run.causal 新增 thermoTrackCard 一个
+     附加字段，主链字段零增减。 */
+  function buildCardFromTemplate(ctx, cfg, family, tpl, facts) {
     var system = ctx.system;
-    var cfg = ctx.config;
-    var family = cfg.fault.family;
-    var assumptionsAll = (system.model.assumptions || []).map(function (a) { return a.id + '：' + a.text; });
-    var limitationsAll = (system.model.limitations || []).slice();
-    if (family === 'none') {
-      return {
-        rule_version: CAUSAL_RULE_VERSION,
-        focusEventId: null,
-        headline: '本次运行未注入故障（健康基准）',
-        mechanismSummary: '健康运行没有故障事件，因此不存在可推导的故障因果链；此处只列出适用假设与限制。',
-        nodes: [],
-        edges: [],
-        assumptions: assumptionsAll,
-        limitations: limitationsAll,
-        alternatives: [],
-        monitorContrast: null
-      };
-    }
-    var tpl = system.causalTemplates && system.causalTemplates[family];
-    if (!tpl) {
-      return {
-        rule_version: CAUSAL_RULE_VERSION,
-        focusEventId: ctx.events.length ? ctx.events[0].event_id : null,
-        headline: 't=' + Number(cfg.fault.t_start_s).toFixed(1) + ' s，' + (findFaultDef(system, family) || {}).label,
-        mechanismSummary: '该故障家族尚未定义模型因果模板，本模型无法推导该现象。',
-        nodes: [], edges: [], assumptions: assumptionsAll, limitations: limitationsAll,
-        alternatives: [], monitorContrast: null
-      };
-    }
-    var facts = buildCausalFacts(ctx);
     var useMonitor = cfg.feedback_mode === 'monitor' && Array.isArray(tpl.monitorNodes) && tpl.monitorNodes.length > 0;
     var nodeSpecs = useMonitor ? tpl.monitorNodes : tpl.nodes;
     var edgeSpecs = useMonitor ? (tpl.monitorEdges || []) : (tpl.edges || []);
@@ -11525,6 +11502,56 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       alternatives: alternatives,
       monitorContrast: buildMonitorContrast(system, cfg, facts)
     };
+  }
+
+  function buildCausal(ctx) {
+    var system = ctx.system;
+    var cfg = ctx.config;
+    var family = cfg.fault.family;
+    var assumptionsAll = (system.model.assumptions || []).map(function (a) { return a.id + '：' + a.text; });
+    var limitationsAll = (system.model.limitations || []).slice();
+    if (family === 'none') {
+      return {
+        rule_version: CAUSAL_RULE_VERSION,
+        focusEventId: null,
+        headline: '本次运行未注入故障（健康基准）',
+        mechanismSummary: '健康运行没有故障事件，因此不存在可推导的故障因果链；此处只列出适用假设与限制。',
+        nodes: [],
+        edges: [],
+        assumptions: assumptionsAll,
+        limitations: limitationsAll,
+        alternatives: [],
+        monitorContrast: null
+      };
+    }
+    var tpl = system.causalTemplates && system.causalTemplates[family];
+    if (!tpl) {
+      return {
+        rule_version: CAUSAL_RULE_VERSION,
+        focusEventId: ctx.events.length ? ctx.events[0].event_id : null,
+        headline: 't=' + Number(cfg.fault.t_start_s).toFixed(1) + ' s，' + (findFaultDef(system, family) || {}).label,
+        mechanismSummary: '该故障家族尚未定义模型因果模板，本模型无法推导该现象。',
+        nodes: [], edges: [], assumptions: assumptionsAll, limitations: limitationsAll,
+        alternatives: [], monitorContrast: null
+      };
+    }
+    var facts = buildCausalFacts(ctx);
+    var card = buildCardFromTemplate(ctx, cfg, family, tpl, facts);
+    /* ---- DEC-5（V090_WAVE_DESIGN；v080-release §4 残留③ v0.9.0 清算）：
+       thermo_track 运行期自动挂载 ----
+       触发面：system.causalTemplates.thermo_track 已注册（当前仅 GT-001）
+       ∧ cfg.inertia_model === 'thermo' ∧ family !== 'none'（健康基准无卡可挂）。
+       主链分派零变化：nodes/edges/headline/mechanismSummary 仍按 fault.family 既有
+       模板构建——thermo 主链与 swing/linear 同走既有三族模板，tests/core.test.js §6
+       既有 GT causal 断言（默认轨 6 节点 / monitor 4 节点 / load_step 6 / actuator 5）
+       即回归佐证。thermo_track 卡由「教学/对比面静态引用」变为自动挂载
+       （causal.thermoTrackCard 附加字段，经同一构建机制产出，字段面与主链同构）；
+       run_hash 不含 causal（registry.js runHashInput），golden 字节冻结不受影响。 */
+    var thermoTpl = system.causalTemplates ? system.causalTemplates.thermo_track : null;
+    if (thermoTpl && cfg.inertia_model === 'thermo' && thermoTpl !== tpl) {
+      card.thermoTrackCard = buildCardFromTemplate(ctx, cfg, family, thermoTpl, facts);
+    }
+    return card;
   }
 
   /* ================================================================== */
@@ -12663,9 +12690,14 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       T3_out_K: 1, T2_out_K: 1, p2_out_kPa: 1, T4_out_K: 1,
       Q_fuel_kW: 1, P_comp_kW: 1, P_turb_kW: 1, eta_cycle_pct: 1
     };
+    /* FL-001 thermal 轨专属热力信号（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §1.2 两信号）：
+       thermal_model=off 默认轨无热力面——两信号全程 null 属结构性缺席（GT thermo 同款
+       先例；spec §3.5 明文「off 轨全程 null」），off 轨不计为 NaN 违规。 */
+    var FL_THERMAL_SIGNALS = { T_bat_K: 1, P_loss_kW: 1 };
     Object.keys(series).forEach(function (id) {
       var isOptional = /(_cap_A|_cap_kW)$/.test(id) ||
-        (THERMO_ONLY_SIGNALS[id] && !(cfg && cfg.inertia_model === 'thermo'));
+        (THERMO_ONLY_SIGNALS[id] && !(cfg && cfg.inertia_model === 'thermo')) ||
+        (FL_THERMAL_SIGNALS[id] && !(cfg && cfg.thermal_model === 'on'));
       var arr = series[id] || [];
       for (var i = 0; i < arr.length; i++) {
         var v = arr[i];
@@ -12684,7 +12716,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       n,
       (lengthsOk && gridOk && nanCount === 0)
         ? ('601 点采样网格一致，' + Object.keys(series).length + ' 个信号等长，无 NaN/Inf' +
-          (nullOptionalCount ? ('；' + nullOptionalCount + ' 个可选点位为 null（cap 信号未生效时段：actuator 轨为 t < t_start 前置窗，其余场景全程未生效；thermo 专属热力信号在 swing/linear 遗留轨全程为 null——无热力面）') : ''))
+          (nullOptionalCount ? ('；' + nullOptionalCount + ' 个可选点位为 null（cap 信号未生效时段：actuator 轨为 t < t_start 前置窗，其余场景全程未生效；thermo 专属热力信号在 swing/linear 遗留轨全程为 null——无热力面；FL thermal 专属热力信号 T_bat_K/P_loss_kW 在 thermal_model=off 轨全程为 null——无热力面）') : ''))
         : ('采样检查失败：长度' + (lengthsOk ? '一致' : '不一致(' + badSignal + ')') +
           '，网格' + (gridOk ? '正确' : '错误') + '，非法数值 ' + nanCount + ' 个')
     ));
@@ -13340,6 +13372,11 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
                      feedback_mode: 'closed_loop'|'monitor' } ] }；
    - 事实源：src/core/systems.js（faults 目录 = family/params min-max-step/timeRange/defaultTime_s）
      + docs/FAULT_CATALOG.md（授权状态：非「已删除」方可准入）；
+   - 场景共享信封（C-5，DEC-3 / CHG-20261108-01；exportTeachingPath 先例）：
+       { kind: 'faultlab.scenario', version: 1, content_checksum: <scenarioHash>, scenario: <归一化场景> }
+     确定性（无时间戳/无随机）、可复核（校验和=scenarioHash）；导入双格式接受
+     （信封 + 裸场景 JSON back-compat），校验和不符 = 结构化错误，不静默重算放行；
+     指南见 docs/SCENARIO_SHARING.md；
    - 零依赖经典脚本 IIFE（零构建 ES2020，O-03）：浏览器 <script> 直挂，Node 经 tests/core-load.js
      bootstrap() 装载核心后再 eval 本文件（FL.systems / FL.core(hash) / FL.registry 须先就绪）。
    运行：node tests/scenario.test.js */
@@ -13411,6 +13448,18 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     return FL.systems.get(systemId);
   }
 
+  /* 可用系统清单（错误文案面动态派生，teaching.js knownSystemIds 先例同构）：
+     自 systems.js 注册目录生成，与成员闸门（getSystem）同源——MG-001 等未注册
+     系统不出现，未来注册自动跟上（D5 评估 §3.1-①-d 实证滞后清算：静态清单
+     现缺 WT-001，而成员检查本就动态放行，滞后的只有文案）。FL.systems 缺席
+     （bootstrap 顺序错误）时回退三系统字面串，仅兜底、不参与正常路径。 */
+  function knownSystemIds() {
+    if (FL.systems && typeof FL.systems.list === 'function') {
+      return FL.systems.list().map(function (s) { return s.id; }).join(' / ');
+    }
+    return 'FL-001 / FC-001 / GT-001';
+  }
+
   function getFaultDef(system, family) {
     if (!system || !system.faults) return null;
     for (var i = 0; i < system.faults.length; i++) {
@@ -13470,14 +13519,15 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     /* system：systems.js 注册目录 + schema v1 固定运行网格守卫 */
     var system = null;
     if (input.system === undefined) {
-      errors.push({ field: 'system', message: '缺少 system（FL-001 / FC-001 / GT-001 / PV-001）' });
+      errors.push({ field: 'system', message: '缺少 system（' + knownSystemIds() + '）' });
     } else if (typeof input.system !== 'string') {
       errors.push({ field: 'system', message: '必须是字符串（收到 ' + typeName(input.system) + '）' });
     } else {
       system = getSystem(input.system);
       if (!system) {
-        /* v0.7 残留清算：可用系统列表补 PV-001（PV-G2b-04b 注册遗漏的错误文案面） */
-        errors.push({ field: 'system', message: '未知系统 ' + input.system + '（可用：FL-001 / FC-001 / GT-001 / PV-001）' });
+        /* 可用系统清单动态派生（knownSystemIds，teaching.js 先例同构；v0.7 静态补列
+           PV-001 的旧文案面被派生取代——注册即出现，不再随新系统滞后） */
+        errors.push({ field: 'system', message: '未知系统 ' + input.system + '（可用：' + knownSystemIds() + '）' });
       } else if (system.duration_s !== FIXED_DURATION_S || system.dt_s !== FIXED_DT_S) {
         errors.push({ field: 'system', message: '系统运行网格必须为 ' + FIXED_DURATION_S + ' s / ' + FIXED_DT_S + ' s（当前 ' + system.duration_s + ' s / ' + system.dt_s + ' s）' });
       }
@@ -13827,9 +13877,122 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     return { runs: runs, scenarioHash: scenarioHash(s) };
   }
 
-  /* ================================================================== */
-  /* 可执行事件样例（FL/FC/GT 各一；供导入模板与测试直接执行）           */
-  /* ================================================================== */
+/* ================================================================== */
+/* 场景共享信封（C-5，DEC-3 / CHG-20261108-01；exportTeachingPath 先例） */
+/* ================================================================== */
+
+/* 信封契约（与教学路径信封同构，kind 采用点分命名空间）：
+     { kind: 'faultlab.scenario', version: 1, content_checksum: <scenarioHash>, scenario: <归一化场景> }
+   - 确定性：无时间戳、无随机——同场景两次导出逐字节同 JSON；
+   - content_checksum 为场景本体的内容哈希（scenarioHash，canonical v1 严格模式；
+     scenario_id 与 label 为元数据不入哈希，与 scenarioHash 口径一致）；
+   - 内容校验和仅证明内容一致性，不代表签名/来源/第三方认证（UI_COPY_GUARDRAILS §6.1）。 */
+var ENVELOPE_KIND = 'faultlab.scenario';
+var ENVELOPE_VERSION = 1;
+/* 信封顶层封闭字段（closed-world 白名单，与 TOP_KEYS 同纪律） */
+var ENVELOPE_KEYS = ['kind', 'version', 'content_checksum', 'scenario'];
+
+/* 导出信封：入参同 parseScenario（对象或 JSON 字符串）。
+   嵌入信封的场景为归一化形态（params 目录补齐、解析轨盖章）——再解析幂等，
+   roundtrip 内容哈希一致。非法场景抛 ScenarioError（结构化 .errors），不返回部分信封。 */
+function exportScenarioEnvelope(scenario) {
+  var n = normalizeScenario(scenario);
+  if (!n.ok) throw makeScenarioError(n.errors);
+  return {
+    kind: ENVELOPE_KIND,
+    version: ENVELOPE_VERSION,
+    content_checksum: scenarioHash(n.value),
+    scenario: n.value
+  };
+}
+
+/* 导入信封 / 裸场景（双格式接受，back-compat）：返回形态与 parseScenario 同构
+   （{ ok, scenario|errors, warnings }），另附 via（'envelope'|'bare'）与
+   content_checksum（信封路径声明值，成功时与重算一致）。所有错误结构化
+   （field/message），不抛裸异常、不静默重算放行。
+   - 信封（对象含 kind 键）：kind/version/未知字段封闭校验 → content_checksum 格式校验
+     → 嵌入场景全量解析（错误前缀 'scenario.'）→ 校验和比对；不符 = 结构化错误
+     （field=content_checksum），不静默重算接受；
+   - 裸场景（无 kind 键）：normalizeScenario 既有语义零变化（既有导入面 back-compat）。
+   字符串入参 JSON.parse 一次后分派（与 parseScenario 字符串入口同口径）。 */
+function importScenarioEnvelope(payload) {
+  var warnings = [];
+  var input = payload;
+  if (typeof payload === 'string') {
+    try { input = JSON.parse(payload); }
+    catch (e) {
+      return { ok: false, errors: [{ field: 'scenario', message: 'JSON 解析失败：' + String(e.message) }], warnings: warnings, via: null };
+    }
+  }
+  if (!isPlainObject(input)) {
+    return { ok: false, errors: [{ field: 'scenario', message: '输入必须是 JSON 对象（收到 ' + typeName(input) + '）' }], warnings: warnings, via: null };
+  }
+
+  /* 裸场景路径（back-compat：信封引入前的既有导出文件与教学草稿均走此路径） */
+  if (input.kind === undefined) {
+    var bare = normalizeScenario(input);
+    return bare.ok
+      ? { ok: true, scenario: bare.value, warnings: bare.warnings, via: 'bare' }
+      : { ok: false, errors: bare.errors, warnings: bare.warnings, via: 'bare' };
+  }
+
+  /* 信封路径：kind 门（带 kind 键即按信封解析，kind 错值不回退裸场景——避免错信封
+     被误读为场景后给出成片「未知顶层字段」噪音） */
+  if (input.kind !== ENVELOPE_KIND) {
+    return { ok: false, errors: [{ field: 'kind', message: '未知信封 kind ' + JSON.stringify(input.kind) + '（只接受 ' + ENVELOPE_KIND + '）' }], warnings: warnings, via: 'envelope' };
+  }
+
+  var errors = [];
+  Object.keys(input).forEach(function (k) {
+    if (ENVELOPE_KEYS.indexOf(k) === -1) {
+      errors.push({ field: k, message: '未知信封字段（信封封闭字段：' + ENVELOPE_KEYS.join(' / ') + '）' });
+    }
+  });
+  if (input.version === undefined) {
+    errors.push({ field: 'version', message: '缺少信封 version（必须为 ' + ENVELOPE_VERSION + '）' });
+  } else if (input.version !== ENVELOPE_VERSION) {
+    errors.push({ field: 'version', message: '只支持信封 version = ' + ENVELOPE_VERSION + '（当前 ' + String(input.version) + '；可能来自更新版本的导出）' });
+  }
+  var declaredChecksum = input.content_checksum;
+  if (declaredChecksum === undefined) {
+    errors.push({ field: 'content_checksum', message: '缺少 content_checksum（信封完整性字段；裸场景流转请直接用裸 JSON，不带校验和的信封不接受）' });
+  } else if (typeof declaredChecksum !== 'string' || !/^[0-9a-f]{64}$/.test(declaredChecksum)) {
+    errors.push({ field: 'content_checksum', message: '必须是 64 位十六进制内容校验和（收到 ' + typeName(declaredChecksum) + (typeof declaredChecksum === 'string' ? '：' + declaredChecksum : '') + '）' });
+  }
+  if (input.scenario === undefined) {
+    errors.push({ field: 'scenario', message: '缺少 scenario（场景本体）' });
+  } else if (!isPlainObject(input.scenario)) {
+    errors.push({ field: 'scenario', message: '必须是场景 JSON 对象（收到 ' + typeName(input.scenario) + '）' });
+  }
+  if (errors.length) return { ok: false, errors: errors, warnings: warnings, via: 'envelope' };
+
+  /* 嵌入场景全量校验（错误前缀 'scenario.'，与教学路径 scenarioSpec 前缀先例同构） */
+  var inner = normalizeScenario(input.scenario);
+  if (!inner.ok) {
+    return {
+      ok: false,
+      errors: inner.errors.map(function (e) { return { field: 'scenario.' + e.field, message: '信封内场景解析失败：' + e.message }; }),
+      warnings: warnings,
+      via: 'envelope'
+    };
+  }
+
+  /* 校验和比对（最后一步）：重算与声明不符 = 结构化错误，不静默重算放行 */
+  var recomputed = scenarioHash(inner.value);
+  if (declaredChecksum !== recomputed) {
+    return {
+      ok: false,
+      errors: [{ field: 'content_checksum', message: '内容校验和不符：信封声明 ' + declaredChecksum + '，实际重算 ' + recomputed + '（场景内容与校验和不一致：文件可能在流转中被改动，或校验和与场景不配套）' }],
+      warnings: warnings,
+      via: 'envelope'
+    };
+  }
+  return { ok: true, scenario: inner.value, warnings: warnings, via: 'envelope', content_checksum: declaredChecksum };
+}
+
+/* ================================================================== */
+/* 可执行事件样例（FL/FC/GT 各一；供导入模板与测试直接执行）           */
+/* ================================================================== */
   var SAMPLE_SCENARIOS = {
     'FL-001': {
       scenario_id: 'sample-fl001-sensor-drift',
@@ -13864,9 +14027,13 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     SCHEMA_VERSION: SCHEMA_VERSION,
     MAX_EVENTS: MAX_EVENTS,
     FEEDBACK_MODES: FEEDBACK_MODES.slice(),
+    ENVELOPE_KIND: ENVELOPE_KIND,
+    ENVELOPE_VERSION: ENVELOPE_VERSION,
     parseScenario: parseScenario,
     scenarioHash: scenarioHash,
     executeScenario: executeScenario,
+    exportScenarioEnvelope: exportScenarioEnvelope,
+    importScenarioEnvelope: importScenarioEnvelope,
     samples: function () {
       var out = {};
       Object.keys(SAMPLE_SCENARIOS).forEach(function (k) {
@@ -30439,18 +30606,25 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
 /* owner: orchestrator-ui | module: page-scenario | contract: FaultLab-evaluation/NEXT/V06_ROADMAP.md §7 S4（C-2 UI 只读骨架，CHG-20261104-08） */
 /* =========================================================================
    场景编排页（V06_ROADMAP 主线 C，DEC-1 最小闭环：只读序列视图，无拖拽）
-   - 导入：场景 JSON（schema v1）两种等价入口——文件选择 + 粘贴文本；
-   - 校验：FL.core.scenario.parseScenario → 通过=事件卡只读序列；失败=结构化错误列表；
+   - 导入：场景信封（C-5，kind=faultlab.scenario）与裸场景 JSON（schema v1）双格式
+     等价入口——文件选择 + 粘贴文本（FL.core.scenario.importScenarioEnvelope 分派）；
+   - 校验：信封 kind/version/content_checksum 封闭校验（不符=结构化错误，不静默重算）
+     → 场景 schema v1 全量封闭校验 → 通过=事件卡只读序列；失败=结构化错误列表；
    - 运行：FL.core.scenario.executeScenario 按事件序构造标准 Run（复用 engine/registry
      既有语义，不引入新执行语义），经 store.addScenarioRuns 入运行档案；
    - 结果：每 Run 一行（key / family / feedback_mode / 关键指标，数值只读 run.metrics），
      「载入查看」复用既有 loadRun 入口（系统页打开，曲线/因果/对比共享同一 Run）；
-   - 导出：归一化场景 JSON（再解析幂等，roundtrip 内容哈希一致）；
-   - 不做：拖拽编辑（规划于 v0.7）、localStorage 以外的持久化、云/账户（I-1）；
+   - 导出：场景信封（C-5，DEC-3——确定性信封 {kind,version,content_checksum,scenario}，
+     exportTeachingPath 先例；roundtrip 内容哈希一致）；
+   - 不做：拖拽编辑（规划于 v0.7）、localStorage 以外的持久化、云/账户（I-1）——
+     场景文件为手动流转（导出→复制→导入），无云同步、无账户体系；
    - 文案护栏：UI_COPY_GUARDRAILS §6 禁词 / §7 空态不放假数据；
    - [登记·UI 接线路 CHG-20261104-10 最小改动] 教学路径草稿读取入口
     （maybeConsumeTeachingDraft / TEACHING_DRAFT_KEY，见函数处注释）：只新增「读 sessionStorage
      草稿→填入导入框→走既有 parseCurrent」一条通路，不触碰解析/运行/导出语义。
+   - [登记·C-5 信封线 CHG-20261108-01] 导出改信封格式、导入走 importScenarioEnvelope
+     双格式分派、导入面板加手动流转提示（I-1）：解析/运行/教学草稿语义零变化
+     （裸场景 JSON 与教学草稿经 bare 路径照常解析）。
    ========================================================================= */
 (function () {
   'use strict';
@@ -30509,7 +30683,9 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
 
   function fmt() { return (api && api.fmt) ? api.fmt : FL.protocol.fmt; }
   function scenarioModule() {
-    return (FL.core && FL.core.scenario && typeof FL.core.scenario.parseScenario === 'function')
+    return (FL.core && FL.core.scenario && typeof FL.core.scenario.parseScenario === 'function' &&
+      typeof FL.core.scenario.importScenarioEnvelope === 'function' &&
+      typeof FL.core.scenario.exportScenarioEnvelope === 'function')
       ? FL.core.scenario : null;
   }
   function scenarioReady() { return !!scenarioModule(); }
@@ -30604,7 +30780,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         h('div', { class: 'eyebrow' }, 'C-2 · SCENARIO ORCHESTRATOR'),
         h('h1', { class: 'scn-title' }, ['场景', h('em', {}, '编排器')]),
         h('p', { class: 'scn-sub' },
-          '导入场景 JSON（schema v1，封闭白名单），校验通过后生成只读事件序列；一键按序创建标准 Run 并入运行档案。本波为只读骨架，拖拽编辑不在范围内。'),
+          '导入场景信封（kind=faultlab.scenario）或裸场景 JSON（schema v1，封闭白名单），校验通过后生成只读事件序列；一键按序创建标准 Run 并入运行档案。本页为只读序列视图，拖拽编辑不在范围内。'),
         h('div', { class: 'scn-hero-tags' }, [
           ui.badge('只读序列视图', { tone: 'info' }),
           ui.badge('schema v1 · 封闭白名单', { tone: 'neutral' }),
@@ -30645,7 +30821,8 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     refs.text = h('textarea', {
       class: 'input scn-text', rows: '8', spellcheck: 'false',
       'data-testid': 'scenario-import-text',
-      placeholder: '粘贴场景 JSON（schema v1）。顶层字段：version=1 / system（FL-001 · FC-001 · GT-001 · PV-001）/ events[]；' +
+      placeholder: '粘贴场景信封（kind=faultlab.scenario，含 content_checksum）或裸场景 JSON（schema v1），两种格式均接受。' +
+        '裸场景顶层字段：version=1 / system（FL-001 · FC-001 · GT-001 · PV-001）/ events[]；' +
         '事件字段：key、family、params、t_start_s、feedback_mode（closed_loop / monitor）。',
       on: { input: onTextChanged }
     });
@@ -30666,10 +30843,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       h('div', { class: 'panel-head' }, [
         h('div', { class: 'panel-head-main' }, [
           h('span', { class: 'eyebrow' }, 'IMPORT'),
-          h('span', { class: 'panel-title' }, '导入场景 JSON'),
-          h('span', { class: 'panel-sub' }, '选择文件 / 粘贴文本，两种入口等价')
+          h('span', { class: 'panel-title' }, '导入场景信封 / JSON'),
+          h('span', { class: 'panel-sub' }, '选择文件 / 粘贴文本，两种入口等价；信封与裸 JSON 均接受')
         ]),
-        ui.badge('schema v1', { tone: 'neutral' })
+        ui.badge('信封 v1 + schema v1', { tone: 'neutral' })
       ]),
       h('div', { class: 'panel-body scn-import-body' }, [
         refs.text,
@@ -30686,6 +30863,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
           ui.icon('info', { size: 13 }),
           h('span', {}, '样例为可直接运行的合法场景；解析失败时逐条给出字段级错误，未通过前不创建任何运行。')
         ]),
+        h('div', { class: 'hint-row', 'data-testid': 'scenario-manual-flow-hint' }, [
+          ui.icon('info', { size: 13 }),
+          h('span', {}, '场景经文件手动流转：从导出按钮取得 JSON 文件后复制给对方导入即可——无云同步、无账户体系（I-1）。')
+        ]),
         refs.verdict
       ])
     ]);
@@ -30698,8 +30879,9 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
 
     refs.exportBtn = h('button', {
       class: 'btn btn-ghost btn-sm', type: 'button', 'data-testid': 'scenario-export-btn',
+      title: '导出场景信封 JSON（kind=faultlab.scenario，含内容校验和；对方导入即复现同一内容哈希）',
       on: { click: exportScenario }
-    }, [ui.icon('download', { size: 13 }), h('span', {}, '导出场景 JSON')]);
+    }, [ui.icon('download', { size: 13 }), h('span', {}, '导出场景信封')]);
 
     refs.runBtn = h('button', {
       class: 'btn btn-primary btn-sm', type: 'button', 'data-testid': 'scenario-run-btn',
@@ -30771,7 +30953,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       syncAll(api.getState(), 'scenario-parse');
       return;
     }
-    local.parsed = SC.parseScenario(text);
+    /* C-5 信封线（CHG-20261108-01）：importScenarioEnvelope 双格式分派（信封 / 裸场景
+       JSON，back-compat）；返回形态与 parseScenario 同构（ok/scenario/errors/warnings），
+       信封路径另附 via='envelope' + content_checksum（供校验通过提示）。 */
+    local.parsed = SC.importScenarioEnvelope(text);
     if (local.parsed.ok) {
       try { local.scenarioHash = SC.scenarioHash(local.parsed.scenario); } catch (e) { local.scenarioHash = null; }
     }
@@ -30886,7 +31071,12 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     if (!parsedOk()) { api.toast('请先通过解析校验，再导出场景', 'warn'); return; }
     let ok = false;
     try {
-      const text = JSON.stringify(local.parsed.scenario, null, 2);
+      /* C-5 信封线（DEC-3）：确定性信封 {kind,version,content_checksum,scenario}——
+         无时间戳、无随机；content_checksum=scenarioHash（元数据不入哈希），
+         对方导入复现同一内容哈希（指南见 docs/SCENARIO_SHARING.md）。 */
+      const SC = scenarioModule();
+      const envelope = SC.exportScenarioEnvelope(local.parsed.scenario);
+      const text = JSON.stringify(envelope, null, 2);
       const sid = safeFilePart(local.parsed.scenario.scenario_id ||
         ('hash-' + String(local.scenarioHash || '').slice(0, 8)));
       const exporter = FL.exporter;
@@ -30897,7 +31087,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     } catch (e) {
       ok = false;
     }
-    if (ok) api.toast('已导出场景 JSON：再导入可复现同一内容哈希', 'ok');
+    if (ok) api.toast('已导出场景信封 JSON（含内容校验和）：对方导入可复现同一内容哈希', 'ok');
     else api.toast('导出失败：浏览器未允许下载', 'danger');
   }
 
@@ -30980,6 +31170,12 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         refs.verdict.appendChild(h('div', { class: 'notice', 'data-tone': 'warn' }, [
           ui.icon('warning', { size: 14 }),
           h('span', {}, warn.map((w) => (w.field ? w.field + ' ' : '') + w.message).join('；'))
+        ]));
+      } else if (local.parsed.via === 'envelope') {
+        /* C-5 信封线：信封导入成功 = kind/version/校验和三门全过（不符已在上游拒绝） */
+        refs.verdict.appendChild(h('div', { class: 'hint-row' }, [
+          ui.icon('check', { size: 13 }),
+          h('span', {}, '信封校验一致（content_checksum 与重算一致）：事件卡序列见下方「只读事件序列」，可运行或导出。')
         ]));
       } else {
         refs.verdict.appendChild(h('div', { class: 'hint-row' }, [

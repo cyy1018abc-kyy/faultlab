@@ -1,10 +1,10 @@
 /**
  * run-g2.mjs — G2 验收四件套聚合器（P0b-05 / G0-DEC-16；V0.3.0 T1 追溯增强）。
  *
- *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，31 步全量）
+ *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，33 步全量）
  *   node tools/run-g2.mjs --skip-e2e # 跳过浏览器步（CI 无 Chrome 时）
- *   node tools/run-g2.mjs --tier core     # 只跑 core 层（25 步；部分运行，非全量门禁）
- *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（6 步；部分运行）
+ *   node tools/run-g2.mjs --tier core     # 只跑 core 层（26 步；部分运行，非全量门禁）
+ *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（7 步；部分运行）
  *
  * D-1 tier 分层（CHG-20261104-08 DEC-3，采纳 D1_LITE_ASSESSMENT 方案 C）：
  *   STEPS 每步带 tier: 'core' | 'extended' 标签；--tier 仅过滤运行步面，
@@ -27,6 +27,10 @@
  *   file:// 发布能力冒烟（第 31 步，core 层，CHG-20261108-01 / V090_WAVE_DESIGN
  *             DEC-5 残留①清算）：tools/file-smoke.mjs 61 断言（FaultLab.html 单文件
  *             工件 file:// 直接可用的发布能力面；--skip-e2e 与 ②/perf 同步跳过）
+ *   教学生态接线（第 32/33 步，V1_FACES §4 #11 残留②裁定=修复补挂，v1.0.0 发布
+ *             前置清算）：tests/teaching.test.js（C-3 教学路径回归，core 层）+
+ *             tests/leaderboard.test.js（C-4 本地排行榜回归，extended 层——排行
+ *             属生态扩展面，与 arena/backend 同层）；两测试面从步账外纳入门禁
  *
  * V0.3.0 追溯增强（不改变 19 步测试、执行顺序与 PASS/FAIL 判据）：
  *   - 代码版本：commit_sha / branch / worktree_dirty（含脏文件清单）
@@ -116,7 +120,9 @@ const STEPS = [
   { id: 'PV-001 engine-pv.test.js（引擎↔golden pv001_v1 4 Run 一致性 + R-4 守卫，第 28 步）', cmd: 'node', args: ['tests/engine-pv.test.js'], tier: 'core' },
   { id: 'WT-001 verify_golden wt001（第 6 个 golden，WT-G2b-03 / CHG-20261107-01 批准链，第 29 步）', cmd: 'python', args: ['scripts/verify_golden.py', 'wt001'], tier: 'core' },
   { id: 'WT-001 engine-wt.test.js（引擎↔golden wt001_v1 5 Run 一致性 + R-7 守卫，第 30 步）', cmd: 'node', args: ['tests/engine-wt.test.js'], tier: 'core' },
-  { id: '+ file-smoke.mjs（file:// 发布能力冒烟 61 断言——FaultLab.html 单文件工件；CHG-20261108-01 / V090_WAVE_DESIGN DEC-5 残留①固化，第 31 步）', cmd: 'node', args: ['tools/file-smoke.mjs'], skip: skipE2e, tier: 'core' }
+  { id: '+ file-smoke.mjs（file:// 发布能力冒烟 61 断言——FaultLab.html 单文件工件；CHG-20261108-01 / V090_WAVE_DESIGN DEC-5 残留①固化，第 31 步）', cmd: 'node', args: ['tools/file-smoke.mjs'], skip: skipE2e, tier: 'core' },
+  { id: 'C-3 teaching.test.js（教学路径回归：7 路径校验/负例 8 类/禁词子串自检/FL 3 Run 冒烟——V1_FACES §4 #11 残留②补挂，第 32 步）', cmd: 'node', args: ['tests/teaching.test.js'], tier: 'core' },
+  { id: 'C-4 leaderboard.test.js（本地排行榜回归——排行属生态扩展面，与 arena/backend 同层；V1_FACES §4 #11 残留②补挂，第 33 步）', cmd: 'node', args: ['tests/leaderboard.test.js'], tier: 'extended' }
 ];
 
 /* ------------------------------------- 步数账与 tier 口径（I-7 / D-1 DEC-3） *
@@ -129,10 +135,12 @@ const STEPS = [
  *              bundle/event-phase/core.test/scenario.test 等核心回归 + G4 守卫族
  *              （scope-guard/compare/causal-rules/copy-guard）+ e2e + perf
  *              （G2 四件套之②缺一不可，随主干）+ file-smoke（file:// 发布能力冒烟，
- *              浏览器步随 ② 同步 --skip-e2e，CHG-20261108-01）；
+ *              浏览器步随 ② 同步 --skip-e2e，CHG-20261108-01）+ teaching
+ *              （C-3 教学路径回归，V1_FACES §4 #11 残留②补挂）；
  *   extended = 扩展面——backend（admission/bridge）、arena（protocol-negative/
- *              arena.test）、fmu-admission、report。
- *   当前构成：31 步 = core 25 + extended 6。
+ *              arena.test）、fmu-admission、report、leaderboard（C-4 本地排行榜，
+ *              生态扩展面与 arena/backend 同层）。
+ *   当前构成：33 步 = core 26 + extended 7。
  * 步数账纪律（V06_ROADMAP I-7：步数增长须有预算与分层）：
  *   1. 每步必须带合法 tier 标签（下方护栏强制），新增步须同时声明归属层与预算来源；
  *   2. 任何增删步必须在 CHG 登记步数账（删几步/增几步/理由/归属卡），预算线沿用
@@ -145,6 +153,12 @@ const STEPS = [
  *      当前波 CHG-20261108-01（V090_WAVE_DESIGN DEC-5 残留①清算 + DEC-7）30→31、
  *      预算 ≤31→≤32 显式申报——file:// 冒烟固化 tools/file-smoke.mjs 挂第 31 步、
  *      core 层（v0.7.2/v0.8.0 两轮临时件正式化转门禁步，单波 +1））；
+ *      当前波（v1.0.0 发布前置清算，V1_FACES §4 #11 残留②裁定=修复补挂）31→33、
+ *      预算 ≤32→≤33 显式申报——tests/teaching.test.js 挂第 32 步、core 层
+ *      （C-3 教学路径回归）+ tests/leaderboard.test.js 挂第 33 步、extended 层
+ *      （C-4 本地排行榜回归，排行属生态扩展面与 arena/backend 同层）——两测试面
+ *      从步账外纳入门禁（发布前全覆盖裁定），单波 +2；无步删除、既有 31 步顺序
+ *      与判据零改动；
  *   3. 步数账变迁：18→19（plants，CHG-20261030-07）→24（G2b/V3 系列与回归挂入）→
  *      25（property_harness，DEC-E 24→25）→25（D-1 分层：仅加 tier 标签与 --tier
  *      参数，0 增步，CHG-20261104-08 DEC-3）→26（S5 测试接线：scenario.test.js
@@ -162,7 +176,12 @@ const STEPS = [
  *      31（file:// 冒烟固化（V090_WAVE_DESIGN DEC-5 残留①，CHG-20261108-01）：
  *      tools/file-smoke.mjs 挂第 31 步、core 层，单波 +1，预算 ≤31→≤32 显式申报
  *      ——v0.7.2（57 断言）/v0.8.0（61 断言）两轮临时件正式化为发布能力门禁步，
- *      每轮重建就此终止；--skip-e2e 与 ②/perf 同步跳过）。
+ *      每轮重建就此终止；--skip-e2e 与 ②/perf 同步跳过）→
+ *      33（教学生态补挂（V1_FACES §4 #11 残留②，v1.0.0 发布前置清算）：
+ *      tests/teaching.test.js 挂第 32 步、core 层（C-3 教学路径回归）；
+ *      tests/leaderboard.test.js 挂第 33 步、extended 层（C-4 本地排行榜回归，
+ *      排行属生态扩展面，与 arena/backend 同层）——两测试面从步账外纳入门禁
+ *      （发布前全覆盖裁定），单波 +2，预算 ≤32→≤33 显式申报）。
  * 部分运行 ≠ 全量门禁：--tier core/extended 与 --skip-e2e 同为部分运行，不产生
  *   「部分执行 = 门禁通过」的新路径；发布门（G7/G8）与 CHG 验收句必须引用
  *   --tier all 全量运行（报告 tier 字段 + execution.command 可机检）。

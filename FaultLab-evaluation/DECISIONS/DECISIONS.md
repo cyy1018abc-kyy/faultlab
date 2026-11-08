@@ -1200,3 +1200,44 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   T6 新增残留两项（scenario 枚举文案/teaching+leaderboard 步账）。证据
   `evidence/g8/v090-release.md`。**推送按用户裁定三批同批暂缓（本波产出并入同批）**。
   批准人：用户（CHG-20261108-01 授权链）；记录人：实现 Agent。
+
+- `CHG-20261108-03`：**v0.9.x 清算（V1_FACES §4 #11 裁定=修复）+ 步账 31→33**。
+  用户 2026-11-08 v1.0.0 发布指令（「依次进行，还是派发子代理」，引用清算+发布两项）第 1 项。
+  交付（前置清算工作流 dwfrun-8690ce18）：① scenario.js:150/:157 系统枚举错误文案改
+  **动态派生**（knownSystemIds() 助手自 systems 注册表生成——teaching.js 先例；运行探针
+  实证含 WT-001、MG-001 等未注册系统不出现）；② systems.js thermo_track 卡两处过时自述
+  更新为现行挂载语义；③ run-g2 补挂第 32 步 teaching.test.js（core）+第 33 步
+  leaderboard.test.js（extended）——**FIRST-31-STEPS-NORMALIZED-IDENTICAL 机检**既有 31 步
+  零改动，I-7 登记 31→33、**预算 ≤33 申报**；④ FaultLab.html 重打包 1540.4 KiB
+  （含 thermoTrackCard 挂载/清算文案/C-5 信封）+ file-smoke 61/61 新产物复验。
+  验证：run-g2 **33/33** 两次独立（工作流内 + 主流程复验 57896ms）；scenario 389、
+  causal-rules 149、core 11354 全绿；copy-guard 0 命中；golden 零变更。
+  新增登记：engine.js:261 枚举文案与 scenario.js:7 头注释派生化留 v1.0.x（engine 冻结日
+  零触碰）。批准人：用户（v1.0.0 发布指令链）；记录人：实现 Agent。
+
+- `CHG-20261108-04`：**v1.0.0 发布（G8）——1.0 API 承诺生效（八契约面冻结）**。
+  用户 2026-11-08 v1.0.0 发布指令（第 2 项）。
+  ① **V1_FACES §6 冻结动作五步逐项闭合**：`docs/V1_FACES.md` §2 八面全部转正为
+     **冻结（v1.0.0，additive-only）**（面② golden schema v2 先前已冻结；面① SystemDef/
+     ③ scenario v1/④ oracle_base/⑤ eval protocol v2/⑥ scope 三档/⑦ run-g2 步账/
+     ⑧ copy-guard 词表由演进中转正；各面「不在承诺内」诚实边界随面转正）；
+  ② **§3 breaking 政策生效**：breaking=major+迁移指南五件套；**§3.4 golden 字节冻结特别
+     条款（强于 semver）**+ additive 边界（不改既有哈希输出/不翻门禁判据）+ 政策自指条款；
+  ③ **§4 复核闭合**：#9 run-g2 33/33 两次独立（工作流内 + 主流程复验 57896ms）+#10 文档
+     转正+#11 裁定=修复（CHG-20261108-03）——**11/11 全部闭合，无阻塞缺口**；
+  ④ **§5 六项裁定**（全按推荐）：① MG-001=v1.0.x 首项（草案+双路评审就绪，批准轮修订
+     清单 v090-release §3）② A-5 三提案=v1.0 后逐步 G2b ③ D-3 FMU=样本到即插
+     ④ 插件化=维持不做 ⑤ golden backend 信息块=留位 ⑥ #11=修复（已落地）；
+  ⑤ **归档**：V1_FACES 为发布证据输入件；冻结后语义=breaking 需 major、additive=minor；
+  ⑥ 验证：run-g2 33/33 两次独立 + verify_golden 五模型全 exit 0 + oracle_base 自检
+     exit 0 + copy-guard 0 命中 + file-smoke 61/61（重打包产物）+ 全测试面绿
+     （core 11354/scenario 389/engine-gt 451/engine 339/engine-fc 294/engine-pv 166/
+     engine-wt 228/causal-rules 149/teaching 235/leaderboard 78/schema 227/bundle 35/
+     compare 27/registry 44/arena 155/backend 两件/plants 等 21+ 文件）；
+  ⑦ **v1.0.0 时点画像**：五系统（FL L0+L1-thermal/FC L0/GT L0b 双存档+L1 默认/PV L0/
+     WT L0b）、8 golden 字节冻结、10 oracle、11 页面、评测协议 v2+对外场次流程就绪、
+     file-smoke 门禁化、V1_FACES 八面冻结。
+  v1.0.x 待办（additive/minor 面）：MG-001 批准与实现（首项）｜engine.js:261/scenario.js:7
+  枚举派生化｜thermo_track 卡定位复核｜FaultLab.html 重打包收敛｜TESPy 角点扩展。
+  证据 `evidence/g8/v100-release.md`。**推送按用户裁定暂缓（五批同批：v0.7.1 起至 v1.0.0）**。
+  **批准人：用户（2026-11-08 v1.0.0 发布指令链）；记录人：实现 Agent。**

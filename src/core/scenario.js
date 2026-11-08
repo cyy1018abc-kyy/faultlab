@@ -88,6 +88,18 @@
     return FL.systems.get(systemId);
   }
 
+  /* 可用系统清单（错误文案面动态派生，teaching.js knownSystemIds 先例同构）：
+     自 systems.js 注册目录生成，与成员闸门（getSystem）同源——MG-001 等未注册
+     系统不出现，未来注册自动跟上（D5 评估 §3.1-①-d 实证滞后清算：静态清单
+     现缺 WT-001，而成员检查本就动态放行，滞后的只有文案）。FL.systems 缺席
+     （bootstrap 顺序错误）时回退三系统字面串，仅兜底、不参与正常路径。 */
+  function knownSystemIds() {
+    if (FL.systems && typeof FL.systems.list === 'function') {
+      return FL.systems.list().map(function (s) { return s.id; }).join(' / ');
+    }
+    return 'FL-001 / FC-001 / GT-001';
+  }
+
   function getFaultDef(system, family) {
     if (!system || !system.faults) return null;
     for (var i = 0; i < system.faults.length; i++) {
@@ -147,14 +159,15 @@
     /* system：systems.js 注册目录 + schema v1 固定运行网格守卫 */
     var system = null;
     if (input.system === undefined) {
-      errors.push({ field: 'system', message: '缺少 system（FL-001 / FC-001 / GT-001 / PV-001）' });
+      errors.push({ field: 'system', message: '缺少 system（' + knownSystemIds() + '）' });
     } else if (typeof input.system !== 'string') {
       errors.push({ field: 'system', message: '必须是字符串（收到 ' + typeName(input.system) + '）' });
     } else {
       system = getSystem(input.system);
       if (!system) {
-        /* v0.7 残留清算：可用系统列表补 PV-001（PV-G2b-04b 注册遗漏的错误文案面） */
-        errors.push({ field: 'system', message: '未知系统 ' + input.system + '（可用：FL-001 / FC-001 / GT-001 / PV-001）' });
+        /* 可用系统清单动态派生（knownSystemIds，teaching.js 先例同构；v0.7 静态补列
+           PV-001 的旧文案面被派生取代——注册即出现，不再随新系统滞后） */
+        errors.push({ field: 'system', message: '未知系统 ' + input.system + '（可用：' + knownSystemIds() + '）' });
       } else if (system.duration_s !== FIXED_DURATION_S || system.dt_s !== FIXED_DT_S) {
         errors.push({ field: 'system', message: '系统运行网格必须为 ' + FIXED_DURATION_S + ' s / ' + FIXED_DT_S + ' s（当前 ' + system.duration_s + ' s / ' + system.dt_s + ' s）' });
       }

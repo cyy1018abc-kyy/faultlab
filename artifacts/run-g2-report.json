@@ -1,6 +1,6 @@
 {
   "gate": "G2 四件套",
-  "duration_ms": 54314,
+  "duration_ms": 57693,
   "ok": true,
   "failed_count": 0,
   "results": [
@@ -9,233 +9,246 @@
       "cmd": "python scripts/verify_golden.py",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 1071
+      "duration_ms": 1456
     },
     {
       "id": "① verify_golden fc001（P1-06 / G2b-lite）",
       "cmd": "python scripts/verify_golden.py fc001",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 725
+      "duration_ms": 852
     },
     {
       "id": "① verify_golden gt001（GTL1-G2b-03 / gt001_v3 T-B）",
       "cmd": "python scripts/verify_golden.py gt001",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 1488
+      "duration_ms": 1728
     },
     {
       "id": "R-3 property_harness.py（模型侧三不变量 240+27 组参数扫描，DEC-E 24→25）",
       "cmd": "python -I tools/oracle/properties/property_harness.py",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 1007
+      "duration_ms": 1275
     },
     {
       "id": "① engine.test.js（FL-001 601 点对 golden + PHY/SA）",
       "cmd": "node tests/engine.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 268
+      "duration_ms": 308
     },
     {
       "id": "① engine-fc.test.js（FC-001 601 点对 golden，P1-06）",
       "cmd": "node tests/engine-fc.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 138
+      "duration_ms": 182
     },
     {
       "id": "+ plants.test.js（I-11 plant 接口护栏，CHG-20261030-07）",
       "cmd": "node tests/plants.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 132
+      "duration_ms": 141
     },
     {
       "id": "② e2e.mjs（浏览器 E2E，PHY-08/SA-22）",
       "cmd": "node tools/e2e.mjs",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 12923
+      "duration_ms": 13236
     },
     {
       "id": "V3-03 perf.mjs（E2E 主旅程时长阈值，F-5 收尾）",
       "cmd": "node tools/perf.mjs",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 12509
+      "duration_ms": 12743
     },
     {
       "id": "③ registry.test.js（RunRegistry/规范哈希/不可变）",
       "cmd": "node tests/registry.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 325
+      "duration_ms": 362
     },
     {
       "id": "④ schema.test.js（Schema/单位字典/exposure/投影）",
       "cmd": "node tests/schema.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 162
+      "duration_ms": 165
     },
     {
       "id": "④ bundle.test.js（EvidenceBundle v1 + N-1…N-10 负例）",
       "cmd": "node tests/bundle.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 558
+      "duration_ms": 687
     },
     {
       "id": "+ event-phase.test.js（事件相位 G0-DEC-05）",
       "cmd": "node tests/event-phase.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 164
+      "duration_ms": 199
     },
     {
       "id": "G4 scope-guard.test.js（SA-24 范围守卫）",
       "cmd": "node tests/scope-guard.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 205
+      "duration_ms": 235
     },
     {
       "id": "G4 compare.test.js（对比白名单 T-15）",
       "cmd": "node tests/compare.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 157
+      "duration_ms": 187
     },
     {
       "id": "G4 causal-rules.test.js（因果规则/证据链/教学卡）",
       "cmd": "node tests/causal-rules.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 212
+      "duration_ms": 250
     },
     {
       "id": "G4 copy-guard.mjs（禁止词扫描 §6.3）",
       "cmd": "node tools/copy-guard.mjs",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 280
+      "duration_ms": 296
     },
     {
       "id": "P1 report.test.js（HTML 报告验收）",
       "cmd": "node tests/report.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 157
+      "duration_ms": 172
     },
     {
       "id": "G6 arena-protocol-negative.test.js（盲评测协议 v2 + N-B1…B17 负例 + MVP smoke + QP-4 假候选率）",
       "cmd": "node tests/arena-protocol-negative.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 431
+      "duration_ms": 464
     },
     {
       "id": "FL-19 backend-admission.test.js（B-1/B-5 vs golden + 准入机检 G-1/G-2）",
       "cmd": "node tests/backend-admission.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 2382
+      "duration_ms": 2588
     },
     {
       "id": "V3-33 engine-gt.test.js（GT-001 引擎 ↔ golden ±1e-9 + GT PHY 检查）",
       "cmd": "node tests/engine-gt.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 524
+      "duration_ms": 622
     },
     {
       "id": "FL-19 backend-bridge.test.js（后端对照 HTTP 桥安全边界+端点）",
       "cmd": "node tests/backend-bridge.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 373
+      "duration_ms": 389
     },
     {
       "id": "V3-34 fmu-admission（Q-5：model_manifest 强制 + zip 结构 + 拒绝路径）",
       "cmd": "python tools/backend/py/fmu_admission.py --self-check",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 121
+      "duration_ms": 93
     },
     {
       "id": "+ core.test.js（既有回归，适配新语义）",
       "cmd": "node tests/core.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 296
+      "duration_ms": 303
     },
     {
       "id": "+ arena.test.js（既有回归）",
       "cmd": "node tests/arena.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 530
+      "duration_ms": 440
     },
     {
       "id": "C-2 scenario.test.js（场景编排回归：负例/roundtrip/执行等价，S5 第 26 步）",
       "cmd": "node tests/scenario.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 445
+      "duration_ms": 446
     },
     {
       "id": "PV-001 verify_golden pv001（第 5 个 golden，PV-G2b-03 / CHG-20261104-10 批准链，第 27 步）",
       "cmd": "python scripts/verify_golden.py pv001",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 285
+      "duration_ms": 308
     },
     {
       "id": "PV-001 engine-pv.test.js（引擎↔golden pv001_v1 4 Run 一致性 + R-4 守卫，第 28 步）",
       "cmd": "node tests/engine-pv.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 263
+      "duration_ms": 277
     },
     {
       "id": "WT-001 verify_golden wt001（第 6 个 golden，WT-G2b-03 / CHG-20261107-01 批准链，第 29 步）",
       "cmd": "python scripts/verify_golden.py wt001",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 881
+      "duration_ms": 1027
     },
     {
       "id": "WT-001 engine-wt.test.js（引擎↔golden wt001_v1 5 Run 一致性 + R-7 守卫，第 30 步）",
       "cmd": "node tests/engine-wt.test.js",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 224
+      "duration_ms": 245
     },
     {
       "id": "+ file-smoke.mjs（file:// 发布能力冒烟 61 断言——FaultLab.html 单文件工件；CHG-20261108-01 / V090_WAVE_DESIGN DEC-5 残留①固化，第 31 步）",
       "cmd": "node tools/file-smoke.mjs",
       "status": "pass",
       "exit_code": 0,
-      "duration_ms": 15075
+      "duration_ms": 15079
+    },
+    {
+      "id": "C-3 teaching.test.js（教学路径回归：7 路径校验/负例 8 类/禁词子串自检/FL 3 Run 冒烟——V1_FACES §4 #11 残留②补挂，第 32 步）",
+      "cmd": "node tests/teaching.test.js",
+      "status": "pass",
+      "exit_code": 0,
+      "duration_ms": 246
+    },
+    {
+      "id": "C-4 leaderboard.test.js（本地排行榜回归——排行属生态扩展面，与 arena/backend 同层；V1_FACES §4 #11 残留②补挂，第 33 步）",
+      "cmd": "node tests/leaderboard.test.js",
+      "status": "pass",
+      "exit_code": 0,
+      "duration_ms": 685
     }
   ],
   "node": "v26.5.1",
-  "generated_at": "2026-11-08T23:05:41.554Z",
+  "generated_at": "2026-11-08T23:29:44.076Z",
   "code": {
-    "commit_sha": "85f5c808a5992ed01c65ee94e3d5d7f452414d9e",
+    "commit_sha": "4c9c57c3e4ad37641d26effa211ac06a483e545a",
     "branch": "main",
     "worktree_dirty": true,
     "dirty_paths": [
-      "M artifacts/e2e-report.json",
+      "M FaultLab.html",
+      " M artifacts/e2e-report.json",
+      " M artifacts/file-smoke-report.json",
       " M artifacts/run-g2-report.json",
-      " M src/core/engine.js",
       " M src/core/scenario.js",
-      " M src/ui/pages/scenario.js",
-      " M tests/causal-rules.test.js",
-      " M tests/scenario.test.js",
+      " M src/core/systems.js",
       " M tools/run-g2.mjs"
     ]
   },
@@ -247,21 +260,21 @@
   },
   "execution": {
     "command": "node tools/run-g2.mjs",
-    "started_at": "2026-11-08T23:04:47.050Z",
-    "generated_at": "2026-11-08T23:05:41.554Z",
-    "duration_ms": 54504
+    "started_at": "2026-11-08T23:28:46.181Z",
+    "generated_at": "2026-11-08T23:29:44.076Z",
+    "duration_ms": 57896
   },
   "tier": "all",
   "tiers": {
     "core": {
-      "steps": 25,
-      "pass": 25,
-      "duration_ms": 50317
+      "steps": 26,
+      "pass": 26,
+      "duration_ms": 52855
     },
     "extended": {
-      "steps": 6,
-      "pass": 6,
-      "duration_ms": 3994
+      "steps": 7,
+      "pass": 7,
+      "duration_ms": 4831
     }
   }
 }
