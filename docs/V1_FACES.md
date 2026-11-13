@@ -66,8 +66,9 @@
 
 ### 面① SystemDef schema（五系统实例 + 字段面）——冻结（v1.0.0，additive-only）
 
-**事实源**：src/core/systems.js（FL001 :119 / FC001 :401 / GT001 :625 / PV001 :913 / WT001 :1130；
-注册表 `ALL` :2483；`FL.systems` 公共 API :2586-2596；UNITS 字典 :110-114）；字段面文档
+**事实源**：src/core/systems.js（FL001 :119 / FC001 :401 / GT001 :625 / PV001 :913 / WT001 :1130 /
+MG001 :1373〔v1.1.0，CHG-20261110-02〕；
+注册表 `ALL` :2483〔v1.1.0 六成员现 :2991——CHG-20261110-02〕；`FL.systems` 公共 API :2586-2596；UNITS 字典 :110-114）；字段面文档
 docs/CONTRACT.md §4.2-§4.4（:232-316）；`defaultConfig` 盖章逻辑 :2546-2572。
 实例画像（本 ask 逐项实读计数）：
 
@@ -78,6 +79,10 @@ docs/CONTRACT.md §4.2-§4.4（:232-316）；`defaultConfig` 盖章逻辑 :2546-
 | GT-001 | `gt.sync.l0` / `1.2.0`（:830/:833） | L1 thermo（:631），swing/linear 遗留轨 | 27 | sensor_drift / load_step / actuator_fault（:799/:809/:819） | EQ-1..6 + EQ-GTL1-1..12（:875-893） |
 | PV-001 | `pv.pv.l0` / `1.0.0`（:1066-1067） | L0（:919） | 17 | sensor_drift / shading_step（:1044/:1055） | EQ-PV-1..7（:1090 起） |
 | WT-001 | `wt.aero.l0b` / `1.0.0`（:1314-1315） | L0b（:1136） | 22 | sensor_drift / actuator_fault / gust_step（:1283/:1293/:1303） | EQ-WT-1..9（:1342 起） |
+| MG-001 | `MG-001` / `1.0.0`（:1576-1577） | 聚合层 L0 · 多源聚合行为级演示（:1380） | 19 | load_step / shading_link / gust_link / island_event（:1531/:1541/:1551/:1565——island_event 零参数族 params:[] 库内首例） | EQ-MG-1..9（:1603-1611，全代数零新 ODE）（v1.1.0，CHG-20261110-02） |
+
+（v1.1.0，CHG-20261110-02：上表增 MG-001 行——**六系统快照**；MG-001 为 additive 实例，
+字段面承诺同等适用，`ALL` 注册表六成员。）
 
 **承诺内容**（v1.0 起冻结的部分）：
 - 字段面语义：id/title/shortTitle/experimentCode/level/summary/questions/duration_s/dt_s/
@@ -107,7 +112,8 @@ docs/CONTRACT.md §4.2-§4.4（:232-316）；`defaultConfig` 盖章逻辑 :2546-
 
 **事实源**：ORACLE_INTERFACE_D2 §3（:117-184，字段面 §3.1、tier 制度 §3.2 引 ALINE §3 :75-92、
 approval §3.3、backend 留位 §3.4、正交性 §3.5）；data/golden/ 既有 8 golden + 8 sidecar
-（本 ask 列目录实证）；逐文件 tier/schema 实测（本 ask 用 python 逐文件读取）：
+（本 ask 列目录实证；v1.1.0 增 mg001_v1 → **现存 9 golden + 9 sidecar**，CHG-20261110-02）；
+逐文件 tier/schema 实测（本 ask 用 python 逐文件读取）：
 
 | golden | schema 版本 | gate.tier | Run 数 | 状态 |
 |---|---|---|---|---|
@@ -119,6 +125,7 @@ approval §3.3、backend 留位 §3.4、正交性 §3.5）；data/golden/ 既有
 | gt001_v3 | v2 | T-B | 6 | 在验（MODELS["gt001"] 重指向，scripts/verify_golden.py:117） |
 | pv001_v1 | v2 | T-A | 4 | 在验 |
 | wt001_v1 | v2 | T-A | 5 | 在验 |
+| mg001_v1 | v2 | T-A | 5 | 在验（MODELS["mg001"]，approval CHG-20261110-01——v1.1.0 增行，CHG-20261110-02） |
 
 （注：gt001_v2 的 "v2" 是 golden_id 不是 golden_schema_version——正交性规则见 ORACLE_D2 §3.5；
 本表 schema 版本列为本 ask 对各文件 `golden_schema_version` 字段的实测值。）
@@ -132,7 +139,8 @@ approval §3.3、backend 留位 §3.4、正交性 §3.5）；data/golden/ 既有
   （scripts/verify_golden.py:178/:224/:337 T-B 分支）；
 - V-03 语义（generated_by.oracle_source_sha256 = oracle 源文件自身字节 SHA-256）、V-03b
   approval 摘要算法（剥离 generated_by/approval 后 canonical JSON 的 SHA-256）；
-- **既有 8 golden 文件字节冻结**（V-02 sidecar 绑定实际字节）——该承诺强于 semver：
+- **既有 9 golden 文件字节冻结（v1.1.0 计数快照同步：v1.0.0 时点 8 + mg001_v1，CHG-20261110-02——
+  字节冻结承诺语义零变化，仅计数事实面更新）**（V-02 sidecar 绑定实际字节）——该承诺强于 semver：
   任何重出（含保 id）都是 G2b/CHG 事件，旧文件字节永不就地改写（先例口径：Q3 冻结归档债）；
 - 新 golden（新 id）默认 schema v2；verify_golden MODELS 注册行语义（重指向须 CHG；
   fl001 双 golden 并验结构——MODELS["fl001"] 与 MODELS["fl001_l1"] 各验各轨，
@@ -278,10 +286,18 @@ run-g2 步 14（tools/run-g2.mjs:102 scope-guard.test.js）。
 **事实源**：tools/run-g2.mjs——四件套构成 :14；--tier 参数 :46-58；STEPS 31 步清单 :88-120
 （第 31 步 = file-smoke.mjs file:// 发布能力冒烟，:119，core 层——本波 T5 落地，本 ask 以
 `--tier core` 冒烟实跑核验步数 31）；步数账纪律与变迁史 :122-165（当前构成「31 步 = core 25 +
-extended 6」:135）；tier 护栏（无标签/非法标签 exit 2）:174-181；报告字段
+extended 6」:135〔v1.1.0 计数快照同步：**现值 35 步 = core 28 + extended 7**——第 34 步
+verify_golden mg001、第 35 步 engine-mg.test.js 均 core 层，V110 DEC-5；v1.0.0 时点 33 步 =
+core 26 + extended 7；CHG-20261110-02〕）；tier 护栏（无标签/非法标签 exit 2）:174-181；报告字段
 （gate/ok/results/code/environment/execution/tier/tiers，读取兼容注记）:248-283；部分运行
 ≠ 全量门禁声明 :166-168/:299-300。最近全量证据 artifacts/run-g2-report.json：tier=all、
 30/30 ok、2026-11-08、commit 1331ed3（v0.8.0 收盘轮——31 步全量随本波 G 门禁复跑）。
+〔v1.1.0 快照更新（CHG-20261110-02）：最近全量 artifacts/run-g2-report.json = 2026-11-11
+tier/all **35 步 34 pass / 1 fail**——唯一失败步 perf.mjs E2E 主旅程时长门禁超阈（15684/15658 ms
+> 15000 ms 冻结阈值；旅程 additive 增长非性能退化，**G7 阻塞登记**见 evidence/g8/v110-release.md
+§0，阈值再登记待用户裁定）。〔v1.1.0 闭合补记（CHG-20261110-03，2026-11-13）：阈值按同一
+「实测峰值×2」公式再登记 15000→**31500 ms**（D-4 程序，用户指令链采推荐口径）+ 复跑
+`--tier all` 两次独立 **35/35 PASS**（61716/59915 ms）——**G7 已闭合**。〕〕
 
 **承诺内容**（v1.0 起冻结的部分）：
 - 四件套构成缺一不可（①数值：verify_golden + engine 测试；②浏览器 E2E；③RunRegistry/
@@ -308,7 +324,8 @@ extended 6」:135）；tier 护栏（无标签/非法标签 exit 2）:174-181；
 
 **事实源**：tools/copy-guard.mjs——扫描域 SCOPES=['src'] :15、BANNED 禁词 33 模式 :18-26
 （含电网/惯量/一次调频验证类禁词——孤岛/并网表述红线的机检面）、ALLOW 批准否定/限定串
-11 条 :29-37、sealed 标识符 token 剥离（D-11）:44-46、命中 exit 1 / PASS 摘要 :67-74、
+11 条 :29-37〔v1.1.0 词表快照同步：**BANNED 39 模式 / ALLOW 14 条**——MG 六词入表 +
+ALLOW 增量 3 串，deviations.md D-27 评估/D-28 落地，CHG-20261110-02〕、sealed 标识符 token 剥离（D-11）:44-46、命中 exit 1 / PASS 摘要 :67-74、
 「允许列表每次扩充须在 evidence deviations.md 记录」:8；制度依据 UI_COPY_GUARDRAILS §6.3/
 §8.2（G0-DEC-13）；挂 run-g2 步 17（tools/run-g2.mjs:105，core 层）。
 
@@ -322,7 +339,7 @@ extended 6」:135）；tier 护栏（无标签/非法标签 exit 2）:174-181；
 - 与 src/** 改动的绑定纪律：改 src/** 文案后必须复跑 `node tools/copy-guard.mjs` = 0 命中。
 
 **不在承诺内**：
-- 词表内容清单本身（33 禁词/11 允许串是当前快照，随增长演进）；
+- 词表内容清单本身（33 禁词/11 允许串是 v1.0.0 时点快照〔v1.1.0 现值 **39/14**，D-28——CHG-20261110-02〕，随增长演进）；
 - FaultLab.html 单文件包与 data/**、tests/** 的扫描边界（当前实现只扫 src/**——边界即
   承诺，未来扩扫描域 = additive 收紧）；
 - 教学叙事文案的评审质量（copy-guard 只做禁词机检，文案评审归 G2b/双评审流程）。
@@ -394,7 +411,7 @@ package/发布证据与 CHG 文本中）：
 | 6 | 评测生态——协议批准 | ARENA_EVAL_PROTOCOL v1.1 批准（CHG-20261030-03）+ MVP 五件套全部落地（arena-protocol.js/arena2-gen.mjs/arena2-verify.mjs/负例测试/run-g2 步 19） | run-g2.mjs:107；本 ask 列文件实证 | ✅ |
 | 7 | 评测生态——对外首场 | 流程就绪（EVAL_TRACK_GUIDE v2 §6；组织方=用户）——运营项随时可启动，非代码收敛条件 | V06_ROADMAP §2 :70 | ✅（就绪；首场时点归组织方） |
 | 8 | 架构稳定 | 零第三方依赖/离线可跑/零构建 ES2020（O-03，CONTRACT.md §2）；I-1…I-7 不变式沿袭（V06 §0）；D-5 插件化评估=推荐 v1.0 不做（V090 DEC-4）；D-3 FMU=外部依赖挂起（等样本，不做清单内） | V090 §0/DEC-4；V06 §6 | ✅ |
-| 9 | 全门禁 | 最近全量 run-g2 tier=all 30/30 ok（2026-11-08，commit 1331ed3 = v0.8.0 收盘轮）——**v0.9.0 收盘须复跑 31 步全量**（预算 ≤32） | artifacts/run-g2-report.json（本 ask 读取） | ⏳ 随本波 G 门禁兑现 |
+| 9 | 全门禁 | 最近全量 run-g2 tier=all 30/30 ok（2026-11-08，commit 1331ed3 = v0.8.0 收盘轮）——**v0.9.0 收盘须复跑 31 步全量**（预算 ≤32）〔v1.1.0 快照同步（CHG-20261110-02）：步数账现值 **35**；最近全量 2026-11-11 tier/all **34/35**——perf.mjs 时长门禁阻塞登记（v110-release §0），G7 闭合待 perf 阈值再登记裁定〔CHG-20261110-03（2026-11-13）已闭合：阈值 31500 ms 再登记 + 复跑 35/35 两次独立 PASS〕〕 | artifacts/run-g2-report.json（本 ask 读取） | ⏳ 随本波 G 门禁兑现 |
 | 10 | 文档完整 | 现有：docs/{CONTRACT,FAULT_CATALOG v1.4,SCOPE,REFERENCES,METRICS_P1,AGENT_PROTOCOL} + NEXT 规格族 + tools/oracle/README + 本文。发布轮补：本文 §2 标注经发布 CHG 转正、迁移指南义务声明生效（§3.3）、面③/#10 残留裁定 | docs/ 与 NEXT/ 列目录实证 | ⏳ 发布轮动作 |
 | 11 | 残留登记（本 ask 发现，非 V06 原文项） | ①scenario.js 系统枚举错误文案未含 WT-001（:150/:157；解析行为不受影响——本 ask Node 探针实证 WT-001 可解析）；②tests/teaching.test.js 与 tests/leaderboard.test.js 未入 run-g2 步账（各自独立可跑、当前实跑均绿）——v1.0 发布轮裁定补挂（预算制内）或登记豁免 | 本文面③/面⑦「不在承诺内」 | 🔶 收敛前裁定 |
 
@@ -405,6 +422,15 @@ PASS——工作流内 + 主流程复验 57896ms，含新增 teaching/leaderboar
 落地）。**11/11 全部闭合**。原文判读存档：11 项中 8 项已达成、2 项为发布轮动作（随 v0.9.0 G 门禁与发布 CHG 兑现）、1 项
 残留待裁定。**无阻塞性缺口**——v1.0 收敛的剩余工作全部是「复跑门禁 + 文档转正 + 残留
 裁定」，无新增仿真轨、无新系统依赖。
+
+**判读附录（v1.1.0，CHG-20261110-02——additive 快照同步，上文判读为 v1.0.0 时点历史记录原样保留）**：
+步数账现值 **35**（33→35：第 34 步 verify_golden mg001 + 第 35 步 engine-mg.test.js，V110 DEC-5，
+FIRST-33 机检既有 33 步零改动）；最近全量 run-g2 = 2026-11-11 **34/35**（唯一失败 = perf.mjs
+E2E 主旅程时长门禁超阈 15684/15658 ms > 15000 ms 冻结阈值——旅程 additive 增长非性能退化，
+阈值再登记属门禁判据面变更待用户裁定，**G7 阻塞登记**见 evidence/g8/v110-release.md §0）。
+**G7 闭合补记（CHG-20261110-03，2026-11-13）**：阈值再登记 15000→**31500 ms**（同一「实测峰值×2」
+公式、D-4 程序、用户指令链采推荐口径；每断言语义不回退，非 §3.2 判据放宽）+ 复跑 `--tier all`
+两次独立 **35/35 PASS**（61716/59915 ms）——**G7 已闭合**。
 
 ## 5. 待定与开放项（v1.0 发布 CHG 须逐项给出处置）
 
@@ -447,9 +473,15 @@ PASS——工作流内 + 主流程复验 57896ms，含新增 teaching/leaderboar
 5. **归档 ✅**：本文作为 v1.0.0 发布证据（`evidence/g8/v100-release.md`）的输入件归档；
    行号快照声明维持（v1.0.x 维护轮按符号锚点重对）。
 
-**登记（v1.0.x 清算清单，不阻塞冻结）**：FC thermal_track 卡自述复核（现状事实准确）；
-engine.js:261 validateConfig 枚举文案派生化；scenario.js:7 头注释契约行同步；
-systems.js thermo_track 卡定位声明随下次触碰复核；FaultLab.html 差异随重打包收敛。
+**登记（v1.0.x 清算清单，不阻塞冻结）**：FL thermal_track 卡自述复核（现状事实准确；〔v1.1.0
+勘误（CHG-20261110-02）：本行原写「FC thermal_track 卡」为「FL」转写笔误——W5 复核 grep 实证
+thermal_track 卡在 FL-001 systems.js:1830，FC-001 无此卡〕）✓（v1.1.0）；
+engine.js:261 validateConfig 枚举文案派生化 ✓（v1.1.0：knownSystemIdsText 动态派生，:272-274）；
+scenario.js:7 头注释契约行同步 ✓（v1.1.0：knownSystemIds 动态派生六系统式）；
+systems.js thermo_track 卡定位声明随下次触碰复核 ✓（v1.1.0：GT thermo_track :2276 /
+FL thermal_track :1830 定位实读——与 MG-001 SystemDef 同轮触碰）；FaultLab.html 差异随重打包
+收敛 ✓（v1.1.0：1540.4→1633.2 KiB，file-smoke 207/207 复验）。
+**——五项全清（2026-11-11，CHG-20261110-02；明细见 evidence/g8/v110-release.md §3）。**
 
 ---
 
@@ -457,5 +489,23 @@ systems.js thermo_track 卡定位声明随下次触碰复核；FaultLab.html 差
 breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor；冻结前的历史声明
 （「准备清单不构成冻结」）作为 T6 时点记录保留于上文。
 
+## 8. v1.1.0 additive 修订记录（2026-11-11，CHG-20261110-02）
+
+本节为 v1.1.0 发布轮对本文件的全部修订索引——**全部 additive（事实同步行 +
+「（v1.1.0，CHG-20261110-02）」标注），冻结条款语义零变化；§1 冻结转正记录与 §3 breaking
+政策文本零触碰**：
+
+- **面① 实例画像表增 MG-001 行**（model_id `MG-001`/1.0.0、聚合层 L0、19 信号、四族含零参数族
+  island_event）+ 事实源行注记 MG001 :1373 / `ALL` 六成员 :2991——**五系统 → 六系统**快照；
+- **面② golden 表增 mg001_v1 行**（5 Run、T-A、schema v2、approval CHG-20261110-01）+
+  「既有 8 golden」计数快照 → **9 golden**（字节冻结承诺语义零变化，仅计数事实面更新并标注）；
+- **面⑦ 步数快照 → 35 步 = core 28 + extended 7**（V110 DEC-5）+ 最近全量证据快照更新
+  （2026-11-11 34/35——perf.mjs 时长门禁阻塞登记如实随附；G7 已于 2026-11-13 经
+  CHG-20261110-03 闭合——31500 ms 再登记 + 35/35 两次独立）；§4 #9 行快照同步 + 判读附录；
+- **面⑧ 词表快照 33/11 → 39/14**（D-27 评估/D-28 落地引用）；
+- **§7 登记清算清单逐项清账标注**（五项 ✓ 全清）+ 该清单「FC」→「FL」转写笔误勘误
+  （W5 grep 实证卡在 FL-001）。
+
 **文件结束**。V1_FACES v1（2026-11-08，T6 起草，CHG-20261108-01）→ v1.0.0 冻结转正
-（CHG-20261108-04，用户 v1.0.0 发布指令链）。
+（CHG-20261108-04，用户 v1.0.0 发布指令链）→ **v1.1.0 additive 修订**（CHG-20261110-02：
+六系统/9 golden/35 步/39 词——全部 additive，冻结语义零变化）。

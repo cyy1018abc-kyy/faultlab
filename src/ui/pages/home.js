@@ -1,11 +1,16 @@
 /* owner: lab-pages | module: page-home | contract: docs/CONTRACT.md */
-/* 实验首页：Hero（价值主张 + 信任标签）、五系统选择卡、选中系统的实验详情、
+/* 实验首页：Hero（价值主张 + 信任标签）、六系统选择卡、选中系统的实验详情、
    三个问题、参数摘要（标预设值）、建议体验路径、模型假设抽屉、3 步快速讲解浮层、
    故障原理解剖（测量偏置系统渲染参数化静态图解，其余渲染声明性机制卡）、
    恢复上次实验 / 继续当前实验。
    v0.8.0 UI 接线路（CHG-20261107-01）：WT-001 入卡（L0b 徽章）；FL-001 卡与详情的
    level/summary 按 cfg.thermal_model 经 systems.js FL001.levelFor/summaryFor 派生
-   （systems.js:378-395 L4 派生入口，on 轨显示 L1 标签，off/无 cfg 域零变化）。 */
+   （systems.js:378-395 L4 派生入口，on 轨显示 L1 标签，off/无 cfg 域零变化）。
+   v1.1.0 UI 接线路（CHG-20261110-01 批准链，V110_WAVE_DESIGN §2 W7）：MG-001 入卡
+   （聚合层 L0 徽章——卡面 level 字符串读 systems.js MG001.level 真实字段
+   「聚合层 L0 · 多源聚合行为级演示（G2b 已批准）」；卡片/详情渲染走既有通用机制
+   零分支新增；孤岛教学点文案按 I-5 红线 =「脱离主馈线的功率平衡重整演示」，
+   文案事实源 = systems.js MG001 SystemDef，本页零新增 MG 专属文案）。 */
 (function () {
   'use strict';
   const FL = window.FL = window.FL || {};
@@ -21,8 +26,8 @@
     {
       icon: 'layers',
       title: '选择一个系统',
-      text: '五个行为级能源系统（L0 / L0b / L1）共用同一套五页面。FL-001 电池储能为基准实验：默认在 20 s 注入 +10 A 电流传感器偏置。',
-      bullets: ['FL-001 电池储能（基准）', 'FC-001 燃料电池（扩展）', 'GT-001 燃气涡轮（扩展）', 'PV-001 光伏并网（扩展）', 'WT-001 风电机组（扩展）']
+      text: '六个行为级能源系统（L0 / L0b / L1）共用同一套页面。FL-001 电池储能为基准实验：默认在 20 s 注入 +10 A 电流传感器偏置。',
+      bullets: ['FL-001 电池储能（基准）', 'FC-001 燃料电池（扩展）', 'GT-001 燃气涡轮（扩展）', 'PV-001 光伏并网（扩展）', 'WT-001 风电机组（扩展）', 'MG-001 微电网聚合（扩展）']
     },
     {
       icon: 'sliders',
@@ -333,8 +338,8 @@
       el('div', { class: 'section-head home-section-head' }, [
         el('div', {}, [
           el('div', { class: 'eyebrow' }, '01 / 选择实验系统'),
-          el('h2', { class: 'section-title home-section-title' }, '五个系统，同一条验证路径'),
-          el('p', { class: 'section-sub' }, 'FL-001 电池储能为基准实验；FC-001、GT-001、PV-001 与 WT-001 展示同一套页面如何驱动不同能源系统与故障家族。')
+          el('h2', { class: 'section-title home-section-title' }, '六个系统，同一条验证路径'),
+          el('p', { class: 'section-sub' }, 'FL-001 电池储能为基准实验；FC-001、GT-001、PV-001、WT-001 与 MG-001 展示同一套页面如何驱动不同能源系统与故障家族。')
         ]),
         el('span', { class: 'badge', 'data-tone': 'info' }, 'L0 · 行为级')
       ])

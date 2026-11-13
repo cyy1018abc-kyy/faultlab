@@ -10,6 +10,12 @@
    其能量恒等由 wt-energy-identity 承载（EQ-WT-8/EQ-WT-9）。
    FL-001 energy-balance 于 thermal_model=on 分支扩判据 −E_loss（EQ-FLTH-9，守恒面 (a)，
    CHG-20261107-01）；off/PV/FC/GT 路径零变化。
+   MG-001 落地面（MG001_G2B_SPEC_APPROVED v1.0 §1.3/§4 项 4/§4 项 5；W6，CHG-20261110-01，
+   MG-001 键控 additive）：sampling 对唯一事件域 null 列 P_bess_chase_kW 的豁免
+   （I_bat_cap_A/beta_stuck_deg 先例同构）+ units 声明面 '-'（island_state；复用既有字典
+   零新增）——两者均为 MG-001 键控分支，既有五系统检查输出逐字节不变；MG bounds 刻意
+   不含 SOC_pct（SystemDef 登记面）→ soc-bounds/energy-balance 不派发（bounds 派生分派
+   既有机制自动覆盖，PV/WT 同款口径）。
    不通过时页面必须显示"验证未通过"。 */
 (function () {
   'use strict';
@@ -136,8 +142,15 @@
        thermal_model=off 默认轨无热力面——两信号全程 null 属结构性缺席（GT thermo 同款
        先例；spec §3.5 明文「off 轨全程 null」），off 轨不计为 NaN 违规。 */
     var FL_THERMAL_SIGNALS = { T_bat_K: 1, P_loss_kW: 1 };
+    /* MG-001 事件域 null 列（MG001_G2B_SPEC_APPROVED v1.0 §1.3/§4 项 4；W6 落地面，
+       CHG-20261110-01）：P_bess_chase_kW 为唯一事件域 null 列——岛窗外不可用（null），
+       属事件域结构性缺席（I_bat_cap_A / beta_stuck_deg 事件域 null 先例同构），不计为
+       NaN 违规。MG-001 键控 additive：既有五系统 null 处理路径零变化（WT beta_stuck_deg
+       豁免仍为其规格登记的并发落地面，本波零触碰）。 */
+    var MG_EVENT_DOMAIN_SIGNALS = { P_bess_chase_kW: 1 };
     Object.keys(series).forEach(function (id) {
       var isOptional = /(_cap_A|_cap_kW)$/.test(id) ||
+        (system.id === 'MG-001' && MG_EVENT_DOMAIN_SIGNALS[id] === 1) ||
         (THERMO_ONLY_SIGNALS[id] && !(cfg && cfg.inertia_model === 'thermo')) ||
         (FL_THERMAL_SIGNALS[id] && !(cfg && cfg.thermal_model === 'on'));
       var arr = series[id] || [];
@@ -151,14 +164,21 @@
         }
       }
     });
+    /* null 可选点位说明按系统分派（MG-001 键控 additive）：既有五系统串面逐字不变
+       （cap/thermo/FL-thermal 三先例原文保序），MG-001 走事件域列专属说明。 */
+    var samplingNullNote = '';
+    if (nullOptionalCount) {
+      samplingNullNote = system.id === 'MG-001'
+        ? ('；' + nullOptionalCount + ' 个可选点位为 null（P_bess_chase_kW 事件域列岛窗外不可用——island_event 结构性缺席，I_bat_cap_A/beta_stuck_deg 先例同构）')
+        : ('；' + nullOptionalCount + ' 个可选点位为 null（cap 信号未生效时段：actuator 轨为 t < t_start 前置窗，其余场景全程未生效；thermo 专属热力信号在 swing/linear 遗留轨全程为 null——无热力面；FL thermal 专属热力信号 T_bat_K/P_loss_kW 在 thermal_model=off 轨全程为 null——无热力面）');
+    }
     quality.push(check(
       'sampling', '采样与序列完整性',
       (lengthsOk && gridOk && nanCount === 0) ? 'pass' : 'fail',
       expectedPoints + ' 点 / dt ' + dt + ' s / 全部序列等长 / 无 NaN',
       n,
       (lengthsOk && gridOk && nanCount === 0)
-        ? ('601 点采样网格一致，' + Object.keys(series).length + ' 个信号等长，无 NaN/Inf' +
-          (nullOptionalCount ? ('；' + nullOptionalCount + ' 个可选点位为 null（cap 信号未生效时段：actuator 轨为 t < t_start 前置窗，其余场景全程未生效；thermo 专属热力信号在 swing/linear 遗留轨全程为 null——无热力面；FL thermal 专属热力信号 T_bat_K/P_loss_kW 在 thermal_model=off 轨全程为 null——无热力面）') : ''))
+        ? ('601 点采样网格一致，' + Object.keys(series).length + ' 个信号等长，无 NaN/Inf' + samplingNullNote)
         : ('采样检查失败：长度' + (lengthsOk ? '一致' : '不一致(' + badSignal + ')') +
           '，网格' + (gridOk ? '正确' : '错误') + '，非法数值 ' + nanCount + ' 个')
     ));
@@ -372,6 +392,13 @@
     var allowedUnits = Object.keys(declaredUnits).map(function (k) { return declaredUnits[k]; });
     allowedUnits.push('rpm'); /* 转速展示单位 */
     allowedUnits.push('pp');  /* SOC 误差百分点的展示单位 */
+    /* MG-001 键控 additive（MG001_G2B_SPEC_APPROVED v1.0 §1.3/§4 项 5；W6 落地面，
+       CHG-20261110-01）：allowedUnits 增 '-'（无量纲——island_state；units 复用既有
+       字典零新增，schema.js UNIT_DICT 已入 '-': 'dimensionless'，golden units 表同入）。
+       systems.js UNITS 表缺 'm/s'/'°'/'-' 为 WT lambda_tip/cp_coeff 同款并发落地面
+       （本波零扩展）——MG 键控改在本检查面补 '-'，既有五系统 allowedUnits 面零变化
+       （WT units 状态维持其规格登记的现状，不在本波触碰）。 */
+    if (system.id === 'MG-001') allowedUnits.push('-');
     (system.signals || []).forEach(function (sg) {
       if (!sg.unit || typeof sg.unit !== 'string') unitIssues.push(sg.id + ' 缺单位');
       else if (allowedUnits.indexOf(sg.unit) === -1) unitIssues.push(sg.id + ' 单位未声明：' + sg.unit);

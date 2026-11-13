@@ -13,6 +13,7 @@
                                                  #  重指向 gt001_v3 L1 thermo 轨，tier T-B）
   python scripts/verify_golden.py pv001          # PV-001（PV-G2b-03 / v0.7，CHG-20261104-10 批准链）
   python scripts/verify_golden.py wt001          # WT-001（WT-G2b-03 / v0.8，CHG-20261107-01 批准链）
+  python scripts/verify_golden.py mg001          # MG-001（MG-G2b-03 / V110 W4，CHG-20261110-01 批准链）
   python scripts/verify_golden.py --json out.json
 
 退出码：0=全部通过；1=数值/容差不通过（或 golden/oracle 缺失损坏）；2=oracle 内部自检失败。
@@ -23,7 +24,7 @@
   V-03 generated_by.oracle_source_sha256 == 当前 oracle 源码 SHA-256；
   V-03b approval 批准摘要一致（去除 generated_by/approval 后内容摘要）；
   V-04 oracle 自检全过（fl001 SC-1…9 / fl001_l1 FL-1…8 / fc001 SC-1…7 / gt001_l1 GL-1…8 /
-       pv001 PS-1…7 / wt001 WS-1…8）；
+       pv001 PS-1…7 / wt001 WS-1…8 / mg001 MS-1…8）；
   V-05 关键点（19.9/21.5/26.0/60.0 s 的 true/meas 对）——tier 分派：T-A rtol 1e-12
        （I_A 键，既有路径零改动）/ T-B 按 series_limit 序列容差键（GTL1-G2b-03 参数化）；
   V-06 标量（E/SOC）gate 容差（±1e-6 kWh / ±1e-5 pp）；
@@ -63,6 +64,9 @@ import gt001_oracle  # noqa: E402  （swing/linear 冻结归档轨：verify_gold
 import gt001_l1_oracle  # noqa: E402  GT-001 L1 thermo 轨（GTL1-G2b-03 / CHG-20261104-12 批准链）
 import pv001_oracle  # noqa: E402  PV-001（PV-G2b-03 / CHG-20261104-10 批准链；PV001_G2B_SPEC_APPROVED §4 项 7）
 import wt001_oracle  # noqa: E402  WT-001（WT-G2b-03 / CHG-20261107-01 批准链；WT001_G2B_SPEC_APPROVED §4 项 7）
+import mg001_oracle  # noqa: E402  MG-001（MG-G2b-03 / V110 W4；CHG-20261110-01 批准链；
+                     #   MG001_G2B_SPEC_APPROVED §4 项 7——注册行追加不改参数化逻辑，
+                     #   T-A 路径零改动）
 
 MODELS = {
     "fl001": {
@@ -144,6 +148,22 @@ MODELS = {
         "scalars": [  # 能量账本五键（PV 能量账本同构；WT 规格 §4 项 7 提案键面）
             ("E_wt_true_kWh", "kWh"), ("E_wt_est_kWh", "kWh"), ("E_wt_err_kWh", "kWh"),
             ("E_grid_kWh", "kWh"), ("E_load_kWh", "kWh"),
+        ],
+    },
+    "mg001": {
+        # 第 34 步，MG-G2b-03，CHG-20261110-01 批准链：MG-001 微电网多源聚合 golden
+        # mg001_v1（5 Run，tier T-A 聚合全闭式 + 源物理复用委托；oracle=mg001_oracle
+        # 出生接入 oracle_base，MG001_G2B_SPEC_APPROVED §4 项 7——注册行追加不改
+        # 参数化逻辑，T-A 路径零改动；既有六行与 T-A/T-B 分派逻辑零改动）。
+        "oracle": mg001_oracle,
+        "golden_file": "mg001_v1.json",
+        "i_true": "P_grid_true_kW", "i_meas": "P_grid_meas_kW",
+        "event_tol": "P_kW_atol",  # MG gate 无电流相位量：事件快照相位值按 P_kW_atol 判（PV/WT 同款）
+        "scalars": [  # 能量账本八键 + SOC 三键（MG 规格 §4 项 7 提案 11 键）
+            ("E_pv_kWh", "kWh"), ("E_wt_kWh", "kWh"), ("E_bess_kWh", "kWh"),
+            ("E_grid_kWh", "kWh"), ("E_load_served_kWh", "kWh"), ("E_shed_kWh", "kWh"),
+            ("E_dump_kWh", "kWh"), ("E_load_demand_kWh", "kWh"),
+            ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
         ],
     },
 }

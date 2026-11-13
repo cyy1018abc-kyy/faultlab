@@ -1,9 +1,9 @@
 /**
  * run-g2.mjs — G2 验收四件套聚合器（P0b-05 / G0-DEC-16；V0.3.0 T1 追溯增强）。
  *
- *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，33 步全量）
+ *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，35 步全量）
  *   node tools/run-g2.mjs --skip-e2e # 跳过浏览器步（CI 无 Chrome 时）
- *   node tools/run-g2.mjs --tier core     # 只跑 core 层（26 步；部分运行，非全量门禁）
+ *   node tools/run-g2.mjs --tier core     # 只跑 core 层（28 步；部分运行，非全量门禁）
  *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（7 步；部分运行）
  *
  * D-1 tier 分层（CHG-20261104-08 DEC-3，采纳 D1_LITE_ASSESSMENT 方案 C）：
@@ -31,6 +31,13 @@
  *             前置清算）：tests/teaching.test.js（C-3 教学路径回归，core 层）+
  *             tests/leaderboard.test.js（C-4 本地排行榜回归，extended 层——排行
  *             属生态扩展面，与 arena/backend 同层）；两测试面从步账外纳入门禁
+ *   MG-001 接线（第 34/35 步，core 层，MG001_G2B_SPEC_APPROVED v1.0 §8 MG-G2b-04 /
+ *             V110_WAVE_DESIGN DEC-5，CHG-20261110-01 批准链）：
+ *             verify_golden mg001（第 7 个 golden，MG-G2b-03 批准链）+
+ *             tests/engine-mg.test.js（MG-001 引擎 ↔ golden mg001_v1 5 Run 一致性，
+ *             R-5 分派守卫）——WT-001 先例「新系统 = verify 步 + engine 步各一」
+ *             （V080 DEC-6 口径）；FIRST-33-STEPS-NORMALIZED-IDENTICAL：既有 33 步
+ *             顺序/判据/命令逐字零改动，仅尾部追加（第 34/35 步）
  *
  * V0.3.0 追溯增强（不改变 19 步测试、执行顺序与 PASS/FAIL 判据）：
  *   - 代码版本：commit_sha / branch / worktree_dirty（含脏文件清单）
@@ -122,15 +129,17 @@ const STEPS = [
   { id: 'WT-001 engine-wt.test.js（引擎↔golden wt001_v1 5 Run 一致性 + R-7 守卫，第 30 步）', cmd: 'node', args: ['tests/engine-wt.test.js'], tier: 'core' },
   { id: '+ file-smoke.mjs（file:// 发布能力冒烟 61 断言——FaultLab.html 单文件工件；CHG-20261108-01 / V090_WAVE_DESIGN DEC-5 残留①固化，第 31 步）', cmd: 'node', args: ['tools/file-smoke.mjs'], skip: skipE2e, tier: 'core' },
   { id: 'C-3 teaching.test.js（教学路径回归：7 路径校验/负例 8 类/禁词子串自检/FL 3 Run 冒烟——V1_FACES §4 #11 残留②补挂，第 32 步）', cmd: 'node', args: ['tests/teaching.test.js'], tier: 'core' },
-  { id: 'C-4 leaderboard.test.js（本地排行榜回归——排行属生态扩展面，与 arena/backend 同层；V1_FACES §4 #11 残留②补挂，第 33 步）', cmd: 'node', args: ['tests/leaderboard.test.js'], tier: 'extended' }
+  { id: 'C-4 leaderboard.test.js（本地排行榜回归——排行属生态扩展面，与 arena/backend 同层；V1_FACES §4 #11 残留②补挂，第 33 步）', cmd: 'node', args: ['tests/leaderboard.test.js'], tier: 'extended' },
+  { id: 'MG-001 verify_golden mg001（第 7 个 golden，MG-G2b-03 / CHG-20261110-01 批准链，第 34 步）', cmd: 'python', args: ['scripts/verify_golden.py', 'mg001'], tier: 'core' },
+  { id: 'MG-001 engine-mg.test.js（引擎↔golden mg001_v1 5 Run 一致性 + R-5 守卫，第 35 步）', cmd: 'node', args: ['tests/engine-mg.test.js'], tier: 'core' }
 ];
 
 /* ------------------------------------- 步数账与 tier 口径（I-7 / D-1 DEC-3） *
  * tier 判定口径（CHG-20261104-08 DEC-3，采纳 D1_LITE_ASSESSMENT 方案 C，
  * 与该文件「实施追记 §7」一致）：
- *   core     = 门禁主干——verify_golden 五系统（FL/FC/GT/PV-001/WT-001）+
+ *   core     = 门禁主干——verify_golden 六系统（FL/FC/GT/PV-001/WT-001/MG-001）+
  *              property_harness 模型侧不变量 + engine/engine-fc/engine-gt/
- *              engine-pv/engine-wt 对 golden +
+ *              engine-pv/engine-wt/engine-mg 对 golden +
  *              plants/schema/registry/
  *              bundle/event-phase/core.test/scenario.test 等核心回归 + G4 守卫族
  *              （scope-guard/compare/causal-rules/copy-guard）+ e2e + perf
@@ -140,7 +149,8 @@ const STEPS = [
  *   extended = 扩展面——backend（admission/bridge）、arena（protocol-negative/
  *              arena.test）、fmu-admission、report、leaderboard（C-4 本地排行榜，
  *              生态扩展面与 arena/backend 同层）。
- *   当前构成：33 步 = core 26 + extended 7。
+ *   当前构成：35 步 = core 28 + extended 7（33→35：第 34/35 步 MG-001 接线，
+ *              CHG-20261110-01 / V110_WAVE_DESIGN DEC-5——既有 33 步零改动）。
  * 步数账纪律（V06_ROADMAP I-7：步数增长须有预算与分层）：
  *   1. 每步必须带合法 tier 标签（下方护栏强制），新增步须同时声明归属层与预算来源；
  *   2. 任何增删步必须在 CHG 登记步数账（删几步/增几步/理由/归属卡），预算线沿用
@@ -159,6 +169,14 @@ const STEPS = [
  *      （C-4 本地排行榜回归，排行属生态扩展面与 arena/backend 同层）——两测试面
  *      从步账外纳入门禁（发布前全覆盖裁定），单波 +2；无步删除、既有 31 步顺序
  *      与判据零改动；
+ *      当前波（MG-001 接线，MG001_G2B_SPEC_APPROVED v1.0 §8 MG-G2b-04 /
+ *      V110_WAVE_DESIGN DEC-5，CHG-20261110-01 批准链）33→35、预算 ≤33→≤35
+ *      显式申报——verify_golden mg001 挂第 34 步（第 7 个 golden）+ tests/engine-mg
+ *      .test.js 挂第 35 步（R-5 分派守卫），均 core 层（WT-001 先例「新系统 =
+ *      verify 步 + engine 步各一」，V080 DEC-6 口径：新系统 5 Run golden + 引擎轨
+ *      无法并入既有步，单波 +2 用足）。**FIRST-33-STEPS-NORMALIZED-IDENTICAL
+ *      机检注记**：既有 33 步顺序/判据/命令逐字零改动（仅 STEPS 尾部追加第 34/35
+ *      步，无插入、无删除、无判据修改）；
  *   3. 步数账变迁：18→19（plants，CHG-20261030-07）→24（G2b/V3 系列与回归挂入）→
  *      25（property_harness，DEC-E 24→25）→25（D-1 分层：仅加 tier 标签与 --tier
  *      参数，0 增步，CHG-20261104-08 DEC-3）→26（S5 测试接线：scenario.test.js
@@ -181,7 +199,12 @@ const STEPS = [
  *      tests/teaching.test.js 挂第 32 步、core 层（C-3 教学路径回归）；
  *      tests/leaderboard.test.js 挂第 33 步、extended 层（C-4 本地排行榜回归，
  *      排行属生态扩展面，与 arena/backend 同层）——两测试面从步账外纳入门禁
- *      （发布前全覆盖裁定），单波 +2，预算 ≤32→≤33 显式申报）。
+ *      （发布前全覆盖裁定），单波 +2，预算 ≤32→≤33 显式申报）→
+ *      35（MG-001 接线（MG001_G2B_SPEC_APPROVED v1.0 §8 MG-G2b-04 / V110_WAVE_DESIGN
+ *      DEC-5，CHG-20261110-01 批准链）：verify_golden mg001 挂第 34 步（第 7 个
+ *      golden）、tests/engine-mg.test.js 挂第 35 步（R-5 分派守卫），均 core 层，
+ *      单波 +2，预算 ≤33→≤35 显式申报；FIRST-33-STEPS-NORMALIZED-IDENTICAL 机检
+ *      ——既有 33 步顺序/判据/命令逐字零改动）。
  * 部分运行 ≠ 全量门禁：--tier core/extended 与 --skip-e2e 同为部分运行，不产生
  *   「部分执行 = 门禁通过」的新路径；发布门（G7/G8）与 CHG 验收句必须引用
  *   --tier all 全量运行（报告 tier 字段 + execution.command 可机检）。

@@ -20,7 +20,13 @@
      soc 组仅替换说明；另设 wt-mechanical 组（onlySystems=['WT-001']，其余系统
      不渲染本组）承载机械/出力面四项（P_wt / n_rotor / beta / d_wt）。指标 id 按
      信号 id 组织（L5 metrics.js WT 指标段未落地；metricLoose 前缀兼容可吸收
-     注册名尾缀差，落地后如 id 不同须回改对齐——交接注记已登记）。 */
+     注册名尾缀差，落地后如 id 不同须回改对齐——交接注记已登记）。
+     MG-001（v1.1.0 UI 接线路，CHG-20261110-01 批准链，V110_WAVE_DESIGN §2 W7）：
+     energy-source 组 bySystem 增 MG-001 键（EQ-MG-8 四源账本：E_pv/E_wt/E_bess +
+     E_grid 恒等导出）；soc 组 MG 有 SOC 账本（SOC_err ≡ 0——与 FL-001 偏置教学对照），
+     通用指标行直接可用零改动；另设 mg-island 组（onlySystems=['MG-001']，其余系统
+     不渲染本组）承载脱离主馈线功率平衡重整的卸载/倾卸记账面（I-5 措辞红线：
+     「功率平衡重整」表述，无保护/检测语义）。 */
   const METRIC_GROUPS = [
     {
       id: 'energy-load', title: '负载需求电能 / 实际服务电能',
@@ -41,6 +47,11 @@
           title: '风电电能 / 馈线受电电能积分',
           desc: '风电机组真实电能、EMS 风速折算估计电能、两者之差（ΔE_wt）与馈线受电电能；E_wt + E_grid = E_load 为定义恒等（WT-001 无储能，r_true ≡ 0 的能量口径）。',
           metrics: ['E_wt_true_kWh', 'E_wt_est_kWh', 'E_wt_err_kWh', 'E_grid_kWh']
+        },
+        'MG-001': {
+          title: '四源聚合电能 / 馈线受电电能积分',
+          desc: '光伏子轨、风电子轨与储能馈入电能（EQ-MG-8 分段解析，储能放电为正）与馈线受电电能（恒等导出，避免对时变 P_grid 序列数值积分）；四源账本之和 = 服务负荷电能 + 倾卸电能（EQ-MG-6 母线恒等式）。',
+          metrics: ['E_pv_kWh', 'E_wt_kWh', 'E_bess_kWh', 'E_grid_kWh']
         }
       }
     },
@@ -72,6 +83,19 @@
         n_rotor_rpm: '风轮转速（信号 id 口径）',
         beta_pitch_deg: '桨距角（信号 id 口径）',
         d_wt_kW: '最优曲线一致性残差（信号 id 口径）'
+      }
+    },
+    {
+      id: 'mg-island', title: '功率平衡重整记账（MG-001）',
+      onlySystems: ['MG-001'],
+      desc: '微电网聚合专属运行面：脱离主馈线功率平衡重整的缺口卸载与盈余倾卸电能记账（P_dump 为理想倾卸元件的抽象记账项，不是能量损失）、服务侧/需求侧电能与储能馈入电能（其余系统不显示本组）。',
+      metrics: ['E_shed_kWh', 'E_dump_kWh', 'E_load_served_kWh', 'E_load_demand_kWh', 'E_bess_kWh'],
+      fallbackLabels: {
+        E_shed_kWh: '缺口卸载电能（信号 id 口径）',
+        E_dump_kWh: '盈余倾卸电能（信号 id 口径）',
+        E_load_served_kWh: '负荷服务电能（信号 id 口径）',
+        E_load_demand_kWh: '负荷需求电能（信号 id 口径）',
+        E_bess_kWh: '储能馈入电能（信号 id 口径）'
       }
     },
     {

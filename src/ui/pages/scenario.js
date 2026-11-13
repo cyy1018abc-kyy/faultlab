@@ -18,8 +18,13 @@
     （maybeConsumeTeachingDraft / TEACHING_DRAFT_KEY，见函数处注释）：只新增「读 sessionStorage
      草稿→填入导入框→走既有 parseCurrent」一条通路，不触碰解析/运行/导出语义。
    - [登记·C-5 信封线 CHG-20261108-01] 导出改信封格式、导入走 importScenarioEnvelope
-     双格式分派、导入面板加手动流转提示（I-1）：解析/运行/教学草稿语义零变化
+     双格式分派、导入面板加手动流转提示（I-1）：解析/运行/导出语义零变化
      （裸场景 JSON 与教学草稿经 bare 路径照常解析）。
+   - [登记·v1.1.0 UI 接线路 CHG-20261110-01 批准链，V110_WAVE_DESIGN §2 W7]
+     METRIC_PICK 增 MG-001 键（EQ-MG-8 账本口径，focal 保持不可用——见常量处注释）+
+     导入框占位文案系统枚举补全为六系统（原缺 WT-001 的 v0.8 残留一并清算）；
+     事件卡 t_clear_s「清除」chip 为既有通用面（renderEventCard 对 number 型
+     t_clear_s 已渲染）——MG island_event 场景零新增分支；解析/运行/导出语义零变化。
    ========================================================================= */
 (function () {
   'use strict';
@@ -38,13 +43,21 @@
      focal_change（焦点信号 P_wt_true_kW，待 L5 FOCAL_SIGNAL 注册）+ ΔE_wt
      （E_wt_err_kWh，EMS 风速折算估计电能差）+ 最优曲线一致性残差 d_wt_kW；
      id 与 compare.js bySystem WT-001 组一致，未注册的 id 被 pickMetrics 跳过
+     （缺失不显示、不填 0）。
+     MG-001（v1.1.0 UI 接线路，CHG-20261110-01 批准链，V110_WAVE_DESIGN §2 W7）：
+     focal_change 对 MG 保持不可用（metrics.js MG 键控 additive 已声明——FOCAL_SIGNAL
+     无 MG 注册，四源聚合 + 拓扑重整面无单一焦点信号）；能量面取 EQ-MG-8 账本两键：
+     E_grid_kWh（馈线受电口径，恒等导出）+ E_shed_kWh（缺口卸载电能——并网面恒 0、
+     岛窗卸载 Run 非零，重整教学点读数）；E_bess_kWh/E_pv_kWh/E_wt_kWh/E_dump_kWh
+     等其余账本键在 compare 页 bySystem 组承载；未注册的 id 被 pickMetrics 跳过
      （缺失不显示、不填 0）。 */
   const METRIC_PICK = {
     'FL-001': ['focal_change_A', 'SOC_err_end_pp', 'E_bat_true_60s'],
     'FC-001': ['focal_change', 'SOC_err_pp', 'E_bat_kWh'],
     'GT-001': ['focal_change', 'f_nadir_Hz'],
     'PV-001': ['focal_change', 'E_pv_err_kWh', 'E_grid_kWh'],
-    'WT-001': ['focal_change', 'E_wt_err_kWh', 'd_wt_kW']
+    'WT-001': ['focal_change', 'E_wt_err_kWh', 'd_wt_kW'],
+    'MG-001': ['focal_change', 'E_grid_kWh', 'E_shed_kWh']
   };
   /* FL-001 thermal_model 事件/Run 展示（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0：
      off|on 单键枚举，默认 off；L5 在 src/core/scenario.js EVENT_KEYS 白名单加
@@ -217,7 +230,7 @@
       class: 'input scn-text', rows: '8', spellcheck: 'false',
       'data-testid': 'scenario-import-text',
       placeholder: '粘贴场景信封（kind=faultlab.scenario，含 content_checksum）或裸场景 JSON（schema v1），两种格式均接受。' +
-        '裸场景顶层字段：version=1 / system（FL-001 · FC-001 · GT-001 · PV-001）/ events[]；' +
+        '裸场景顶层字段：version=1 / system（FL-001 · FC-001 · GT-001 · PV-001 · WT-001 · MG-001）/ events[]；' +
         '事件字段：key、family、params、t_start_s、feedback_mode（closed_loop / monitor）。',
       on: { input: onTextChanged }
     });

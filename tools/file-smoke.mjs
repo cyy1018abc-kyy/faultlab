@@ -7,11 +7,14 @@
  *   file:// 会话恢复），v0.8.0 = 61 断言（按 e2e E-01..E-13 共 57 条 + WT 扩展镜像，
  *   ×3 轮独立 Chrome profile）。本文件把该体例**固化为正式工具**，每轮重建就此终止。
  *
- * 覆盖（61 断言/轮）：
- *   E-01..E-13 = tools/e2e.mjs 全部 57 条断言的 file:// 镜像（启动/demo Run/五视图
+ * 覆盖（69 断言/轮；v1.1.0 MG 六系统波 61→69，V110_WAVE_DESIGN §2 W7）：
+ *   E-01..E-15 = tools/e2e.mjs 全部 65 条断言的 file:// 镜像（启动/demo Run/五视图
  *               深链跨页共享 Run/事件 pre-post 相位/单一时钟+回放不变/golden 关键值/
- *               因果证据链/EvidenceBundle 往返/深链残留面/五系统卡/WT 深链/Arena 排除/
- *               scenario 声明面——E-13 源级断言改为 Node 侧 fs 直读源文件，
+ *               因果证据链/EvidenceBundle 往返/深链残留面/六系统卡（MG-001 入卡）/
+ *               WT 深链/Arena 排除（含 MG-001）/scenario 声明面（含 MG-001 键）/
+ *               MG-001 深链系统页四族注入面（island_event 零参数族 + t_clear_s
+ *               缺省 35）/MG-001 signals 页 + A-3 单 Run 可达包络行——
+ *               E-13 源级断言改为 Node 侧 fs 直读源文件，
  *               file:// 下页面内 fetch 受 CORS 限制不可用）；
  *   F-01..F-04 = file:// 专属 4 条：
  *               F-01 页面确经 file:// 协议打开且页面资源确经 file:// 装载
@@ -193,11 +196,12 @@ function close(a, b, tol, name) {
 const PAGES = ['home', 'system', 'signals', 'causal', 'compare'];
 
 /* E-13 源级断言：file:// 下页面内 fetch 受 CORS 限制，改为 Node 侧直读源文件
-   （与 e2e E-13「同源取模块源的源级断言」同判据、同两条断言）。 */
+   （与 e2e E-13「同源取模块源的源级断言」同判据、同三条断言）。 */
 function scenarioSourceChecks() {
   const src = fs.readFileSync(path.join(ROOT, 'src', 'ui', 'pages', 'scenario.js'), 'utf8');
   return {
     hasWT: /'WT-001':\s*\[/.test(src) && src.indexOf('d_wt_kW') !== -1,
+    hasMG: /'MG-001':\s*\[/.test(src),
     hasThermal: src.indexOf('thermal_model') !== -1
   };
 }
@@ -438,16 +442,30 @@ async function runRound(roundIdx) {
       'E-09：对照 #page-teaching 同样恢复隐藏（内层根模式基线）',
       'display=' + afterLeave.teaDisplay + ' visible=' + afterLeave.teaVisible);
 
-    /* E-10 五系统卡 */
+    /* E-10 六系统卡（v1.1.0 UI 接线路：六系统化 + MG-001 入卡——卡名/level 徽章/
+       I-5 描述文案面断言沿 e2e E-10 同判据） */
     await cdp.send('Page.navigate', { url: fileUrl + '?demo=1&reset=1&page=home' });
     await wait(1400);
-    const home5 = await cdp.evalExpr(`(function(){
+    const home6 = await cdp.evalExpr(`(function(){
       const cards = Array.prototype.slice.call(document.querySelectorAll('.home-sys-card'));
       return { count: cards.length,
                ids: cards.map(function (c) { return c.getAttribute('data-system'); }) };
     })()`);
-    eq(home5.count, 5, 'E-10：home 五系统卡');
-    ok(home5.ids.indexOf('WT-001') !== -1, 'E-10：home 卡序含 WT-001（L0b 徽章）', JSON.stringify(home5.ids));
+    eq(home6.count, 6, 'E-10：home 六系统卡');
+    ok(home6.ids.indexOf('WT-001') !== -1, 'E-10：home 卡序含 WT-001（L0b 徽章）', JSON.stringify(home6.ids));
+    const homeMg = await cdp.evalExpr(`(function(){
+      const card = document.querySelector('.home-sys-card[data-system="MG-001"]');
+      if (!card) return { found: false };
+      const title = (card.querySelector('.home-sys-title') || {}).textContent || '';
+      const level = (card.querySelector('.home-sys-level') || {}).textContent || '';
+      const tagline = (card.querySelector('.home-sys-tagline') || {}).textContent || '';
+      return { found: true, title: title, level: level, tagline: tagline };
+    })()`);
+    ok(homeMg.found && homeMg.title === '微电网多源聚合系统' &&
+      /^聚合层 L0/.test(homeMg.level) && homeMg.tagline.indexOf('分断主馈线') !== -1 &&
+      homeMg.tagline.indexOf('重整') !== -1,
+      'E-10：MG-001 卡名称/level 徽章（聚合层 L0）/I-5 描述（主馈线分断 + 功率平衡重整表述）',
+      JSON.stringify(homeMg));
 
     /* E-11 WT-001 深链系统页 + 关键信号 601 点 */
     await cdp.send('Page.navigate', { url: fileUrl + '?demo=1&reset=1&system=WT-001&page=system' });
@@ -466,7 +484,7 @@ async function runRound(roundIdx) {
       'E-11：WT-001 demo Run 关键信号 601 点可见（P_wt / d_wt / n_rotor）',
       JSON.stringify({ hasRun: wtRun.hasRun, pwt: wtRun.pwt, dwt: wtRun.dwt, nrotor: wtRun.nrotor }));
 
-    /* E-12 Arena 排除 WT-001（ARENA_EXCLUDED 守卫） */
+    /* E-12 Arena 排除 WT-001 / PV-001 / MG-001（ARENA_EXCLUDED 守卫；MG-001 增项 = V110 DEC-4） */
     await cdp.send('Page.navigate', { url: fileUrl + '?page=arena' });
     await wait(700);
     const arenaChk = await cdp.evalExpr(`(function(){
@@ -478,17 +496,74 @@ async function runRound(roundIdx) {
     })()`);
     eq(arenaChk.page, 'arena', 'E-12：arena 页打开');
     ok(arenaChk.vals.indexOf('WT-001') === -1 && arenaChk.vals.indexOf('PV-001') === -1 &&
-      arenaChk.vals.indexOf('FL-001') !== -1,
-      'E-12：arena 系统选择器不含 WT-001 / PV-001（ARENA_EXCLUDED 守卫）', JSON.stringify(arenaChk.vals));
-    ok(arenaChk.text.indexOf('WT-001') === -1, 'E-12：arena 页面文本不含 WT-001');
+      arenaChk.vals.indexOf('MG-001') === -1 && arenaChk.vals.indexOf('FL-001') !== -1,
+      'E-12：arena 系统选择器不含 WT-001 / PV-001 / MG-001（ARENA_EXCLUDED 守卫）', JSON.stringify(arenaChk.vals));
+    ok(arenaChk.text.indexOf('WT-001') === -1 && arenaChk.text.indexOf('MG-001') === -1,
+      'E-12：arena 页面文本不含 WT-001 / MG-001');
 
     /* E-13 scenario 页声明面（源级断言：Node 侧直读源文件，见 scenarioSourceChecks） */
     const scnChk = scenarioSourceChecks();
     ok(scnChk.hasWT, 'E-13：scenario 页 METRIC_PICK 声明 WT-001 键（focal/ΔE_wt/d_wt）', JSON.stringify(scnChk));
+    ok(scnChk.hasMG, 'E-13：scenario 页 METRIC_PICK 声明 MG-001 键（focal 不可用/EQ-MG-8 账本口径）', JSON.stringify(scnChk));
     ok(scnChk.hasThermal, 'E-13：scenario 页含 FL thermal_model off/on 事件列展示面');
 
+    /* E-14 MG-001 深链系统页 + 四族注入面（v1.1.0 UI 接线路；island_event 零参数族——
+       无幅值输入、t_clear_s 重连时刻编辑器缺省 35 s = golden 锚定值，e2e E-14 同判据） */
+    await cdp.send('Page.navigate', { url: fileUrl + '?demo=1&reset=1&system=MG-001&page=system' });
+    await wait(1500);
+    const mgFam = await cdp.evalExpr(`(function(){
+      const cards = Array.prototype.slice.call(document.querySelectorAll('.sys-family-card'));
+      const fams = cards.map(function (c) { return c.getAttribute('data-family'); });
+      const island = cards.filter(function (c) { return c.getAttribute('data-family') === 'island_event'; })[0] || null;
+      if (island) island.click();
+      return { systemId: FL.store.getState().systemId, page: FL.store.getState().page, fams: fams };
+    })()`);
+    await wait(400);
+    const mgIslandUI = await cdp.evalExpr(`(function(){
+      const host = document.querySelector('.sys-param-controls');
+      const nums = host ? Array.prototype.map.call(host.querySelectorAll('input[type="number"]'),
+        function (e) { return e.value; }) : [];
+      const selected = document.querySelector('.sys-family-card.is-selected');
+      return { nums: nums, selectedFam: selected ? selected.getAttribute('data-family') : '' };
+    })()`);
+    eq(mgFam.systemId + '@' + mgFam.page, 'MG-001@system', 'E-14：?system=MG-001 深链进入 MG 系统页');
+    ok(['load_step', 'shading_link', 'gust_link', 'island_event'].every(function (f) {
+      return mgFam.fams.indexOf(f) !== -1;
+    }), 'E-14：MG 四族故障家族卡在场（load_step/shading_link/gust_link/island_event）', JSON.stringify(mgFam.fams));
+    ok(mgIslandUI.selectedFam === 'island_event' && mgIslandUI.nums.length === 2 &&
+      Number(mgIslandUI.nums[1]) === 35 && mgIslandUI.nums[0].length > 0,
+      'E-14：island_event 零参数族注入面（无幅值输入——仅故障时刻 + 重连时刻 t_clear_s，缺省 35 s）',
+      JSON.stringify(mgIslandUI));
+
+    /* E-15 MG-001 signals 页 + A-3 单 Run 可达包络行（e2e E-15 同判据；措辞带
+       「不是参数域叉积包络」改标口径——不称全域） */
+    await cdp.send('Page.navigate', { url: fileUrl + '?demo=1&reset=1&system=MG-001&page=signals' });
+    await wait(1500);
+    const mgSig = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      const sig = r && r.timeseries && r.timeseries.signals ? r.timeseries.signals : {};
+      const len = function (id) { return sig[id] ? sig[id].length : 0; };
+      const env = document.querySelector('.sig-envelope-row');
+      return { page: s.page, runSystem: r ? r.systemId : '', runId: r ? r.runId : '',
+               ppv: len('P_pv_kW'), pgrid: len('P_grid_true_kW'), isl: len('island_state'),
+               envFound: !!env, envHidden: env ? env.hidden : null,
+               envText: env ? env.textContent : '' };
+    })()`);
+    ok(mgSig.page === 'signals' && mgSig.runSystem === 'MG-001' &&
+      mgSig.ppv === 601 && mgSig.pgrid === 601 && mgSig.isl === 601,
+      'E-15：MG-001 demo Run 关键信号 601 点可见（P_pv / P_grid / island_state）',
+      JSON.stringify({ page: mgSig.page, runSystem: mgSig.runSystem, ppv: mgSig.ppv, pgrid: mgSig.pgrid, isl: mgSig.isl }));
+    ok(mgSig.envFound && !mgSig.envHidden && mgSig.envText.indexOf('MG-001 单 Run 可达包络') === 0,
+      'E-15：A-3 MG 单 Run 可达包络行在场（信号页页脚，默认故障 Run 数据范围）', mgSig.envText.slice(0, 120));
+    ok(mgSig.envText.indexOf('不是参数域叉积包络') !== -1 && mgSig.envText.indexOf('全') === -1,
+      'E-15：包络行措辞带 A-3 改标口径（单 Run 可达 ≠ 参数域叉积包络，不称全域）',
+      mgSig.envText.slice(-120));
+
     /* F-04 localStorage 会话恢复：无参重载（不 reset 不 demo）→ activeRun 自存储恢复
-       （store.loadPersisted 契约：run_hash 校验通过才恢复，不伪造历史 Run） */
+       （store.loadPersisted 契约：run_hash 校验通过才恢复，不伪造历史 Run）。
+       对照相 = E-15 结束时的 activeRun（v1.1.0 起 E-14/E-15 在 F-04 之前创建 MG Run，
+       故恢复对象为最后激活的 MG-001 Run——E-11 的 WT Run 面仍由 E-12 前的会话链覆盖）。 */
     await cdp.send('Page.navigate', { url: fileUrl + '?page=system' });
     await wait(1400);
     const restored = await cdp.evalExpr(`(function(){
@@ -496,9 +571,9 @@ async function runRound(roundIdx) {
       return { booted: s.booted, hasRun: !!s.activeRun,
                runId: s.activeRun && s.activeRun.runId };
     })()`);
-    ok(restored.booted && restored.hasRun && restored.runId === wtRun.runId,
+    ok(restored.booted && restored.hasRun && restored.runId === mgSig.runId,
       'F-04：localStorage 会话恢复（无参重载 activeRun=' + restored.runId + ' 与重载前一致）',
-      JSON.stringify(restored) + ' vs ' + wtRun.runId);
+      JSON.stringify(restored) + ' vs ' + mgSig.runId);
 
     /* E-08 离线与控制台 */
     ok(externalRequests.length === 0, 'E-08：无外部网络请求（file:// 纯离线）',
@@ -567,10 +642,10 @@ async function main() {
         userAgent: browserVersion.userAgent, jsVersion: browserVersion.jsVersion }
     : { product: null, revision: null, userAgent: null, jsVersion: null };
   const report = {
-    journey: 'file-smoke-61',
+    journey: 'file-smoke-69',
     target: { path: TARGET_REL, absolute: TARGET_ABS, bytes: targetBytes },
     protocol: 'file:',
-    assertions_per_round: 61,
+    assertions_per_round: 69,
     rounds: ROUNDS,
     ok: allOk,
     pass: totalPass,
@@ -589,7 +664,7 @@ async function main() {
   };
   fs.writeFileSync(path.join(OUT, 'file-smoke-report.json'), JSON.stringify(report, null, 2));
   console.log('\n================================================');
-  console.log('file:// 冒烟（' + TARGET_REL + '，' + ROUNDS + ' 轮 × 61 断言）：' +
+  console.log('file:// 冒烟（' + TARGET_REL + '，' + ROUNDS + ' 轮 × 69 断言）：' +
     (allOk ? '全部通过  ✓' : '存在失败  ✗') + '（累计 PASS ' + totalPass + ' / FAIL ' + totalFail + '）');
   console.log('浏览器：' + (browser.product || 'n/a') + '（revision ' + (browser.revision || 'n/a') + '）');
   console.log('追溯：commit=' + (COMMIT_SHA || 'n/a').slice(0, 12) + ' branch=' + (BRANCH || 'n/a') +

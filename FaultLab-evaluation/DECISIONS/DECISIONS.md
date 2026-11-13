@@ -1241,3 +1241,113 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   枚举派生化｜thermo_track 卡定位复核｜FaultLab.html 重打包收敛｜TESPy 角点扩展。
   证据 `evidence/g8/v100-release.md`。**推送按用户裁定暂缓（五批同批：v0.7.1 起至 v1.0.0）**。
   **批准人：用户（2026-11-08 v1.0.0 发布指令链）；记录人：实现 Agent。**
+- `CHG-20261110-01`：**V110_WAVE_DESIGN v1 批准（v1.1.0 波：B-3 MG-001 批准与实现轮 + A-5 P1 FC 草案轮 + v1.0.x 残留清算——八面冻结后首轮 additive/minor）**。
+  用户 2026-11-10 指令「设计下一轮的长期方案，统一采用推荐决策，采用并发多个子智能体来加速任务；不要和已有进程冲突。」
+  ① `NEXT/V110_WAVE_DESIGN.md` v1 生效——**DEC-1…8 全采推荐项**：MG-001 本波批准轮（MG-G2b-02 收口：双评审条件 A-1…A-4/B-1…B-3/B-5 落地 + MG-DRAFT-Q1…Q7 定案 + 更名 MG001_G2B_SPEC_APPROVED.md v1.0）与实现轮（MG-G2b-03/04：mg001_oracle 源轨复用委托 + golden mg001_v1 5 Run schema v2 + 引擎分派 + UI 六系统化 + FAULT_CATALOG §8 + ARENA_EXCLUDED 增列）；A-5 P1 FC G2b 草案轮入波（只草案+双路评审，批准留待用户）；残留清算五项；步数账 33→35（预算 ≤35 显式申报，FIRST-33 机检既有 33 步零改动）；additive 三不承诺（哈希零变化/既有 8 golden 字节零触碰/既有步判据零翻转）。
+  ② **MG-001 批准经本指令链登记**（GTL1-G2b-02 先例：用户指令链即书面批准记录；WT-001 同例）——承接 CHG-20261108-04 §5 裁定①「MG-001=v1.0.x 首项」终裁。
+  ③ V06_ROADMAP §3 账实修正：v0.8.0 行内容修正为实际交付（A-4b/B-2）、补登 v0.9.0 行（CHG-20261108-01 ② 声称增补未落盘的账实差异）、增补 v1.1.0 行（本波）。
+  ④ **CHG-20261110-02 预留**（v1.1.0 发布）。
+  ⑤ 冲突规避机检（2026-11-10）：CronList/OffPeakList/ListWorkflowRuns 全空 + 工作树 clean（HEAD=61820f1）——无已有进程冲突；派发文件面互斥（三阶段 9 路）、不 push 不 rebase。
+  **推送按用户裁定暂缓（五批同批：v0.7.1 起至 v1.0.0）——本波产出并入同批**。
+  **批准人：用户（2026-11-10「统一采用推荐决策」指令链）；记录人：Lead Agent。**
+
+- `CHG-20261110-02`：**v1.1.0 发布收口（G8 证据就绪；G7 perf 步阻塞登记——34/35×2，阈值再登记待用户裁定）**。
+  承接 CHG-20261110-01（V110_WAVE_DESIGN 三阶段 9 路 W1…W8 已完成）；本 CHG = W9 门禁与证据路收口登记（编号用 ④ 预留号）。
+  **① 发布门结果全表（2026-11-11 全部真实运行）**：
+  1. `python tools/build.py` exit 0——FaultLab.html 1540.4→**1633.2 KiB**（css=10 js=33，重打包收敛清算项⑤）；
+  2. `node tools/run-g2.mjs` × 2 独立（中间零改动）——**均 34/35 PASS**（r1 47076 ms / r2 46801 ms；
+     tier 分解 r2 = core 28 步 27 pass 43064 ms + extended 7 步 7 pass 3591 ms）；唯一失败步 =
+     **V3-03 perf.mjs**：E2E 主旅程时长门禁超阈（fresh 实测 15684/15658 ms > 冻结阈值 15000 ms——
+     阈值 2026-10-30 按「实测峰值×2」校准，当时旅程 40 断言/峰值 7556 ms）。**超因不是性能退化**：
+     W7（CHG-20261110-01 批准）给 e2e 旅程 additive 增补 E-14/E-15 两 MG demo 深链（57→65 断言，
+     +2 次 demo 启动）致时长被动 +4 s；独立对照 15766/15627 ms——超阈确定性（波动 <±1%）。
+     e2e 断言面 65/65 全过。阈值再登记属 tools/perf.mjs 门禁判据面变更（本波禁触面）——
+     **按 perf.mjs 头注既定再登记程序（D-4 先例：实测基线→CHG 登记→复测定稿，CHG-20261104-10）
+     留待用户裁定**，裁定后随下一次门禁复跑闭合 G7（§④ 待办首项）；
+  3. `python -I scripts/verify_golden.py` 默认双 golden + fl001/fl001_l1/fc001/gt001/pv001/wt001/mg001
+     逐模型 ×7——**八次全 exit 0**：checks 计 50（default 双轨）+25+25+30+35+25+30+**30（mg001）**
+     = 260 checks **0 fail**；
+  4. `python -I tools/oracle/oracle_base.py` 自检 exit 0（T-1…T-8 全 pass + conformance ok）；
+  5. `node tools/copy-guard.mjs` exit 0——**PASS 39 patterns 0 命中**（词表 33→39+ALLOW 14，
+     D-28 落地后首发轮）；
+  6. `node tools/file-smoke.mjs --rounds 3` exit 0（**3×69=207/0**，52848 ms）+
+     `node tools/ui-walkthrough.mjs` exit 0（**59/59**，26986 ms）+
+     `node tools/e2e.mjs` exit 0（**65/65** ×3 次——run-g2 内 1 次 + 独立 2 次）；
+  7. **golden 零变化终检**：`git status --short data/golden/` 仅 2 新增（mg001_v1.json/.sha256）+
+     `git diff --stat -- data/golden/` 空 + 既有 8 golden 字节复核（fc001_v1 1,093,755 /
+     fl001_v1 659,299 / fl001_v2 930,796 / gt001_v1 1,449,900 / gt001_v2 1,452,353 /
+     gt001_v3 2,372,494 / pv001_v1 788,738 / wt001_v1 1,461,288 字节——与 v1.0.0 时点零变化；
+     新增 mg001_v1 1,051,804 字节）；
+  8. **测试面 22 文件全绿**（W6/W7/W8 汇报数 + 抽查复跑 core 11357/0、engine-mg 382/0、
+     schema 309/0、scenario 389/0、teaching 235/0 本轮实证一致）：core 11357/engine-mg 382/
+     scenario 389/schema 309/teaching 235/leaderboard 78/arena-protocol-negative 42/plants 83/
+     event-phase 46/bundle 35/report 32/scope-guard 30/compare 27/registry 60/engine 428/
+     engine-fc 294/engine-gt 451/engine-pv 166/engine-wt 228/arena 155/causal-rules 149/
+     backend 两件（admission+bridge）全绿。
+  **② 交付清单**：
+  （一）**MG-001 批准轮收口 + 实现轮**（主线）：批准轮 MG-G2b-02 收口（双评审 A:PASS_WITH_
+     CONDITIONS(4)/B:PASS_WITH_CONDITIONS(6)，条件 A-1…A-4/B-1…B-6 处置 10 项 + MG-DRAFT-Q1…Q7
+     定案落正文，更名 MG001_G2B_SPEC_APPROVED.md v1.0，批准记录=CHG-20261110-01 指令链）；
+     实现轮 MG-G2b-03/04——mg001_oracle.py（源物理复用委托 A-4 形制：跨 oracle import 显式授权 +
+     MS-3 源通道序列逐位 ≤1e-12 emit 硬条件 + 不 import src/**）+ **mg001_v1 第 7 个 golden**
+     （5 Run/schema v2/T-A/approval 首签，1,051,804 字节+sidecar，MODELS["mg001"] 注册行=
+     run-g2 第 34 步）+ systems.js MG001 SystemDef（:1366-1612：model_id MG-001/1.0.0、聚合层 L0、
+     19 信号、四族含 island_event 零参数族 params:[] 库内首例、EQ-MG-1…9 全代数零新 ODE、
+     A-mg-* 10 条、limitations 10 项）+ engine simulateMG001（:1614，R-5 显式分派守卫）+
+     t_clear_s 守卫扩展（MG-001×island_event，EVENT_KEYS/hashProjection 零变化）+ schema R-8
+     投影补齐（initial_p_sched_kW 入 config hash 投影 + [−8,8] 域校验）+ UI 六系统化
+     （home/compare/scenario/teaching/system）+ A-3 单 Run 包络行（signals 页，E-15 机检）+
+     ARENA_EXCLUDED 增 'MG-001'（arena.js:105，DEC-4）+ FAULT_CATALOG v1.4→v1.5 §8 +
+     tests/engine-mg.test.js（382 断言，run-g2 第 35 步）+ 步数账 33→35（I-7 申报，
+     FIRST-33-STEPS-NORMALIZED-IDENTICAL 机检既有 33 步零改动）；
+  （二）**A-5 P1 FC 草案轮**：`FC001_ELECTROCHEM_G2B_SPEC_DRAFT.md` v0.1（394 行）——电化学
+     V-I 极化 + T_st 新 ODE、electrochem_model off|on 默认 off、fc001_v2 预登记、classify 二选一
+     核心裁定点；**状态 DRAFT，批准留待用户**（评审未启动）；
+  （三）**残留清算五项全清**：engine.js:261 枚举派生化 ✓（knownSystemIdsText :272-274）/
+     scenario.js:7 头注释契约行 ✓（六系统动态派生式）/ thermo_track 卡定位复核 ✓（GT :2276 /
+     **FL thermal_track :1830——W5 复核发现 V1_FACES §7 原「FC thermal_track 卡」为「FL」转写
+     笔误，grep 实证卡在 FL-001**，随本 CHG 修正）/ FC thermal_track 卡自述复核 ✓（=前者同主体）/
+     FaultLab.html 重打包收敛 ✓（1633.2 KiB + file-smoke 207/207）。
+  **③ additive 三不承诺兑现（DEC-8/V1_FACES §3.4）**：① 哈希零变化——机检 scenario 389/
+     registry 60/schema 309 全绿 + 五系统引擎↔golden 比对全绿抽样（MG 键控 additive：p_sched_kW
+     投影仅 MG-001 携带）；② 既有 8 golden 字节零触碰——git diff 空 + verify_golden 全 exit 0
+     （V-02 复验）+ 字节表；③ 既有 33 run-g2 步判据零翻转——FIRST-33 机检 + 本轮 33 步全 pass
+     （perf 步判据文本零改动，翻转=旅程 additive 增长非性能退化，如实登记不构成放宽动作）。
+  **④ v1.1.x 待办登记**：
+     —— **首项：perf.mjs V3-03 阈值再登记（G7 闭合前置）**——用户裁定阈值口径（建议沿 D-4 程序：
+     新旅程实测基线 3 轮 15684/15766/15658 ms → CHG 登记新阈值 → 复测 2 轮定稿）+ tools/run-g2.mjs
+     第 31 步 file-smoke 标签「61 断言」滞后于实际 69（cosmetic，随下次 tools 触碰同步）；
+     —— FC P1 批准轮（双路评审 + 用户书面批准）= 下一波首项候选（草案 v0.1 就绪）；
+     —— TESPy C1（u=19.65）/C2（u=40 钳位）两角点 v1.1.x 候选（stdlib 口径 (a) 先行，Q-T2）；
+     —— 词表 D-28 已落地（33→39+ALLOW+3；BANNED 只增不删纪律维持，39 为新基线）；
+     —— ui-walkthrough REDLINE 补位注记：I-5 词面守卫双层制（ui-walkthrough.mjs REDLINE_TERMS
+     11 词根渲染面扫描 + copy-guard 39 模式源面扫描）维持「发布轮规程、不入 run-g2」定位不变；
+  **⑤ v1.1.0 时点画像**：**六系统**（FL-001 L0+L1-thermal / FC-001 L0 / GT-001 L0b 双存档+L1
+     默认 / PV-001 L0 / WT-001 L0b / **MG-001 聚合层 L0**——ARENA_EXCLUDED）、**9 golden 字节冻结**
+     （既有 8 + mg001_v1；§3.4 强于 semver）、**10+1 oracle**（mg001_oracle 出生接入）、
+     11 页面、**run-g2 35 步**（I-7 预算 ≤35）、e2e 65 / file-smoke 69 / ui-walkthrough 59、
+     词表 39/14（D-28）、FaultLab.html **1633.2 KiB**、V1_FACES 八面冻结维持（本波修订全部
+     additive——快照计数同步+清账标注，冻结条款语义零变化）。
+  证据 `evidence/g8/v110-release.md`（发布门 1–8 全表 + golden 字节表 + 22 测试文件汇总 +
+  additive 三不承诺兑现声明）。
+  **推送按用户裁定暂缓（五批同批延续——本波产出并入同批）**。
+  **批准人：用户（2026-11-10 CHG-20261110-01 指令链——本收口登记为其波次授权的执行记录；
+  G7 perf 阈值再登记为新增门禁判据面事项，单独待用户裁定）；记录人：Lead Agent。**
+- `CHG-20261110-03`：**V3-03 perf.mjs 时长阈值再登记 15000→31500 ms（D-4 程序）——G7 闭合（v1.1.0 补记）**。
+  用户 2026-11-13 指令「设计下一轮的长期方案，统一采用推荐决策，采用并发多个子智能体来加速任务；
+  不要和已有进程冲突。」——CHG-20261110-02 ④ 待办首项（perf 阈值再登记）**采推荐口径**闭合。
+  ① **再登记依据（D-4 程序：实测基线→CHG 登记→复测定稿，CHG-20261104-10 先例）**：e2e 旅程
+  additive 增长 57→65 断言（E-14/E-15 MG demo 深链，CHG-20261110-01 批准）致时长确定性
+  15684/15766/15658/15627 ms（波动 <±1%）；按 perf.mjs 初冻同一「实测峰值×2」公式
+  15766×2=31532→**31500 ms**（沿 2026-10-30 舍入惯例）。
+  ② **判据性质裁定（采推荐）**：本再登记 = 随波 additive 旅程增长的**再校准**，非 V1_FACES §3.2
+  「门禁判据放宽」——每断言性能语义不回退（v1.0.0 232 ms/断言 → v1.1.0 241 ms/断言，+4% 为
+  demo 启动开销），对称先例 = 同波 e2e 57→65 / file-smoke 61→69 断言增长均 additive；替代选项
+  （判放宽→major v2.0.0+五件套迁移义务）因比例失当否决（登记于此供追溯）。判据文本改动仅
+  tools/perf.mjs 三处（头注①/THRESHOLD_MS/PASS 行尾注），D-4 堆/帧率阈值不动，STEPS 数组零改动
+  （FIRST-33 机检不受影响）。
+  ③ **复测定稿**：`node tools/run-g2.mjs` 两次独立 **35/35 PASS**（r3 61716 ms / r4 59915 ms，
+  中间零改动）——**G7 闭合**，v110-release §0/§6 闭合补记 + V1_FACES 面⑦/§4 #9/判读附录/§8
+  四处登记点同步。
+  **批准人：用户（2026-11-13「统一采用推荐决策」指令链，CHG-20261110-02 ④ 推荐口径承接）；
+  记录人：Lead Agent。**

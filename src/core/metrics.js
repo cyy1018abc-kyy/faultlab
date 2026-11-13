@@ -119,6 +119,15 @@
     var magnitude = faulted ? cfg.fault.params.magnitude : null;
     var noiseEnabled = !!(cfg.noise && cfg.noise.enabled);
     var isFL = system.id === 'FL-001';
+    /* MG-001 键控 additive（MG001_G2B_SPEC_APPROVED v1.0 §1.4/§4 项 7；W6 落地面，
+       CHG-20261110-01）：FOCAL_SIGNAL/SOURCE_SIGNAL 均无 MG-001 注册物——聚合层机制上
+       无单一焦点信号（四源聚合 + 拓扑重整面，平衡特征由 P_shed/P_dump/island_state
+       承载）亦无单源电能对应物（四源账本由 engine.js MG 指标补全块 E_pv/E_wt/E_bess/
+       E_grid 承载，EQ-MG-8）。MG 走键控跳过分支：两通用指标保持不可用（禁止填 0 冒充），
+       但以 MG 正确语义承载 label/definition/source_signal_ids（修 W5 遗留
+       「发电机真实电能」/「∫ undefined」字面渗漏）；既有五系统分支零变化
+       （WT/PV focal_change/SOURCE 现状维持其规格登记的待注册面，本波零触碰）。 */
+    var isMG = system.id === 'MG-001';
 
     /* 能量/SOC 方法标注：有引擎解析积分为 analytic_flux；只有序列时回退 trapezoid（导入复核） */
     var eMethod = ctx.integrals ? P0_ANALYTIC : 'trapezoid';
@@ -188,13 +197,16 @@
        「P_gen := P_load − P_bat + P_loss 为定义（thermal on 记账口径）」；off 域维持
        原串逐字不变（off 轨指标面零漂移，FLTH-G2b-04 off 轨逐位不变验收面）。 */
     var flThermalOn = isFL && cfg.thermal_model === 'on';
-    mk(isFL ? 'E_gen_true_60s' : 'E_source_kWh', srcLabel,
+    mk(isFL ? 'E_gen_true_60s' : 'E_source_kWh',
+      isMG ? '单源电能指标（聚合层不适用）' : srcLabel,
       eSource === null ? null : eSource / 3600, 'kWh', 5,
       null, {
-        source_signal_ids: [srcSig],
+        source_signal_ids: isMG ? [] : [srcSig],
         blindSafe: false,
-        definition: '∫ ' + srcSig + ' dt / 3600（' + srcLabel + '）；P_gen := P_load − P_bat' +
-          (flThermalOn ? ' + P_loss 为定义（thermal on 记账口径）' : ' 为定义')
+        definition: isMG
+          ? 'MG-001 聚合层无单源电能指标对应物（SOURCE_SIGNAL 无 MG-001 注册——四源账本由 E_pv_kWh/E_wt_kWh/E_bess_kWh/E_grid_kWh 承载，EQ-MG-8）；本指标保持不可用'
+          : '∫ ' + srcSig + ' dt / 3600（' + srcLabel + '）；P_gen := P_load − P_bat' +
+            (flThermalOn ? ' + P_loss 为定义（thermal on 记账口径）' : ' 为定义')
       });
     mk(isFL ? 'E_bat_true_60s' : 'E_bat_kWh', '电池真实电能（带符号）',
       eBat === null ? null : eBat / 3600, 'kWh', 5,
@@ -355,13 +367,15 @@
       focalMeta ? focalMeta.unit : '', 2,
       'analytic', {
         method_version: '1',
-        source_signal_ids: [focalSig],
+        source_signal_ids: isMG ? [] : [focalSig],
         time_window_s: faulted ? [tStart, duration] : [0, duration],
         blindSafe: false,
-        definition: faulted ? ('从 t_start_s 到 duration_s 的 ' + focalSig + ' 变化量（末值−故障时刻值）') : '无故障运行，不适用',
+        definition: isMG
+          ? 'MG-001 聚合层无单一焦点信号（FOCAL_SIGNAL 无 MG-001 注册——四源聚合 + 拓扑重整面：平衡重整特征由 P_shed/P_dump/island_state 承载，EQ-MG-4/6）；本指标保持不可用'
+          : (faulted ? ('从 t_start_s 到 duration_s 的 ' + focalSig + ' 变化量（末值−故障时刻值）') : '无故障运行，不适用'),
         focal: true,
-        signal_id: focalSig,
-        signal_label: focalMeta ? focalMeta.label : focalSig
+        signal_id: isMG ? null : focalSig,
+        signal_label: isMG ? null : (focalMeta ? focalMeta.label : focalSig)
       });
 
     /* ---- GT-001 专属：频率最低点 / 恢复时间 / 转子动能 ---- */

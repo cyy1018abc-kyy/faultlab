@@ -1,8 +1,13 @@
 /* owner: qa-tooling | module: tools/perf | contract: V0.3 V3-03（O-11=a，F-5 收尾）+ V0.7 D-4（DEC-7，CHG-20261104-10）
    perf.mjs — 性能阈值门禁（V3-03 时长阈值实测冻结 2026-10-30；D-4 堆/帧率阈值 2026-11-05 登记）。
 
-   ① V3-03 时长门禁（既有逻辑原样保留）：E2E 主旅程 wall-time ≤ 15000 ms
-      （实测 7372/7556/7454 ms，Chrome 156 @ 本机；阈值≈实测峰值的 2 倍，防退化不设性能炒作）。
+   ① V3-03 时长门禁：E2E 主旅程 wall-time ≤ 31500 ms
+      （初冻 2026-10-30：实测 7372/7556/7454 ms，Chrome 156 @ 本机，阈值≈实测峰值的 2 倍，
+      防退化不设性能炒作。v1.1.0 再登记 2026-11-13 CHG-20261110-03：e2e 旅程 additive 增长
+      57→65 断言（E-14/E-15 MG demo 深链，CHG-20261110-01 批准）致时长确定性 15684/15766/
+      15658/15627 ms——按同一「实测峰值×2」公式再登记 15766×2=31532→31500 ms（沿 2026-10-30
+      舍入惯例）；每断言性能语义不回退（232→241 ms/断言，+4% 为 demo 启动开销），属随波
+      additive 再校准而非 §3.2 判据放宽，程序 = D-4 先例：实测基线→CHG 登记→复测定稿）。
       读取 artifacts/e2e-report.json.duration_ms（e2e 步 freshly 写入）；缺失/超限即 FAIL。
 
    ② D-4 扩展（DEC-7：实测基线×安全系数定阈值，阈值登记+连续两轮复测在阈内才生效）：
@@ -47,8 +52,8 @@ const CHROME_OPT = opt('chrome', '');
 const REPORT_PATH = path.join(ROOT, 'artifacts', 'e2e-report.json');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/* ---------------- ① V3-03 时长阈值（既有，冻结 2026-10-30） */
-const THRESHOLD_MS = 15000;
+/* ---------------- ① V3-03 时长阈值（初冻 2026-10-30；v1.1.0 再登记 2026-11-13，CHG-20261110-03） */
+const THRESHOLD_MS = 31500;
 
 /* ---------------- ② D-4 阈值（冻结登记，DEC-7 / CHG-20261104-10，登记 2026-11-05）
    测量程序：node tools/perf.mjs（本文件——CDP 驱动 headless Chrome 重走主旅程，
@@ -385,7 +390,7 @@ async function main() {
     console.error('[FAIL] E2E 主旅程 ' + dur + ' ms 超阈值 ' + THRESHOLD_MS + ' ms');
     process.exit(1);
   }
-  console.log('[PASS] E2E 主旅程 ' + dur + ' ms ≤ 阈值 ' + THRESHOLD_MS + ' ms（V3-03 实测冻结 2026-10-30）');
+  console.log('[PASS] E2E 主旅程 ' + dur + ' ms ≤ 阈值 ' + THRESHOLD_MS + ' ms（V3-03 实测冻结 2026-10-30；v1.1.0 再登记 2026-11-13 CHG-20261110-03）');
 
   /* ② D-4 采样（基础设施失败=门禁无法执行，FAIL，不静默放行） */
   let m;

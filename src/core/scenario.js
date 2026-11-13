@@ -4,12 +4,18 @@
      交 FL.core.createConfig → FL.registry.createRun（内部走 FL.core.simulate 既有入口），
      不引入新执行语义、不触碰三系统物理方程；
    - schema v1 契约：
-       { scenario_id?: string, version: 1, label?: string, system: 'FL-001'|'FC-001'|'GT-001',
+       { scenario_id?: string, version: 1, label?: string,
+         system: string（systems.js 注册目录封闭白名单——knownSystemIds 动态派生：
+                  现含 FL-001 / FC-001 / GT-001 / PV-001 / WT-001 / MG-001）,
          events: [ { key: string(唯一), label?: string, family: string, params: object,
-                     t_start_s: number, t_clear_s?: number|null(仅 GT-001×actuator_fault),
+                     t_start_s: number,
+                     t_clear_s?: number|null(仅 GT-001×actuator_fault ∨ MG-001×island_event——
+                       MG001_G2B_SPEC_APPROVED v1.0 §2.4 守卫扩展，CHG-20261110-01 批准链),
                      inertia_model?: 'swing'|'linear'|'thermo'(仅 GT-001，缺省解析为系统默认轨),
                      thermal_model?: 'off'|'on'(仅 FL-001，缺省解析为系统默认轨),
                      feedback_mode: 'closed_loop'|'monitor' } ] }；
+       （island_event 为 MG 故障族、非事件键——EVENT_KEYS/hashProjection 零变化，
+         族准入面 = systems.js 故障目录成员 + 上述 t_clear_s 守卫扩展；规格 §4 项 8。）
    - 事实源：src/core/systems.js（faults 目录 = family/params min-max-step/timeRange/defaultTime_s）
      + docs/FAULT_CATALOG.md（授权状态：非「已删除」方可准入）；
    - 场景共享信封（C-5，DEC-3 / CHG-20261108-01；exportTeachingPath 先例）：
@@ -330,14 +336,21 @@
       }
     }
 
-    /* t_clear_s：仅 GT-001 × actuator_fault 允许（schema v1 契约）；字段一旦出现即视为
-       「提供了该键」——非 GT-执行器事件即使显式 null 也拒绝（null 语义由缺省承担）。
-       GT-执行器上 null = 无清除；数字须满足 0.1 s 网格、晚于 t_start_s、早于 duration。 */
+    /* t_clear_s：仅 GT-001 × actuator_fault ∨ MG-001 × island_event 允许（schema v1 契约）；
+       字段一旦出现即视为「提供了该键」——非授权事件即使显式 null 也拒绝（null 语义由缺省
+       承担）。GT-执行器上 null = 无清除；MG-001×island_event（MG001_G2B_SPEC_APPROVED
+       v1.0 §2.4 守卫扩展，CHG-20261110-01 批准链——Q1(b) 定案：重连语义由 t_clear_s 承载，
+       GT-001 t_clear 先例同构；EVENT_KEYS/hashProjection 零变化，既有场景哈希零变化）上
+       null = 窗末持续脱离；数字须满足 0.1 s 网格、晚于 t_start_s、早于 duration。
+       授权错误文案保留「仅 GT-001 × actuator_fault」前缀子串（既有负例断言锚点，
+       scenario.test.js N35/PV 负例同源）。 */
     var tClear = null;
     var isGtActuator = !!(system && def && system.id === 'GT-001' && def.family === 'actuator_fault');
+    var isMgIsland = !!(system && def && system.id === 'MG-001' && def.family === 'island_event');
+    var tClearCapable = isGtActuator || isMgIsland;
     if (ev.t_clear_s !== undefined) {
-      if (!isGtActuator) {
-        errors.push({ field: at + '.t_clear_s', message: '仅 GT-001 × actuator_fault 事件允许 t_clear_s（当前 ' + (system ? system.id : '?') + (def ? ' × ' + def.family : '') + '，无清除支持）' });
+      if (!tClearCapable) {
+        errors.push({ field: at + '.t_clear_s', message: '仅 GT-001 × actuator_fault / MG-001 × island_event 事件允许 t_clear_s（当前 ' + (system ? system.id : '?') + (def ? ' × ' + def.family : '') + '，无清除支持）' });
       } else if (ev.t_clear_s === null) {
         tClear = null; /* 显式无清除：归一化后省略该键 */
       } else if (!isFiniteNumber(ev.t_clear_s)) {

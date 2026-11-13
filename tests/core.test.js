@@ -239,16 +239,21 @@ eq(FL.rng.gauss(FL.rng.mulberry32(5)), FL.rng.gauss(FL.rng.mulberry32(5)), 'rng.
 /* 1. SystemDef 元数据完整性                                           */
 /* ================================================================== */
 const sysList = systems.list();
-/* 注册表随波演进（本两条仅随注册表键面更新，既有系统物理/数值断言零改动）：
+/* 注册表随波演进（本三条仅随注册表键面更新，既有系统物理/数值断言零改动）：
    PV-001 注册 3→4（PV001_G2B_SPEC_APPROVED v1.0 / CHG-20261104-10，V070_WAVE_DESIGN §3
    预期失效面）；WT-001 注册 4→5（WT001_G2B_SPEC_APPROVED v1.0 / CHG-20261107-01，
-   L4 系统面落地，V080 预期失效面——L9a 逐项登记）。 */
-eq(sysList.length, 5, 'systems.list 返回五个系统（PV-001、WT-001 注册面演进）');
-eq(sysList.map((s) => s.id).join(','), 'FL-001,FC-001,GT-001,PV-001,WT-001', 'systems.list 顺序稳定（WT-001 尾接）');
+   L4 系统面落地，V080 预期失效面——L9a 逐项登记）；MG-001 注册 5→6
+   （MG001_G2B_SPEC_APPROVED v1.0 / CHG-20261110-01，MG-G2b-04 systems.js 面，
+   V110_WAVE_DESIGN §2 W5——尾接，本波预期失效面）。 */
+eq(sysList.length, 6, 'systems.list 返回六个系统（PV-001、WT-001、MG-001 注册面演进）');
+eq(sysList.map((s) => s.id).join(','), 'FL-001,FC-001,GT-001,PV-001,WT-001,MG-001', 'systems.list 顺序稳定（MG-001 尾接）');
 sysList.forEach((item) => {
   ok(item.experimentCode && item.title && item.shortTitle && item.tagline && item.level, 'systems.list 字段齐备（' + item.id + '）');
   eq(item.available, true, 'systems.list available（' + item.id + '）');
-  eq(item.defaultFaultFamily, 'sensor_drift', 'systems.list defaultFaultFamily（' + item.id + '）');
+  /* MG-001 默认族 = 目录首族 load_step（MG 四族为聚合/联动面，无 sensor_drift——
+     MG001_G2B_SPEC_APPROVED v1.0 §2；其余五系统维持 sensor_drift 既有键面）。 */
+  eq(item.defaultFaultFamily, item.id === 'MG-001' ? 'load_step' : 'sensor_drift',
+    'systems.list defaultFaultFamily（' + item.id + '）');
 });
 
 ['FL-001', 'FC-001', 'GT-001'].forEach((id) => {

@@ -419,6 +419,10 @@ FL-001 为电池真实电流变化 A；FC 为电堆真实电流；GT 为发电�
 （FL/FC/GT，均带 E_bat 电池面）必含；无 SOC/E_bat 面的系统（PV-001/WT-001）不派发，
 其能量恒等由系统专属 PHY 检查承载（PV：`pv-energy-consistency`；WT：`wt-energy-identity`）。
 GT 系统的 power conservation 含 `P_rotor_kW` 项（见 §5.3）。
+（v1.1.0 增补，CHG-20261110-01/02：MG-001 同不派发 soc-bounds/energy-balance——SOC 账本面
+存在但 bounds 刻意不含 SOC_pct（聚合层无 E_source/E_bat 通用指标面，声明将致 energy-balance
+恒 fail 误报），账本一致性由 EQ-MG-6 `r_true ≡ 0` 恒等信号与 tests/engine-mg.test.js 承载，
+SOC 域校验走 validateConfig 分支（MG-IMP-Q1 reject 纪律）；既有五系统检查输出零变化。）
 
 ### 4.9 Causal（`run.causal`）
 

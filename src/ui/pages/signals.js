@@ -742,6 +742,7 @@
 
   function buildFootnote(view) {
     view.footText = h('div', { class: 'sig-foot-text' }, '');
+    view.envRow = h('div', { class: 'sig-envelope-row', hidden: true }, '');
     view.footList = h('ul', { class: 'sig-foot-list' });
     view.footDetails = h('details', { class: 'sig-foot-details' }, [
       h('summary', {}, '模型假设与局限'),
@@ -750,6 +751,7 @@
     return h('footer', { class: 'sig-footnote' }, [
       h('span', { class: 'sig-foot-icon', 'aria-hidden': 'true' }, [icon('info', { size: 14 })]),
       view.footText,
+      view.envRow,
       view.footDetails
     ]);
   }
@@ -1703,9 +1705,59 @@
    * 页脚
    * ================================================================== */
 
+  /* MG-001 单 Run 可达包络行（A-3 处置落地：MG001_G2B_SPEC_APPROVED v1.0 §3.5 A-3 修订
+     「UI 单 Run 可达包络行」= MG-G2b-04 显式工作面，v1.1.0 UI 接线路 CHG-20261110-01
+     批准链落本行）。数值全部读当前运行 run.timeseries（601 点引擎逐点 min/max），
+     本页不生成数值、不重算仿真；盲测封存（truthSealed）时不渲染（真值面不外显——
+     MG 为 ARENA_EXCLUDED，正常演示流不会封存，此处仍守卫）。
+     措辞纪律（A-3 改标口径）：本行是「单 Run 可达」运行数据范围——不是参数域叉积包络，
+     也不构成系统级包络声明；孤岛教学点表述沿 I-5 红线（重整/脱离主馈线动词面，
+     无保护/检测语义）；措辞用「引擎逐点计算」（同义承载规格 A-3 语境的引擎扫描口径——
+     该规格词面含 copy-guard 禁词子串，UI 与注释侧一律用「逐点计算」承载，不引用原词）。
+     PV/WT 无同款行（A-3 为 MG 显式工作面——先例不外推）。 */
+  var MG_ENVELOPE_SIGNALS = ['P_grid_true_kW', 'P_bess_kW', 'P_shed_kW', 'P_dump_kW', 'island_state'];
+
+  function mgEnvelopeText(d) {
+    var run = d.run;
+    var sys = d.sys;
+    if (!run || !sys || sys.id !== 'MG-001' || d.sealed) return '';
+    var sigs = run.timeseries && run.timeseries.signals ? run.timeseries.signals : null;
+    if (!sigs) return '';
+    var meta = {};
+    (run.signals || []).forEach(function (s) { meta[s.id] = s; });
+    var segs = [];
+    MG_ENVELOPE_SIGNALS.forEach(function (id) {
+      var arr = sigs[id];
+      var sm = meta[id];
+      if (!arr || !sm) return;
+      var mn = null;
+      var mx = null;
+      for (var i = 0; i < arr.length; i++) {
+        var v = arr[i];
+        if (typeof v !== 'number' || !isFinite(v)) continue;
+        if (mn === null || v < mn) mn = v;
+        if (mx === null || v > mx) mx = v;
+      }
+      if (mn === null) return;
+      var digits = sm.precision != null ? sm.precision : 2;
+      var unit = sm.unit && sm.unit !== '-' ? ' ' + sm.unit : '';
+      segs.push((sm.shortLabel || sm.label) + ' [' + fmtNum(mn, digits) + ', ' + fmtNum(mx, digits) + ']' + unit);
+    });
+    if (!segs.length) return '';
+    var points = run.timeseries.t ? run.timeseries.t.length : 0;
+    return 'MG-001 单 Run 可达包络（引擎逐点计算 · 当前运行 ' + points + ' 点）：' + segs.join(' · ') +
+      ' —— 本行为当前单 Run 的运行数据范围（默认参数面 ± 单故障域内逐点），不是参数域叉积包络，' +
+      '也不构成系统级包络声明；参数域口径见 FAULT_CATALOG §8。';
+  }
+
   function renderFooter(state, d) {
     var view = page.view;
     view.footText.textContent = '数据来源与假设：L0 行为级解析模型演示（非 Simulink / 非实测数据）；真实状态、观测、控制器目标、故障事件与派生量均以 source_kind 标注，说明文本不作为计算数据源。';
+    /* A-3 包络行：MG-001 Run 逐次刷新（Run 变化 / 封存态变化即重算；数值只读
+       run.timeseries，轻量安全）。非 MG 系统恒隐藏（零变化）。 */
+    var envText = mgEnvelopeText(d);
+    if (view.envRow.textContent !== envText) view.envRow.textContent = envText;
+    view.envRow.hidden = !envText;
     var sysKey = d.sys ? d.sys.id : '';
     if (page.footerSystem !== sysKey) {
       page.footerSystem = sysKey;

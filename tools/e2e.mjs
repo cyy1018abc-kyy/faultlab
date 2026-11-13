@@ -18,13 +18,27 @@
  *   E-09 深链残留面：teaching 页 → hash 深链进 signals → 切 scenario（SPA 离开）
  *        → #page-signals 恢复非激活隐藏（v0.7.0 UI 路探针发现路径固化，
  *        v0.7.2 清算项 4；E-02 用整页刷新覆盖不到这条 SPA 残留路径）。
- *   E-10 五系统卡：home 五系统卡 + WT-001 入卡（v0.8.0 UI 接线路，CHG-20261107-01）；
+ *   E-10 六系统卡：home 六系统卡 + WT-001 入卡（v0.8.0 UI 接线路，CHG-20261107-01）
+ *        + MG-001 入卡与名称/level 徽章/I-5 描述（v1.1.0 UI 接线路，CHG-20261110-01）；
  *   E-11 WT-001 深链系统页 + demo Run 关键信号 601 点（P_wt / d_wt / n_rotor）；
- *   E-12 Arena 排除：系统选择器与页面文本不含 WT-001 / PV-001（ARENA_EXCLUDED 守卫）；
- *   E-13 scenario 页 METRIC_PICK 声明 WT-001 键 + FL thermal_model 展示面
- *        （同源取模块源的源级断言——内部常量无 DOM 直读面，fetch 本地不计外联）。
+ *   E-12 Arena 排除：系统选择器与页面文本不含 WT-001 / PV-001 / MG-001
+ *        （ARENA_EXCLUDED 守卫——MG-001 增项为 V110 DEC-4，CHG-20261110-01）；
+ *   E-13 scenario 页 METRIC_PICK 声明 WT-001 / MG-001 键 + FL thermal_model 展示面
+ *        （同源取模块源的源级断言——内部常量无 DOM 直读面，fetch 本地不计外联）；
+ *   E-14 MG-001 深链系统页 + 四族注入面（v1.1.0 UI 接线路，CHG-20261110-01）：
+ *        load_step / shading_link / gust_link / island_event 四族卡在场；
+ *        island_event 零参数族（Q2 定案）——无幅值输入、t_clear_s 重连时刻编辑器
+ *        缺省 35 s（golden mg001_v1 island_reconnect 锚定值）；
+ *   E-15 MG-001 signals 页 + A-3 单 Run 可达包络行（MG001_G2B_SPEC_APPROVED v1.0
+ *        §3.5 A-3 修订的 UI 落地面）：关键信号 601 点 + 页脚包络行在场 +
+ *        措辞带「不是参数域叉积包络」改标口径。
  *
  * 退出码：0=全部通过；1=存在失败项。报告写 <--out 目录>/e2e-report.json。
+ *
+ * v1.1.0 MG 六系统波（V110_WAVE_DESIGN §2 W7，CHG-20261110-01 批准链）：
+ *   断言 57→65（E-10 增 MG 卡面 1 条、E-13 增 MG 键 1 条、新增 E-14/E-15 各 3 条）；
+ *   既有 E-01..E-13 旅程与判据零语义变化（E-10 卡数 5→6、E-12 排除清单增 MG-001
+ *   为系统数扩展面）。旅程覆盖清单随 E-14/E-15 增补，执行顺序与退出码不变。
  *
  * V0.3.0 T3 双浏览器追溯增强（不改变旅程、40 条断言、执行顺序与退出码）：
  *   - --out 输出目录在 main() 启动即创建（原为截图/写报告时才创建）；
@@ -428,16 +442,31 @@ async function main() {
       'E-09：对照 #page-teaching 同样恢复隐藏（内层根模式基线）',
       'display=' + afterLeave.teaDisplay + ' visible=' + afterLeave.teaVisible);
 
-    /* E-10 五系统卡（v0.8.0 UI 接线路 CHG-20261107-01：home 五系统化 + WT-001 入卡） */
+    /* E-10 六系统卡（v0.8.0 UI 接线路 CHG-20261107-01：home 五系统化 + WT-001 入卡；
+       v1.1.0 UI 接线路 CHG-20261110-01：六系统化 + MG-001 入卡——卡名/level 徽章/
+       I-5 描述文案面断言） */
     await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&page=home' });
     await wait(1400);
-    const home5 = await cdp.evalExpr(`(function(){
+    const home6 = await cdp.evalExpr(`(function(){
       const cards = Array.prototype.slice.call(document.querySelectorAll('.home-sys-card'));
       return { count: cards.length,
                ids: cards.map(function (c) { return c.getAttribute('data-system'); }) };
     })()`);
-    eq(home5.count, 5, 'E-10：home 五系统卡');
-    ok(home5.ids.indexOf('WT-001') !== -1, 'E-10：home 卡序含 WT-001（L0b 徽章）', JSON.stringify(home5.ids));
+    eq(home6.count, 6, 'E-10：home 六系统卡');
+    ok(home6.ids.indexOf('WT-001') !== -1, 'E-10：home 卡序含 WT-001（L0b 徽章）', JSON.stringify(home6.ids));
+    const homeMg = await cdp.evalExpr(`(function(){
+      const card = document.querySelector('.home-sys-card[data-system="MG-001"]');
+      if (!card) return { found: false };
+      const title = (card.querySelector('.home-sys-title') || {}).textContent || '';
+      const level = (card.querySelector('.home-sys-level') || {}).textContent || '';
+      const tagline = (card.querySelector('.home-sys-tagline') || {}).textContent || '';
+      return { found: true, title: title, level: level, tagline: tagline };
+    })()`);
+    ok(homeMg.found && homeMg.title === '微电网多源聚合系统' &&
+      /^聚合层 L0/.test(homeMg.level) && homeMg.tagline.indexOf('分断主馈线') !== -1 &&
+      homeMg.tagline.indexOf('重整') !== -1,
+      'E-10：MG-001 卡名称/level 徽章（聚合层 L0）/I-5 描述（主馈线分断 + 功率平衡重整表述）',
+      JSON.stringify(homeMg));
 
     /* E-11 WT-001 深链系统页 + 关键信号（WT-G2b-04 UI 接线面：?system= 深链 +
        demo=1 自动建 Run；关键信号取 Run 数据面 601 点——P_wt / d_wt / n_rotor） */
@@ -456,7 +485,8 @@ async function main() {
       'E-11：WT-001 demo Run 关键信号 601 点可见（P_wt / d_wt / n_rotor）',
       JSON.stringify({ hasRun: wtRun.hasRun, pwt: wtRun.pwt, dwt: wtRun.dwt, nrotor: wtRun.nrotor }));
 
-    /* E-12 Arena 排除 WT-001（ARENA_EXCLUDED 守卫——PV DEC-2 同款，CHG-20261107-01） */
+    /* E-12 Arena 排除 WT-001 / PV-001 / MG-001（ARENA_EXCLUDED 守卫——PV DEC-2 同款，
+       CHG-20261107-01；MG-001 增项 = V110 DEC-4，CHG-20261110-01） */
     await cdp.send('Page.navigate', { url: base + '/index.html?page=arena' });
     await wait(700);
     const arenaChk = await cdp.evalExpr(`(function(){
@@ -468,22 +498,83 @@ async function main() {
     })()`);
     eq(arenaChk.page, 'arena', 'E-12：arena 页打开');
     ok(arenaChk.vals.indexOf('WT-001') === -1 && arenaChk.vals.indexOf('PV-001') === -1 &&
-      arenaChk.vals.indexOf('FL-001') !== -1,
-      'E-12：arena 系统选择器不含 WT-001 / PV-001（ARENA_EXCLUDED 守卫）', JSON.stringify(arenaChk.vals));
-    ok(arenaChk.text.indexOf('WT-001') === -1, 'E-12：arena 页面文本不含 WT-001');
+      arenaChk.vals.indexOf('MG-001') === -1 && arenaChk.vals.indexOf('FL-001') !== -1,
+      'E-12：arena 系统选择器不含 WT-001 / PV-001 / MG-001（ARENA_EXCLUDED 守卫）', JSON.stringify(arenaChk.vals));
+    ok(arenaChk.text.indexOf('WT-001') === -1 && arenaChk.text.indexOf('MG-001') === -1,
+      'E-12：arena 页面文本不含 WT-001 / MG-001');
 
-    /* E-13 scenario 页 METRIC_PICK 含 WT-001 键 + FL thermal_model 展示面。
+    /* E-13 scenario 页 METRIC_PICK 含 WT-001 / MG-001 键 + FL thermal_model 展示面。
        METRIC_PICK / thermalChipOf 为页面模块内部量：经同源静态服务器取模块源核对
        （源级断言，与 tests/causal-rules.test.js §7 同思路；fetch 127.0.0.1 属本地
        请求，不计入 E-08 外联判定）。 */
     const scnChk = await cdp.evalExpr(`(function(){
       return fetch('src/ui/pages/scenario.js').then(function (r) { return r.text(); }).then(function (t) {
         return { hasWT: /'WT-001':\\s*\\[/.test(t), hasDwt: t.indexOf('d_wt_kW') !== -1,
+                 hasMG: /'MG-001':\\s*\\[/.test(t), hasSixSys: t.indexOf('MG-001') !== -1,
                  hasThermal: t.indexOf('thermal_model') !== -1 };
       });
     })()`);
     ok(scnChk.hasWT && scnChk.hasDwt, 'E-13：scenario 页 METRIC_PICK 声明 WT-001 键（focal/ΔE_wt/d_wt）', JSON.stringify(scnChk));
+    ok(scnChk.hasMG, 'E-13：scenario 页 METRIC_PICK 声明 MG-001 键（focal 不可用/EQ-MG-8 账本口径）', JSON.stringify(scnChk));
     ok(scnChk.hasThermal, 'E-13：scenario 页含 FL thermal_model off/on 事件列展示面');
+
+    /* E-14 MG-001 深链系统页 + 四族注入面（v1.1.0 UI 接线路 CHG-20261110-01；
+       island_event 零参数族 = MG-DRAFT-Q2 定案——无幅值输入，t_clear_s 重连时刻
+       编辑器缺省 35 s = golden mg001_v1 island_reconnect 锚定值） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=MG-001&page=system' });
+    await wait(1500);
+    const mgFam = await cdp.evalExpr(`(function(){
+      const cards = Array.prototype.slice.call(document.querySelectorAll('.sys-family-card'));
+      const fams = cards.map(function (c) { return c.getAttribute('data-family'); });
+      const island = cards.filter(function (c) { return c.getAttribute('data-family') === 'island_event'; })[0] || null;
+      if (island) island.click();
+      return { systemId: FL.store.getState().systemId, page: FL.store.getState().page, fams: fams };
+    })()`);
+    await wait(400);
+    const mgIslandUI = await cdp.evalExpr(`(function(){
+      const host = document.querySelector('.sys-param-controls');
+      const labels = host ? Array.prototype.map.call(host.querySelectorAll('.field-label, label, .field .field-name'),
+        function (e) { return e.textContent || ''; }) : [];
+      const nums = host ? Array.prototype.map.call(host.querySelectorAll('input[type="number"]'),
+        function (e) { return e.value; }) : [];
+      const note = (document.querySelector('.sys-param-note, .sys-block-note') || {}).textContent || '';
+      const selected = document.querySelector('.sys-family-card.is-selected');
+      return { labels: labels, nums: nums, note: note,
+               selectedFam: selected ? selected.getAttribute('data-family') : '' };
+    })()`);
+    eq(mgFam.systemId + '@' + mgFam.page, 'MG-001@system', 'E-14：?system=MG-001 深链进入 MG 系统页');
+    ok(['load_step', 'shading_link', 'gust_link', 'island_event'].every(function (f) {
+      return mgFam.fams.indexOf(f) !== -1;
+    }), 'E-14：MG 四族故障家族卡在场（load_step/shading_link/gust_link/island_event）', JSON.stringify(mgFam.fams));
+    ok(mgIslandUI.selectedFam === 'island_event' && mgIslandUI.nums.length === 2 &&
+      Number(mgIslandUI.nums[1]) === 35 && mgIslandUI.nums[0].length > 0,
+      'E-14：island_event 零参数族注入面（无幅值输入——仅故障时刻 + 重连时刻 t_clear_s，缺省 35 s）',
+      JSON.stringify(mgIslandUI));
+
+    /* E-15 MG-001 signals 页 + A-3 单 Run 可达包络行（MG001_G2B_SPEC_APPROVED v1.0
+       §3.5 A-3 修订 UI 落地面；措辞带「不是参数域叉积包络」改标口径——不称全域） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=MG-001&page=signals' });
+    await wait(1500);
+    const mgSig = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      const sig = r && r.timeseries && r.timeseries.signals ? r.timeseries.signals : {};
+      const len = function (id) { return sig[id] ? sig[id].length : 0; };
+      const env = document.querySelector('.sig-envelope-row');
+      return { page: s.page, runSystem: r ? r.systemId : '',
+               ppv: len('P_pv_kW'), pgrid: len('P_grid_true_kW'), isl: len('island_state'),
+               envFound: !!env, envHidden: env ? env.hidden : null,
+               envText: env ? env.textContent : '' };
+    })()`);
+    ok(mgSig.page === 'signals' && mgSig.runSystem === 'MG-001' &&
+      mgSig.ppv === 601 && mgSig.pgrid === 601 && mgSig.isl === 601,
+      'E-15：MG-001 demo Run 关键信号 601 点可见（P_pv / P_grid / island_state）',
+      JSON.stringify({ page: mgSig.page, runSystem: mgSig.runSystem, ppv: mgSig.ppv, pgrid: mgSig.pgrid, isl: mgSig.isl }));
+    ok(mgSig.envFound && !mgSig.envHidden && mgSig.envText.indexOf('MG-001 单 Run 可达包络') === 0,
+      'E-15：A-3 MG 单 Run 可达包络行在场（信号页页脚，默认故障 Run 数据范围）', mgSig.envText.slice(0, 120));
+    ok(mgSig.envText.indexOf('不是参数域叉积包络') !== -1 && mgSig.envText.indexOf('全') === -1,
+      'E-15：包络行措辞带 A-3 改标口径（单 Run 可达 ≠ 参数域叉积包络，不称全域）',
+      mgSig.envText.slice(-120));
 
     /* E-08 离线与控制台 */
     ok(externalRequests.length === 0, 'E-08：无外部网络请求（纯浏览器离线）',

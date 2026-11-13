@@ -116,6 +116,7 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | GT sensor_drift / load_step / actuator_fault | §3.3 恢复条件清单 9 项全闭（GT G2b）+ L1 热力轨 G2b 批准（GTL1_G2B_SPEC_APPROVED v1.0，CHG-20261104-12） | extension_preview | GT001_G2B_SPEC_APPROVED + GTL1_G2B_SPEC_APPROVED + golden gt001_v2/v3（thermo 默认轨 → v3；swing/linear 遗留轨 → v2/v1 字节冻结留档） |
 | PV `G_sensor_bias` / `shading_step` | §8.2 新系统 G2b（PV001_G2B_SPEC_APPROVED，CHG-20261104-10 批准链） | extension_preview | PV001_G2B_SPEC_APPROVED + golden pv001_v1；SA-24 不动（scope.js 对 PV-001 全场景 fall-through 返回 extension_preview 即正确语义，classify/assertApprovedP0 零改动） |
 | WT `v_sensor_bias` / `pitch_stuck` / `gust_step` | §8.2 新系统 G2b（WT001_G2B_SPEC_APPROVED，CHG-20261107-01 批准链） | extension_preview | WT001_G2B_SPEC_APPROVED + golden wt001_v1；SA-24 不动（scope.js 对 WT-001 全场景 fall-through 返回 extension_preview 即正确语义，classify/assertApprovedP0 零改动，PV 同款）；gust_step 为新族名登记（§7 节） |
+| MG `load_step` / `pv_shading_link` / `wt_gust_link` / `island_event` | §8.2 新系统 G2b（MG001_G2B_SPEC_APPROVED，CHG-20261110-01 批准链） | extension_preview | MG001_G2B_SPEC_APPROVED + golden mg001_v1；SA-24 不动（scope.js 对 MG-001 全场景 fall-through 返回 extension_preview 即正确语义，classify/assertApprovedP0 零改动，PV/WT 同款）；`shading_link`/`gust_link` 为新族名登记（不复用 PV `shading_step`/WT `gust_step`——MG 聚合层子轨联动转发，作用位置与因果方向不同，§8 节）；`island_event` 零参数族（params:[]，库内首例，Q2 定案）+ t_clear_s 守卫扩展为 (GT-001×actuator_fault) ∨ (MG-001×island_event)（scenario.js，EVENT_KEYS/hashProjection 零变化，既有场景哈希零变化）；MG `load_step` 为聚合输入阶跃——与 FL-001 已删除 load_step（O-13）无语义继承（O-13 语义差异声明，§0/§8）；ARENA_EXCLUDED 增 'MG-001'（exposure 三值映射验证轮未做前不入池，V110 DEC-4） |
 
 ## 5. 状态勘误表（冻结时点后的授权状态变化登记于此）
 
@@ -129,6 +130,7 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | 2026-11-05 | GT-001 sensor_drift / load_step / actuator_fault（三族） | **L1 热力轨（thermo）G2b 批准并实现落地 → 三轨制 + thermo 默认**（§3 节更新：golden 增 gt001_v3 6 Run——schema v2、method gt001_l1_rk4_dt0.01、gate tier T-B（库内首个）、oracle `tools/oracle/gt001_l1_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261104-12 批准链首签；supersedes 链 v3→v2→v1，v1/v2 字节冻结留档、gt001_oracle.py 冻结归档债零触碰；verify_golden gt001 注册行重指向 gt001_v3 + T-B tier 参数化分派，fl001/fc001/pv001 T-A 路径零改动回归 exit 0；默认轨 swing→thermo 翻转（Q4 定案）；授权状态维持 extension_preview 不变、族白名单零改动） | GTL1_G2B_SPEC_APPROVED v1.0 §2/§3.3.1/§4 + ORACLE_INTERFACE_D2 §5.2 GTL1-G2b-03 触发处置登记 + CHG-20261104-12（Q1…Q5 定案） |
 | 2026-11-08 | FL-001（三族不变，模型轨面） | **thermal 轨（thermal_model=on）G2b 批准并实现落地 → off/on 双轨制 + off 默认**（§1 节增 thermal 轨注记行：golden 增 fl001_v2 4 Run 全部 on——schema v2、method fl001_thermal_rk4_dt0.01、gate tier T-B、supersedes=fl001_v1、model_version 1.1.0、oracle `tools/oracle/fl001_l1_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261107-01 批准链首签；EQ-FLTH-1…9 登记；verify_golden `fl001_l1` 注册行 + T-B series_limit 三分支补全（`_A`→I_A 键新分支、r_true/r_meas 判别前置于 `_kW` 解除遮蔽——gt001_v3 r_true_kW 六 Run 散差实测 0.0 后统一前移，B-3 裁定）+ 默认运行扩为 fl001+fl001_l1 双 golden；off 轨/fl001_v1 零变化；系统 scope 维持 approved_p0、族白名单零改动） | FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2/§4（项 4/6/7/8）+ V080_WAVE_DESIGN DEC-2/DEC-6 + CHG-20261107-01 |
 | 2026-11-08 | WT-001 `v_sensor_bias` / `pitch_stuck` / `gust_step` | **新系统登记（新增 §7 节）→ extension_preview**（WT G2b 批准 CHG-20261107-01；oracle `tools/oracle/wt001_oracle.py` + golden wt001_v1 5 Run 首签（schema v2、method wt001_l0b_euler_dt0.01、gate T-A，approval=CHG-20261107-01 批准链首签）+ verify_golden 注册行落地，WT-G2b-03；`gust_step` 为新族名（不复用 shading_step/load_step——环境输入侧上行气象阶跃，§2.3 族名裁定）；引擎 WT 轨/systems.js 由 WT-G2b-04 同波接入） | WT001_G2B_SPEC_APPROVED v1.0 §2/§4 + V080_WAVE_DESIGN DEC-4（CHG-20261107-01） |
+| 2026-11-11 | MG-001 `load_step` / `pv_shading_link` / `wt_gust_link` / `island_event` | **新系统登记（新增 §8 节）→ extension_preview**（MG G2b 批准 CHG-20261110-01；oracle `tools/oracle/mg001_oracle.py` 源轨复用委托接入（pv001/wt001 oracle import 显式授权 + BESS 能量面内联 + MS-3 复用一致性 emit 硬条件）+ golden mg001_v1 5 Run 首签（schema v2、method mg001_aggregate_analytic、gate T-A（含 I_A 两键，A-1 修订）、approval=CHG-20261110-01 批准链首签）+ verify_golden `mg001` 注册行落地 + scenario.js t_clear_s 守卫扩展 (GT-001×actuator_fault) ∨ (MG-001×island_event)（EVENT_KEYS/hashProjection 零变化）——MG-G2b-03/04，V110_WAVE_DESIGN DEC-5 步数账 33→35；`island_event` 零参数族（params:[]，库内首例，Q2 定案）；`shading_link`/`gust_link` 新族名（MG 聚合层子轨联动转发，不复用 PV/WT 本地族名）；MG `load_step` 为聚合输入阶跃（与 FL-001 已删除 load_step（O-13）无语义继承——O-13 语义差异声明）；引擎 MG 轨/systems.js MG001 SystemDef/UI 六系统化 + ARENA_EXCLUDED 增 'MG-001' 同波接入（V110 W5/W6/W7）） | MG001_G2B_SPEC_APPROVED v1.0 §2/§4 + V110_WAVE_DESIGN DEC-1/DEC-4/DEC-5（CHG-20261110-01） |
 
 ## 6. PV-001 光伏逆变器（L0，scope=extension_preview）
 
@@ -208,14 +210,87 @@ limitations 10 项/EQ-WT-1…9/initial v0_ms）+ checks.js WT 能量恒等分支
 'FL-001' 配置 fall-through 返回 extension_preview（PV 同款语义，零改动，无白名单挂载）；
 assertApprovedP0 对 WT 配置抛 SCOPE-E01（验收路径关闭，规格 §5）。
 
+## 8. MG-001 微电网多源聚合系统（聚合层 L0，scope=extension_preview）
+
+> 新增节（2026-11-11，MG-G2b-03/04，V110_WAVE_DESIGN §2 W4/W7）。规格权威文本 =
+> `NEXT/MG001_G2B_SPEC_APPROVED.md` v1.0（CHG-20261110-01 批准链，MG-DRAFT-Q1…Q7 定案
+> 已落正文）。时间尺度沿用 §0（采样 0.1 s、仿真窗 60 s、默认注入 t=20 s、601 点网格）。
+> MG-001 定位 **聚合层 L0 · 多源聚合行为级演示**（MG-DRAFT-Q3 定案；各源维持既有层级——
+> PV L0 / WT L0b / BESS 电池能量面 = FL-001 L0 电气面，组合输出 provenance 不升级）：
+> PV-001 子轨（G0=1000 固定）+ WT-001 子轨（v0=9 固定）+ BESS（FL-001 电池能量面：
+> 40 kWh / 400 V、P=0.4·I 换算、SOC 账本）+ 聚合负荷 → 单母线功率平衡聚合层；
+> 主馈线为理想平衡源补差（与 FL/PV/WT 的馈线同位同构），经主馈线分断开关接入；
+> 聚合层零新增 ODE 状态（EQ-MG-1…9 全代数——不建第四套物理栈，源轨原样复用）。
+> **I-5 措辞红线（本系统专项强化）**：孤岛教学点只能表述为「脱离主馈线的功率平衡重整
+> 演示」；禁电网保护/稳定/孤岛保护/防孤岛/并离网切换验证/低电压穿越等语义与措辞邻接
+> （B-1 口径：此类词面仅限 limitations 命名与否定式声明）；「主馈线」「分断开关」仅指
+> 补差功率源的理想通断抽象，不代表真实电网侧动态；无频率/电压/无功概念。
+> **O-13 语义差异声明**：MG `load_step` 是聚合输入阶跃（并网面由理想馈线瞬时补差吸收、
+> 孤岛面由 BESS 钳位 ±8 kW + 卸载/倾卸重整吸收，两模式恒等式按构造成立，EQ-MG-3/4/6），
+> 与 FL-001 已删除的 load_step（O-13：滞后发电机 + 恒电流电池守恒破缺）无语义继承——
+> 族名沿跨系统同名族惯例（FL/FC/GT 均有 load_step 族）。
+> **层级不升级（I-2）**：UI 层级标签「聚合层 L0 · 多源聚合行为级演示（G2b 已批准）」，
+> 不宣称组合输出为更高深度。
+
+| fault id | 家族 | 类型 | 作用位置 | 幅值参数 | 默认时刻 | 授权状态 | golden | 因果模板 |
+|---|---|---|---|---|---|---|---|---|
+| `load_step` | load_step（**与 FL-001 O-13 删除族无语义继承**——MG 聚合输入阶跃，见节首声明） | 聚合输入阶跃（瞬时，无爬坡） | load（聚合负荷） | 有符号域 −10…+20 kW，step 5，默认 +10 kW（Q6 定案：下行域使倒送角点 load_eff < ΣP_source ⇒ P_grid < 0 域内可达；load_eff ≥ 0 由域设计保证——load_kW min 10 + step min −10） | t=20 s（域 [2,55]） | **extension_preview**（MG G2b 已批准，`MG001_G2B_SPEC_APPROVED.md`） | mg001_v1（5 Run：healthy + load_step_closed_loop + pv_shading_closed_loop + wt_gust_closed_loop + island_reconnect；schema v2、approval CHG-20261110-01 批准链首签） | mg-load-step |
+| `pv_shading_link` | shading_link（**新族名**——不复用 PV `shading_step`：MG 聚合层的子轨联动转发 vs PV 本地物理输入，作用位置与因果方向不同，WT §2.3 独立族名裁定先例） | 子轨物理输入联动注入（PV-001 子轨 shading_step 透传，源域原样） | pv_unit（光伏子轨） | 遮挡降幅 50…300 W/m²，step 25，默认 300 W/m²（G0 1000→700） | t=20 s（域 [2,55]） | **extension_preview**（同上） | mg001_v1（同上；monitor 轨不重复入 golden——物理输入与控制模式无关、两模式逐位同解（复算实证 d_pv=0.00e+00），PV shading 先例延用） | mg-pv-shading-link |
+| `wt_gust_link` | gust_link（**新族名**——同上裁定：MG 子轨联动转发，不复用 WT `gust_step`） | 子轨物理输入联动注入（WT-001 子轨 gust_step 透传，源域原样） | wt_unit（风电子轨） | 阵风增幅 +1.0…3.0 m/s，step 0.5，默认 +2.0 m/s（v 9→11 跨额定区 v_rated=10.302：P_wt 爬升封顶 15 kW、P_grid→0.000000 kW **零导入角点**（\|·\| ≤ 1e-9 容差声明——PV 10 + WT 15 + BESS 5 = load 30 恰平，合法角点非缺陷）） | t=20 s（域 [2,55]） | **extension_preview**（同上） | mg001_v1（同上；monitor 轨不重复入 golden——同上逐位同解实证 d_wt=0.00e+00） | mg-wt-gust-link |
+| `island_event` | island_event | 拓扑分断事件（理想通断——分断即馈线功率恒为 0、重连即恢复补差；无检同期、无过渡过程、无保护逻辑，A-mg-island-abstract） | switch（主馈线分断开关） | **零参数族（params:[]，库内首例——MG-DRAFT-Q2 定案）**：脱离/重连语义由 t_start_s（脱离）与 t_clear_s（重连）完整承载，无幅值语义，挂空 magnitude 为伪参数不采；t_clear_s 域 (t_start, 60) s、0.1 s 网格（GT-001 actuator_fault t_clear 域同构），缺省 = 窗末持续脱离，**golden 锚定 t_clear=35**（UI 编辑器缺省沿该锚定值） | t=20 s（域 [2,55]） | **extension_preview**（同上） | mg001_v1（island_reconnect Run：脱离 EV-001 / 重连 EV-002 双事件快照——target_signal=island_state、magnitude=null；重整三相锚点 island_state 0→1→0、P_grid 5→0→5、P_bess 5→8（chase=10 超上限钳位）→5、P_shed 0→2→0） | mg-island-event |
+
+**实现事实（MG-G2b-03/04，2026-11-11 本波落地；V110_WAVE_DESIGN §2 W4/W5/W6/W7）**：
+独立 oracle `tools/oracle/mg001_oracle.py`（**源轨复用委托**形制——`import pv001_oracle`/
+`import wt001_oracle` 为规格 G2b 批准的显式授权面，MG 不重写任何源方程；BESS 能量面
+3 行内联（P=0.4·I、SOC 积分式、钳位代数），权威文本 = FL-001 已批规格电气面；
+不 import src/**；**MS-3 复用一致性 emit/verify 双面硬条件**：源通道序列与 pv001_v1/
+wt001_v1 golden 逐位核对 ≤1e-12——源侧变更即失配拒绝；自检 MS-1…MS-8 含分段常值断言
+（P_bess 相位内漂移 ≡0——EQ-MG-7 前提））；golden mg001_v1（schema v2：
+golden_schema_version="v2"、model_version="1.0.0"、method_id="mg001_aggregate_analytic"
+（聚合全闭式 + 源轨复用）、engine_baseline/backend=null、generated_by 一段式、approval
+三字段非 null；gate **T-A** = E_kWh 1e-9 / P_kW rtol 1e-12 atol 1e-15 / SOC_pp 1e-9 /
+r_true_kW 1e-12 / t_s 1e-9 / I_A rtol 1e-12 atol 1e-15（A-1 修订：T-A 路径直接索引
+I_A 两键，四 T-A golden 先例同款）；SERIES_IDS = t + §1.3 表 18 信号 = 19 项，唯一
+事件域 null 列 `P_bess_chase_kW`（I_bat_cap_A/beta_stuck_deg 先例）；单位零新增
+（kW/%/pp/V/'-' 既有））；verify_golden 注册行已追加（scalars 11 键：E_pv/E_wt/E_bess/
+E_grid/E_load_served/E_shed/E_dump/E_load_demand_kWh + SOC_true_end_pct/SOC_est_end_pct/
+SOC_err_end_pp；i_true/i_meas = P_grid_true_kW/P_grid_meas_kW；event_tol=P_kW_atol——
+verify_golden 参数化逻辑零改动，T-A 路径）；scenario.js t_clear_s 守卫扩展为
+(GT-001×actuator_fault) ∨ (MG-001×island_event)（EVENT_KEYS/hashProjection 零变化，
+既有场景哈希零变化）+ 「可用系统」枚举 knownSystemIds 动态派生（含 MG-001，B-4 已随
+CHG-20261108-03 修复）；run-g2 33→35 步（第 34 步 verify_golden.py mg001、第 35 步
+tests/engine-mg.test.js——V110 DEC-5 步数账显式申报）。
+**引擎/systems.js/UI**：simulateMG001 组合轨（engine.js 分派链显式 MG 分支置于 else→GT001
+兜底之前——R-5 守卫）+ MG001 SystemDef（19 信号含 exposure/sourceKind、A-mg-* 10 条、
+limitations 10 项、EQ-MG-1…9、initial {load_kW, p_sched_kW, SOC_pct} 三键面）+
+因果模板四件（§6.4：mg-load-step/mg-pv-shading-link/mg-wt-gust-link/mg-island-event）+
+UI 六系统化（home 六系统卡、compare bySystem MG 组、scenario METRIC_PICK MG 键、
+system 页 island_event 零参数族注入面（无幅值输入 + t_clear_s 编辑器缺省 35 s）+
+**A-3 单 Run 可达包络行**（signals 页页脚 MG-001 专属行——「引擎逐点计算 · 当前运行 601 点」
+的 P_grid/P_bess/P_shed/P_dump/island_state 逐点计算范围（UI 措辞用「引擎逐点计算」——「实测」为 copy-guard 禁词，UI 侧不出现该词面；规格语境「引擎实测扫描」同义承载），A-3 修订口径：单 Run 可达 ≠
+参数域叉积包络 ≠ 系统级声明，措辞不称全域）+ ARENA_EXCLUDED 增 'MG-001'）为本波
+MG-G2b-04/W7 面。
+**scope 现状**：系统级与族级均 extension_preview——scope.js `classify` 对 MG-001 配置
+fall-through 返回 extension_preview（PV/WT 同款语义，零改动，无白名单挂载）；
+assertApprovedP0 对 MG 配置抛 SCOPE-E01（验收路径关闭，规格 §5）。Arena 盲测池：
+ARENA_EXCLUDED 增 'MG-001'（exposure 三值映射验证轮未做前不入池——MG 规格 §5 /
+V110 DEC-4，入池须显式 CHG 并同步通道面裁定）；MG 四族不入 arena familyPool
+（系统级过滤先行）。包络口径（A-3 修订改标）：规格 §3.5 表为**参数域叉积包络**
+（load_eff ∈ [0,65] kW、P_grid 并网面 ∈ [−33,+56] kW、孤岛面 chase ∈ [−20,+45] kW、
+P_shed ∈ [0,37] kW、P_dump ∈ [0,12] kW、SOC(60) ∈ [−0.3333,+100.3333] pp——A-2 修订）；
+UI 单 Run 可达包络行（signals 页）为当前单 Run 引擎逐点计算范围，两者口径不同、不得混同。
+
 
 
 ---
 
-**文件结束**。FAULT_CATALOG v1.4（2026-11-08：§1 FL-001 增 thermal 轨注记行 + §4/§5 登记 +
-新增 §7 WT-001 节（三族含新族 gust_step；WT-G2b-03/FLTH-G2b-03，CHG-20261107-01 批准链，
-系统级/族级 scope 维持不变——FL approved_p0 / WT extension_preview）；v1.3 = 2026-11-05
-GT-001 L1 thermo 轨三轨制更新见 §3/§4/§5（GTL1-G2b-03，CHG-20261104-12 批准链，
-系统级/族级 scope=extension_preview 维持）；v1.2 = 2026-11-04 v1.1 实现落地更新 + 新增
-§6 PV-001 节（PV-G2b-03，CHG-20261104-10 批准链）；冻结时点 = A-2/A-3 评审包提交时）。
+**文件结束**。FAULT_CATALOG v1.5（2026-11-11：新增 §8 MG-001 节（四族含新族
+shading_link/gust_link 与零参数族 island_event；MG-G2b-03/04，CHG-20261110-01 批准链，
+系统级/族级 scope=extension_preview）+ §4 映射表/§5 勘误表登记；v1.4 = 2026-11-08
+§1 FL-001 增 thermal 轨注记行 + §4/§5 登记 + 新增 §7 WT-001 节（三族含新族 gust_step；
+WT-G2b-03/FLTH-G2b-03，CHG-20261107-01 批准链，系统级/族级 scope 维持不变——
+FL approved_p0 / WT extension_preview）；v1.3 = 2026-11-05 GT-001 L1 thermo 轨三轨制
+更新见 §3/§4/§5（GTL1-G2b-03，CHG-20261104-12 批准链，系统级/族级
+scope=extension_preview 维持）；v1.2 = 2026-11-04 v1.1 实现落地更新 + 新增 §6 PV-001 节
+（PV-G2b-03，CHG-20261104-10 批准链）；冻结时点 = A-2/A-3 评审包提交时）。
 维护规则：族增删/参数域变更/授权状态变化 → 先更本目录 §5 勘误表并登记 CHG，再动 systems.js。

@@ -86,17 +86,23 @@
     }
     return FALLBACK_AGENTS;
   }
-  /* Arena 盲测池显式排除 PV-001（PV001_G2B_SPEC_APPROVED v1.0 §5 / DEC-2，CHG-20261104-10）
-     与 WT-001（WT001_G2B_SPEC_APPROVED v1.0 §5 / §1.2 v1.0 注记 B-3，CHG-20261107-01）：
-     两系统均已注册进 systems.js 全注册表（systems.list() 返回 5 系统），但 Arena 盲测
-     依赖既有 blind_observable 三值映射面，PV 的 d_pv/P_pv,est 与 WT 的 d_wt/P_wt,est 等
-     盲包可见性裁定（exposure 三值映射验证轮）未做——WT 规格 §5 明文「入池延后至三值映射
-     验证轮，届时须显式 CHG 并同步 blind_observable 通道面裁定」，此前在此过滤。 */
+  /* Arena 盲测池显式排除 PV-001（PV001_G2B_SPEC_APPROVED v1.0 §5 / DEC-2，CHG-20261104-10）、
+     WT-001（WT001_G2B_SPEC_APPROVED v1.0 §5 / §1.2 v1.0 注记 B-3，CHG-20261107-01）
+     与 MG-001（MG001_G2B_SPEC_APPROVED v1.0 §5，CHG-20261110-01 批准链；V110_WAVE_DESIGN
+     DEC-4 采推荐——exposure 三值映射验证轮未做前不入池）：
+     三系统均已注册进 systems.js 全注册表（systems.list() 返回 6 系统），但 Arena 盲测
+     依赖既有 blind_observable 三值映射面，PV 的 d_pv/P_pv,est、WT 的 d_wt/P_wt,est 与
+     MG 的 P_sched/P_bess_chase/P_grid_meas 等 blind_observable 通道盲包可见性裁定
+     （exposure 三值映射验证轮）未做——MG 规格 §5 明文「入池延后至三值映射验证轮，
+     届时须显式 CHG 并同步通道面裁定」，此前在此过滤。 */
   function systemList() {
     /* 守卫（DEC-2 / CHG-20261104-10；PV001_G2B_SPEC_APPROVED §5。WT-001 同款：
-       WT001_G2B_SPEC_APPROVED §1.2 exposure 三值映射注记 B-3 / §5，CHG-20261107-01）：
-       PV-001 / WT-001 显式排除 Arena 盲测池——依据见本函数上方注释块。 */
-    const ARENA_EXCLUDED = ['PV-001', 'WT-001'];
+       WT001_G2B_SPEC_APPROVED §1.2 exposure 三值映射注记 B-3 / §5，CHG-20261107-01。
+       MG-001 同款：MG001_G2B_SPEC_APPROVED §5，CHG-20261110-01 批准链——
+       Arena 盲包语义依赖 blind_observable 三值映射核对表验证（exposure 三值映射
+       验证轮未做），入池须显式 CHG，此前过滤）：
+       PV-001 / WT-001 / MG-001 显式排除 Arena 盲测池——依据见本函数上方注释块。 */
+    const ARENA_EXCLUDED = ['PV-001', 'WT-001', 'MG-001'];
     try {
       const list = api.systems && api.systems.list ? api.systems.list() : [];
       if (list && list.length) return list.filter((s) => ARENA_EXCLUDED.indexOf(s.id) === -1);

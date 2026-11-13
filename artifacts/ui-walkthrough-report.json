@@ -1,7 +1,7 @@
 {
-  "journey": "ui-walkthrough-50",
+  "journey": "ui-walkthrough-59",
   "ok": true,
-  "pass": 50,
+  "pass": 59,
   "fail": 0,
   "failures": [],
   "scope": {
@@ -10,20 +10,22 @@
       "FC-001",
       "GT-001",
       "PV-001",
-      "WT-001"
+      "WT-001",
+      "MG-001"
     ],
     "sections": [
-      "A home 五系统卡 7",
-      "B 详情面板 10",
-      "C 故障原理卡 10",
-      "D 系统页深链 15",
-      "E 五系统声明面 4",
+      "A home 六系统卡 7",
+      "B 详情面板 12",
+      "C 故障原理卡 12",
+      "D 系统页深链 18",
+      "E 六系统声明面 6",
       "F 全程守卫 4"
     ],
     "redline_terms": [
-      "孤岛",
-      "防孤岛",
       "孤岛检测",
+      "孤岛保护",
+      "防孤岛",
+      "检同期",
       "并网保护",
       "电网保护",
       "稳定验证",
@@ -38,21 +40,21 @@
     "base": "http://127.0.0.1:4323",
     "node": "v26.5.1",
     "browser": {
-      "product": "Chrome/156.0.8078.80",
-      "revision": "@fb096c0011f9d50f0a264a9376420cdea9c421e3",
-      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
-      "jsVersion": "15.6.75.27"
+      "product": "Chrome/157.0.8103.40",
+      "revision": "@6f75a8afa26ce5537c82b4887f152dfdc7183e05",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+      "jsVersion": "15.7.112.23"
     }
   },
   "code": {
-    "commit_sha": "85f5c808a5992ed01c65ee94e3d5d7f452414d9e",
+    "commit_sha": "61820f1f36d6e19d3422bb99fa8633fbc54fa382",
     "branch": "main",
     "worktree_dirty": true
   },
   "execution": {
     "command": "node tools/ui-walkthrough.mjs",
-    "started_at": "2026-11-08T22:32:56.609Z",
-    "generated_at": "2026-11-08T22:33:19.877Z",
-    "duration_ms": 23269
+    "started_at": "2026-11-11T23:50:32.412Z",
+    "generated_at": "2026-11-11T23:50:59.398Z",
+    "duration_ms": 26986
   }
 }

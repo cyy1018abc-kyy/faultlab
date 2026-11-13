@@ -1,10 +1,11 @@
 /**
- * ui-walkthrough.mjs — CDP 五系统深度走查（正式化；发布轮手工执行工具，不进 run-g2）。
+ * ui-walkthrough.mjs — CDP 六系统深度走查（正式化；发布轮手工执行工具，不进 run-g2）。
  *
  * 来历（V090_WAVE_DESIGN DEC-5 残留②清算；v080-release §4 残留原文）：
  *   v0.7.2 以**临时脚本**执行 CDP 深度走查 50/50（home 四系统化 + 徽章/原理卡轮），
  *   按纪律删除后 v0.8.0 未做（以 e2e 57 + file:// 冒烟 61×3 覆盖主旅程）。本文件按
- *   v0.7.2 T3 体例 50 断言重建为正式工具，并扩展到五系统覆盖。
+ *   v0.7.2 T3 体例 50 断言重建为正式工具，并扩展到五系统覆盖；v1.1.0 MG 六系统波
+ *   （V110_WAVE_DESIGN §2 W7，CHG-20261110-01 批准链）扩展到六系统 59 断言。
  *
  * **使用规程（发布轮）**：
  *   1. 本工具**不进 run-g2**（深度走查耗时，V090_WAVE_DESIGN DEC-5 定案）；
@@ -14,20 +15,23 @@
  *      报告 ui-walkthrough-report.json + 各系统页截图写入 --out 目录；
  *   3. 走查对象 = index.html 开发态（--port 起 http.server；发布工件面由
  *      tools/file-smoke.mjs 以 file:// 覆盖，两者互补不重复）；
- *   4. 退出码 0=50 断言全过；1=存在失败项。失败即发布轮阻塞项，按 G4 惯例留痕。
+ *   4. 退出码 0=59 断言全过；1=存在失败项。失败即发布轮阻塞项，按 G4 惯例留痕。
  *
- * 覆盖（50 断言；v0.7.2 T3 体例 + 五系统扩展）：
- *   §A home 五系统卡（7）：卡数/卡序/徽章面（基准实验/已验收/扩展预览）/level 徽章/
+ * 覆盖（59 断言；v0.7.2 T3 体例 + 六系统扩展）：
+ *   §A home 六系统卡（7）：卡数/卡序/徽章面（基准实验/已验收/扩展预览）/level 徽章/
  *      默认故障行/tagline/CTA；
- *   §B 实验详情面板（10 = 5 系统 × 2）：详情主面板 + level 徽章、三问题块恰 3 项；
- *   §C 故障原理卡（10 = 5 系统 × 2）：展开态内容面；FL/FC/GT 参数化静态图解
- *      （3 张 svg）vs PV/WT 声明性机制说明（机制说明徽章 + 边界注记）；
- *   §D 系统页深链（15 = 5 系统 × 3）：?system= 深链、SVG 拓扑节点面、部件检查器；
- *   §E 对比/场景/曲线五系统声明面（4）：compare bySystem 五系统键（源级）、
- *      scenario METRIC_PICK 五系统键（源级）、scenario 页渲染、signals 页 WT Run；
+ *   §B 实验详情面板（12 = 6 系统 × 2）：详情主面板 + level 徽章、三问题块恰 3 项；
+ *   §C 故障原理卡（12 = 6 系统 × 2）：展开态内容面；FL/FC/GT 参数化静态图解
+ *      （3 张 svg）vs PV/WT/MG 声明性机制说明（机制说明徽章 + 边界注记）；
+ *   §D 系统页深链（18 = 6 系统 × 3）：?system= 深链、SVG 拓扑节点面、部件检查器；
+ *   §E 对比/场景/曲线六系统声明面（6）：compare 六系统指标行、
+ *      scenario METRIC_PICK 六系统键（源级）、scenario 页渲染 + MG-001 枚举在场、
+ *      signals 页 WT Run、signals 页 MG Run 601 点、A-3 MG 单 Run 可达包络行
+ *      （MG001_G2B_SPEC_APPROVED v1.0 §3.5 A-3 修订 UI 落地面，措辞带改标口径）；
  *   §F 全程守卫（4）：零 console error、零外部请求、渲染文本无 undefined 泄漏、
- *      孤岛/并网红线词渲染面扫描（只允许「脱离主馈线的功率平衡重整演示」类表述，
- *      不得出现电网保护/稳定验证类语义——CHG-20261108-01 波次纪律）。
+ *      肯定性孤岛检测/保护/检同期与电网保护/稳定验证类红线词渲染面扫描
+ *      （B-1 口径——「孤岛」裸词为 MG-001 状态/模式命名面（孤岛状态/孤岛面/
+ *      孤岛平衡填补）不入扫描；limitations 命名块经 collectText 剔除后扫描）。
  *
  * 用法：
  *   node tools/ui-walkthrough.mjs                 # 默认端口 4323/9343，报告写 artifacts/
@@ -56,20 +60,24 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const STARTED_MS = Date.now();
 const STARTED_AT = new Date().toISOString();
 
-/* 孤岛/并网类红线词（渲染面扫描用；CHG-20261108-01 波次纪律：不得出现电网保护/
-   稳定验证类语义）。扫描收「禁用语义」词根：
-   - 孤岛话题全禁（孤岛/防孤岛/孤岛检测）；
+/* 孤岛/并网类红线词（渲染面扫描用；CHG-20261108-01 波次纪律 + MG001_G2B_SPEC_APPROVED
+   v1.0 §6.3 I-5 专项 B-1 口径，V110 W7 同步）。扫描收「肯定性禁用语义」词根：
+   - 孤岛检测/保护类（孤岛检测/孤岛保护/防孤岛/检同期）——肯定性出现即禁；
    - 电网保护/稳定验证类（并网保护/电网保护/稳定验证/低电压穿越/高电压穿越/解列/重合闸）。
-   注：既有 G2b 批准文案以「光伏并网等效演示 / 光伏并网（扩展）」为**拓扑描述词**
-   （systems.js:914/919、home.js:25），不含保护/稳定验证语义，不在本波文件面内，
-   故裸「并网」不入扫描词根；本波新增文案若涉孤岛/并网话题，只允许
-   「脱离主馈线的功率平衡重整演示」类表述（波次纪律原文）。 */
-const REDLINE_TERMS = ['孤岛', '防孤岛', '孤岛检测', '并网保护', '电网保护', '稳定验证',
+   注 1：裸「孤岛」自 v1.1.0 起不入扫描词根——MG-001 状态/模式命名面（孤岛状态/
+   孤岛面/孤岛平衡填补）为 B-1 允许的命名（状态量非检测量），肯定性检测/保护语义
+   已由本表词根覆盖；孤岛教学点文案只允许「脱离主馈线的功率平衡重整演示」类表述。
+   注 2：limitations 命名块（B-1 允许的词面语境）在 collectText 中剔除后扫描——
+   PV/MG 的未建模物理命名句属 model 元数据面（信号页「模型假设与局限」折叠块与
+   对比页「模型局限与数据性质」卡），不入肯定性教学文案扫描面。
+   注 3：既有 G2b 批准文案以「光伏并网等效演示 / 光伏并网（扩展）」为**拓扑描述词**，
+   不含保护/稳定验证语义，故裸「并网」不入扫描词根。 */
+const REDLINE_TERMS = ['孤岛检测', '孤岛保护', '防孤岛', '检同期', '并网保护', '电网保护', '稳定验证',
   '低电压穿越', '高电压穿越', '解列', '重合闸'];
 
-const SYSTEMS = ['FL-001', 'FC-001', 'GT-001', 'PV-001', 'WT-001'];
+const SYSTEMS = ['FL-001', 'FC-001', 'GT-001', 'PV-001', 'WT-001', 'MG-001'];
 /* 原理卡形态面：测量偏置三系统 = 参数化静态图解（PRINCIPLE_DIAGRAM 注册键）；
-   PV/WT = 声明性机制说明卡（home.js buildPrincipleCard）。 */
+   PV/WT/MG = 声明性机制说明卡（home.js buildPrincipleCard）。 */
 const DIAGRAM_SYSTEMS = ['FL-001', 'FC-001', 'GT-001'];
 
 function runCapture(cmd, argsArr, cwd) {
@@ -209,11 +217,17 @@ function sourceChecks() {
   return { pickKeys };
 }
 
-/* 渲染文本采集（泄漏/红线扫描用） */
+/* 渲染文本采集（泄漏/红线扫描用）。v1.1.0 起剔除 B-1 允许语境的 limitations
+   命名块（未建模物理命名词面属 model 元数据面，不入肯定性教学文案红线扫描，
+   REDLINE_TERMS 注 2）：信号页「模型假设与局限」折叠块（.sig-foot-details）与
+   对比页「模型局限与数据性质」卡（.cp-lim-card）。 */
 async function collectText(cdp, pageId) {
   return cdp.evalExpr(`(function(){
     const sec = document.getElementById('${pageId}');
-    return sec ? sec.textContent : '';
+    if (!sec) return '';
+    const clone = sec.cloneNode(true);
+    clone.querySelectorAll('.sig-foot-details, .cp-lim-card').forEach(function (n) { n.remove(); });
+    return clone.textContent;
   })()`);
 }
 
@@ -270,7 +284,7 @@ async function main() {
       if (pageTypes.indexOf(p.type) !== -1 && !isLocal) externalRequests.push(p.type + ' ' + url);
     });
 
-    /* ===== §A home 五系统卡（7 断言） ===== */
+    /* ===== §A home 六系统卡（7 断言） ===== */
     await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&page=home' });
     await wait(1600);
     pageTexts.home = await collectText(cdp, 'page-home');
@@ -286,22 +300,24 @@ async function main() {
                  cta: c.textContent.indexOf('查看实验详情') !== -1 };
       });
     })()`);
-    eq(cards.length, 5, 'W-A1：home 五系统卡（count=5）');
-    eq(JSON.stringify(cards.map((c) => c.id)), JSON.stringify(SYSTEMS), 'W-A2：卡序 = FL/FC/GT/PV/WT（注册序）');
+    eq(cards.length, 6, 'W-A1：home 六系统卡（count=6）');
+    eq(JSON.stringify(cards.map((c) => c.id)), JSON.stringify(SYSTEMS), 'W-A2：卡序 = FL/FC/GT/PV/WT/MG（注册序）');
     const flBadge = cards.filter((c) => c.id === 'FL-001')[0] || {};
     const fcBadge = cards.filter((c) => c.id === 'FC-001')[0] || {};
     const extBadges = cards.filter((c) => c.id !== 'FL-001' && c.id !== 'FC-001');
     ok(flBadge.badge === '基准实验' && fcBadge.badge.indexOf('已验收') !== -1 &&
       extBadges.every((c) => c.badge.length > 0),
-      'W-A3：徽章面（FL 基准实验 / FC 已验收 / GT·PV·WT 扩展预览徽章非空）',
+      'W-A3：徽章面（FL 基准实验 / FC 已验收 / GT·PV·WT·MG 扩展预览徽章非空）',
       JSON.stringify(cards.map((c) => [c.id, c.badge])));
-    ok(cards.every((c) => /^L\d/.test(c.level)), 'W-A4：五卡 level 徽章均 L 前缀（' +
+    /* v1.1.0 起子串判定：MG-001 level =「聚合层 L0 · 多源聚合行为级演示（G2b 已批准）」
+       以「聚合层」起头（I-2 不升级 provenance），L 令牌为子串非前缀。 */
+    ok(cards.every((c) => /L\d[a-z]?/.test(c.level)), 'W-A4：六卡 level 徽章含 L 令牌（' +
       cards.map((c) => c.id + '=' + c.level).join(' / ') + '）');
-    ok(cards.every((c) => c.fault.length > 0), 'W-A5：五卡默认故障行非空');
-    ok(cards.every((c) => c.tagline.length > 0), 'W-A6：五卡 tagline 非空');
-    ok(cards.every((c) => c.cta), 'W-A7：五卡均带「查看实验详情」CTA');
+    ok(cards.every((c) => c.fault.length > 0), 'W-A5：六卡默认故障行非空');
+    ok(cards.every((c) => c.tagline.length > 0), 'W-A6：六卡 tagline 非空');
+    ok(cards.every((c) => c.cta), 'W-A7：六卡均带「查看实验详情」CTA');
 
-    /* ===== §B 详情面板（10 = 5×2） + §C 故障原理卡（10 = 5×2） ===== */
+    /* ===== §B 详情面板（12 = 6×2） + §C 故障原理卡（12 = 6×2） ===== */
     for (const sysId of SYSTEMS) {
       await cdp.evalExpr(`(function(){
         const card = document.querySelector('.home-sys-card[data-system="${sysId}"]');
@@ -351,7 +367,7 @@ async function main() {
       }
     }
 
-    /* ===== §D 系统页深链（15 = 5×3） ===== */
+    /* ===== §D 系统页深链（18 = 6×3） ===== */
     for (const sysId of SYSTEMS) {
       await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=' + sysId + '&page=system' });
       await wait(1300);
@@ -374,9 +390,10 @@ async function main() {
         'W-D：' + sysId + ' 部件检查器 + 故障徽章在场');
     }
 
-    /* ===== §E 对比/场景/曲线五系统声明面（4 断言） ===== */
-    /* compare 五系统渲染覆盖：base 组服务 FL/FC/GT、bySystem 覆盖 PV/WT
-       （compare.js METRIC_GROUPS 结构）——逐系统实测指标行 > 0（聚合 1 断言）。 */
+    /* ===== §E 对比/场景/曲线六系统声明面（6 断言） ===== */
+    /* compare 六系统渲染覆盖：base 组服务 FL/FC/GT、bySystem 覆盖 PV/WT/MG
+       （compare.js METRIC_GROUPS 结构；MG 另有 mg-island onlySystems 组）——
+       逐系统指标行 > 0（聚合 1 断言）。 */
     const cmpRows = {};
     for (const sysId of SYSTEMS) {
       await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=' + sysId + '&page=compare' });
@@ -385,19 +402,23 @@ async function main() {
         `document.querySelectorAll('#page-compare .cp-metric-row').length`);
     }
     ok(SYSTEMS.every((id) => cmpRows[id] > 0),
-      'W-E：compare 页五系统指标行均渲染（base 组 + bySystem 覆盖面）',
+      'W-E：compare 页六系统指标行均渲染（base 组 + bySystem/onlySystems 覆盖面）',
       JSON.stringify(cmpRows));
     const srcChk = sourceChecks();
     eq(JSON.stringify(srcChk.pickKeys), JSON.stringify(SYSTEMS),
-      'W-E：scenario.js METRIC_PICK 声明五系统键（源级）', JSON.stringify(srcChk.pickKeys));
+      'W-E：scenario.js METRIC_PICK 声明六系统键（源级）', JSON.stringify(srcChk.pickKeys));
     await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&page=scenario' });
     await wait(1200);
     pageTexts.scenario = await collectText(cdp, 'page-scenario');
     const scnPage = await cdp.evalExpr(`(function(){
       const sec = document.getElementById('page-scenario');
-      return { page: FL.store.getState().page, len: sec ? sec.textContent.length : 0 };
+      const ta = sec ? sec.querySelector('[data-testid="scenario-import-text"]') : null;
+      const ph = ta ? (ta.getAttribute('placeholder') || '') : '';
+      return { page: FL.store.getState().page, len: sec ? sec.textContent.length : 0,
+               hasMgEnum: ph.indexOf('MG-001') !== -1 && ph.indexOf('WT-001') !== -1 };
     })()`);
-    ok(scnPage.page === 'scenario' && scnPage.len > 100, 'W-E：scenario 页渲染面非空（' + scnPage.len + ' 字符）');
+    ok(scnPage.page === 'scenario' && scnPage.len > 100 && scnPage.hasMgEnum,
+      'W-E：scenario 页渲染面非空（' + scnPage.len + ' 字符）+ 导入占位枚举含 MG-001（六系统——placeholder 属性面）');
     await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=WT-001&page=signals' });
     await wait(1300);
     const sigPage = await cdp.evalExpr(`(function(){
@@ -409,6 +430,30 @@ async function main() {
     })()`);
     ok(sigPage.page === 'signals' && sigPage.runSystem === 'WT-001' && sigPage.hasRoot && sigPage.len > 100,
       'W-E：signals 页 WT-001 Run 渲染面（系统深链 + 曲线页就绪）');
+    /* MG-001 signals 页 + A-3 单 Run 可达包络行（MG001_G2B_SPEC_APPROVED v1.0 §3.5
+       A-3 修订 UI 落地面——页脚包络行，措辞带「不是参数域叉积包络」改标口径）。 */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=MG-001&page=signals' });
+    await wait(1300);
+    const mgSigPage = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      const sig = r && r.timeseries && r.timeseries.signals ? r.timeseries.signals : {};
+      const len = function (id) { return sig[id] ? sig[id].length : 0; };
+      const sec = document.getElementById('page-signals');
+      const env = document.querySelector('.sig-envelope-row');
+      return { page: s.page, runSystem: r ? r.systemId : '', hasRoot: !!sec, len: sec ? sec.textContent.length : 0,
+               ppv: len('P_pv_kW'), pgrid: len('P_grid_true_kW'), isl: len('island_state'),
+               envFound: !!env, envHidden: env ? env.hidden : null, envText: env ? env.textContent : '' };
+    })()`);
+    ok(mgSigPage.page === 'signals' && mgSigPage.runSystem === 'MG-001' && mgSigPage.hasRoot &&
+      mgSigPage.ppv === 601 && mgSigPage.pgrid === 601 && mgSigPage.isl === 601,
+      'W-E：signals 页 MG-001 Run 渲染面（关键信号 601 点：P_pv/P_grid/island_state）',
+      JSON.stringify({ runSystem: mgSigPage.runSystem, ppv: mgSigPage.ppv, pgrid: mgSigPage.pgrid, isl: mgSigPage.isl }));
+    ok(mgSigPage.envFound && !mgSigPage.envHidden &&
+      mgSigPage.envText.indexOf('MG-001 单 Run 可达包络') === 0 &&
+      mgSigPage.envText.indexOf('不是参数域叉积包络') !== -1,
+      'W-E：A-3 MG 单 Run 可达包络行在场（信号页页脚，措辞带 A-3 改标口径）',
+      mgSigPage.envText.slice(0, 140));
 
     /* teaching 页纳入红线扫描面（不单独计断言） */
     await cdp.send('Page.navigate', { url: base + '/index.html?page=teaching' });
@@ -422,10 +467,12 @@ async function main() {
     /* ===== §F 全程守卫（4 断言） ===== */
     const allText = Object.keys(pageTexts).map((k) => pageTexts[k]).join('\n');
     ok(allText.indexOf('undefined') === -1,
-      'W-F：渲染文本无 undefined 泄漏（home/5×system/scenario/signals/teaching/compare）');
+      'W-F：渲染文本无 undefined 泄漏（home/6×system/scenario/signals×2/teaching/compare)');
     const redlineHits = REDLINE_TERMS.filter((t) => allText.indexOf(t) !== -1);
     eq(JSON.stringify(redlineHits), JSON.stringify([]),
-      'W-F：孤岛/并网红线词渲染面零命中（' + REDLINE_TERMS.join('/') + '）');
+      'W-F：肯定性孤岛检测/保护/检同期与电网保护/稳定验证类红线词渲染面零命中（' +
+      REDLINE_TERMS.join('/') + '；B-1 口径——裸「孤岛」为 MG 状态/模式命名面不入扫描，' +
+      'limitations 命名块已剔除）');
     ok(externalRequests.length === 0, 'W-F：零外部网络请求（纯浏览器离线）',
       JSON.stringify(externalRequests.slice(0, 8)));
     eq(consoleErrors.length, 0, 'W-F：全程零 console error');
@@ -445,13 +492,13 @@ async function main() {
         userAgent: browserVersion.userAgent, jsVersion: browserVersion.jsVersion }
     : { product: null, revision: null, userAgent: null, jsVersion: null };
   const report = {
-    journey: 'ui-walkthrough-50',
+    journey: 'ui-walkthrough-59',
     ok: fail === 0,
     pass, fail,
     failures,
     scope: {
       systems: SYSTEMS,
-      sections: ['A home 五系统卡 7', 'B 详情面板 10', 'C 故障原理卡 10', 'D 系统页深链 15', 'E 五系统声明面 4', 'F 全程守卫 4'],
+      sections: ['A home 六系统卡 7', 'B 详情面板 12', 'C 故障原理卡 12', 'D 系统页深链 18', 'E 六系统声明面 6', 'F 全程守卫 4'],
       redline_terms: REDLINE_TERMS
     },
     environment: { chrome: CHROME, base, node: process.version, browser },
@@ -465,7 +512,7 @@ async function main() {
   };
   fs.writeFileSync(path.join(OUT, 'ui-walkthrough-report.json'), JSON.stringify(report, null, 2));
   console.log('\n================================================');
-  console.log('五系统深度走查：PASS ' + pass + ' / FAIL ' + fail + (fail ? '  ✗' : '  ✓'));
+  console.log('六系统深度走查：PASS ' + pass + ' / FAIL ' + fail + (fail ? '  ✗' : '  ✓'));
   console.log('浏览器：' + (browser.product || 'n/a') + '（revision ' + (browser.revision || 'n/a') + '）');
   console.log('追溯：commit=' + (COMMIT_SHA || 'n/a').slice(0, 12) + ' branch=' + (BRANCH || 'n/a') +
     ' dirty=' + WORKTREE_DIRTY + ' node=' + process.version + ' 用时 ' + report.execution.duration_ms + ' ms');

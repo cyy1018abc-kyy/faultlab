@@ -1,9 +1,11 @@
 /* owner: core-engine | module: systems | contract: docs/CONTRACT.md */
-/* 五系统 SystemDef（FL-001 / FC-001 / GT-001 / PV-001 / WT-001）：拓扑、信号元数据、故障目录、模型假设、因果模板。
+/* 六系统 SystemDef（FL-001 / FC-001 / GT-001 / PV-001 / WT-001 / MG-001）：拓扑、信号元数据、故障目录、模型假设、因果模板。
    纯数据 + 查询 API，挂在 FL.systems；不依赖 DOM / FL.protocol。
    PV-001 = PV001_G2B_SPEC_APPROVED v1.0 实现（PV-G2b-04a / CHG-20261104-10 批准）。
    FL-001 thermal 面 + WT-001 = FL001_THERMAL_G2B_SPEC_APPROVED v1.0 / WT001_G2B_SPEC_APPROVED v1.0
-   实现（FLTH-G2b-04 / WT-G2b-04 systems.js 面，V080_WAVE_DESIGN / CHG-20261107-01 批准）。 */
+   实现（FLTH-G2b-04 / WT-G2b-04 systems.js 面，V080_WAVE_DESIGN / CHG-20261107-01 批准）。
+   MG-001 = MG001_G2B_SPEC_APPROVED v1.0 实现（MG-G2b-04 systems.js 面，V110_WAVE_DESIGN §2 W5 /
+   CHG-20261110-01 批准链）——additive 追加，既有五系统 SystemDef 字段语义零变化。 */
 (function () {
   'use strict';
 
@@ -1361,6 +1363,265 @@
   };
 
   /* ================================================================== */
+  /* MG-001 微电网多源聚合系统（MG001_G2B_SPEC_APPROVED v1.0 批准 CHG-20261110-01；
+     实现 = MG-G2b-04 systems.js 面 / V110_WAVE_DESIGN §2 W5。§1 全量：拓扑 8 组件 7 边 /
+     19 信号（§1.3 表序）/ EQ-MG-1..9 / 4 故障族（island_event 零参数族——Q2 定案，
+     params:[] 库内首例）/ A-mg-* 10 条 / limitations 10 项。
+     scope：MG-001 全场景 extension_preview（scope.js classify fall-through 零改动，规格 §2.5）；
+     Arena：ARENA_EXCLUDED 增 'MG-001' 为 MG-G2b-04 显式工作面（arena.js，L7——本波 UI 路）。 */
+  /* ================================================================== */
+  var MG001 = {
+    id: 'MG-001',
+    title: '微电网多源聚合系统',
+    shortTitle: '微电网聚合',
+    experimentCode: 'MG-001',
+    experimentName: '主馈线分断（功率平衡重整）',
+    tagline: '在 20 秒分断主馈线，看母线功率平衡如何重整：储能从计划跟踪切换为平衡填补，缺口负荷卸载、重连后恢复。多源聚合 L0 演示，不含潮流/保护/频率电压模型。',
+    level: '聚合层 L0 · 多源聚合行为级演示（G2b 已批准）',
+    summary: '光伏与风电子轨、储能（电池能量面）与聚合负荷接入单母线：并网时理想馈线补差，脱离主馈线后储能按平衡填补并受 ±8 kW 钳位——功率平衡重整演示。各源物理复用既有系统轨，聚合层零新增动态方程。',
+    questions: [
+      '并网时馈线为什么是唯一的平衡者，脱离主馈线后平衡者如何切换？',
+      '储能从计划跟踪切换为平衡填补后，钳位、卸载与倾卸分别在什么时候出现？',
+      'PV 下行遮挡与 WT 上行阵风在同一母线上叠加时，零导入角点如何判读？'
+    ],
+    duration_s: 60,
+    dt_s: 0.1,
+    topologyViewBox: [0, 0, 1000, 620],
+    defaults: {
+      feedback_mode: 'closed_loop',
+      /* initial 三键面（规格 §1.1 / Q5 定案）：p_sched_kW 为 MG 自有配置量（BESS 调度计划，
+         默认 +5 kW 放电）；SOC_pct 沿 FL-001 initial 键面同构（聚合层 SOC0 = 账本初值）；
+         无 inertia_model / thermal_model 键（单轨聚合层无新轨——scenario.js 事件级键守卫
+         对未声明系统自动拒绝，现状即正确语义）。 */
+      initial: { load_kW: 30, p_sched_kW: 5, SOC_pct: 60 },
+      noise: { enabled: false, seed: 12345, level: 0 }
+    },
+    bounds: {
+      load_kW: { min: 10, max: 45 },
+      p_sched_kW: { min: -8, max: 8 }
+      /* bounds 键面刻意不含 SOC_pct（规格 §1.1 域 [0,100] 仍有效）：checks.js soc-bounds /
+         energy-balance 按 bounds.SOC_pct 派生分派——MG 聚合层无 E_source/E_bat 通用指标面
+         （metrics.js 通用面），声明将致 energy-balance 恒 fail 误报；SOC0 ∈ [0,100] 域校验
+         走 engine.validateConfig MG 专属分支（reject 纪律，MG-G2b-04），SOC0=0 角点负账本值
+         = 域外声明（规格 §3.5 A-2 / MG-IMP-Q1 定案登记于 limitations）。 */
+    },
+    components: [
+      comp({
+        id: 'pv_unit', label: '光伏子轨（PV-001）', kind: 'pv_array', role: '不可调度源 · G0=1000 固定',
+        description: 'PV-001 子轨原样复用（G0=1000 固定面）：出力由辐照度与 MPPT 决定；pv_shading_link 场景遮挡阶跃联动注入子轨。',
+        x: 60, y: 60, w: 190, h: 96, faultable: true,
+        inspector: [
+          { id: 'P_pv_kW', source: 'MODEL_STATE' }
+        ]
+      }),
+      comp({
+        id: 'wt_unit', label: '风电子轨（WT-001）', kind: 'rotor', role: '不可调度源 · v0=9 固定',
+        description: 'WT-001 子轨原样复用（v0=9 固定面）：出力由风速与变流器决定；wt_gust_link 场景阵风阶跃联动注入子轨。',
+        x: 60, y: 220, w: 190, h: 96, faultable: true,
+        inspector: [
+          { id: 'P_wt_kW', source: 'MODEL_STATE' }
+        ]
+      }),
+      comp({
+        id: 'bess', label: '储能（FL-001 电池面）', kind: 'battery', role: '40 kWh / 400 V · 调度计划 / 孤岛平衡填补',
+        description: '储能（电池能量面复用 FL-001：40 kWh / 400 V）：并网按调度计划恒功率跟踪，孤岛按平衡填补并受功率域钳位；SOC 仅账本通道。',
+        x: 60, y: 380, w: 190, h: 96, faultable: false,
+        inspector: [
+          { id: 'P_bess_kW', source: 'MODEL_STATE' },
+          { id: 'SOC_true_pct', source: 'MODEL_STATE' },
+          { id: 'SOC_est_pct', source: 'OBSERVATION' }
+        ]
+      }),
+      comp({
+        id: 'ems', label: 'MG 调度（EMS）', kind: 'controller', role: '计划跟踪 ⇄ 孤岛平衡填补的角色切换',
+        description: 'MG 调度（行为级）：并网按计划跟踪储能出力，脱离后切换为平衡填补；不是经过验证的设备控制器。',
+        x: 340, y: 380, w: 170, h: 96, faultable: false,
+        inspector: [
+          { id: 'P_sched_kW', source: 'CONTROLLER' },
+          { id: 'P_bess_chase_kW', source: 'CONTROLLER' }
+        ]
+      }),
+      comp({
+        id: 'bus', label: '聚合母线', kind: 'bus', role: '400 V 等效（功率平衡抽象）',
+        description: '400 V 等效母线：功率平衡的抽象等效，不是电网模型；无电压/频率动态、无功与网损。',
+        x: 420, y: 60, w: 160, h: 96, faultable: false,
+        inspector: [
+          { id: 'V_bus_V', source: 'MODEL_ASSUMPTION' },
+          { id: 'r_true_kW', source: 'DERIVED' },
+          { id: 'r_meas_kW', source: 'DERIVED' }
+        ]
+      }),
+      comp({
+        id: 'switch', label: '主馈线分断开关', kind: 'switch', role: '理想通断抽象 · island_event 注入点',
+        description: '主馈线分断开关（理想通断抽象）：分断后母线脱离馈线，功率平衡由储能与负荷卸载重整；无检同期与保护逻辑。',
+        x: 600, y: 220, w: 170, h: 84, faultable: true,
+        inspector: [
+          { id: 'island_state', source: 'MODEL_STATE' },
+          { id: 'P_grid_true_kW', source: 'MODEL_STATE' }
+        ]
+      }),
+      comp({
+        id: 'feeder', label: '主馈线（理想平衡源）', kind: 'grid', role: '理想双向补差源 · 初始 5 kW 展示',
+        description: '理想平衡功率馈线，瞬时吸收/补齐母线剩余功率；初始 5 kW 仅用于展示，不代表真实电网侧动态。',
+        x: 790, y: 60, w: 190, h: 96, faultable: false,
+        inspector: [
+          { id: 'P_grid_true_kW', source: 'MODEL_STATE' },
+          { id: 'P_grid_meas_kW', source: 'OBSERVATION' }
+        ]
+      }),
+      comp({
+        id: 'load', label: '聚合负荷', kind: 'load', role: '恒定 30 kW（load_step 为聚合输入阶跃）',
+        description: '聚合负荷（恒功率阶跃面）：MG 层负荷是聚合输入，与 FL-001 已删除的 load_step（O-13）无语义继承——并网面由馈线瞬时补差吸收、孤岛面由钳位卸载重整吸收。',
+        x: 790, y: 220, w: 190, h: 96, faultable: true,
+        inspector: [
+          { id: 'P_load_demand_kW', source: 'CONFIG' },
+          { id: 'P_load_served_kW', source: 'MODEL_STATE' }
+        ]
+      })
+    ],
+    edges: [
+      { id: 'pv_unit->bus', from: 'pv_unit', to: 'bus', kind: 'power', label: '光伏馈入' },
+      { id: 'wt_unit->bus', from: 'wt_unit', to: 'bus', kind: 'power', label: '风电馈入' },
+      { id: 'bess->bus', from: 'bess', to: 'bus', kind: 'power', label: '储能馈入（放电为正）' },
+      { id: 'feeder->switch', from: 'feeder', to: 'switch', kind: 'power', label: '馈线侧连接' },
+      { id: 'switch->bus', from: 'switch', to: 'bus', kind: 'power', label: '母线侧连接（分断时 0）' },
+      { id: 'bus->load', from: 'bus', to: 'load', kind: 'power', label: '聚合负荷需求' },
+      /* 刻意无 load→ems 边（规格 §1.1）：MG 负荷是聚合输入、EMS 按计划/孤岛平衡运行，
+         平衡填补按真实功率值计算（A-mg-ems-true），无测量链边——与 PV/WT「无 load→控制器边」
+         的不可调度声明同款结构手法。 */
+      { id: 'ems->bess', from: 'ems', to: 'bess', kind: 'signal', label: '调度计划 / 填补指令' }
+    ],
+    faultAnchors: { load_step: 'load', shading_link: 'pv_unit', gust_link: 'wt_unit', island_event: 'switch' },
+    signalCategories: [
+      { id: 'power', label: '功率' },
+      { id: 'soc', label: 'SOC' },
+      { id: 'residual', label: '残差' },
+      { id: 'island', label: '孤岛面' }
+    ],
+    signals: [
+      /* 19 信号按 MG001_G2B_SPEC_APPROVED v1.0 §1.3 表逐行（表序 = SERIES_IDS 序，t 列由
+         golden 惯例承载）；exposure 落点沿 PV/WT 体例：blind 信号显式声明
+         exposure: 'blind_observable'（sourceKind 默认映射为 public_demo 的 CONTROLLER/
+         DERIVED/CONFIG/MODEL_ASSUMPTION 必须显式声明才会落 blind），public 信号不声明
+         （默认映射 public_demo）；blindVisible 不独立设置（由 exposure 派生）——
+         §1.3 三值映射核对表工作面以本落地为准逐信号核对。单位 '-'（island_state）沿
+         WT lambda_tip/cp_coeff 先例（schema.js UNIT_DICT 已入表，checks units 检查源
+         UNITS 缺该值 = WT 同款并发落地面，本波零扩展——规格 §1.3 单位字典缺口核查）。 */
+      sig({ id: 'island_state', label: '孤岛状态', shortLabel: 'island', unit: '-', category: 'island', sourceKind: 'MODEL_STATE', definition: '孤岛状态量（状态量非检测量）：0=并网 / 1=脱离主馈线（1(t≥t_start)·1(t<t_clear 或窗末)，EQ-MG-1）。', formula: 'island(t) = 1(t≥t_start)·1(t<t_clear 或窗末)', precision: 0, chart: { style: 'solid', colorToken: 'fault', axis: 'left', step: true } }),
+      sig({ id: 'P_pv_kW', label: '光伏子轨馈入', shortLabel: 'P_pv', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: 'PV-001 子轨真实出力（G0=1000 固定面复用，EQ-MG-2）。', formula: 'P_pv(t) = PV-001 轨 P_pv,true', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_wt_kW', label: '风电子轨馈入', shortLabel: 'P_wt', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: 'WT-001 子轨真实出力（v0=9 固定面复用，EQ-MG-2）。', formula: 'P_wt(t) = WT-001 轨 P_wt,true', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_bess_kW', label: '储能出力', shortLabel: 'P_bess', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '储能真实出力（放电为正）：并网 = 调度计划；孤岛 = clamp(平衡填补目标, −8, +8)（EQ-MG-3/4/5）。', formula: '并网 P_bess = p_sched；孤岛 P_bess = clamp(chase, −8, +8)', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_sched_kW', label: '调度计划目标', shortLabel: 'P_sched', unit: 'kW', category: 'power', sourceKind: 'CONTROLLER', definition: 'BESS 调度计划（p_sched_kW 配置值，恒显示配置值——孤岛窗内计划挂起仍显示）。', formula: 'P_sched = p_sched_kW（配置值）', precision: 3, chart: { style: 'dashdot', colorToken: 'warm', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'P_bess_chase_kW', label: '平衡填补目标', shortLabel: 'chase', unit: 'kW', category: 'power', sourceKind: 'CONTROLLER', definition: '孤岛窗内平衡填补目标 = P_load − P_pv − P_wt（钳位前显式暴露）；其余时刻不可用（null）——事件域 null 列第二先例（I_bat_cap_A/beta_stuck_deg 同款）。', formula: '孤岛窗内 chase = P_load − P_pv − P_wt；窗外 null', precision: 3, chart: { style: 'dashdot', colorToken: 'warm', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'P_load_demand_kW', label: '聚合负荷需求', shortLabel: 'P_load', unit: 'kW', category: 'power', sourceKind: 'CONFIG', definition: '聚合负荷需求功率：load_kW + ΔP·1(t≥t0)（load_step 为聚合输入阶跃——与 FL-001 已删除的内部电气面 load_step（O-13）无语义继承）。', formula: 'P_load = load_kW + ΔP·1(t≥t0)', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'P_load_served_kW', label: '负荷实际获得功率', shortLabel: 'P_served', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '负荷实际获得的功率：P_load − P_shed（并网面 ≡ P_load）。', formula: 'P_served = P_load − P_shed', precision: 2, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_grid_true_kW', label: '馈线真实功率', shortLabel: 'P_grid,true', unit: 'kW', category: 'power', sourceKind: 'MODEL_STATE', definition: '主馈线真实功率（受电为正；理想双向补差，倒送为负且不建模约束）；孤岛窗内恒为 0。', formula: '并网 P_grid = P_load − P_pv − P_wt − P_bess；孤岛 ≡ 0', precision: 3, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'P_grid_meas_kW', label: '馈线测量功率', shortLabel: 'P_grid,meas', unit: 'kW', category: 'power', sourceKind: 'OBSERVATION', definition: '馈线功率测量（健康通道）。', formula: 'P_grid,meas = P_grid,true（健康通道）', precision: 3, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable', noiseSigma: 0.15 }),
+      sig({ id: 'P_shed_kW', label: '缺口卸载功率', shortLabel: 'P_shed', unit: 'kW', category: 'island', sourceKind: 'MODEL_STATE', definition: '孤岛面缺口卸载功率 = max(0, chase − P_bess)（并网面恒为 0）——功率平衡重整的缺口重整项。', formula: 'P_shed = max(0, chase − P_bess)', precision: 3, chart: { style: 'dashed', colorToken: 'fault', axis: 'left', step: true } }),
+      sig({ id: 'P_dump_kW', label: '盈余倾卸功率', shortLabel: 'P_dump', unit: 'kW', category: 'island', sourceKind: 'MODEL_STATE', definition: '孤岛面盈余倾卸功率 = max(0, P_bess − chase)（并网面恒为 0；默认岛窗 chase=10 > −8 恒为 0，仅低负荷角点非零）——理想倾卸元件的抽象记账项，不是能量损失。', formula: 'P_dump = max(0, P_bess − chase)', precision: 3, chart: { style: 'dashed', colorToken: 'fault', axis: 'left', step: true } }),
+      sig({ id: 'V_bus_V', label: '聚合母线电压', shortLabel: 'V_bus', unit: 'V', category: 'power', sourceKind: 'MODEL_ASSUMPTION', definition: '400 V 等效母线电压（功率平衡抽象的模型假设，不是仿真状态）。', formula: 'V_bus = 400 V（模型假设，非仿真状态）', precision: 0, chart: { style: 'solid', colorToken: 'ink', axis: 'left', defaultVisible: false }, exposure: 'blind_observable', tableOnly: true }),
+      sig({ id: 'SOC_true_pct', label: '真实 SOC', shortLabel: 'SOC_true', unit: '%', category: 'soc', sourceKind: 'MODEL_STATE', definition: '由储能真实功率分段解析积分得到的荷电状态账本（FL EQ-6 形式复用，EQ-MG-7）。', formula: 'SOC_true = SOC0 − 100·∫P_bess dt/(3600·40)（分段解析）', precision: 5, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'SOC_est_pct', label: '估计 SOC', shortLabel: 'SOC_est', unit: '%', category: 'soc', sourceKind: 'OBSERVATION', definition: '由测量通道同式积分的 SOC 估计（全通道健康 ⇒ 与真实账本同值）。', formula: 'SOC_est = SOC0 − 100·∫P_bess,meas dt/(3600·40)', precision: 5, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'SOC_err_pp', label: 'SOC 估计误差', shortLabel: 'SOC_err', unit: 'pp', category: 'soc', sourceKind: 'DERIVED', definition: 'SOC_est − SOC_true 恒为 0（无偏置——与 FL-001 传感器偏置致 SOC_err≠0 的教学对照）。', formula: 'SOC_err = SOC_est − SOC_true ≡ 0', precision: 5, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable' }),
+      sig({ id: 'r_true_kW', label: '真实功率平衡残差', shortLabel: 'r_true', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '真实功率平衡残差，定义恒等式（EQ-MG-6）：r_true ≡ P_pv + P_wt + P_bess + P_grid − P_served − P_dump ≡ 0（两模式同式）。', formula: 'r_true = P_pv + P_wt + P_bess + P_grid − P_served − P_dump ≡ 0', precision: 6, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+      sig({ id: 'r_meas_kW', label: '测量一致性残差', shortLabel: 'r_meas', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '由测量构造的功率平衡残差；全部功率测量通道健康，恒为 0（与 FL-001 的 r_meas = 0.4·b 教学对照）。', formula: 'r_meas = P_pv + P_wt + P_bess + P_grid,meas − P_served − P_dump ≡ 0', precision: 2, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, exposure: 'blind_observable' })
+    ],
+    faults: [
+      fault({
+        id: 'load_step', family: 'load_step', label: '聚合负荷阶跃', shortLabel: '负荷阶跃',
+        target: 'load',
+        description: '聚合输入阶跃（瞬时）：并网面由理想馈线瞬时补差/倒送吸收，孤岛面由钳位 + 卸载重整吸收；MG 层负荷是聚合输入，与 FL-001 已删除的 load_step（O-13）无语义继承。',
+        params: [{ key: 'magnitude', label: '负荷阶跃幅值', unit: 'kW', min: -10, max: 20, step: 5, default: 10, precision: 0, help: '聚合负荷瞬时阶跃（可升可降）：并网面由理想馈线瞬时补差/倒送吸收；MG 层负荷是聚合输入，与 FL-001 已删除的 load_step（O-13）无语义继承' }],
+        defaultTime_s: 20, timeRange: [2, 55],
+        closedLoopEffect: 'load 30→40（默认 +10）：P_grid 5→15 kW 瞬时（馈线补差），P_bess/SOC 不受影响（计划跟踪），r ≡ 0 维持；下行角点 load 30→20 → P_grid 5→−5 kW（倒送域，理想双向合法工作区）',
+        monitorEffect: '同闭环（物理输入，两模式逐位同解）',
+        causalTemplateId: 'mg-load-step'
+      }),
+      fault({
+        id: 'shading_link', family: 'shading_link', label: 'PV 子轨遮挡联动', shortLabel: '遮挡联动',
+        target: 'pv_unit',
+        description: '遮挡阶跃联动注入 PV 子轨（子轨物理输入透传，源域原样 [50,300] W/m²）：聚合面看光伏出力下降、馈线补差上升；源轨物理与 PV-001 完全一致。',
+        params: [{ key: 'magnitude', label: '遮挡降幅', unit: 'W/m²', min: 50, max: 300, step: 25, default: 300, precision: 0, help: '遮挡阶跃联动注入 PV 子轨：聚合面看光伏出力下降、馈线补差上升；源轨物理与 PV-001 完全一致' }],
+        defaultTime_s: 20, timeRange: [2, 55],
+        closedLoopEffect: '物理输入，与控制模式无关：P_pv 10→7 kW（τ=1.0 s 一阶跟随，(21.0)=8.103638），P_grid 5→8 kW，r ≡ 0 维持',
+        monitorEffect: '同闭环（物理输入，两模式逐位同解）',
+        causalTemplateId: 'mg-pv-shading-link'
+      }),
+      fault({
+        id: 'gust_link', family: 'gust_link', label: 'WT 子轨阵风联动', shortLabel: '阵风联动',
+        target: 'wt_unit',
+        description: '阵风阶跃联动注入 WT 子轨（子轨物理输入透传，源域原样 [1.0,3.0] m/s）：默认参数跨额定区——风电出力爬升至额定封顶 15 kW。',
+        params: [{ key: 'magnitude', label: '阵风增幅', unit: 'm/s', min: 1.0, max: 3.0, step: 0.5, default: 2.0, precision: 1, help: '阵风阶跃联动注入 WT 子轨：默认参数跨额定区——风电出力爬升至额定封顶 15 kW，馈线补差降至零导入角点' }],
+        defaultTime_s: 20, timeRange: [2, 55],
+        closedLoopEffect: '物理输入，与控制模式无关：P_wt 10→15.000000 kW（WT L0b 动态爬升封顶），P_grid 5→0.000000 kW（零导入角点，|·| ≤ 1e-9 容差声明——PV 10 + WT 15 + BESS 5 = load 30 恰平），r ≡ 0 维持',
+        monitorEffect: '同闭环（物理输入，两模式逐位同解）',
+        causalTemplateId: 'mg-wt-gust-link'
+      }),
+      fault({
+        /* island_event 零参数族（Q2 定案——库内首例，params:[]）：脱离/重连语义由
+           t_start_s（脱离）与 t_clear_s（重连，缺省 = 窗末持续脱离）完整承载，无幅值语义；
+           挂空 magnitude 为伪参数不采。单故障/Run 模型下不可与其他族同时注入——
+           「间歇性叠加改变卸载量」以场景级有序 Run 对比承载（规格 §2.4）。 */
+        id: 'island_event', family: 'island_event', label: '主馈线分断（脱离/重连）', shortLabel: '主馈线分断',
+        target: 'switch',
+        description: '脱离主馈线：功率平衡重整演示——BESS 从计划跟踪切换为平衡填补（钳位 ±8 kW），缺口负荷卸载、盈余倾卸；重连后恢复馈线补差与计划跟踪。重连时刻由 t_clear_s 承载（缺省 = 窗末持续脱离）。',
+        params: [],
+        defaultTime_s: 20, timeRange: [2, 55],
+        closedLoopEffect: '脱离（t_start）：P_grid ≡ 0、P_bess 5→8 kW（chase=10 超上限钳位）、P_shed=2 kW 持续、island_state 0→1；重连（t_clear）：P_grid→5、P_bess→5（计划恢复）、P_shed→0；r ≡ 0 全程维持（重整前后恒等式同式，EQ-MG-6）',
+        monitorEffect: '同闭环（拓扑事件，两模式逐位同解）',
+        causalTemplateId: 'mg-island-event'
+      })
+    ],
+    model: {
+      model_id: 'MG-001',
+      model_version: '1.0.0',
+      assumptions: [
+        { id: 'A-mg-ideal-bus', text: '聚合母线 400 V 等效理想，无电压/频率动态、无功与网损；等效母线是功率平衡抽象，不是电网模型。' },
+        { id: 'A-mg-reuse-tracks', text: 'PV/WT 源轨物理原样复用（PV-001 L0 / WT-001 L0b，G0=1000、v0=9 固定面），MG 聚合层不修改、不包裹、不重写任何源方程；联动开放须显式 CHG。' },
+        { id: 'A-mg-bess-energy-face', text: 'BESS 复用 FL-001 电池能量面（P=0.4·I 换算、40 kWh、SOC 账本）：复用的是能量面公式形式，非 FL 反馈控制器面（传感器/限幅/τ 跟随面不进入聚合层）；FL thermal 轨不进入 MG。' },
+        { id: 'A-mg-bess-structural-limit', text: 'BESS 功率域 [−8, +8] kW 为模型结构设定（非故障、非设备辨识）；钳位为理想硬钳位（无恢复动态、无 t_clear 概念——island_event 的重连由 t_clear_s 承载）。' },
+        { id: 'A-mg-island-ideal-balance', text: '孤岛面 BESS 为理想瞬时平衡填补源（无滞后面）：恒等式按构造成立，不引入母线缓冲状态；「滞后源追逐失衡需缓冲」的反例证据 = FL-001 load_step O-13 删除记录（SCOPE_SPLIT_MEMO §5.2）。' },
+        { id: 'A-mg-ems-true', text: 'EMS 平衡填补按真实功率值计算（load/P_pv/P_wt 真值，无测量链、无估计通道）；全功率测量通道健康 ⇒ r_meas ≡ 0、两模式逐位同解。' },
+        { id: 'A-mg-const-sched', text: '并网面 BESS 按调度计划恒功率跟踪（p_sched_kW 无日内曲线/无 SOC 反演调度——SOC 仅账本通道，60 s 教学窗内 SOC 摆幅 ≤0.34 pp 永不绑定功率面）。' },
+        { id: 'A-mg-load-step-instant', text: '聚合负荷阶跃为瞬时阶跃（无爬坡）；并网面由馈线瞬时补差吸收（恒负荷系统同构面），孤岛面由钳位 + 卸载重整吸收——两模式恒等式按构造成立（O-13 语义差异声明）。' },
+        { id: 'A-mg-island-abstract', text: '分断开关为理想通断抽象：分断即馈线功率恒为 0、重连即恢复补差；无检同期、无过渡过程、无保护逻辑——本演示为脱离主馈线的功率平衡重整演示，不代表真实电网侧动态。' },
+        { id: 'A-mg-l0', text: 'MG 调度与平衡填补为行为级聚合逻辑，不是经过验证的设备控制器。' }
+      ],
+      limitations: [
+        '潮流与网络方程未建模（单母线聚合，无线路阻抗/潮流分布/多母线拓扑——TL-001 远期候选）。',
+        '频率/电压/无功概念全平面未建模（含一次调频、AVR、电压稳定——GT-001 承载频率行为级面，MG 不重复）。',
+        '孤岛保护与重整控制逻辑未建模：检同期、防孤岛、低电压/频率穿越、重整后的二次调频/调压——均未建模（无频率/电压概念；命名仅出现在本清单，不进入教学文案）。',
+        'BESS 深物理未建模：内阻/温度面（FL thermal 轨不进入聚合）、变流器效率曲线、SOC 对功率域的反演绑定（SOC 仅账本——SOC0=0 角点 SOC 可为负，域外声明）。',
+        '源轨内部未建模面整体继承（PV I-V 工作点/温度动态/局部遮挡；WT 尾流/湍流/气弹/停机——各源规格 limitations 原样适用，MG 不新增不减轻）。',
+        '计划调度面未建模：p_sched 无日内曲线、无 SOC 反演、无多时段优化（储能调峰教学点以「计划跟踪 ⇄ 孤岛填补」角色切换承载，非调度算法演示）。',
+        '负荷模型：聚合负荷为恒功率阶跃面，无 ZIP/动态负荷/负荷恢复动态。',
+        '倒送域与倾卸域：并网 P_grid < 0（倒送）为理想双向馈线合法工作区（PV/WT 同款声明）；孤岛盈余倾卸 P_dump 为理想倾卸元件（抽象记账项，不是能量损失）。',
+        'normalizeConfig 无跨参数校验（FL-001 同款先例），手拼配置可致 SOC0 极低角点（负账本值，域外声明）；MG-IMP-Q1 定案（MG-G2b-04）：engine validateConfig 对 initial 三键出域 reject（FL/PV/WT 同款 reject 纪律），不做引擎侧数值钳位（FL-001 退化域声明先例——负账本值如实输出并在此登记）。',
+        'L0 聚合行为级演示模型；非实测、非 Simulink、无实测对比。本模型为多源聚合行为级并网演示（L0），非机组/电网动态验证。'
+      ],
+      equations: [
+        { id: 'EQ-MG-1', latex_text: 'load(t) = load_kW + ΔP·1(t ≥ t0)（仅 load_step）; island(t) = 1(t ≥ t_start)·1(t < t_clear)（t_clear 缺省 = 窗末 60 s，仅 island_event）; 子轨事件透传：ΔG/Δv 于各自 t0 生效', note: '聚合输入面（事件感知，断点全部落在 0.1 s 网格与事件边界；t0 处右极限 post 采样行语义）' },
+        { id: 'EQ-MG-2', latex_text: 'P_pv(t) = PV-001 轨输出（G0=1000 固定面）; P_wt(t) = WT-001 轨输出（v0=9 固定面）', note: '源轨复用声明（EQ-MG-2：engine 侧 = simulatePV001/simulateWT001 内部组合复用调用，不重写物理；oracle 侧 = pv001_oracle/wt001_oracle 参数化序列函数复用）' },
+        { id: 'EQ-MG-3', latex_text: '并网面：P_bess = p_sched; P_grid = load − P_pv − P_wt − P_bess（受电为正，理想双向）; P_served = load; P_shed = P_dump = 0', note: '并网功率平衡（馈线补差——FL/PV/WT 馈线同构，无爬坡/额定/倒送约束）' },
+        { id: 'EQ-MG-4', latex_text: '孤岛面：P_grid ≡ 0; chase = load − P_pv − P_wt; P_bess = clamp(chase, −8, +8); P_shed = max(0, chase − P_bess); P_dump = max(0, P_bess − chase); P_served = load − P_shed', note: '脱离主馈线的功率平衡重整（BESS 理想瞬时填补 + 钳位 + 卸载/倾卸，Q4 已定案——恒等式按构造成立，无缓冲状态）' },
+        { id: 'EQ-MG-5', latex_text: '调度面：并网 P_bess 目标 = p_sched（计划跟踪）; 孤岛计划挂起、切换为平衡填补; 重连恢复计划跟踪', note: 'BESS 角色切换 = 重整教学点（计划跟踪 ⇄ 孤岛填补）' },
+        { id: 'EQ-MG-6', latex_text: 'r_true ≡ P_pv + P_wt + P_bess + P_grid − P_served − P_dump ≡ 0（定义恒等，两模式同式）; r_meas ≡ 0（全功率测量通道健康）; 孤岛面恒等：ΣP_source = P_served + P_dump = load − P_shed + P_dump', note: '母线恒等式（并网 ΣP_source + P_grid = P_load、孤岛 ΣP_source = 重整后服务负荷 + 倾卸；r_meas ≡ 0 与 FL-001 r_meas = 0.4·b 教学对照）' },
+        { id: 'EQ-MG-7', latex_text: 'SOC_true(t) = SOC0 − 100·∫[0,t] P_bess dt/(3600·40)（%）; SOC_est 同式用测量通道; SOC_err ≡ 0', note: 'FL EQ-6 形式复用；积分 = 事件感知分段解析（Q1(b) 定案结构推论：island Run 源恒健康 ⇒ chase 分段常值 ⇒ clamp 分段常值 ⇒ P_bess 分段常值，断点 = 事件边界）' },
+        { id: 'EQ-MG-8', latex_text: 'E_x = 事件感知精确积分（kW·s，÷3600 → kWh）：分段常值信号按段解析; 时变源段（E_pv/E_wt）复用源轨积分; E_grid := E_served + E_dump − E_pv − E_wt − E_bess（恒等导出）', note: '能量口径（EQ-PV-7 事件感知先例；采样网格右端点和 ≠ 解析积分的边界伪差显式排除；E_grid 恒等导出避免对时变 P_grid 序列做数值积分）' },
+        { id: 'EQ-MG-9', latex_text: 'V_bus = 400 V（模型假设，tableOnly，非仿真状态）', note: '母线抽象（PV/WT 同款）' }
+      ]
+    },
+    /* MG-001 无 P0 验收面（extension_preview：scope.js classify fall-through，规格 §2.5/§5；
+       assertApprovedP0 对 MG 配置抛 SCOPE-E01）。acceptance 键仅登记锚点来源与
+       extension_preview 状态；验收锚点由 mg001_v1 golden 承载（MG-G2b-03 emit 冻结），
+       本键面不预填 keyValues（WT-001 先例同构）。 */
+    acceptance: {
+      reference: 'MG001_G2B_SPEC_APPROVED v1.0 §3（锚点包络，终值由 mg001_v1 oracle emit 冻结，MG-G2b-03）；MG-001 为 extension_preview，无 P0 验收面',
+      exactness: 'MG-001 为扩展预览演示面：本规格锚点数值仅作教学对照，不进入 P0 验收/golden 比对路径；验收锚点由 mg001_v1 golden 承载（MG-G2b-03 emit）'
+    }
+  };
+
+  /* ================================================================== */
   /* 因果模板（engine 用数值证据填充；页面只渲染 run.causal）              */
   /* ================================================================== */
   /* layer: config = 配置事实 / mechanism = 模型机制 / observation = 数值观测 */
@@ -2483,7 +2744,251 @@
     }
   };
 
-  var ALL = [FL001, FC001, GT001, PV001, WT001];
+  /* MG-001 因果模板四件（MG001_G2B_SPEC_APPROVED v1.0 §6.4；MG-G2b-04 systems.js 面）。
+     四族全为物理/拓扑输入（两模式逐位同解，MS-5）——monitorNodes 不单设（buildCardFromTemplate
+     无 monitorNodes 时回落 nodes，两模式同卡 = 「monitorNodes：与闭环同解」的模板面承载）。
+     mg-island-event 含重连段 n8…n10（t_clear 时刻证据以 tStartOffset=+15 表达 golden 锚定
+     t_clear=35；general t_clear 由 facts.tc 文案承载）。 */
+  MG001.causalTemplates = {
+    load_step: {
+      id: 'mg-load-step',
+      headline: 't={t0} s，{faultLabel}：聚合负荷 {P_load_pre} → {P_load_post} kW',
+      mechanismSummary: '聚合负荷阶跃 → 并网面由理想馈线瞬时补差吸收（EQ-MG-3）：P_grid 随阶跃瞬时上抬，储能保持计划跟踪、SOC 账本不受影响，全服务维持。MG 层负荷是聚合输入，与 FL-001 已删除的 load_step（O-13）无语义继承——恒等式按构造成立，无「滞后源追逐失衡」结构。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '聚合负荷阶跃注入', short: 'P_load {P_load_pre} → {P_load_post} kW',
+          layer: 'config', componentId: 'load', signalIds: ['P_load_demand_kW'],
+          detail: '因为 {t0} s 聚合负荷从 {P_load_pre} kW 阶跃到 {P_load_post} kW，所以母线功率需求发生阶跃变化。这是配置定义的聚合输入事实（瞬时阶跃，无爬坡——A-mg-load-step-instant）。',
+          evidence: [{ varId: 'P_load_demand_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: '19.9 s {P_load_pre} kW → 20.0 s {P_load_post} kW' }]
+        },
+        {
+          id: 'n2', order: 2, title: '馈线瞬时补差', short: 'P_grid {P_grid_pre} → {P_grid_post} kW',
+          layer: 'observation', componentId: 'feeder', signalIds: ['P_grid_true_kW'],
+          detail: '因为并网面由理想馈线瞬时补差（EQ-MG-3：P_grid = P_load − P_pv − P_wt − P_bess，受电为正），所以馈线功率由 {P_grid_pre} kW 瞬时升至 {P_grid_post} kW；下行角点可倒送为负（理想双向合法工作区）。',
+          evidence: [{ varId: 'P_grid_true_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: '20.0 s {P_grid_pre} kW → {P_grid_post} kW（瞬时补差）' }]
+        },
+        {
+          id: 'n3', order: 3, title: '储能保持计划跟踪', short: 'P_bess ≡ {P_sched} kW（计划面不受影响）',
+          layer: 'observation', componentId: 'bess', signalIds: ['P_bess_kW', 'P_sched_kW', 'SOC_true_pct'],
+          detail: '因为并网面 BESS 按调度计划恒功率跟踪（EQ-MG-5），所以储能出力保持 {P_sched} kW、SOC 账本沿计划斜率继续（负荷阶跃不影响计划面——SOC 仅账本通道，A-mg-const-sched）。',
+          evidence: [{ varId: 'P_bess_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: 'P_bess 恒 {P_sched} kW（计划跟踪不受聚合输入阶跃影响）' }]
+        },
+        {
+          id: 'n4', order: 4, title: '全服务维持', short: 'P_served {P_served_60} kW（并网面无卸载）',
+          layer: 'observation', componentId: 'load', signalIds: ['P_load_served_kW'],
+          detail: '因为并网面 P_shed = P_dump = 0（EQ-MG-3），所以负荷实际获得功率始终等于需求 {P_served_60} kW。',
+          evidence: [{ varId: 'P_load_served_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '并网面 P_served ≡ P_load（全服务）' }]
+        },
+        {
+          id: 'n5', order: 5, title: '恒等式维持', short: 'r_true ≡ {r_true_max} kW（定义恒等）',
+          layer: 'observation', componentId: 'bus', signalIds: ['r_true_kW', 'r_meas_kW'],
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: '因为母线恒等式 r_true ≡ P_pv + P_wt + P_bess + P_grid − P_served − P_dump 为定义恒等（EQ-MG-6），所以 r_true = {r_true_max} kW、r_meas = {r_meas_max} kW（全功率测量通道健康）——平衡重整由馈线承担，与 FL-001 O-13 删除族的失衡对照为负例教学面。',
+          evidence: [{ varId: 'r_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: 'r_true 恒为 0（定义恒等式回归）' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '需求阶跃' },
+        { from: 'n2', to: 'n3', label: '计划面不受影响' },
+        { from: 'n2', to: 'n4', label: '补差即服务' },
+        { from: 'n4', to: 'n5', label: '恒等式闭合', dashed: true }
+      ],
+      assumptions: ['A-mg-ideal-bus', 'A-mg-load-step-instant', 'A-mg-const-sched', 'A-mg-l0'],
+      limitations: ['并网面馈线为理想瞬时平衡源（无爬坡/额定约束）。', 'L0 演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若同一阶跃发生在孤岛窗内', text: '单故障/Run 模型下不可组合（island_event 为独立族）——「间歇性叠加改变卸载量」以场景级有序 Run 对比承载（规格 §2.4 教学面限制）。' }]
+    },
+    shading_link: {
+      id: 'mg-pv-shading-link',
+      headline: 't={t0} s，{faultLabel}：PV 子轨出力 {P_pv_pre} → {P_pv_60} kW',
+      mechanismSummary: '遮挡联动注入 PV 子轨 → 子轨出力 τ=1.0 s 一阶跟随下行 → 母线余额上缺口由馈线瞬时补差（EQ-MG-3）。源轨物理与 PV-001 完全一致（EQ-MG-2 复用声明），聚合层只转发结果不改写物理。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '遮挡联动注入', short: 'PV 子轨遮挡降幅 {mag} W/m² @ {t0} s',
+          layer: 'config', componentId: 'pv_unit', signalIds: ['P_pv_kW'],
+          detail: '因为 {t0} s 遮挡阶跃联动注入 PV 子轨（降幅 {mag} W/m²，源域 [50,300] 原样透传），所以子轨 MPPT 重算目标功率。这是配置定义的物理输入事实（两模式同生效）。',
+          evidence: [{ varId: 'P_pv_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: '联动注入时刻子轨出力开始下行' }]
+        },
+        {
+          id: 'n2', order: 2, title: 'PV 子轨出力下行', short: 'P_pv {P_pv_pre} → {P_pv_60} kW（τ=1.0 s 跟随）',
+          layer: 'observation', componentId: 'pv_unit', signalIds: ['P_pv_kW'],
+          detail: '因为 PV-001 子轨按 τ_mppt = 1.0 s 一阶跟随新目标（EQ-PV-4 闭式复用，健康局 10 kW → 7 kW），所以聚合面光伏馈入由 {P_pv_pre} kW 降到 {P_pv_60} kW。',
+          evidence: [{ varId: 'P_pv_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s 10.00 kW → 60.0 s {P_pv_60} kW（一阶跟随）' }]
+        },
+        {
+          id: 'n3', order: 3, title: '馈线补差上升', short: 'P_grid → {P_grid_60} kW',
+          layer: 'observation', componentId: 'feeder', signalIds: ['P_grid_true_kW'],
+          detail: '因为母线余额 = ΣP_source − P_load 的光伏项下降（EQ-MG-3），所以理想馈线补差升至 {P_grid_60} kW（受电为正）。',
+          evidence: [{ varId: 'P_grid_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '馈线补差 5→{P_grid_60} kW' }]
+        },
+        {
+          id: 'n4', order: 4, title: '间歇性下行叠加', short: '聚合余额 = ΣP_source − load 的间歇项变动',
+          layer: 'mechanism', componentId: 'bus', signalIds: ['P_bess_kW', 'P_sched_kW'],
+          detail: '因为 MG 聚合层的间歇性来自源轨物理事件（遮挡/阵风），所以聚合余额的间歇项变动 = 子轨出力变动，储能计划面不受影响（计划跟踪，A-mg-const-sched）——多源聚合 vs 单源系统的教学对照面。',
+          evidence: [{ varId: 'P_bess_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: 'P_bess 恒 {P_sched} kW（计划跟踪）' }]
+        },
+        {
+          id: 'n5', order: 5, title: '恒等式维持', short: 'r_true ≡ {r_true_max} kW',
+          layer: 'observation', componentId: 'bus', signalIds: ['r_true_kW', 'r_meas_kW'],
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: 'r_true = {r_true_max} kW、r_meas = {r_meas_max} kW（EQ-MG-6 定义恒等）——并网面平衡重整由馈线承担，恒等式按构造成立。',
+          evidence: [{ varId: 'r_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: 'r_true 恒为 0（定义恒等式回归）' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '子轨一阶跟随' },
+        { from: 'n2', to: 'n3', label: '母线缺口' },
+        { from: 'n3', to: 'n4', label: '间歇项变动' },
+        { from: 'n4', to: 'n5', label: '恒等式闭合', dashed: true }
+      ],
+      assumptions: ['A-mg-ideal-bus', 'A-mg-reuse-tracks', 'A-mg-const-sched', 'A-mg-l0'],
+      limitations: ['子轨物理与 PV-001 完全一致（源轨 limitations 原样适用——MG 不新增不减轻）。', 'L0 演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若与 wt_gust_link 同时注入', text: '单故障/Run 模型下不可组合——间歇性叠加以场景级有序 Run 对比承载（规格 §2.4 教学面限制）。' }]
+    },
+    gust_link: {
+      id: 'mg-wt-gust-link',
+      headline: 't={t0} s，{faultLabel}：WT 子轨出力 {P_wt_pre} → {P_wt_60} kW',
+      mechanismSummary: '阵风联动注入 WT 子轨 → 子轨 L0b 动态爬升至额定封顶 15 kW（v0=9+Δv=11 跨额定区）→ 馈线补差降至零导入角点（PV 10 + WT 15 + BESS 5 = load 30 恰平，|P_grid| ≤ 1e-9 合法角点非缺陷）。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '阵风联动注入', short: 'WT 子轨阵风 +{mag} m/s @ {t0} s',
+          layer: 'config', componentId: 'wt_unit', signalIds: ['P_wt_kW'],
+          detail: '因为 {t0} s 阵风阶跃联动注入 WT 子轨（+{mag} m/s，源域 [1.0,3.0] 原样透传，v 9→11 跨额定区），所以子轨变流器目标功率切换支路。这是配置定义的物理输入事实（两模式同生效）。',
+          evidence: [{ varId: 'P_wt_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: '联动注入时刻子轨出力开始爬升' }]
+        },
+        {
+          id: 'n2', order: 2, title: 'WT 子轨爬升封顶', short: 'P_wt {P_wt_pre} → {P_wt_60} kW（额定封顶）',
+          layer: 'observation', componentId: 'wt_unit', signalIds: ['P_wt_kW'],
+          detail: '因为 WT-001 子轨 L0b 动态爬升（EQ-WT-4/6 复用：P_ref 三支路封顶 15 kW、桨距吸收），所以聚合面风电馈入由 {P_wt_pre} kW 爬升至 {P_wt_60} kW。',
+          evidence: [{ varId: 'P_wt_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '20.0 s 10.00 kW → 60.0 s {P_wt_60} kW（L0b 动态封顶）' }]
+        },
+        {
+          id: 'n3', order: 3, title: '零导入角点', short: 'P_grid → {P_grid_60} kW（恰平）',
+          layer: 'observation', componentId: 'feeder', signalIds: ['P_grid_true_kW'],
+          detail: '因为 PV 10 + WT 15 + BESS 5 = load 30 恰平（EQ-MG-3），所以馈线补差降至 {P_grid_60} kW——|P_grid| ≤ 1e-9 kW 为零导入合法角点（间歇性恰好覆盖负荷的判读练习，非缺陷）。',
+          evidence: [{ varId: 'P_grid_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '馈线补差 5→{P_grid_60} kW（零导入角点）' }]
+        },
+        {
+          id: 'n4', order: 4, title: '间歇性上行叠加恰平', short: '聚合余额间歇项 +5 kW 恰被吸收',
+          layer: 'mechanism', componentId: 'bus', signalIds: ['P_bess_kW', 'P_sched_kW'],
+          detail: '因为间歇性上行叠加（WT +5 kW）恰好等于并网面原馈线补差（5 kW），所以母线余额归零而储能计划面不变（计划跟踪，A-mg-const-sched）——多源间歇性叠加的教学点。',
+          evidence: [{ varId: 'P_bess_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: 'P_bess 恒 {P_sched} kW（计划跟踪）' }]
+        },
+        {
+          id: 'n5', order: 5, title: '倒送预判', short: 'load 下行角点 P_grid < 0（理想双向）',
+          layer: 'mechanism', componentId: 'bus', signalIds: ['P_load_demand_kW', 'P_grid_true_kW'],
+          detail: '若同一时刻聚合负荷下行（load_step min −10 与 load_kW min 10 组合域内 load_eff ≥ 0，Q6 域设计），ΣP_source > load 时 P_grid < 0 为倒送域合法工作区（理想双向馈线，不建模倒送约束——PV/WT 同款声明）。',
+          evidence: [{ varId: 'P_grid_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '倒送域为合法工作区（非缺陷）' }]
+        },
+        {
+          id: 'n6', order: 6, title: '恒等式维持', short: 'r_true ≡ {r_true_max} kW',
+          layer: 'observation', componentId: 'bus', signalIds: ['r_true_kW', 'r_meas_kW'],
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: 'r_true = {r_true_max} kW、r_meas = {r_meas_max} kW（EQ-MG-6 定义恒等）——零导入角点上恒等式按构造成立。',
+          evidence: [{ varId: 'r_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: 'r_true 恒为 0（定义恒等式回归）' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '子轨 L0b 动态' },
+        { from: 'n2', to: 'n3', label: '补差归零' },
+        { from: 'n3', to: 'n4', label: '间歇项恰平' },
+        { from: 'n4', to: 'n5', label: '倒送预判', dashed: true },
+        { from: 'n5', to: 'n6', label: '恒等式闭合', dashed: true }
+      ],
+      assumptions: ['A-mg-ideal-bus', 'A-mg-reuse-tracks', 'A-mg-const-sched', 'A-mg-l0'],
+      limitations: ['子轨物理与 WT-001 完全一致（源轨 limitations 原样适用——MG 不新增不减轻）。', 'L0 演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若阵风幅值限于亚额定段', text: 'gust +1.0（v=10 < v_rated）时 MPPT 支路爬向新最优点、无封顶——零导入角点不可达，馈线补差为正（源域教学对照）。' }]
+    },
+    island_event: {
+      id: 'mg-island-event',
+      headline: 't={t0} s，{faultLabel}：脱离主馈线的功率平衡重整（重连 @ {tc} s）',
+      mechanismSummary: '分断主馈线 → 馈线功率恒为 0 → EMS 角色切换：计划挂起、平衡填补 chase = load − P_pv − P_wt → 钳位 ±8 kW → 缺口卸载 P_shed、盈余倾卸 P_dump → 重连恢复馈线补差与计划跟踪。恒等式跨相位同式（EQ-MG-6）——「脱离主馈线的功率平衡重整演示」，不代表真实电网侧动态。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '分断注入', short: '主馈线分断 @ {t0} s（零参数族）',
+          layer: 'config', componentId: 'switch', signalIds: ['island_state'],
+          detail: '因为 {t0} s 主馈线分断开关动作（island_event 零参数族——脱离/重连语义由 t_start_s/t_clear_s 承载，无幅值语义），所以母线脱离馈线。这是配置定义的拓扑事件事实。',
+          evidence: [{ varId: 'island_state', tStartOffset: -0.1, tEndOffset: 0.1, note: 'island_state 0→1（脱离）' }]
+        },
+        {
+          id: 'n2', order: 2, title: '馈线功率归零', short: 'P_grid {P_grid_pre} → {P_grid_post} kW（孤岛 ≡ 0）',
+          layer: 'observation', componentId: 'switch', signalIds: ['P_grid_true_kW', 'island_state'],
+          detail: '因为分断即馈线功率恒为 0（EQ-MG-4：理想通断抽象——A-mg-island-abstract），所以 P_grid 由 {P_grid_pre} kW 归零并持续到重连。',
+          evidence: [{ varId: 'P_grid_true_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: '20.0 s {P_grid_pre} kW → {P_grid_post} kW（孤岛窗恒 0）' }]
+        },
+        {
+          id: 'n3', order: 3, title: 'EMS 角色切换', short: '计划挂起 → 平衡填补 chase = {chase_post} kW',
+          layer: 'mechanism', componentId: 'ems', signalIds: ['P_bess_chase_kW', 'P_sched_kW'],
+          detail: '因为孤岛窗内计划挂起、EMS 切换为平衡填补（EQ-MG-5，填补目标按真实功率值计算——A-mg-ems-true），所以 chase = P_load − P_pv − P_wt = {chase_post} kW（钳位前显式暴露；P_sched 仍显示配置值 {P_sched} kW）。',
+          evidence: [{ varId: 'P_bess_chase_kW', tStartOffset: 0.0, tEndOffset: 14.9, note: '岛窗内 chase = {chase_post} kW（填补目标，钳位前）' }]
+        },
+        {
+          id: 'n4', order: 4, title: '功率域钳位', short: 'P_bess {P_bess_pre} → {P_bess_post} kW（clamp ±8）',
+          layer: 'mechanism', componentId: 'bess', signalIds: ['P_bess_kW'],
+          detail: '因为 BESS 功率域 [−8, +8] kW 为模型结构设定（A-mg-bess-structural-limit，理想硬钳位），所以 chase = {chase_post} kW 超上限被钳位：P_bess 由计划值 {P_bess_pre} kW 切换为 {P_bess_post} kW。',
+          evidence: [{ varId: 'P_bess_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: '{P_bess_pre} kW（计划）→ {P_bess_post} kW（钳位填补）' }]
+        },
+        {
+          id: 'n5', order: 5, title: '缺口卸载', short: 'P_shed = {P_shed_post} kW 持续（P_served {P_load_post} → {P_served_post} kW）',
+          layer: 'observation', componentId: 'load', signalIds: ['P_shed_kW', 'P_load_served_kW'],
+          detail: '因为 chase {chase_post} kW > 钳位上限 8 kW，缺口部分由负荷卸载重整吸收（P_shed = chase − P_bess = {P_shed_post} kW 持续），所以负荷实际获得功率降为 {P_served_post} kW（P_served = P_load − P_shed）。',
+          evidence: [{ varId: 'P_shed_kW', tStartOffset: 0.0, tEndOffset: 14.9, note: '岛窗内 P_shed 恒 {P_shed_post} kW（缺口卸载）' }]
+        },
+        {
+          id: 'n6', order: 6, title: 'SOC 账本加速', short: '放电加速：SOC → {SOC_60} %（分段解析账本）',
+          layer: 'observation', componentId: 'bess', signalIds: ['SOC_true_pct', 'SOC_est_pct'],
+          detail: '因为 SOC 为账本通道（EQ-MG-7 分段解析积分，SOC 仅账本永不绑定功率面——A-mg-const-sched），所以岛窗 8 kW 段放电斜率大于计划段：SOC 末值 {SOC_60} %（SOC_est 与 SOC_true 同值，SOC_err ≡ 0）。',
+          evidence: [{ varId: 'SOC_true_pct', tStartOffset: 0.0, tEndOffset: 40.0, note: '三段解析账本：5×20 + 8×15 + 5×25 kW·s' }]
+        },
+        {
+          id: 'n7', order: 7, title: '重整后恒等式维持', short: 'ΣP_source = P_served + P_dump（r ≡ 0）',
+          layer: 'observation', componentId: 'bus', signalIds: ['r_true_kW', 'r_meas_kW', 'P_dump_kW'],
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: '孤岛面恒等式 ΣP_source = P_served + P_dump = load − P_shed + P_dump（EQ-MG-6）：r_true = {r_true_max} kW 全程维持——重整前后恒等式同式，P_dump 为理想倾卸记账项（不是能量损失）。',
+          evidence: [{ varId: 'r_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: 'r_true 恒为 0（重整前后同式）' }]
+        },
+        {
+          id: 'n8', order: 8, title: '重连恢复', short: '重连 @ {tc} s（t_clear_s 承载）',
+          layer: 'config', componentId: 'switch', signalIds: ['island_state'],
+          detail: '因为重连时刻由 t_clear_s 承载（{tc} s，GT-001 actuator_fault t_clear 先例同构），所以母线恢复馈线补差、island_state 1→0。',
+          evidence: [{ varId: 'island_state', tStartOffset: 14.9, tEndOffset: 15.1, note: '{tc} s 重连：island_state 1→0' }]
+        },
+        {
+          id: 'n9', order: 9, title: '馈线与计划恢复', short: 'P_grid → {P_grid_tc} kW、P_bess → {P_bess_tc} kW、P_shed → {P_shed_tc} kW',
+          layer: 'observation', componentId: 'feeder', signalIds: ['P_grid_true_kW', 'P_bess_kW', 'P_shed_kW', 'P_load_served_kW'],
+          detail: '因为重连即恢复补差与计划跟踪（EQ-MG-3/5），所以馈线功率恢复 {P_grid_tc} kW、储能回计划 {P_bess_tc} kW、卸载归零（P_served 恢复 {P_served_tc} kW）。',
+          evidence: [{ varId: 'P_bess_kW', tStartOffset: 14.9, tEndOffset: 15.1, note: '{tc} s：钳位 8 kW → 计划 {P_bess_tc} kW' }]
+        },
+        {
+          id: 'n10', order: 10, title: '恒等式跨相位同式', short: 'r ≡ 0（脱离/重整/重连三相位同式）',
+          layer: 'observation', componentId: 'bus', signalIds: ['r_true_kW'],
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: '脱离（并网式）→ 重整（孤岛式）→ 重连（并网式）三相位的恒等式同族（EQ-MG-6），r_true 全程为 0——功率平衡重整演示的教学闭环。',
+          evidence: [{ varId: 'r_true_kW', tStartOffset: 14.9, tEndOffset: 40.0, note: '重连后 r_true 恒为 0（跨相位同式）' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '分断' },
+        { from: 'n2', to: 'n3', label: '角色切换' },
+        { from: 'n3', to: 'n4', label: '钳位' },
+        { from: 'n4', to: 'n5', label: '缺口卸载' },
+        { from: 'n4', to: 'n6', label: '放电加速' },
+        { from: 'n5', to: 'n7', label: '恒等式重整', dashed: true },
+        { from: 'n7', to: 'n8', label: '重连' },
+        { from: 'n8', to: 'n9', label: '恢复' },
+        { from: 'n9', to: 'n10', label: '恒等式闭合', dashed: true }
+      ],
+      assumptions: ['A-mg-ideal-bus', 'A-mg-island-ideal-balance', 'A-mg-bess-structural-limit', 'A-mg-island-abstract', 'A-mg-ems-true', 'A-mg-l0'],
+      limitations: ['本演示为脱离主馈线的功率平衡重整演示，不代表真实电网侧动态（无检同期、无保护逻辑、无过渡过程）。', '单故障/Run 模型下 island_event 不可与负荷阶跃/子轨联动族同时注入——场景级有序 Run 对比承载叠加教学面。', 'L0 演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若 t_clear_s 缺省（窗末持续脱离）', text: '脱离持续到 60 s 窗末：无重连事件，SOC 账本沿 8 kW 段斜率到窗末——重连恢复面以显式 t_clear_s 承载（GT-001 t_clear 先例同构）。' }]
+    }
+  };
+
+  var ALL = [FL001, FC001, GT001, PV001, WT001, MG001];
   var BY_ID = {};
   ALL.forEach(function (s) { BY_ID[s.id] = s; });
 

@@ -98,6 +98,17 @@
     return FL.systems._raw.get(systemId);
   }
 
+  /* 可用系统清单（错误文案面动态派生，scenario.js knownSystemIds / teaching.js 先例同构）：
+     自 systems.js 注册目录生成，与成员闸门（rawSystem）同源——注册目录演进自动跟上，
+     不再维护硬编码系统名列表（V1_FACES v1.0.x 清算清单登记面；B-4 修复同款先例）。
+     FL.systems 缺席（bootstrap 顺序异常）时回退三系统字面串，仅兜底、不参与正常路径。 */
+  function knownSystemIdsText() {
+    if (FL.systems && typeof FL.systems.list === 'function') {
+      return FL.systems.list().map(function (s) { return s.id; }).join(' / ');
+    }
+    return 'FL-001 / FC-001 / GT-001';
+  }
+
   function isoLocalNow() {
     var d = new Date();
     function p2(n) { return String(n).padStart(2, '0'); }
@@ -258,7 +269,9 @@
     }
     var system = rawSystem(config.systemId);
     if (!system) {
-      return { ok: false, errors: [{ field: 'systemId', message: '未知系统 ' + String(config.systemId) + '（可用：FL-001 / FC-001 / GT-001）' }], warnings: warnings };
+      /* 系统枚举文案动态派生（knownSystemIdsText——scenario.js:91/:168 knownSystemIds 先例复用，
+         V1_FACES v1.0.x 清算项；硬编码系统名列表删除，注册目录演进自动跟上） */
+      return { ok: false, errors: [{ field: 'systemId', message: '未知系统 ' + String(config.systemId) + '（可用：' + knownSystemIdsText() + '）' }], warnings: warnings };
     }
     function push(field, message) { errors.push({ field: field, message: message }); }
 
@@ -318,8 +331,18 @@
          WT 专属物理输入族（阵风阶跃——环境输入侧上行阶跃，不复用 load_step/shading_step），
          按系统显式追加；FL/FC/GT/PV 的家族分派面零改动 */
       if (system.id === 'WT-001') allowed = allowed.concat(['gust_step']);
+      /* MG-001 新轨（MG001_G2B_SPEC_APPROVED v1.0 §2，CHG-20261110-01 批准链）：load_step
+         在基础面（MG 聚合输入阶跃——有符号域 [−10,+20] kW，Q6 定案；与 FL O-13 删除族的
+         语义差异显式登记于 systems.js 目录行），shading_link/gust_link 为子轨物理联动族、
+         island_event 为拓扑分断零参数族（Q2 定案，params:[] 无幅值语义），按系统显式追加；
+         FL/FC/GT/PV/WT 的家族分派面零改动 */
+      if (system.id === 'MG-001') allowed = allowed.concat(['shading_link', 'gust_link', 'island_event']);
       if (allowed.indexOf(fcfg.family) === -1) {
-        push('fault.family', '必须为 none / sensor_drift / load_step / actuator_fault（当前 ' + String(fcfg.family) + '）');
+        /* 族面文案按系统派生（MG-001 四族；既有五系统消息逐字不变——PV/WT 显式追加
+           不改消息面的现状 wart 沿袭，MG 新分支不扩大） */
+        push('fault.family', system.id === 'MG-001'
+          ? '必须为 none / load_step / shading_link / gust_link / island_event（当前 ' + String(fcfg.family) + '）'
+          : '必须为 none / sensor_drift / load_step / actuator_fault（当前 ' + String(fcfg.family) + '）');
       } else {
         var def = findFaultDef(system, fcfg.family);
         if (!def) {
@@ -356,8 +379,11 @@
               var known = def.params.some(function (p) { return p.key === k; });
               if (!known) warnings.push('fault.params.' + k + ' 不是 ' + def.label + ' 的已知参数，计算时忽略');
             });
-            /* fault.t_clear_s（可选，G2b v1.1 §9 扩展轮）：执行器故障清除时刻——
-               清除后 P_gen_cap 释放、P_gen 回到指令跟随；仅对带钳位的家族生效。 */
+            /* fault.t_clear_s（可选，G2b v1.1 §9 扩展轮）：清除/重连时刻——GT-001×actuator_fault
+               为执行器故障清除（清除后 P_gen_cap 释放、P_gen 回到指令跟随）；
+               MG-001×island_event 为主馈线重连时刻（MG001_G2B_SPEC_APPROVED v1.0 §2.4 /
+               Q1(b) 定案：脱离/重连语义由 t_start_s/t_clear_s 承载，缺省 = 窗末持续脱离）。
+               域判据两族同构（晚于 t_start、早于 duration、0.1 s 网格）。 */
             var tClear = fcfg.t_clear_s;
             if (tClear !== undefined && tClear !== null) {
               if (typeof tClear !== 'number' || !isFinite(tClear)) {
@@ -413,9 +439,29 @@
           push('initial.v0_ms', '必须在 ' + bounds.v0_ms.min + '–' + bounds.v0_ms.max + ' m/s 之间（收到 ' + v0Init + '）');
         }
       }
+      /* MG-001 新轨（MG001_G2B_SPEC_APPROVED v1.0 §1.1 / MG-G2b-04）：p_sched_kW 为 MG 自有
+         配置量（BESS 调度计划，域 [−8,8] kW 经 bounds.p_sched_kW，Q5 定案默认 +5）；SOC_pct
+         为聚合账本初值（FL-001 同款域 [0,100]）——刻意不入 bounds（checks.js soc-bounds /
+         energy-balance 按 bounds.SOC_pct 派生分派，聚合层无 E_source/E_bat 通用指标面，声明
+         将致 energy-balance 恒 fail 误报），域校验走本分支（MG-IMP-Q1 定案：reject 纪律——
+         出域即结构化错误，不做引擎侧数值钳位；FL/PV/WT initial 校验同款 reject 先例）。 */
+      if (system.id === 'MG-001') {
+        var psInit = init.p_sched_kW;
+        if (typeof psInit !== 'number' || !isFinite(psInit)) push('initial.p_sched_kW', '必须是数字（单位 kW）');
+        else if (psInit < bounds.p_sched_kW.min - 1e-9 || psInit > bounds.p_sched_kW.max + 1e-9) {
+          push('initial.p_sched_kW', '必须在 ' + bounds.p_sched_kW.min + '–' + bounds.p_sched_kW.max + ' kW 之间（收到 ' + psInit + '）');
+        }
+        var socMgInit = init.SOC_pct;
+        if (typeof socMgInit !== 'number' || !isFinite(socMgInit)) push('initial.SOC_pct', '必须是数字（单位 %）');
+        else if (socMgInit < 0 - 1e-9 || socMgInit > 100 + 1e-9) {
+          push('initial.SOC_pct', '必须在 0–100 % 之间（收到 ' + socMgInit + '）');
+        }
+      }
       /* 已知初始条件键面按 bounds 派生：FL/FC/GT 的 bounds = {load_kW, SOC_pct}，
-         与原硬编码键面等价；PV-001 为 {load_kW, G0_W_m2} */
+         与原硬编码键面等价；PV-001 为 {load_kW, G0_W_m2}；MG-001 bounds 键面不含 SOC_pct
+         （见上分支注释），SOC_pct 键在此登记为已知（仅 MG-001 生效，五系统零变化） */
       var knownInitKeys = Object.keys(bounds);
+      if (system.id === 'MG-001' && knownInitKeys.indexOf('SOC_pct') === -1) knownInitKeys.push('SOC_pct');
       Object.keys(init).forEach(function (k) {
         if (knownInitKeys.indexOf(k) === -1) warnings.push('initial.' + k + ' 不是已知初始条件，计算时忽略');
       });
@@ -1548,6 +1594,170 @@
     };
   }
 
+  /* ---------------- MG-001 微电网多源聚合（聚合层 L0 · 单母线并网等效） ----------------
+     MG001_G2B_SPEC_APPROVED v1.0 §1.4 EQ-MG-1..9（MG-G2b-04 / CHG-20261110-01 批准链；
+     R-5 守卫：显式分派分支，禁止静默落入 GT 物理）。数值口径：
+     - 聚合语义 = Run 内组合复用（§1.2）：内部按子轨固定面构造标准子配置
+       （FL.core.createConfig 产物），调用既有 simulatePV001/simulateWT001 获取源轨序列
+       （EQ-MG-2 复用声明——不重写任何源方程），再在输出采样网格（601 点）上逐点执行
+       聚合代数（EQ-MG-3/4）；MG 层自身无子步循环、无新 ODE（feedback_mode 透传）；
+     - 并网/孤岛两相（EQ-MG-3/4）+ BESS 角色相位段（EQ-MG-5：并网计划跟踪 / 孤岛平衡填补
+       clamp(±8) / 重连恢复计划）；r_true/r_meas 定义恒等（EQ-MG-6）；
+     - SOC = 事件感知分段解析积分（EQ-MG-7——Q1(b) 定案结构推论：island Run 源恒健康 ⇒
+       chase 分段常值 ⇒ clamp 分段常值 ⇒ P_bess 分段常值；段面 = mg001_oracle run_structure
+       同构段表，min() 端点钳位使端点积分逐位精确）；
+     - 能量 = 事件感知分段解析积分（EQ-MG-8；E_pv/E_wt 复用源轨积分 integrals，
+       E_grid := E_served + E_dump − E_pv − E_wt − E_bess 恒等导出——采样网格右端点和的
+       边界伪差显式排除）；V_bus = 400 V 常列（EQ-MG-9 模型假设）；
+     - P_bess_chase_kW 为唯一事件域 null 列（岛窗外 null——I_bat_cap_A/beta_stuck_deg
+       事件域 null 先例；makeSeries null 初始化 + 岛窗行填充）；island_state 全程有值。 */
+  function simulateMG001(system, cfg, t) {
+    var n = t.length - 1;
+    var duration = cfg.duration_s;
+    var P_CLAMP_KW = 8;      // A-mg-bess-structural-limit：BESS 结构功率域 [−8, +8] kW
+    var CAP_KWH_MG = 40;     // BESS 电池能量面（FL-001 电气面：40 kWh / 400 V、P=0.4·I 换算）
+    var V_BUS_MG = 400;      // EQ-MG-9 母线电压（模型假设，非仿真状态）
+    var family = cfg.fault.family;
+    var faulted = family !== 'none';
+    var tStart = faulted ? cfg.fault.t_start_s : null;
+    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
+    /* EQ-MG-1：island(t) = 1(t≥t_start)·1(t<t_clear)；t_clear 缺省 = 窗末持续脱离 */
+    var isIsland = faulted && family === 'island_event';
+    var tClear = (isIsland && cfg.fault.t_clear_s != null) ? cfg.fault.t_clear_s : duration;
+    var load0 = cfg.initial.load_kW;
+    var pSched = cfg.initial.p_sched_kW;
+    var soc0 = cfg.initial.SOC_pct;
+
+    /* EQ-MG-2 源轨复用（Run 内组合复用——§1.2 固定面：PV G0=1000、WT v0=9、无 sensor/
+       actuator 联动（Q7 定案）；feedback_mode 透传；shading/gust 幅值 = MG 族参数原样
+       透传源域）。 */
+    var pvSystem = rawSystem('PV-001');
+    var pvCfg = FL.core.createConfig('PV-001', {
+      feedback_mode: cfg.feedback_mode,
+      fault: (faulted && family === 'shading_link')
+        ? { family: 'shading_step', params: { magnitude: magnitude }, t_start_s: tStart }
+        : { family: 'none' }
+    });
+    var pvTrack = simulatePV001(pvSystem, pvCfg, t);
+    var wtSystem = rawSystem('WT-001');
+    var wtCfg = FL.core.createConfig('WT-001', {
+      feedback_mode: cfg.feedback_mode,
+      fault: (faulted && family === 'gust_link')
+        ? { family: 'gust_step', params: { magnitude: magnitude }, t_start_s: tStart }
+        : { family: 'none' }
+    });
+    var wtTrack = simulateWT001(wtSystem, wtCfg, t);
+
+    /* EQ-MG-1/3/4/5 相位段表（事件感知分段解析积分段面——mg001_oracle run_structure
+       同构；段值 = 解析名义值：岛内 chase 名义 = load0 − 20（源固定面健康局 10+10，
+       §1.2/§3.4；WT 健康轨 ±1e-9 wiggle 被 clamp 吸收，不影响分段常值前提））。 */
+    var segs;
+    if (isIsland) {
+      var chaseNom = load0 - 10 - 10;
+      var bessIsland = clamp(chaseNom, -P_CLAMP_KW, P_CLAMP_KW);
+      var shedIsland = Math.max(0, chaseNom - bessIsland);
+      var dumpIsland = Math.max(0, bessIsland - chaseNom);
+      segs = {
+        load: [[0, duration, load0]],
+        bess: [[0, tStart, pSched], [tStart, tClear, bessIsland], [tClear, duration, pSched]],
+        shed: [[0, tStart, 0], [tStart, tClear, shedIsland], [tClear, duration, 0]],
+        dump: [[0, duration, dumpIsland]]
+      };
+    } else {
+      var dpLoad = (faulted && family === 'load_step') ? magnitude : 0;
+      segs = {
+        load: dpLoad !== 0 ? [[0, tStart, load0], [tStart, duration, load0 + dpLoad]]
+                           : [[0, duration, load0]],
+        bess: [[0, duration, pSched]],   /* EQ-MG-5 计划跟踪不受聚合输入阶跃/子轨事件影响 */
+        shed: [[0, duration, 0]],
+        dump: [[0, duration, 0]]
+      };
+    }
+    /* 分段解析积分 ∫[0, tEnd]（段值常值；事件边界处测度为零——右极限 post 语义，
+       段值自其左端点起生效；min() 端点钳位使 t_end=60 端点积分逐位精确） */
+    function segIntegral(list, tEnd) {
+      var total = 0;
+      for (var s = 0; s < list.length; s++) {
+        var u = Math.min(tEnd, list[s][1]) - list[s][0];
+        if (u > 0) total += list[s][2] * u;
+      }
+      return total;
+    }
+
+    var series = makeSeries(system, n);
+    for (var i = 0; i <= n; i++) {
+      var ti = t[i];
+      var load = (faulted && family === 'load_step' && ti >= tStart) ? load0 + magnitude : load0;   /* EQ-MG-1 */
+      var pPv = pvTrack.series.P_pv_true_kW[i];    /* EQ-MG-2（源轨复用） */
+      var pWt = wtTrack.series.P_wt_true_kW[i];    /* EQ-MG-2（源轨复用） */
+      var isl = isIsland && ti >= tStart && ti < tClear;   /* EQ-MG-1（事件边界 = 0.1 s 网格精确点） */
+      var pBess, pShed, pDump, pServed, pGrid;
+      if (isl) {                                   /* EQ-MG-4（孤岛面重整） */
+        var chase = load - pPv - pWt;              /*   平衡填补目标（钳位前） */
+        pBess = clamp(chase, -P_CLAMP_KW, P_CLAMP_KW);   /*   钳位 ±8（结构域） */
+        pShed = Math.max(0, chase - pBess);        /*   缺口卸载 */
+        pDump = Math.max(0, pBess - chase);        /*   盈余倾卸 */
+        pServed = load - pShed;
+        pGrid = 0;                                 /*   孤岛 P_grid ≡ 0 */
+        series.P_bess_chase_kW[i] = chase;
+      } else {                                     /* EQ-MG-3（并网面） */
+        pBess = pSched;                            /* EQ-MG-5 计划跟踪 */
+        pShed = 0;
+        pDump = 0;
+        pServed = load;
+        pGrid = load - pPv - pWt - pBess;          /*   理想双向补差（受电为正） */
+      }
+      series.island_state[i] = isl ? 1 : 0;
+      series.P_pv_kW[i] = pPv;
+      series.P_wt_kW[i] = pWt;
+      series.P_bess_kW[i] = pBess;
+      series.P_sched_kW[i] = pSched;
+      series.P_load_demand_kW[i] = load;
+      series.P_load_served_kW[i] = pServed;
+      series.P_grid_true_kW[i] = pGrid;
+      series.P_grid_meas_kW[i] = pGrid;            /* 测量通道健康（§1.3） */
+      series.P_shed_kW[i] = pShed;
+      series.P_dump_kW[i] = pDump;
+      series.V_bus_V[i] = V_BUS_MG;                /* EQ-MG-9（模型假设） */
+      var soc = soc0 - 100 * segIntegral(segs.bess, ti) / (3600 * CAP_KWH_MG);
+      series.SOC_true_pct[i] = soc;                /* EQ-MG-7 分段解析 */
+      series.SOC_est_pct[i] = soc;                 /* 同式测量通道（全通道健康 ⇒ 逐位同值） */
+      series.SOC_err_pp[i] = series.SOC_est_pct[i] - series.SOC_true_pct[i];
+      var rTrue = pPv + pWt + pBess + pGrid - pServed - pDump;   /* EQ-MG-6 定义恒等 */
+      var rMeas = pPv + pWt + pBess + series.P_grid_meas_kW[i] - pServed - pDump;
+      series.r_true_kW[i] = rTrue;
+      series.r_meas_kW[i] = rMeas;
+    }
+
+    /* EQ-MG-8 能量口径：分段常值信号按段解析；E_pv/E_wt 复用源轨积分；
+       E_grid 由恒等导出（避免对时变 P_grid 序列做数值积分）。 */
+    var ePv = pvTrack.integrals.E_pv_true / 3600;
+    var eWt = wtTrack.integrals.E_wt_true / 3600;
+    var eBess = segIntegral(segs.bess, duration) / 3600;
+    var eDemand = segIntegral(segs.load, duration) / 3600;
+    var eShed = segIntegral(segs.shed, duration) / 3600;
+    var eDump = segIntegral(segs.dump, duration) / 3600;
+    var eServed = eDemand - eShed;
+    var eGrid = eServed + eDump - ePv - eWt - eBess;
+
+    return {
+      series: series,
+      integrals: {
+        E_load: segIntegral(segs.load, duration),      /* kW·s（metrics 通用面 E_load_kWh 同源） */
+        /* EQ-MG-8 能量账本（kWh；mg001_v1 REGISTERED_SCALARS 键面同名——simulate 指标
+           补全块经此承载，见 simulate() MG-001 分支注释） */
+        E_pv_kWh: ePv,
+        E_wt_kWh: eWt,
+        E_bess_kWh: eBess,
+        E_grid_kWh: eGrid,
+        E_load_demand_kWh: eDemand,
+        E_load_served_kWh: eServed,
+        E_shed_kWh: eShed,
+        E_dump_kWh: eDump
+      }
+    };
+  }
+
   /* ================================================================== */
   /* 观测噪声（仅 OBSERVATION 通道，确定性；默认关闭）                     */
   /* ================================================================== */
@@ -1620,7 +1830,11 @@
   /* ================================================================== */
   /* 事件 / 快照 / 真值                                                  */
   /* ================================================================== */
-  var EVENT_TYPE = { sensor_drift: 'sensor_bias', load_step: 'load_step', actuator_fault: 'actuator_limit', shading_step: 'shading_step', gust_step: 'gust_step' };
+  var EVENT_TYPE = { sensor_drift: 'sensor_bias', load_step: 'load_step', actuator_fault: 'actuator_limit', shading_step: 'shading_step', gust_step: 'gust_step',
+    /* MG-001 四族（MG001_G2B_SPEC_APPROVED v1.0 §2；event_type = 族名——PV/WT 物理输入族
+       同款约定；island_event 双事件面 EV-001=island_event/EV-002=island_reconnect，
+       mg001_v1 golden 事件编码同源） */
+    shading_link: 'shading_link', gust_link: 'gust_link', island_event: 'island_event' };
   var TARGET_SIGNAL = {
     'FL-001': { sensor_drift: 'bias_A', load_step: 'P_load_demand_kW', actuator_fault: 'I_bat_cap_A' },
     'FC-001': { sensor_drift: 'bias_A', load_step: 'P_load_demand_kW', actuator_fault: 'I_fc_cap_A' },
@@ -1632,7 +1846,12 @@
        偏置（低估方向，bias_ms = −B）；pitch_stuck（actuator_fault）事件域信号为卡涩桨距角
        （位置强制——Q2 定案，beta_stuck_deg 自 t_start 起有值）；gust_step 为物理输入阶跃
        （有效真实风速 v_true） */
-    'WT-001': { sensor_drift: 'bias_ms', actuator_fault: 'beta_stuck_deg', gust_step: 'v_true_ms' }
+    'WT-001': { sensor_drift: 'bias_ms', actuator_fault: 'beta_stuck_deg', gust_step: 'v_true_ms' },
+    /* MG-001 新轨（MG001_G2B_SPEC_APPROVED v1.0 §2）：load_step 为聚合输入阶跃（P_load_demand_kW）；
+       shading_link/gust_link 为子轨联动注入（目标信号 = 子轨馈入通道 P_pv_kW/P_wt_kW）；
+       island_event 为拓扑分断（目标信号 = 孤岛状态量 island_state——mg001_v1 golden
+       events target_signal 同源） */
+    'MG-001': { load_step: 'P_load_demand_kW', shading_link: 'P_pv_kW', gust_link: 'P_wt_kW', island_event: 'island_state' }
   };
 
   function buildLabel(system, cfg) {
@@ -1640,6 +1859,11 @@
     if (cfg.fault.family === 'none') return mode + ' · 无故障基准';
     var def = findFaultDef(system, cfg.fault.family);
     var p = def && def.params[0] ? def.params[0] : { unit: '', precision: 0 };
+    /* 零参数族（MG-001 island_event——Q2 定案库内首例）：无幅值语义，label 不携带幅值段；
+       既有五系统各族 params.length ≥ 1，本分支对其零变化 */
+    if (def && def.params.length === 0) {
+      return mode + ' · ' + (def ? def.shortLabel : '故障') + ' @' + Number(cfg.fault.t_start_s).toFixed(1) + 's';
+    }
     return mode + ' · ' + (def ? def.shortLabel : '故障') + ' ' + formatAmount(cfg.fault.params.magnitude, p) +
       ' @' + Number(cfg.fault.t_start_s).toFixed(1) + 's';
   }
@@ -1667,9 +1891,13 @@
        （低估为负）；gust_step 幅值/单位即通道量（v_true_ms，m/s）。其余系统事件面零变化
        （FL actuator 沿参数面 magnitude/unit——fl001_v1/v2 golden 同源）。 */
     var isWT = system.id === 'WT-001';
+    /* MG-001 island_event 零参数族（Q2 定案）：脱离/重连语义由 t_start_s/t_clear_s 承载，
+       无幅值语义——event magnitude/unit 为 null（诚实编码，不挂伪幅值；mg001_v1 golden
+       events magnitude/unit=null 同源）。既有五系统各族 params.length ≥ 1，零变化。 */
+    var isZeroParam = !def || def.params.length === 0;
     var evType = EVENT_TYPE[family] || 'fault';
-    var evMagnitude = cfg.fault.params.magnitude;
-    var evUnit = p.unit;
+    var evMagnitude = isZeroParam ? null : cfg.fault.params.magnitude;
+    var evUnit = isZeroParam ? null : p.unit;
     if (isWT) {
       if (family === 'actuator_fault') {
         evType = 'actuator_fault';
@@ -1679,7 +1907,7 @@
         evMagnitude = -evMagnitude;
       }
     }
-    var label = (def ? def.label : '故障') + ' ' + magText + ' @ ' + tStart.toFixed(1) + ' s';
+    var label = (def ? def.label : '故障') + (isZeroParam ? '' : ' ' + magText) + ' @ ' + tStart.toFixed(1) + ' s';
     const out = [{
       event_id: 'EV-001',
       event_type: evType,
@@ -1708,6 +1936,29 @@
         phase: 'clear',
         label: '执行器故障清除 @ ' + Number(cfg.fault.t_clear_s).toFixed(1) + ' s',
         description: '钳位释放：P_gen 回到指令跟随（清除瞬态见 A-gt-antiwindup-clamp）。',
+        target_component_label: comp ? comp.label : target,
+        preSnapshotId: 'EV-002-pre',
+        postSnapshotId: 'EV-002-post'
+      });
+    }
+    /* MG-001 island_event 双事件快照（MG001_G2B_SPEC_APPROVED v1.0 §2.4 实现面登记③ /
+       MG-G2b-04；Q1(b) 定案）：脱离 EV-001（主事件，phase='onset'）+ 重连 EV-002
+       （event_type='island_reconnect'，phase='clear'）——各 pre/post 一对快照由
+       buildSnapshots 按 trigger_s 通用机制产出（重连 pre/post = t_clear 前后采样行，
+       gt001 actuator_clear EV-002 349/350 采样行先例同构；mg001_v1 golden EV-001/EV-002
+       事件编码同源）。t_clear_s 缺省 = 窗末持续脱离（EQ-MG-1）——无窗内重连即无 EV-002。 */
+    if (system.id === 'MG-001' && family === 'island_event' && cfg.fault.t_clear_s != null) {
+      out.push({
+        event_id: 'EV-002',
+        event_type: 'island_reconnect',
+        trigger_s: cfg.fault.t_clear_s,
+        target_signal: 'island_state',
+        target_component: target,
+        magnitude: null,
+        unit: null,
+        phase: 'clear',
+        label: '主馈线重连 @ ' + Number(cfg.fault.t_clear_s).toFixed(1) + ' s',
+        description: '重连恢复：馈线补差与计划跟踪恢复，卸载归零（功率平衡重整演示的重连相位）。',
         target_component_label: comp ? comp.label : target,
         preSnapshotId: 'EV-002-pre',
         postSnapshotId: 'EV-002-post'
@@ -1784,7 +2035,9 @@
       faultId: cfg.fault.faultId,
       faultActiveFrom_s: cfg.fault.t_start_s,
       faultDuration_s: roundTo(cfg.duration_s - cfg.fault.t_start_s, 6),
-      peakMagnitude: cfg.fault.params.magnitude,
+      /* 零参数族（MG-001 island_event——Q2 定案）：无幅值语义 → peakMagnitude null；
+         既有五系统各族 params.length ≥ 1，本分支对其零变化 */
+      peakMagnitude: (def && def.params.length) ? cfg.fault.params.magnitude : null,
       unit: p.unit,
       effectiveFeedbackMode: cfg.feedback_mode,
       affectedComponent: def ? def.target : 'none'
@@ -1969,6 +2222,39 @@
       facts.E_pv_err = metricFmt('E_pv_err_kWh', 7);
       facts.E_grid = metricFmt('E_grid_kWh', 7);
       facts.E_load = metricFmt('E_load_kWh', 5);
+    } else if (system.id === 'MG-001') {
+      /* MG-001 新轨（MG001_G2B_SPEC_APPROVED v1.0 §6.4 模板占位符面；信号全部 MG 自有）。
+         注意：island_event 为零参数族（Q2 定案）——facts.mag 为 'NaN' 占位串（formatAmount
+         无幅值可取），mg-island-event 模板不引用 {mag}（诚实编码，不挂伪幅值）。 */
+      facts.P_load_pre = at('P_load_demand_kW', tStart - 0.1, 2);
+      facts.P_load_post = at('P_load_demand_kW', tStart, 2);
+      facts.P_load_60 = at('P_load_demand_kW', dur, 2);
+      facts.P_grid_pre = at('P_grid_true_kW', tStart - 0.1, 2);
+      facts.P_grid_post = at('P_grid_true_kW', tStart, 2);
+      facts.P_grid_60 = at('P_grid_true_kW', dur, 2);
+      facts.P_bess_pre = at('P_bess_kW', tStart - 0.1, 2);
+      facts.P_bess_post = at('P_bess_kW', tStart, 2);
+      facts.P_bess_60 = at('P_bess_kW', dur, 2);
+      facts.P_sched = at('P_sched_kW', dur, 2);
+      facts.chase_post = at('P_bess_chase_kW', tStart, 2);
+      facts.P_shed_post = at('P_shed_kW', tStart, 2);
+      facts.P_served_post = at('P_load_served_kW', tStart, 2);
+      facts.P_served_60 = at('P_load_served_kW', dur, 2);
+      facts.P_pv_pre = at('P_pv_kW', tStart - 0.1, 2);
+      facts.P_pv_60 = at('P_pv_kW', dur, 2);
+      facts.P_wt_pre = at('P_wt_kW', tStart - 0.1, 2);
+      facts.P_wt_60 = at('P_wt_kW', dur, 2);
+      facts.SOC_pre = at('SOC_true_pct', tStart - 0.1, 4);
+      facts.SOC_60 = at('SOC_true_pct', dur, 4);
+      facts.r_true_max = fmtVal(maxAbsFrom('r_true_kW', 0), 2);
+      facts.r_meas_max = fmtVal(maxAbsFrom('r_meas_kW', 0), 2);
+      if (cfg.fault.t_clear_s != null) {
+        facts.tc = Number(cfg.fault.t_clear_s).toFixed(1);
+        facts.P_bess_tc = at('P_bess_kW', cfg.fault.t_clear_s, 2);
+        facts.P_grid_tc = at('P_grid_true_kW', cfg.fault.t_clear_s, 2);
+        facts.P_shed_tc = at('P_shed_kW', cfg.fault.t_clear_s, 2);
+        facts.P_served_tc = at('P_load_served_kW', cfg.fault.t_clear_s, 2);
+      }
     }
     return facts;
   }
@@ -2161,6 +2447,10 @@
        else→GT001 兜底之前——GT 轨数值与 WT 锚点不同，禁止 WT-001 静默落入 GT 物理；
        四系统既有分支零改动。 */
     else if (system.id === 'WT-001') sim = simulateWT001(system, cfg, t);
+    /* MG-001 新轨（MG001_G2B_SPEC_APPROVED v1.0 §8 MG-G2b-04 / R-5 守卫）：显式分支必须置于
+       else→GT001 兜底之前——GT 轨数值与 MG 锚点不同，禁止 MG-001 静默落入 GT 物理
+       （PV/WT R-4/R-7 同款守卫）；五系统既有分支零改动。 */
+    else if (system.id === 'MG-001') sim = simulateMG001(system, cfg, t);
     else sim = simulateGT001(system, cfg, t);
 
     var series = sim.series;
@@ -2184,6 +2474,60 @@
       integrals: sim.integrals || null,
       runId: runId
     });
+
+    /* MG-001 能量账本指标补全（MG-G2b-04；EQ-MG-8 事件感知分段解析积分，mg001_v1
+       REGISTERED_SCALARS / verify_golden MODELS["mg001"].scalars 键面同名——metrics.js
+       通用面无 MG 分支，且通用 E_load_served 语义恒取需求侧（integrals.E_load 覆写），
+       岛窗卸载 Run 须按 E_served = E_demand − E_shed 修正承载服务侧（EQ-MG-8）。
+       本块仅 MG-001 生效（PV/WT 专属能量账本 metrics.js 专属分支先例同构），
+       五系统既有指标面零变化。E_source/E_bat 通用指标保持不可用（聚合层无发电机/
+       电池直测面——账本由本补全块八键承载）。 */
+    if (system.id === 'MG-001' && sim.integrals) {
+      var mgI = sim.integrals;
+      for (var mgFix = 0; mgFix < metrics.length; mgFix++) {
+        if (metrics[mgFix].metric_id === 'E_load_served_kWh') {
+          metrics[mgFix].value = mgI.E_load_served_kWh;
+          metrics[mgFix].definition = '∫ P_load,served dt / 3600（EQ-MG-8：E_served = E_demand − E_shed，事件感知分段解析——岛窗卸载面按服务侧承载）';
+          metrics[mgFix].unavailable = false;
+          metrics[mgFix].unavailable_reason = null;
+        }
+      }
+      function mgMetric(id, label, value, unit, precision, definition, sourceIds) {
+        metrics.push({
+          metric_id: id,
+          label: label,
+          value: (typeof value === 'number' && isFinite(value)) ? value : null,
+          unit: unit,
+          precision: precision,
+          time_window_s: [0, cfg.duration_s],
+          time_window: [0, cfg.duration_s],
+          method: 'analytic_flux',
+          method_version: 'analytic_flux.1',
+          source_signal_ids: sourceIds || [],
+          source_run_ids: [runId],
+          unavailable_reason: (typeof value === 'number' && isFinite(value)) ? null : '不可用（数据缺失或场景不适用，禁止填 0）',
+          blindSafe: false,
+          definition: definition,
+          source_kind: 'DERIVED',
+          focal: false,
+          unavailable: !(typeof value === 'number' && isFinite(value))
+        });
+      }
+      mgMetric('E_pv_kWh', '光伏子轨馈入电能', mgI.E_pv_kWh, 'kWh', 7,
+        '∫ P_pv_kW dt / 3600（EQ-MG-2/8：PV-001 轨复用积分——源轨物理与 PV-001 完全一致）', ['P_pv_kW']);
+      mgMetric('E_wt_kWh', '风电子轨馈入电能', mgI.E_wt_kWh, 'kWh', 7,
+        '∫ P_wt_kW dt / 3600（EQ-MG-2/8：WT-001 轨复用积分——源轨物理与 WT-001 完全一致）', ['P_wt_kW']);
+      mgMetric('E_bess_kWh', '储能馈入电能（带符号）', mgI.E_bess_kWh, 'kWh', 7,
+        '∫ P_bess_kW dt / 3600（EQ-MG-8 分段解析；放电为正）', ['P_bess_kW']);
+      mgMetric('E_grid_kWh', '馈线受电电能', mgI.E_grid_kWh, 'kWh', 7,
+        'EQ-MG-8 恒等导出：E_grid = E_served + E_dump − E_pv − E_wt − E_bess（避免对时变 P_grid 序列做数值积分；受电为正，倒送为负）', ['P_grid_true_kW']);
+      mgMetric('E_load_demand_kWh', '聚合负荷需求电能', mgI.E_load_demand_kWh, 'kWh', 7,
+        '∫ P_load_demand_kW dt / 3600（EQ-MG-8 事件感知分段解析——load_step 单事件边界伪差显式排除）', ['P_load_demand_kW']);
+      mgMetric('E_shed_kWh', '缺口卸载电能', mgI.E_shed_kWh, 'kWh', 7,
+        '∫ P_shed_kW dt / 3600（EQ-MG-8 分段解析；并网面恒 0）', ['P_shed_kW']);
+      mgMetric('E_dump_kWh', '盈余倾卸电能', mgI.E_dump_kWh, 'kWh', 7,
+        '∫ P_dump_kW dt / 3600（EQ-MG-8 分段解析；理想倾卸元件的抽象记账项，不是能量损失）', ['P_dump_kW']);
+    }
 
     var quality = FL.core.checks.evaluate({
       system: system,

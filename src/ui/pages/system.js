@@ -1,8 +1,13 @@
 /* owner: lab-pages | module: page-system | contract: docs/CONTRACT.md */
-/* 系统交互图：左栏故障编排（3 故障家族 + 幅值/时刻 + 闭环/仅监测 + 校验/脏提示 + 创建运行/播放控制）、
+/* 系统交互图：左栏故障编排（故障家族 + 幅值/时刻 + 闭环/仅监测 + 校验/脏提示 + 创建运行/播放控制）、
    中栏 SVG 拓扑（由 system.components/edges/topologyViewBox 驱动，实线箭头=功率流、虚线=信号/测量、
    故障点专属三角+斜纹+FLT 标记，节点显示当前时刻采样值）、右栏部件检查器（字段来自
-   system.components[].inspector，值来自 run 当前时刻，带 source_kind 标签，可跳曲线页/因果页）。 */
+   system.components[].inspector，值来自 run 当前时刻，带 source_kind 标签，可跳曲线页/因果页）。
+   v1.1.0 UI 接线路（CHG-20261110-01 批准链，V110_WAVE_DESIGN §2 W7 / MG-IMP-Q2）：
+   MG-001 island_event 零参数族注入面——无幅值输入（params:[] 走既有通用渲染零行），
+   增 t_clear_s 重连时刻编辑器（域 (t_start, duration)、0.1 s 网格、缺省 35 s =
+   golden mg001_v1 island_reconnect 锚定值，MG_ISLAND_T_CLEAR_DEFAULT_S 常量处注释）；
+   故障家族卡/参数渲染主体仍为通用机制（四族卡自动入列，PV/WT 新族无图标先例沿）。 */
 (function () {
   'use strict';
   const FL = window.FL = window.FL || {};
@@ -26,6 +31,12 @@
     fuelcell: 'fuelcell', turbine: 'turbine', valve: 'sliders'
   };
   const FAMILY_ICON = { sensor_drift: 'sensor', load_step: 'load', actuator_fault: 'sliders' };
+  /* MG-001 island_event 重连时刻缺省（MG001_G2B_SPEC_APPROVED v1.0 §2.4：t_clear_s
+     提案域 t_start < t_clear < duration、0.1 s 网格；golden mg001_v1 island_reconnect
+     锚定 t_clear=35——UI 缺省沿该锚定值，使单 Run 默认面与 golden 演示相一致；
+     引擎缺省 = 窗末持续脱离（t_clear 省略时），场景页 schema 侧 t_clear_s: null 同义）。
+     v1.1.0 UI 接线路（CHG-20261110-01 批准链，V110_WAVE_DESIGN §2 W7 / MG-IMP-Q2）。 */
+  const MG_ISLAND_T_CLEAR_DEFAULT_S = 35;
   /* 节点默认展示哪个来源的数值（按部件类型优先） */
   const KIND_SRC_PREF = {
     sensor: ['OBSERVATION', 'MODEL_STATE', 'FAULT_EVENT'],
@@ -912,6 +923,10 @@
     (fault.params || []).forEach((p) => { params[p.key] = p.default; });
     actions.updateDraft((d) => {
       d.fault = { family: fault.family, faultId: fault.id, t_start_s: t, params };
+      /* MG-001 island_event 零参数族（Q2 定案——params:[] 无幅值语义）：脱离/重连由
+         t_start_s/t_clear_s 承载；t_clear_s 缺省沿 golden 锚定 35 s（常量处注释），
+         其余族不携带该键（引擎缺省语义不变——GT actuator 清除面零触碰）。 */
+      if (fault.family === 'island_event') d.fault.t_clear_s = MG_ISLAND_T_CLEAR_DEFAULT_S;
     });
   }
 
@@ -929,7 +944,12 @@
         const val = draft.fault.params && p && draft.fault.params[p.key] != null ? draft.fault.params[p.key] : (p ? p.default : '');
         const unit = p ? (p.unit || '') : '';
         const sign = p && p.unit !== '%' && Number(val) >= 0 ? '+' : '';
-        meta.currentEl.textContent = sign + val + (unit ? ' ' + unit : '') + ' @ ' + fmt.num(draft.fault.t_start_s, 1) + ' s';
+        /* MG-001 island_event 零参数族（Q2 定案）：无幅值段——行尾附重连时刻读数
+           （t_clear_s 缺省 35 s = golden 锚定；常量处注释）。 */
+        const tcTail = meta.fault.family === 'island_event'
+          ? ' · 重连 ' + fmt.num(isNum(draft.fault.t_clear_s) ? draft.fault.t_clear_s : MG_ISLAND_T_CLEAR_DEFAULT_S, 1) + ' s'
+          : '';
+        meta.currentEl.textContent = sign + val + (unit ? ' ' + unit : '') + ' @ ' + fmt.num(draft.fault.t_start_s, 1) + ' s' + tcTail;
       } else {
         const p = meta.param;
         meta.currentEl.textContent = p ? (p.default + (p.unit ? ' ' + p.unit : '')) + ' @ ' + meta.fault.defaultTime_s + ' s' : '';
@@ -1051,6 +1071,41 @@
       control: tRow
     }));
     meta.time = { slider: tSlider, num: tNum, range };
+    /* MG-001 island_event 重连时刻编辑器（MG001_G2B_SPEC_APPROVED v1.0 §2.4 / MG-IMP-Q2，
+       v1.1.0 UI 接线路 CHG-20261110-01 批准链）：零参数族无幅值输入——脱离/重连由
+       t_start_s / t_clear_s 承载；域 (t_start, duration) s、0.1 s 网格（GT actuator
+       t_clear 域同构，engine.validateConfig 已校验）。缺省 35 s = golden mg001_v1
+       island_reconnect 锚定值。 */
+    if (sys.id === 'MG-001' && fault.family === 'island_event') {
+      const dur = (draft && draft.duration_s) || 60;
+      const tcValue = draft.fault && isNum(draft.fault.t_clear_s) ? draft.fault.t_clear_s : MG_ISLAND_T_CLEAR_DEFAULT_S;
+      /* 域 (t_start, duration)：min = 脱离时刻 + 0.1、max = 窗末 − 0.1（0.1 s 网格；
+         故障时刻域上限 55 s ⇒ min ≤ 55.1 < 59.9，区间恒有效）。 */
+      const tcRange = [tValue + 0.1, dur - 0.1];
+      const tcSlider = ui.slider({
+        min: tcRange[0], max: tcRange[1], step: 0.1, value: tcValue, unit: 's', digits: 1,
+        ariaLabel: '重连时刻', disabled: false,
+        onInput: (v) => commitTClear(v)
+      });
+      const tcNum = el('input', {
+        class: 'input input--num sys-param-num', type: 'number',
+        min: String(tcRange[0]), max: String(tcRange[1]), step: '0.1',
+        value: String(tcValue), 'aria-label': '重连时刻（数值输入）'
+      });
+      tcNum.addEventListener('change', () => {
+        const v = snapClamp(tcNum.value, tcRange[0], tcRange[1], 0.1, 1);
+        tcNum.value = String(v);
+        commitTClear(v);
+      });
+      const tcRow = el('div', { class: 'sys-param-row' }, [tcSlider.el, tcNum, el('span', { class: 'sys-param-unit mono' }, 's')]);
+      host.appendChild(ui.field({
+        label: '重连时刻 t_clear_s',
+        unit: 's',
+        hint: '主馈线重连时刻：须晚于脱离时刻（第 ' + fmt.num(tValue, 1) + ' s）、早于窗末 ' + fmt.num(dur, 0) + ' s，按 0.1 s 网格；缺省 35 s 为 golden 演示锚定值（脱离 15 s 功率平衡重整窗）。持续脱离（不重连）经场景页 t_clear_s: null 配置承载。',
+        control: tcRow
+      }));
+      meta.tClear = { slider: tcSlider, num: tcNum, range: tcRange };
+    }
     local.controlMeta = meta;
     host.querySelectorAll('.field-hint').forEach((hintEl) => {
       hintEl.title = hintEl.textContent || '';
@@ -1074,7 +1129,27 @@
     const draft = draftOf(st, local.sys);
     if (!draft || st.computeState === 'computing') return;
     const t = snapClamp(v, range[0], range[1], 0.1, 1);
-    actions.updateDraft((d) => { if (d.fault) d.fault.t_start_s = t; });
+    actions.updateDraft((d) => {
+      if (!d.fault) return;
+      d.fault.t_start_s = t;
+      /* MG-001 island_event：脱离时刻后移时重连时刻随之抬升，恒保持 t_start < t_clear
+         （engine.validateConfig 域判据同构；仅 island_event 携带该键，其余族零变化）。 */
+      if (d.fault.family === 'island_event' && isNum(d.fault.t_clear_s) && d.fault.t_clear_s <= t) {
+        d.fault.t_clear_s = Math.min(t + 0.1, (d.duration_s || 60) - 0.1);
+      }
+    });
+  }
+
+  /* MG-001 island_event 重连时刻提交（域 (t_start, duration)、0.1 s 网格——常量处注释） */
+  function commitTClear(rawValue) {
+    const st = state();
+    const draft = draftOf(st, local.sys);
+    if (!draft || st.computeState === 'computing') return;
+    if (!draft.fault || draft.fault.family !== 'island_event') return;
+    const tStart = isNum(draft.fault.t_start_s) ? draft.fault.t_start_s : 20;
+    const dur = draft.duration_s || 60;
+    const v = snapClamp(rawValue, tStart + 0.1, dur - 0.1, 0.1, 1);
+    actions.updateDraft((d) => { if (d.fault) d.fault.t_clear_s = v; });
   }
 
   function syncControlValues(draft) {
@@ -1090,6 +1165,11 @@
       const tv = isNum(draft.fault.t_start_s) ? draft.fault.t_start_s : 20;
       if (meta.time.slider.input && active !== meta.time.slider.input) meta.time.slider.setValue(tv);
       if (active !== meta.time.num && Number(meta.time.num.value) !== Number(tv)) meta.time.num.value = String(tv);
+    }
+    if (meta.tClear) {
+      const tcv = isNum(draft.fault.t_clear_s) ? draft.fault.t_clear_s : MG_ISLAND_T_CLEAR_DEFAULT_S;
+      if (meta.tClear.slider.input && active !== meta.tClear.slider.input) meta.tClear.slider.setValue(tcv);
+      if (active !== meta.tClear.num && Number(meta.tClear.num.value) !== Number(tcv)) meta.tClear.num.value = String(tcv);
     }
   }
 
@@ -1781,6 +1861,10 @@
       if (local.controlMeta.time) {
         if (local.controlMeta.time.slider.setDisabled) local.controlMeta.time.slider.setDisabled(editing);
         if (local.controlMeta.time.num) local.controlMeta.time.num.disabled = editing;
+      }
+      if (local.controlMeta.tClear) {
+        if (local.controlMeta.tClear.slider.setDisabled) local.controlMeta.tClear.slider.setDisabled(editing);
+        if (local.controlMeta.tClear.num) local.controlMeta.tClear.num.disabled = editing;
       }
     }
 

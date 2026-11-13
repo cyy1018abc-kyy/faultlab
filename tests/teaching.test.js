@@ -6,7 +6,7 @@
       v0.8.0 UI 接线路 CHG-20261107-01）全部过 validateTeachingPath +
       元数据 / 5 步结构 / 导出原语断言；
    C. 校验器负例（8 类）+ 装载顺序守卫 + warning 面；
-   D. narrative/文案禁词自检：读 tools/copy-guard.mjs BANNED 数组（33 模式）对路径内
+   D. narrative/文案禁词自检：读 tools/copy-guard.mjs BANNED 数组（39 模式）对路径内
       全部字符串值做子串自查（正则形模式退化为同义 RegExp；字面形为纯子串比对——
       teaching.js 文案承诺零禁词子串、连批准否定串也不含，故无需 ALLOW 剥离，严于 copy-guard）；
    E. scenarioSpec 执行冒烟：FL 路径第⑤步 executeScenario → 3 Run 结构完整 + 哈希确定性。
@@ -208,14 +208,14 @@ expectFail((p) => { p.steps[4].scenarioSpec.events.push({ key: 'ev-x', family: '
 ok(TC.validateTeachingPath(null).ok === false && TC.validateTeachingPath('x').ok === false && TC.validateTeachingPath(42).ok === false, '非对象入参 → 结构化拒绝');
 
 /* ------------------------------------------------------------------ *
- * D. 禁词子串自检（tools/copy-guard.mjs BANNED 33 模式）               *
+ * D. 禁词子串自检（tools/copy-guard.mjs BANNED 39 模式）               *
  * ------------------------------------------------------------------ */
-section('D. 禁词子串自检（copy-guard.mjs BANNED 33 模式 × 路径全部字符串值）');
+section('D. 禁词子串自检（copy-guard.mjs BANNED 39 模式 × 路径全部字符串值）');
 const guardSrc = fs.readFileSync(path.join(ROOT, 'tools', 'copy-guard.mjs'), 'utf8');
 const mBanned = guardSrc.match(/const BANNED = \[([\s\S]*?)\]\.map\(/);
 ok(!!mBanned, 'tools/copy-guard.mjs BANNED 数组可提取');
 const BANNED = (0, eval)('[' + mBanned[1] + ']');
-eq(BANNED.length, 33, 'BANNED 模式数=33');
+eq(BANNED.length, 39, 'BANNED 模式数=39');
 
 function hitByPattern(pattern, text) {
   if (pattern.indexOf('(?i)') === 0) {
@@ -242,7 +242,7 @@ TC.getTeachingPaths().forEach((p) => {
     });
   });
 });
-eq(banHits.length, 0, '教学路径全部字符串值零禁词命中（33 模式）', JSON.stringify(banHits));
+eq(banHits.length, 0, '教学路径全部字符串值零禁词命中（39 模式）', JSON.stringify(banHits));
 {
   /* 自检器自身有效性：对含禁词的探针串必须命中（防「自检恒绿」假阳性） */
   const probe = { a: '这是能量损失的表述', b: '有 损失 4 kW 的句子', c: '含 Sealed 字样', d: '多发 4 kW 话术', e: '校准与实测字样' };
@@ -312,4 +312,4 @@ if (fail) {
   console.log('================================================');
   process.exit(1);
 }
-console.log('教学路径核心（C-3 DEC-5）测试全部通过：7 路径校验（含 GT/FL 跨深度扩展 + WT ×2）/ 负例 8 类 + 守卫 / 禁词 33 模式子串自检 / FL 3 Run 执行冒烟。');
+console.log('教学路径核心（C-3 DEC-5）测试全部通过：7 路径校验（含 GT/FL 跨深度扩展 + WT ×2）/ 负例 8 类 + 守卫 / 禁词 39 模式子串自检 / FL 3 Run 执行冒烟。');

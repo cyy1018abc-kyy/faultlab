@@ -1,4 +1,4 @@
-# MG001_G2B_SPEC_DRAFT — MG-001 微电网多源聚合系统 G2b 物理规格（DRAFT v0.1）
+# MG001_G2B_SPEC_APPROVED — MG-001 微电网多源聚合系统 G2b 物理规格（APPROVED v1.0；曾用名 MG001_G2B_SPEC_DRAFT）
 
 > **任务**：B-3 MG-001 微电网系统 G2b 规格起草（V06_ROADMAP §2 主线 B B-3 行 / V090_WAVE_DESIGN
 > §1 DEC-1 / §2 阶段一 T1）。
@@ -16,10 +16,13 @@
 > 「Run 内组合复用」，与 I-6 的关系显式声明见 §1.2）；SystemDef 解剖模板 =
 > src/core/systems.js:119-312（FL-001）/ :912-1040（PV-001）/ :1129-1243（WT-001）；
 > 治理依据 = SCOPE_SPLIT_MEMO §8.2；故障目录 = docs/FAULT_CATALOG.md（§8 节为 MG-G2b-03 面）。
-> **状态**：`DRAFT v0.1`（2026-11-08，B-3 规格起草人起草）——**待双路独立评审 + 用户书面批准**
-> （批准与实现随用户裁定：批准早则 v1.0 收敛前实现，否则 v1.0.x 首项；V090 DEC-1 口径）。
-> 批准后：MG-G2b-01（条件修订落正文）→ MG-G2b-02（批准登记）→ MG-G2b-03（oracle+golden，
-> 批准后轮）→ MG-G2b-04（实现，同轮）——§8。
+> **状态**：`APPROVED v1.0（2026-11-11，MG-G2b-02 收口）——批准记录：CHG-20261110-01（用户 2026-11-10「统一采用推荐决策」指令链，GTL1-G2b-02 先例）`。
+> **v1.0 修订**：曾用名 MG001_G2B_SPEC_DRAFT（v0.1 起草，2026-11-08；时点状态见 §10/§11
+> 历史记录）；本版将双路评审条件 A-1…A-4 / B-1…B-3 / B-5 / B-6（B-4 已随 CHG-20261108-03
+> 提前修复）与 §11 决策点 MG-DRAFT-Q1…Q7 定案逐条落入正文（各处注明条件号/「定案（采推荐）」）。
+> 批准链：MG-G2b-01（V090 波 T1 草案，已完成）→ MG-G2b-02（批准登记，2026-11-11 收口）→
+> MG-G2b-03（oracle+golden，本波）→ MG-G2b-04（实现，同轮）——§8；实现时点终裁已闭合
+> （B-6：CHG-20261108-04 §5① = v1.0.x 首项，本波 v1.1.0 执行，V110 DEC-1）。
 > **Q-4 三守卫适用**：新方程集（EQ-MG-1…9）入引擎须走 G2b（即本文档流程）；许可证自研零依赖
 > （Python stdlib oracle / 浏览器原生 JS，无新第三方）；验收路径禁入直至批准。
 > **本波不动清单（V090 §0，起草轮适用；批准后至实现轮前同样维持）**：
@@ -30,13 +33,17 @@
 > （island_event 为 MG 故障族、t_clear_s 既有键——守卫扩展为实现轮显式 CHG 面，§2.4/§8）。
 > **记录**：B-3 规格起草人起草（2026-11-08）；锚点数值由临时复算脚本独立计算（Python stdlib，
 > `python -I`，源轨物理直接调用冻结 oracle pv001_oracle/wt001_oracle（复用不重推）+ MG 聚合
-> 代数独立计算 + 两模式逐位对照 + 分段常值断言 + 包络扫描，记录见 §3.4，脚本已按任务纪律删除）。
+> 代数独立计算 + 两模式逐位对照 + 分段常值断言 + 包络扫描，记录见 §3.4，脚本已按任务纪律删除）；
+> v1.0 修订（MG-G2b-02 收口，2026-11-11，CHG-20261110-01）：条件 A-1…A-4 / B-1…B-3 / B-5 / B-6 +
+> MG-DRAFT-Q1…Q7 定案落正文，文件由 MG001_G2B_SPEC_DRAFT 更名 MG001_G2B_SPEC_APPROVED（git mv）。
 > **行号基准说明**：本文档行号引用为**起草时点（2026-11-08）实读值**——V090 阶段一 T2…T6
 > 与本草案**并发执行**（V090 §2），相关文件行号可能漂移；实现轮（MG-G2b-03/04）以**语义锚点**
 > （信号 id / 检查 id / 函数名 / 族 id）为准定位，行号仅作评审快速索引。
 > **相邻残留登记（本波实读核实）**：src/core/scenario.js:152「可用系统」错误文案现列
 > FL/FC/GT/PV 而缺 WT-001（WT-001 校验本身经 systems.js 注册表正常工作，纯文案缺口）——
 > 不属本规格工作面，登记为 MG-G2b-03 同文件顺带修复面（补 WT-001 + 增 MG-001）。
+> 〔v1.0 处置注记（B-4）：该残留已随 CHG-20261108-03 修复——枚举文案改 knownSystemIds 动态派生
+> （2026-11-11 实读 scenario.js:91/168）；MG-G2b-03 余留面 = 枚举含 MG-001 确认。〕
 
 ---
 
@@ -49,7 +56,7 @@
   MG-001 的聚合层自身**零新增 ODE 状态**——全部新方程为代数（母线恒等式、调度/填补钳位、
   卸载/倾卸、SOC 账本积分）；各源物理**原样复用既有轨**（PV L0 / WT L0b / FL 电池能量面），
   不建第四套物理栈（DEC-1 推荐，备选与涟漪见 §1.7）。
-- **层级提案（MG-DRAFT-Q3，§11）**：**聚合层 L0**（ALINE_MODEL_DEPTH_DESIGN §1.1 L0 判据逐条
+- **层级定案（MG-DRAFT-Q3 已定案（采推荐），§11）**：**聚合层 L0**（ALINE_MODEL_DEPTH_DESIGN §1.1 L0 判据逐条
   对照见 §1.7：聚合面方程全部可手解、输出确定、golden 由解析复算 oracle 生成）；**各源维持
   既有层级**（PV-001 L0 / WT-001 L0b / BESS 电池能量面 = FL-001 L0 电气面）；组合输出的模型
   深度以各源为准——**聚合不升级 provenance**（I-2：UI 层级标签声明「聚合层 L0 · 各源维持
@@ -62,7 +69,7 @@
 - **BESS 角色两面（教学核心）**：并网面 = **调度计划跟踪**（p_sched_kW 配置，默认 +5 kW 放电；
   储能调峰教学点）；孤岛面 = **平衡填补 + 钳位卸载**（脱离后 BESS 切换为理想瞬时平衡填补源，
   功率域 [−8, +8] kW 钳位，缺口 → 负荷卸载 P_shed、盈余 → 倾卸 P_dump——「功率平衡重整」的
-  具体机制，MG-DRAFT-Q4 定案推荐，备选与 O-13 证据链见 §1.7）。
+  具体机制，MG-DRAFT-Q4 已定案（采推荐），备选与 O-13 证据链见 §1.7）。
 - **与 FL-001 load_step 的语义差异（显式声明，防 O-13 误读）**：FL-001 load_step 已按 O-13
   删除（SCOPE §5：滞后发电机 + 恒电流电池的守恒破缺，最大失衡 10 kW）。MG 层 load_step 是
   **聚合输入阶跃**（非 FL 内部电气面阶跃）：并网面由理想馈线瞬时补差吸收（PV/WT 恒负荷同构）、
@@ -80,7 +87,7 @@
 SystemDef 字段面对照 FL-001/PV-001/WT-001 模板（id/level/summary/signals/components/edges/
 categories/faults/model/acceptance；实现字段名为 `edges`）。defaults：
 `feedback_mode='closed_loop'`、`initial={load_kW:30, p_sched_kW:5, SOC_pct:60}`
-（`p_sched_kW` 为 MG 自有配置量——BESS 调度计划，Q5 定案推荐暴露；`SOC_pct` 沿 FL-001
+（`p_sched_kW` 为 MG 自有配置量——BESS 调度计划，Q5 已定案（采推荐）暴露；`SOC_pct` 沿 FL-001
 initial 键面同构（systems.js:144），聚合层 SOC0=60 为账本初值）；**无 inertia_model /
 thermal_model 键**（单轨聚合层无新轨；scenario.js 事件级键守卫对未声明系统自动拒绝——
 scenario.js:344/364 declaresInertia/declaresThermal 现状即正确语义，零改动）；
@@ -134,7 +141,7 @@ island_event:'switch'}`。
 | BESS | FL-001 电池能量面 | **公式形式复用**（EQ-1/EQ-4/EQ-6 电气面：P=0.4·I、SOC 积分式；权威文本 = fl001_oracle.py:1-10 独立性声明的同一权威 MODEL_VALIDATION_SPEC §1.2/§1.3） | E_bat=40 kWh、SOC0=60、I = P/0.4 换算、无传感器面、无执行器限幅面、**thermal 轨不入聚合**（FL thermal_model=on 轨不进入 MG） | p_sched_kW ∈ [−8,8]（并网面）；孤岛面平衡填补（EQ-MG-4） |
 | 负荷 | ——（聚合输入） | —— | load_kW=30 | load_step 幅值 ∈ [−10,+20] kW |
 
-**固定面声明（Q7）**：MG 不暴露 G0 / v0 / 子轨故障族白名单外事件（无 FL sensor_bias 联动、
+**固定面声明（Q7 已定案（采推荐））**：MG 不暴露 G0 / v0 / 子轨故障族白名单外事件（无 FL sensor_bias 联动、
 无 WT pitch_stuck 联动、无 FC 面）——联动开放须未来显式 CHG 并重推锚点面与包络（§11 Q7）。
 **两模式声明**：MG 四族均为物理输入类（负荷阶跃/子轨物理事件/拓扑分断），与 feedback_mode
 无关——**全五 Run 两模式逐位同解**（复算实证 d_pv=d_wt=0.00e+00 + MG 代数无测量反馈回路，
@@ -182,7 +189,7 @@ blind_observable 通道语义与 PV/WT 物理输入族同构；Arena 盲包语�
 | EQ-MG-1 | load(t) = load_kW + ΔP·1(t ≥ t0)（仅 load_step）；island(t) = 1(t ≥ t_start)·1(t < t_clear)（t_clear 缺省 = 窗末 60 s，仅 island_event）；子轨事件透传：ΔG/Δv 于各自 t0 生效（EQ-PV-1/EQ-WT-1 右极限 post 行语义同构） | 聚合输入面（事件感知，断点全部落在 0.1 s 网格与事件边界） |
 | EQ-MG-2 | P_pv(t) = PV-001 轨输出（G0=1000 固定面）；P_wt(t) = WT-001 轨输出（v0=9 固定面）——oracle 侧 = pv001_oracle/wt001_oracle 参数化序列函数复用调用；engine 侧 = simulatePV001/simulateWT001 内部组合 | 源轨复用声明（不重写物理；oracle 复用面 = 模块导入 + RUNS 参数化入口，§4 项 1） |
 | EQ-MG-3 | 并网面：P_bess = p_sched；P_grid = load − P_pv − P_wt − P_bess（受电为正，理想双向，无爬坡/额定/倒送约束）；P_served = load；P_shed = P_dump = 0 | 并网功率平衡（馈线补差——FL/PV/WT 馈线同构） |
-| EQ-MG-4 | 孤岛面：P_grid ≡ 0；chase = load − P_pv − P_wt；P_bess = clamp(chase, −8, +8)；P_shed = max(0, chase − P_bess)；P_dump = max(0, P_bess − chase)；P_served = load − P_shed | 脱离主馈线的功率平衡重整（BESS 理想瞬时填补 + 钳位 + 卸载/倾卸；Q4 定案推荐——恒等按构造成立，无缓冲状态需求） |
+| EQ-MG-4 | 孤岛面：P_grid ≡ 0；chase = load − P_pv − P_wt；P_bess = clamp(chase, −8, +8)；P_shed = max(0, chase − P_bess)；P_dump = max(0, P_bess − chase)；P_served = load − P_shed | 脱离主馈线的功率平衡重整（BESS 理想瞬时填补 + 钳位 + 卸载/倾卸；Q4 已定案（采推荐）——恒等按构造成立，无缓冲状态需求） |
 | EQ-MG-5 | 调度面：并网 P_bess 目标 = p_sched（计划跟踪）；孤岛计划挂起、切换为平衡填补；重连恢复计划跟踪 | BESS 角色切换 = 重整教学点（§6.1） |
 | EQ-MG-6 | r_true ≡ P_pv + P_wt + P_bess + P_grid − P_served − P_dump ≡ 0（定义恒等，两模式同式）；r_meas ≡ 0（全功率测量通道健康）；孤岛面恒等：ΣP_source = P_served + P_dump = load − P_shed + P_dump | 母线恒等式（任务书口径：并网 ΣP_source + P_grid = P_load、孤岛 ΣP_source = 重整后服务负荷 + 倾卸——P_load_shed 语义 = P_served，信号面以 P_shed/P_dump 显式承载） |
 | EQ-MG-7 | SOC_true(t) = SOC0 − 100·∫[0,t] P_bess dt / (3600·40)（%）；SOC_est 同式用测量通道；SOC_err ≡ 0 | FL EQ-6 形式复用；**积分 = 事件感知分段解析**——P_bess 在本规格域内可证分段常值（并网 = p_sched 常值；孤岛源恒健康 ⇒ chase = load − 20 常值 ⇒ clamp 分段常值；断点 = 事件边界，§3.4 复算断言 0.00e+00），该前提为 (b) 形态的结构推论，Q1 涟漪注记：若未来 island 可与源联动组合（Q1 备选 (a)/(c)），P_bess 时变 ⇒ SOC 需数值积分 ⇒ 本节闭式性/T-A 论证须重审 |
@@ -232,7 +239,7 @@ blind_observable 通道语义与 PV/WT 物理输入族同构；Arena 盲包语�
 
 ### 1.7 层级判定与机制定案（评审裁定点索引）
 
-**层级判定（MG-DRAFT-Q3 推荐：聚合层 L0）**，ALINE_MODEL_DEPTH_DESIGN §1.1 判据逐条对照：
+**层级判定（MG-DRAFT-Q3 已定案（采推荐）：聚合层 L0）**，ALINE_MODEL_DEPTH_DESIGN §1.1 判据逐条对照：
 
 | ALINE §1.1 判据 | 本提案对应 | 满足声明 |
 |---|---|---|
@@ -241,9 +248,9 @@ blind_observable 通道语义与 PV/WT 物理输入族同构；Arena 盲包语�
 | L0b/L1：非线性 ODE / 新物理状态变量 | **无**——MG 不新增任何状态变量；SOC 为账本积分（FL EQ-6 形式的代数复用） | ✘ 不满足 L0b/L1（如未来岛内时变填补 + 数值 SOC，另立 G2b 增补，Q1 涟漪注记） |
 | 组合输出的层级归属 | 组合输出含 WT L0b 数值特征——层级标签只描述 MG 层自身方程集，各源维持既有层级，provenance 不升级（I-2） | ✔ 显式声明（§0/§6.1） |
 
-**机制定案（本草案推荐，评审裁定后落入正文——批准轮体例沿 PV-DRAFT-Q1/WT-DRAFT-Q1）**：
+**机制定案（已定案（采推荐），MG-G2b-02 收口 2026-11-11 落正文；候选与理由保留——批准轮体例沿 PV-DRAFT-Q1/WT-DRAFT-Q1）**：
 
-- **Q1（孤岛机制形态）推荐 (b)：island_event 作为故障族**——单故障/Run 库模型零破坏
+- **Q1（孤岛机制形态）已定案（采推荐）(b)：island_event 作为故障族**——单故障/Run 库模型零破坏
   （engine cfg.fault 单族，scenario buildRunConfig 单事件构造，scenario.js:456-471），
   故障卡片/目录/引擎分派面零新语义（I-6）；重连由 t_clear_s 承载（GT-001 actuator_fault
   t_clear 先例，scenario.js:319 守卫扩展为实现轮显式 CHG 面）。**技术性收益（决定性论据）**：
@@ -253,10 +260,10 @@ blind_observable 通道语义与 PV/WT 物理输入族同构；Arena 盲包语�
   但涟漪 = cfg 新键 + validateConfig + fault-lab UI 新控件面 + 岛内时变填补 ⇒ SOC 数值化
   ⇒ oracle/tier 重设计）；(c) island_event 捆绑联动参数族（单时刻组合可达，但族语义混杂、
   且同样破坏 SOC 闭式前提）。三案涟漪对比与教学面差异全登记于 §11 Q1。
-- **Q4（BESS 孤岛面语义）推荐：理想瞬时平衡填补 + 钳位卸载**——恒等按构造成立（EQ-MG-4/6），
+- **Q4（BESS 孤岛面语义）已定案（采推荐）：理想瞬时平衡填补 + 钳位卸载**——恒等按构造成立（EQ-MG-4/6），
   无缓冲状态需求；备选「一阶滞后跟随 + 母线缓冲状态 E_bus」= 第四物理栈 + 复活 O-13 缺陷
   模式（SCOPE §5.2 方案 B 的失败证据链），不推荐（§1.5 A-mg-island-ideal-balance）。
-- **Q6（load_step 域）推荐：有符号域 [−10, +20] kW**——下行域使倒送角点（load_eff < ΣP_source
+- **Q6（load_step 域）已定案（采推荐）：有符号域 [−10, +20] kW**——下行域使倒送角点（load_eff < ΣP_source
   ⇒ P_grid < 0）域内可达（PV/WT 倒送域声明同构）；域设计保证 load_eff ≥ 0（负荷非负域内
   成立，负负荷域外化，MG-IMP-Q1 减负）；备选正域 [5,20]（FC/GT 字面先例）——倒送角点不可达，
   教学面弱（§11 Q6）。
@@ -304,12 +311,12 @@ blind_observable 通道语义与 PV/WT 物理输入族同构；Arena 盲包语�
 | monitorEffect | 同闭环（物理输入，逐位同解——复算实证 d_wt=0.00e+00，§3.4） |
 | causalTemplateId | mg-wt-gust-link（§6.4） |
 
-### 2.4 `island_event`（family=island_event，脱离/重连——零参数族提案）
+### 2.4 `island_event`（family=island_event，脱离/重连——零参数族，Q2 已定案（采推荐））
 
 | 字段 | 提案 |
 |---|---|
 | 类型/作用位置 | 拓扑分断事件（理想通断）→ switch（主馈线分断开关） |
-| params | **params: []（零参数族提案，Q2）**——脱离/重连语义由 t_start_s（脱离）与 t_clear_s（重连，缺省 = 窗末持续脱离）完整承载，无幅值语义；挂空 magnitude 为伪参数（I-2 不采）；help：「脱离主馈线：功率平衡重整演示——BESS 从计划跟踪切换为平衡填补（钳位 ±8 kW），缺口负荷卸载、盈余倾卸；重连后恢复馈线补差与计划跟踪」 |
+| params | **params: []（零参数族，Q2 已定案（采推荐））**——脱离/重连语义由 t_start_s（脱离）与 t_clear_s（重连，缺省 = 窗末持续脱离）完整承载，无幅值语义；挂空 magnitude 为伪参数（I-2 不采）；help：「脱离主馈线：功率平衡重整演示——BESS 从计划跟踪切换为平衡填补（钳位 ±8 kW），缺口负荷卸载、盈余倾卸；重连后恢复馈线补差与计划跟踪」 |
 | defaultTime_s / timeRange | 20 / [2,55]；**t_clear_s 提案域**：t_start < t_clear < 60、0.1 s 网格（GT-001 actuator_fault t_clear 域同构）；**golden 锚定 t_clear=35** |
 | closedLoopEffect | 脱离（t_start）：P_grid ≡ 0、P_bess 5→8 kW（chase=10 超上限钳位）、P_shed=2 kW 持续、island_state 0→1；重连（t_clear）：P_grid→5、P_bess→5（计划恢复）、P_shed→0；r ≡ 0 全程维持（重整前后恒等式同式，EQ-MG-6） |
 | monitorEffect | 同闭环（拓扑事件，两模式逐位同解） |
@@ -417,7 +424,9 @@ t0=20 s、t_clear=35 s（Run I）、60 s 网格、BESS 域 [−8,+8] kW。容差
   组合实现与 mg001_oracle 的逐位等价性属 MG-G2b-03/04 验证面**（本草案不预写引擎数值——
   golden emit 时冻结；T-A 依据 = 同一源轨复用 + 同一聚合代数，非引擎实测）。
 
-### 3.5 包络与角点声明（UI 全域，注册域内复算）
+### 3.5 包络与角点声明（参数域叉积包络，注册域内复算——A-3 修订改标）
+
+**A-3 修订（v1.0）**：本表各行数值为**参数域叉积包络**（参数域端点组合逐点复算，非 UI 单 Run 逐点可达面——原「UI 全域」措辞订正）；「**UI 单 Run 可达包络行**」（默认参数 ± 单故障域内逐点可达包络，引擎实测扫描）登记为 **MG-G2b-04 实现轮显式工作面**（实现后补行登记）。
 
 | 项 | 声明 | 依据 |
 |---|---|---|
@@ -425,22 +434,22 @@ t0=20 s、t_clear=35 s（Run I）、60 s 网格、BESS 域 [−8,+8] kW。容差
 | load_eff 域 | **[0, 65] kW**（load0 ∈ [10,45] ∧ step ∈ [−10,20] 组合域内恒非负——Q6 域设计） | 域设计声明 |
 | P_grid 域（并网面） | **[−33, +56] kW**（下端 = load 0 ∧ PV 10 ∧ WT 15 ∧ BESS +8 倒送角点；上端 = load 65 ∧ PV 7 ∧ WT 10 ∧ BESS −8）；倒送为理想双向合法工作区，不建模倒送约束（PV/WT 同款） | 复算包络扫描 |
 | 孤岛面域 | chase ∈ [−20, +45] kW（load_eff 0..65、源恒健康）；**P_shed ∈ [0, 37] kW**（上端 = load 65 角点）、**P_dump ∈ [0, 12] kW**（上端 = load 0 角点）——默认岛窗 shed = 2 kW | 复算包络扫描（孤岛 Run 源恒健康——单故障/Run 模型结构推论） |
-| SOC 摆幅 | 60 s 窗内最大下摆 **0.3333 pp**（并网 sched +8 全窗）——SOC 永不绑定功率面（A-mg-const-sched）；SOC0 ∈ [0,100] 全域 ⇒ SOC(60) ∈ [−0.34, 99.9] pp（SOC0=0 角点负账本值 = 域外声明，MG-IMP-Q1） | 复算 |
+| SOC 摆幅 | 60 s 窗内最大下摆 **0.3333 pp**（并网 sched +8 全窗）、最大上摆 **0.3333 pp**（P_bess=−8 全窗充电）——SOC 永不绑定功率面（A-mg-const-sched）；SOC0 ∈ [0,100] 全域 ⇒ **SOC(60) ∈ [−0.3333, +100.3333] pp**（**A-2 修订**：原 [−0.34, 99.9] 漏 SOC0=100 ∧ P_bess=−8 全窗充电上摆角点——该角点域内可达，下端同理 SOC0=0 ∧ P_bess=+8；SOC0=0 角点负账本值 = 域外声明，MG-IMP-Q1） | 复算（A-2 修订） |
 | 零导入角点 | Run D 的 P_grid(60) ≈ 0（\|·\| ≤ 1e-9）——PV+WT+BESS 恰平负荷，合法角点非缺陷 | 复算（9.1e-14） |
 | 手拼配置 | normalizeConfig 无跨参数校验（FL-001 同款先例），手拼可致 SOC0 极低负账本值（无物理意义）——**钳位方案为实现期决策点 MG-IMP-Q1**（load_eff 负值已由域设计排除，Q6） | scope/engine 现状核实 |
 
-## 4. golden 计划（独立 oracle MG001_ORACLE（复用接入）；本波零改动，emit 入批准后轮）
+## 4. golden 计划（独立 oracle MG001_ORACLE（复用接入）；起草波（V090）零改动，emit 于批准后轮——本波 V110 MG-G2b-03 执行）
 
 | # | 项 | 内容 |
 |---|---|---|
-| 1 | 独立 oracle | 新文件 `tools/oracle/mg001_oracle.py`（**本波与批准前不创建**——V090 §0 本波禁区不动 tools/oracle/**；MG-G2b-03 执行）。**复用接入声明（本草案核心架构决定）**：① `import pv001_oracle` + `import wt001_oracle`——源轨物理唯一权威 = 既有冻结 oracle 模块（参数化入口：pv001_oracle._pv_stepped_series/pv_energy_integrals、wt001_oracle._simulate，2026-11-08 实读核实均存在），**MG 不重写任何源方程**（不重算各源物理）；② BESS 能量面 3 行内联（P=0.4·I、SOC 积分式、钳位代数）——权威文本 = FL-001 已批规格电气面（MODEL_VALIDATION_SPEC §1.2/§1.3），显式声明非 fl001_oracle 导入（其反馈/传感器面不属聚合面）；③ 出生即 oracle_base 接入（无 V-03 历史字节负担，gt001_l1/wt001 先例）：`import oracle_base` + `resolve_run_spec` + `write_golden_with_sidecar`（LF 钉死）+ `approval_block/apply_approval`（三字段非 null 方可落盘）+ `SERIES_IDS` 模块常量（含 "t" 列）。golden 由本 oracle 只读生成、engine 只读比对（G0-DEC-16） |
+| 1 | 独立 oracle | 新文件 `tools/oracle/mg001_oracle.py`（**起草波与批准前不创建**——V090 §0 禁区不动 tools/oracle/**；MG-G2b-03 本波执行）。**复用接入声明（本草案核心架构决定）**：① `import pv001_oracle` + `import wt001_oracle`——源轨物理唯一权威 = 既有冻结 oracle 模块（参数化入口：pv001_oracle._pv_stepped_series/pv_energy_integrals、wt001_oracle._simulate，2026-11-08 实读核实均存在），**MG 不重写任何源方程**（不重算各源物理）；② BESS 能量面 3 行内联（P=0.4·I、SOC 积分式、钳位代数）——权威文本 = FL-001 已批规格电气面（MODEL_VALIDATION_SPEC §1.2/§1.3），显式声明非 fl001_oracle 导入（其反馈/传感器面不属聚合面）；③ 出生即 oracle_base 接入（无 V-03 历史字节负担，gt001_l1/wt001 先例）：`import oracle_base` + `resolve_run_spec` + `write_golden_with_sidecar`（LF 钉死）+ `approval_block/apply_approval`（三字段非 null 方可落盘）+ `SERIES_IDS` 模块常量（含 "t" 列）。golden 由本 oracle 只读生成、engine 只读比对（G0-DEC-16）；④ **独立性声明（A-4 修订：源物理复用委托形制）**——本 oracle 独立性以「源物理复用委托」形制显式声明：(i) 跨 oracle import **显式授权**（`import pv001_oracle`/`import wt001_oracle` 为本规格 G2b 批准的显式授权面，非隐性复用）；(ii) **MS-3 逐位审计**（源通道序列/标量与源 golden 逐位核对 ≤1e-12，emit/verify 双面硬条件——源侧变更即失配拒绝）；(iii) **不 import src/\*\***（oracle 侧零引擎代码依赖，物理权威仅冻结源 oracle 模块 + FL-001 已批规格电气面文本） |
 | 2 | Run 数提案 | **5 Run**：`healthy`（baseline 并网）/ `load_step_closed_loop`（+10 @20 并网）/ `pv_shading_closed_loop`（−300 @20 并网）/ `wt_gust_closed_loop`（+2 @20 并网）/ `island_reconnect`（island_event @20、t_clear=35）。**monitor Run 不重复入 golden**：MG 四族全为物理输入、两模式逐位同解（复算实证 + MS-5，PV shading/WT gust monitor-物理输入不重复先例延用） |
-| 3 | self_check 提案 | MS-1 网格（601 点、t[i]=i·dt、单调）；MS-2 恒等式面（r_true/r_meas 逐点 ≡ 0 ≤1e-12；E_pv+E_wt+E_bess+E_grid ≡ E_served+E_dump ≤1e-9 kWh；E_served+E_shed ≡ E_demand ≤1e-9）；MS-3 **复用一致性（emit 硬条件）**：golden 锚定源配置下 E_pv/E_wt/源序列与 pv001_v1/wt001_v1 golden 标量逐位核对（≤1e-12）——源 oracle 文件变更 → 源 golden 重出 → 本项失配 → emit/verify 拒绝（R-6 传递耦合的结构守卫）；MS-4 健康局不变量（P_pv≡10/P_wt≡10/P_bess≡5/P_grid≡5/SOC 线性/shed=dump≡0）；MS-5 两模式逐位等价（全五 Run closed_loop vs monitor ≤1e-15）；MS-6 孤岛相位不变量（岛窗 P_grid≡0、P_bess=clamp(chase)、shed/dump 非负、重连恢复计划值）；MS-7 锚点全表复算（§3.1–3.3）+ **分段常值断言**（P_bess 相位内漂移 ≡0——EQ-MG-7 前提）；MS-8 无 NaN/Inf + 包络抽查（P_grid ∈ [−33,56]、shed ∈ [0,37]、dump ∈ [0,12]）+ **分段常值前提失效守卫**（若未来形态变更致 P_bess 时变，MS-7 断言 fail → emit 拒绝写盘——WT WS-8 域扫描硬条件同款纪律） |
+| 3 | self_check 提案 | MS-1 网格（601 点、t[i]=i·dt、单调）；MS-2 恒等式面（r_true/r_meas 逐点 ≡ 0 ≤1e-12；E_pv+E_wt+E_bess+E_grid ≡ E_served+E_dump ≤1e-9 kWh；E_served+E_shed ≡ E_demand ≤1e-9）；MS-3 **复用一致性（emit 硬条件；B-2 修订统一口径——采强者）**：golden 锚定源配置下 P_pv/P_wt **源通道序列**与 E_pv/E_wt 标量，同 pv001_v1/wt001_v1 golden 逐位核对（**序列 ≤1e-12**——标量为核对子集）——源 oracle 文件变更 → 源 golden 重出 → 本项失配 → emit/verify 拒绝（R-6 传递耦合的结构守卫）；MS-4 健康局不变量（P_pv≡10/P_wt≡10/P_bess≡5/P_grid≡5/SOC 线性/shed=dump≡0）；MS-5 两模式逐位等价（全五 Run closed_loop vs monitor ≤1e-15）；MS-6 孤岛相位不变量（岛窗 P_grid≡0、P_bess=clamp(chase)、shed/dump 非负、重连恢复计划值）；MS-7 锚点全表复算（§3.1–3.3）+ **分段常值断言**（P_bess 相位内漂移 ≡0——EQ-MG-7 前提）；MS-8 无 NaN/Inf + 包络抽查（P_grid ∈ [−33,56]、shed ∈ [0,37]、dump ∈ [0,12]）+ **分段常值前提失效守卫**（若未来形态变更致 P_bess 时变，MS-7 断言 fail → emit 拒绝写盘——WT WS-8 域扫描硬条件同款纪律） |
 | 4 | SERIES_IDS | **['t'] + §1.3 表 18 信号 = 19 项**（golden series 惯例含 t 列，golden-compare.js 读 goldenRun.series.t 做网格校验；唯一事件域 null 列 `P_bess_chase_kW` 按 I_bat_cap_A/beta_stuck_deg 入 golden 前可空列处理先例，ORACLE_INTERFACE_D2 §5.2 F-4 行） |
-| 5 | 元数据（schema v2） | `golden_schema_version="v2"`（新 golden 默认 v2，ORACLE_INTERFACE_D2 §3.5）；`golden_id="mg001_v1"`；`model_id="MG-001"`；`model_version="1.0.0"`（三段式）；`method_id="mg001_aggregate_analytic"`（聚合全闭式 + 源轨复用——EQ-MG-7 分段常值前提下的闭式口径；若 Q1 裁定 (a)/(c) 使 SOC 数值化，method_id/tier 随批准轮重审）；`engine_baseline=null`；`backend=null`；`generated_by` 一段式；units 复用既有字典（kW/%/pp/V/'-'——零新增）；**approval 三字段非 null 方可落盘**——首签引本规格批准 CHG（批准轮 CHG 号，MG-G2b-03 emit 时填） |
-| 6 | 容差 tier | **T-A**（聚合层全闭式 + 源轨复用同权——engine 与 oracle 对源物理走**同一既证等价对**（engine simulatePV001↔pv001_oracle / engine simulateWT001↔wt001_oracle 已由 pv001_v1/wt001_v1 T-A golden 证明 ≤1e-15），MG 代数双侧同一算式）。gate 块提案：`{tier:"T-A", E_kWh:1e-9, P_kW_rtol:1e-12, P_kW_atol:1e-15, SOC_pp:1e-9, r_true_kW:1e-12, t_s:1e-9}`。**死键规避（WT B-2 先例）**：无 I_A 两键（MG 无 I_/bias 序列——标量单位面全为 kWh/pp，T-A metric fallback 支路不可达）；`r_true_kW` 键由 metrics.max_abs_r_true_kW 消费（非死键）；`SOC_pp` 键必须存在（T-A series_limit 对 SOC_*_pct 系列走 `tol["SOC_pp"]` 支路——PV gate 无 SOC 系列故无此键，MG 有 SOC 系列故必须带，scripts/verify_golden.py:214-215 T-A 支路——2026-11-08 实读核实）。量级预案非终值，终值 emit 冻结；若跨实现散差超限 → 降 T-B 并附 convergence 块（双向预案登记） |
-| 7 | verify_golden | **注册面为硬编码表**（scripts/verify_golden.py:67 MODELS dict；PV001 §4 项 7 勘正先例维持）：MG-G2b-03 新增 `import mg001_oracle` + `MODELS["mg001"]` 注册行——提案：`i_true="P_grid_true_kW"` / `i_meas="P_grid_meas_kW"`、`event_tol="P_kW_atol"`（PV/WT 同款，verify_golden.py:135-141 行注）；scalars 提案 11 键：E_pv_kWh / E_wt_kWh / E_bess_kWh / E_grid_kWh / E_load_served_kWh / E_shed_kWh / E_dump_kWh / E_load_demand_kWh / SOC_true_end_pct / SOC_est_end_pct / SOC_err_end_pp。注册行追加不改参数化逻辑；T-A 路径零改动。**同时登记相邻文案修复面**：verify_golden 头注/用法注与 scenario.js:152「可用系统」文案补 WT-001（现缺）+ 增 MG-001（§头部残留登记） |
-| 8 | 预期失效面 | 新增 `data/golden/mg001_v1.json`(+`.sha256`)；**既有 8 golden 字节零变更**（V090 §0 冻结延续至批准后轮；MG 新增不触既有文件）；verify_golden --all 路径覆盖 mg001；tests/registry.test.js 哈希为 per-Run config，不因新增系统破坏（PV/WT 同款核对）；**scenario schema v1 零新键**（island_event 为族非键；t_clear_s 既有键——守卫扩展不改 EVENT_KEYS/hashProjection，既有场景哈希零变化）；UI 枚举点（home.js 系统卡/compare/scenario/teaching 页）为 MG-G2b-04 实现面；FAULT_CATALOG 新增 §8 节（MG-G2b-03 面：四族行 + O-13 语义差异注 + 零参数族/t_clear 扩展注） |
+| 5 | 元数据（schema v2） | `golden_schema_version="v2"`（新 golden 默认 v2，ORACLE_INTERFACE_D2 §3.5）；`golden_id="mg001_v1"`；`model_id="MG-001"`；`model_version="1.0.0"`（三段式）；`method_id="mg001_aggregate_analytic"`（聚合全闭式 + 源轨复用——EQ-MG-7 分段常值前提下的闭式口径；若 Q1 裁定 (a)/(c) 使 SOC 数值化，method_id/tier 随批准轮重审）；`engine_baseline=null`；`backend=null`；`generated_by` 一段式；units 复用既有字典（kW/%/pp/V/'-'——零新增）；**approval 三字段非 null 方可落盘**——首签引本规格批准 CHG（= CHG-20261110-01，MG-G2b-03 emit 时填） |
+| 6 | 容差 tier | **T-A**（聚合层全闭式 + 源轨复用同权——engine 与 oracle 对源物理走**同一既证等价对**（engine simulatePV001↔pv001_oracle / engine simulateWT001↔wt001_oracle 已由 pv001_v1/wt001_v1 T-A golden 证明 ≤1e-15），MG 代数双侧同一算式）。gate 块提案：`{tier:"T-A", E_kWh:1e-9, P_kW_rtol:1e-12, P_kW_atol:1e-15, I_A_rtol:1e-12, I_A_atol:1e-15, SOC_pp:1e-9, r_true_kW:1e-12, t_s:1e-9}`。**I_A 两键补齐（A-1 修订，P1，修 gate 不修码）**：MG 虽无 I_/bias 序列（标量单位面全为 kWh/pp），但 verify_golden T-A 路径多处**直接索引**两键——标量 metric 比对兜底支路 `close_within(fv, gv, tol["I_A_rtol"], tol["I_A_atol"])`（scripts/verify_golden.py:251，未预见标量名兜底可达）+ I_/bias 序列支路（:217）+ 事件容差缺省键 `cfg.get("event_tol", "I_A_atol")`（:426）——任一支路命中而 gate 缺键即 KeyError；四 T-A golden 先例（fl001_v1/fl001_v2/pv001_v1/wt001_v1）gate 全带键（2026-11-11 实读核实；原 v0.1「无 I_A 两键」死键规避论证作废）；`r_true_kW` 键由 metrics.max_abs_r_true_kW 消费（非死键）；`SOC_pp` 键必须存在（T-A series_limit 对 SOC_*_pct 系列走 `tol["SOC_pp"]` 支路——PV gate 无 SOC 系列故无此键，MG 有 SOC 系列故必须带，scripts/verify_golden.py:214-215 T-A 支路——2026-11-08 实读核实）。量级预案非终值，终值 emit 冻结；若跨实现散差超限 → 降 T-B 并附 convergence 块（双向预案登记） |
+| 7 | verify_golden | **注册面为硬编码表**（scripts/verify_golden.py:67 MODELS dict；PV001 §4 项 7 勘正先例维持）：MG-G2b-03 新增 `import mg001_oracle` + `MODELS["mg001"]` 注册行——提案：`i_true="P_grid_true_kW"` / `i_meas="P_grid_meas_kW"`、`event_tol="P_kW_atol"`（PV/WT 同款，verify_golden.py:135-141 行注）；scalars 提案 11 键：E_pv_kWh / E_wt_kWh / E_bess_kWh / E_grid_kWh / E_load_served_kWh / E_shed_kWh / E_dump_kWh / E_load_demand_kWh / SOC_true_end_pct / SOC_est_end_pct / SOC_err_end_pp。注册行追加不改参数化逻辑；T-A 路径零改动。**同时登记相邻文案修复面**：verify_golden 头注/用法注补 WT-001/增 MG-001；scenario.js「可用系统」枚举已随 CHG-20261108-03 改 knownSystemIds 动态派生（**B-4 已修复**，2026-11-11 实读 scenario.js:91/168）——MG-G2b-03 余留面 = 枚举含 MG-001 确认（§头部残留登记处置注记） |
+| 8 | 预期失效面 | 新增 `data/golden/mg001_v1.json`(+`.sha256`)；**既有 8 golden 字节零变更**（V090 §0 冻结延续至批准后轮；MG 新增不触既有文件）；**verify_golden 覆盖面（B-3 修订：实机制口径）**：verify_golden **无 `--all` 机制**（无旗标参数，per-model CLI 调用——2026-11-11 实读核实）——覆盖 = per-model 注册行（§4 项 7 `MODELS["mg001"]`）+ run-g2 per-model 调用步（**V110 DEC-5：run-g2 33→35，第 34 步 `verify_golden.py mg001`**）；tests/registry.test.js 哈希为 per-Run config，不因新增系统破坏（PV/WT 同款核对）；**scenario schema v1 零新键**（island_event 为族非键；t_clear_s 既有键——守卫扩展不改 EVENT_KEYS/hashProjection，既有场景哈希零变化）；UI 枚举点（home.js 系统卡/compare/scenario/teaching 页）为 MG-G2b-04 实现面；FAULT_CATALOG 新增 §8 节（MG-G2b-03 面：四族行 + O-13 语义差异注 + 零参数族/t_clear 扩展注） |
 
 ## 5. scope 与治理登记
 
@@ -462,13 +471,15 @@ t0=20 s、t_clear=35 s（Run I）、60 s 网格、BESS 域 [−8,+8] kW。容差
 - v1.0 冻结清单落点（docs/V1_FACES.md，V090 DEC-6 T6 同波交付物）：MG-001 批准与否影响
   「SystemDef schema 实例五/六系统」「scenario schema v1（island_event 族 + t_clear 守卫
   扩展）」两面的冻结归类——T6 口径登记为本草案与 T6 的对齐点（若 MG 批准晚于 v1.0，
-  两面按「演进中」登记，MG 实现入 v1.0.x）。
+  两面按「演进中」登记，MG 实现入 v1.0.x）。〔v1.0 注记（B-6）：MG 批准已登记（CHG-20261110-01）；
+  实现时点终裁闭合——本波 v1.1.0 执行（V110 DEC-1），两面对齐按 V110 §3 additive 修订执行。〕
 
 ## 6. 教学定位与 UI 措辞提案
 
 ### 6.1 层级标签与互补性
 
-- 层级标签：`L0 · 多源聚合行为级演示（G2b 草案）`（批准徽章随批准轮追加，PV/WT 先例）；
+- 层级标签：`L0 · 多源聚合行为级演示`（Q3 已定案（采推荐）——「G2b 草案」阶段注记随批准移除，
+  实现轮文案迁入时批准徽章随 CHG-20261110-01 追加，PV/WT 先例）；
   层级语义显式：聚合层自身 L0，**各源维持既有层级**（PV L0 / WT L0b / BESS 能量面 L0），
   组合输出 provenance 不升级（I-2；UI 系统卡/假设清单可查）。
 - 与单源系统互补性话术（系统卡/首页）：「PV-001 与 WT-001 演示单一不可调度源接入理想馈线；
@@ -478,6 +489,11 @@ t0=20 s、t_clear=35 s（Run I）、60 s 网格、BESS 域 [−8,+8] kW。容差
   重整教学点）；③ 间歇性叠加（PV 下行遮挡 + WT 上行阵风在同一母线余额上叠加，零导入
   角点 = 间歇性恰好覆盖的判读练习）；④ 储能调峰（计划跟踪 ⇄ 平衡填补 + 钳位卸载——
   V06_ROADMAP B-3 行「多源协调 + 间歇性 + 储能」三教学点的本系统落点）。
+- **任务书原文引用与 I-5 口径改写覆盖注记（B-5 修订）**：V06_ROADMAP §2 主线 B B-3 行原文：
+  「**MG-001 微电网（多源耦合 + 孤岛检测）**」（v0.8.0 档、准入 = G2b）——其中「孤岛检测」词面
+  按 V090 DEC-1 I-5 红线**改写覆盖**为「脱离主馈线的功率平衡重整演示」（检测 = 诊断类措辞邻接
+  禁用，§6.3 专项表第 3 行），教学实质（多源耦合/协调 + 间歇性 + 储能调峰）不变；本规格全部
+  文案以改写后口径为准。
 - 残差判读对照链（r_meas 教学）：FL r_meas = 0.4·b（测量通道故障暴露）→ PV/WT r_meas ≡ 0
   （全功率通道健康、特征转移到 d_pv/d_wt 一致性残差）→ MG r_meas ≡ 0 且**聚合面无新测量
   通道**（平衡特征由 P_shed/P_dump/island_state 拓扑信号承载）——三段式对照进教学卡。
@@ -511,7 +527,7 @@ copy-guard 33 模式为全库禁词、扫 src/**（tools/copy-guard.mjs:15 SCOPE
 | # | 红线 | 自查结论 |
 |---|---|---|
 | 1 | 孤岛教学点只能表述为「脱离主馈线的功率平衡重整演示」 | §0/§6.2 tagline/summary/switch description 全部采用该句式或其直接展开（「脱离主馈线：功率平衡重整演示」） |
-| 2 | 禁电网保护/稳定/验证类语义 | 全部文案无「保护」「稳定」「穿越」「防孤岛」「检同期」类词（「保护」仅出现在 §1.6 未建模清单与 copy-guard 禁词引用，不进入 src/** 用户可见文案——PV001 §1.5 项 5 limitations 命名先例边界维持：limitations 属 model 元数据面、走 UI 可查面板，实现轮终检确认） |
+| 2 | 禁电网保护/稳定/验证类语义 | **B-1 修订（真实口径）**：保护/检同期/穿越词面**限于 limitations**（§1.6 项 3 未建模清单命名——PV001 §1.5 项 5 先例边界维持：limitations 属 model 元数据面、走 UI 可查面板）与**否定式声明**（§6.2 switch description「无检同期与保护逻辑」——否定式，非肯定性表述）；UI 教学文案无任何肯定性保护/稳定/穿越表述（无「具有/支持/通过…保护」类句式）；实现轮文案终检 + copy-guard 终检双确认 |
 | 3 | 禁「孤岛检测」教学语义（检测=诊断类措辞邻接） | 系统卡/卡片/教学卡用「脱离/重连」「分断/恢复」动词面；「island_state」信号 label 为「孤岛状态」（状态量非检测量）；无「检测/诊断/识别」措辞 |
 | 4 | 「并网/馈线/母线」不与「稳定/验证」邻接组合 | §6.2 全表逐句核对 0 邻接；PV001 §6.3 I-5 专项同款口径 |
 | 5 | 「不代表真实电网侧动态」显式声明 | feeder/switch description 显式声明（PV001 grid description 同款句式） |
@@ -545,21 +561,22 @@ copy-guard 33 模式为全库禁词、扫 src/**（tools/copy-guard.mjs:15 SCOPE
 | ① | 触发项清单全部关闭 | **适用即闭合**：MG-001 为新系统，无 GT/FC 式遗留缺陷清单（SCOPE §2 处置表不含 MG）；触发项 = V06_ROADMAP §2 B-3 行 + V090 §1 DEC-1（本草案即交付物）。无未关闭遗留项 |
 | ② | 独立 golden | **计划就绪（未产出）**：golden 后置系 V090 §0「golden 零变更、B-3 只出草案」授权的对 ② 字面顺序的**显式偏离**（PV001 C-5 / WT001 ② 同款登记）；§4 独立 MG001_ORACLE（复用接入）计划就绪（源物理权威 = 既有冻结 oracle 模块，MS-1…8 自检含复用一致性 emit 硬条件），5 Run，schema v2，T-A，emit 于批准后轮 MG-G2b-03 执行，落地并 verify 通过后本项闭合 |
 | ③ | UI 措辞与未建模物理清单 | **就绪**：§1.6 未建模物理 10 项 + §6.2 文案提案 + §6.3 双自查表（33 模式预检 0 命中 + I-5 孤岛红线专项 5 条） |
-| ④ | 用户书面批准 | **未闭合（本草案即待批状态）**：待双路评审 + 用户书面批准（批准与实现随用户裁定：批准早则 v1.0 收敛前实现，否则 v1.0.x 首项——V090 DEC-1）；PV-G2b-02/WT-G2b-02 用户批准链先例 |
-| ⑤ | CHG 登记 | **部分闭合**：起草授权 CHG-20261108-01（V090_WAVE_DESIGN）已登记；批准 CHG 待批准轮登记（④ 随批准闭合） |
+| ④ | 用户书面批准 | **已闭合（2026-11-11）**：双路评审完成（A:PASS_WITH_CONDITIONS(4) / B:PASS_WITH_CONDITIONS(6)——§10）+ 用户书面批准经 CHG-20261110-01 指令链登记（GTL1-G2b-02 先例：用户指令链即书面批准记录）；实现时点终裁已闭合（B-6：CHG-20261108-04 §5① = v1.0.x 首项，本波 v1.1.0 执行——V110 DEC-1） |
+| ⑤ | CHG 登记 | **已闭合**：起草授权 CHG-20261108-01（V090_WAVE_DESIGN）已登记；批准 CHG = CHG-20261110-01（V110_WAVE_DESIGN，MG-G2b-02 收口随本 v1.0 登记，2026-11-11） |
 
 ## 8. 实现排期提案（MG-G2b-01…04）
 
-> 与 PV001 §8/WT001 §8 同构的顺序说明：MG-001 为全新系统，且 V090 §0 本波禁区不动
-> tools/oracle/** 与 data/golden/**——故双路评审（MG-G2b-02，批准轮）先行；oracle/golden
-> 与实现同为批准后轮（v1.0 收敛前或 v1.0.x，随用户裁定）。
+> 与 PV001 §8/WT001 §8 同构的顺序说明：MG-001 为全新系统，且 V090 §0 起草轮禁区不动
+> tools/oracle/** 与 data/golden/**——故双路评审（MG-G2b-02，批准轮）先行〔已收口，2026-11-11〕；
+> oracle/golden 与实现同为批准后轮——**实现时点终裁已闭合：CHG-20261108-04 §5① = v1.0.x 首项，
+> 本波 v1.1.0 执行（V110 DEC-1）**（B-6 修订标注；MG-G2b-03/04 本波并发执行，V110 §2）。
 
 | 步骤 | 内容 | 规模 | 波次 |
 |---|---|---|---|
-| MG-G2b-01 | 聚合语义/EQ-MG 方程集/源轨复用固定面/锚点预填 + 独立复算（§1/§2/§3；源轨调用冻结 oracle 复用 + 聚合代数闭式 + 分段常值断言 + 包络扫描；临时脚本已删除）+ 本草案 v0.1 | M | **已完成**（本波，2026-11-08） |
-| MG-G2b-02 | 双路独立评审（物理 A：EQ-MG 自洽与量纲/恒等式构造性/分段常值前提/锚点复算/包络角点/L0 判据对照/复用面正确性（源轨零改动核实）；治理 B：五项条件/scope 落地路径/O-13 语义差异/33 模式 + I-5 孤岛红线双自查/golden 治理与 verify_golden 注册面/t_clear 守卫扩展涟漪/不动清单/步数账/Q1…Q7 裁定）+ **用户书面批准（DEC-1）** + 批准 CHG（规格更名 APPROVED、条件修订进正文、Q 点定案落正文）+ 条件处置追记（PV001 §11 体例） | M | **待用户裁定**（批准时点决定实现波次：v1.0 收敛前 或 v1.0.x 首项） |
-| MG-G2b-03 | oracle 编写（mg001_oracle.py：pv001/wt001 oracle 复用导入 + BESS 能量面内联 + oracle_base 出生接入 + MS-1…8 含 MS-3 复用一致性 emit 硬条件）+ mg001_v1 emit（5 Run，schema v2，T-A，approval 首签）+ verify_golden MODELS["mg001"] 注册行 + **scenario.js t_clear 守卫扩展（MG-001×island_event）+ :152 可用系统文案补 WT-001/增 MG-001**（显式 CHG 面）+ FAULT_CATALOG 新增 §8 节（四族行 + O-13 语义差异注 + 零参数族注）+ schema 测试适配（MG 零单位缺口核查确认） | M | 批准后轮（依赖 02 批准） |
-| MG-G2b-04 | 实现：systems.js MG001 SystemDef（§1 全量：18 信号含 exposure/sourceKind、A-mg-* 10 条、limitations 10 项、EQ-MG-1…9、initial 三键面）+ **exposure 三值映射核对表（18 信号逐信号落点）** + engine simulateMG001 组合轨（**engine.js:2131-2140 分派链现 FL→FC→PV→WT→else GT001 兜底，必须显式插 MG 分支于 else 之前**——R-5 守卫；内部 = 子轨固定面构造标准子配置 + simulatePV001/simulateWT001 复用调用 + 601 点聚合代数；三/四/五系统既有分支零触碰）+ 因果模板四件（§6.4）+ UI 接线（home/compare/scenario/teaching 页系统卡与指标组 + 零参数族卡片核查 MG-IMP-Q2）+ tests/engine-mg.test.js（五 Run 锚点断言 + 两模式逐位等价断言 + 恒等式断言 + R-5 守卫断言）+ **Arena ARENA_EXCLUDED 增 'MG-001' + 守卫注释**（§5）+ scope 零改动核对 + normalizeConfig 钳位裁定（MG-IMP-Q1）+ **步数账申报（I-7）**：31→33（verify_golden mg001 挂第 32 步、engine-mg.test.js 挂第 33 步，均 core 层，单波 +2——WT 波 +2 显式申报先例 CHG-20261107-01；预算 32→34 显式申报） | L | 批准后轮（依赖 03） |
+| MG-G2b-01 | 聚合语义/EQ-MG 方程集/源轨复用固定面/锚点预填 + 独立复算（§1/§2/§3；源轨调用冻结 oracle 复用 + 聚合代数闭式 + 分段常值断言 + 包络扫描；临时脚本已删除）+ 本草案 v0.1 | M | **已完成**（V090 波 T1，2026-11-08） |
+| MG-G2b-02 | 双路独立评审（物理 A：EQ-MG 自洽与量纲/恒等式构造性/分段常值前提/锚点复算/包络角点/L0 判据对照/复用面正确性（源轨零改动核实）；治理 B：五项条件/scope 落地路径/O-13 语义差异/33 模式 + I-5 孤岛红线双自查/golden 治理与 verify_golden 注册面/t_clear 守卫扩展涟漪/不动清单/步数账/Q1…Q7 裁定）+ **用户书面批准（DEC-1）** + 批准 CHG（规格更名 APPROVED、条件修订进正文、Q 点定案落正文）+ 条件处置追记（PV001 §11 体例） | M | **已完成**（2026-11-11 收口：双评审 A:PASS_WITH_CONDITIONS(4)/B:PASS_WITH_CONDITIONS(6)，条件落地 + MG-DRAFT-Q1…Q7 定案落正文，更名 MG001_G2B_SPEC_APPROVED v1.0；批准记录 CHG-20261110-01） |
+| MG-G2b-03 | oracle 编写（mg001_oracle.py：pv001/wt001 oracle 复用导入 + BESS 能量面内联 + oracle_base 出生接入 + MS-1…8 含 MS-3 复用一致性 emit 硬条件）+ mg001_v1 emit（5 Run，schema v2，T-A，approval 首签）+ verify_golden MODELS["mg001"] 注册行 + **scenario.js t_clear 守卫扩展（MG-001×island_event）+ 可用系统枚举含 MG-001 确认**（显式 CHG 面；枚举已随 CHG-20261108-03 改 knownSystemIds 动态派生——B-4 已修复，静态「补 WT-001」面撤销）+ FAULT_CATALOG 新增 §8 节（四族行 + O-13 语义差异注 + 零参数族注）+ schema 测试适配（MG 零单位缺口核查确认） | M | **已完成**（2026-11-11：mg001_oracle.py 源物理复用委托 + mg001_v1 emit（5 Run/schema v2/T-A，1,051,804 字节）+ MODELS["mg001"] 注册行（run-g2 第 34 步）+ t_clear_s 守卫扩展 + FAULT_CATALOG v1.5 §8；证据 evidence/g8/v110-release.md §1/§4，CHG-20261110-02） |
+| MG-G2b-04 | 实现：systems.js MG001 SystemDef（§1 全量：18 信号含 exposure/sourceKind、A-mg-* 10 条、limitations 10 项、EQ-MG-1…9、initial 三键面）+ **exposure 三值映射核对表（18 信号逐信号落点）** + engine simulateMG001 组合轨（**engine.js:2131-2140 分派链现 FL→FC→PV→WT→else GT001 兜底，必须显式插 MG 分支于 else 之前**——R-5 守卫；内部 = 子轨固定面构造标准子配置 + simulatePV001/simulateWT001 复用调用 + 601 点聚合代数；三/四/五系统既有分支零触碰）+ 因果模板四件（§6.4）+ UI 接线（home/compare/scenario/teaching 页系统卡与指标组 + 零参数族卡片核查 MG-IMP-Q2）+ tests/engine-mg.test.js（五 Run 锚点断言 + 两模式逐位等价断言 + 恒等式断言 + R-5 守卫断言）+ **Arena ARENA_EXCLUDED 增 'MG-001' + 守卫注释**（§5）+ scope 零改动核对 + normalizeConfig 钳位裁定（MG-IMP-Q1）+ **步数账申报（I-7；B-3 修订采 V110 DEC-5 终值）**：33→35（第 34 步 `verify_golden.py mg001`、第 35 步 `tests/engine-mg.test.js`，均 core 层——V110 DEC-5 采纳；WT-001 先例「新系统 = verify 步 + engine 步各一」，V080 DEC-6 口径；预算 ≤33→≤35 显式申报） | L | **已完成**（2026-11-11：MG001 SystemDef（19 信号/四族含零参数族/EQ-MG-1…9）+ engine simulateMG001（R-5 显式分派守卫）+ UI 六系统化 + ARENA_EXCLUDED 增列 + tests/engine-mg.test.js 382 断言（run-g2 第 35 步）+ 步数账 33→35（FIRST-33 机检既有 33 步零改动）；证据 evidence/g8/v110-release.md §1/§4，CHG-20261110-02） |
 
 ## 9. 风险
 
@@ -570,24 +587,41 @@ copy-guard 33 模式为全库禁词、扫 src/**（tools/copy-guard.mjs:15 SCOPE
 | R-3 | MG load_step 被误读为 FL O-13 删除族复活 | §0/§2.1 显式语义差异声明（聚合输入 vs FL 内部电气面 + 失衡机制对照）+ FAULT_CATALOG §8 行载明 + scenario.js DELETED_FAMILIES 仅 FL-001 键（零改动核实） |
 | R-4 | 「新系统零改动 verify_golden」误读导致 MG-G2b-03 漏注册 | §4 项 7 勘正：注册面硬编码（verify_golden.py:67），注册行列显式工作面（PV R-3 同款） |
 | R-5 | engine 分派 else 兜底吞掉 MG-001（静默走 GT 物理） | §8 MG-G2b-04 点名 engine.js:2131-2140 显式分支 + tests/engine-mg.test.js 锚点断言（GT 轨数值与 MG 锚点不同，断言即守卫，PV R-4/WT R-7 同款） |
-| R-6 | oracle 复用导入的传递耦合：pv001/wt001 oracle 文件变更 → mg001 数值漂移而 V-03（只校验 mg001_oracle.py 自身 sha）不报警 | MS-3 复用一致性自检 = emit/verify 双面硬条件（源 golden 标量逐位核对，源侧变更即失配拒绝）+ 源 golden 字节冻结纪律延续 + V-03 覆盖面局限显式登记（§4 项 1/3） |
+| R-6 | oracle 复用导入的传递耦合：pv001/wt001 oracle 文件变更 → mg001 数值漂移而 V-03（只校验 mg001_oracle.py 自身 sha）不报警 | MS-3 复用一致性自检 = emit/verify 双面硬条件（源通道序列逐位核对 ≤1e-12——B-2 统一强口径，标量为核对子集；源侧变更即失配拒绝）+ 源 golden 字节冻结纪律延续 + V-03 覆盖面局限显式登记（§4 项 1/3） |
 | R-7 | 零参数族（island_event）在引擎/卡片/场景三面的行为未验证 | MG-IMP-Q2 显式核查面（validateConfig 空参数、fault 卡片渲染、双事件快照 V-09 面对.gt001 actuator_clear 先例核对），不可静默 |
 | R-8 | SOC 分段常值前提被未来形态变更破坏（Q1 备选 (a)/(c) 致岛内时变） | EQ-MG-7 前提显式登记 + MS-7 断言 fail → emit 拒绝（WS-8 同款硬条件）+ Q1 涟漪注记（method_id/tier 随批准轮重审） |
 | R-9 | 手拼配置越域（SOC0 极低负账本值） | §3.5 域声明 + MG-IMP-Q1 钳位裁定（不静默）；load_eff 负值已由 Q6 域设计排除 |
-| R-10 | 步数账膨胀（I-7）：MG 测试/golden 步入 run-g2 | §8 MG-G2b-04 归口：31→33 +2 步显式申报、预算 32→34（WT 波 +2 先例）；本波零接线（V090 §0） |
+| R-10 | 步数账膨胀（I-7）：MG 测试/golden 步入 run-g2 | §8 MG-G2b-04 归口：33→35 +2 步显式申报、预算 ≤35（V110 DEC-5 终值，B-3 修订）；批准轮零接线（V090 §0 不动清单延续至实现轮前） |
 | R-11 | t_clear_s 守卫扩展波及既有场景语义 | 扩展面显式 CHG + EVENT_KEYS/hashProjection 零变化论证（t_clear_s 既有键）+ scenario.test.js 全量回归（既有负例路径零变化断言） |
 
-## 10. 评审记录（**预留表——待双路评审回填**）
+## 10. 评审记录与条件处置追记（**MG-G2b-02 收口回填**，2026-11-11；体例沿 PV001_G2B_SPEC_APPROVED §11）
+
+### 10.1 评审记录（双路独立评审回填）
 
 | 路 | 范围 | verdict | 关键结论 |
 |---|---|---|---|
-| 评审人 A（物理/数值） | EQ-MG-1…9 自洽与量纲、恒等式构造性核查、分段常值前提证明、锚点独立复算（源轨复用面 + 聚合代数）、包络角点、L0 判据对照、复用面正确性（源轨零改动核实） | 待 | — |
-| 评审人 B（治理/口径/回归面） | §7 五项进入条件、scope 落地路径、O-13 语义差异、33 模式 + I-5 孤岛红线双自查、golden 治理与 verify_golden 注册面、t_clear 守卫扩展涟漪、不动清单、Q1…Q7 裁定点、步数账、预期失效面 | 待 | — |
-| 用户批准（DEC-1） | 批准与实现排期（v1.0 收敛前 或 v1.0.x 首项） | 待 | 本表为用户裁定输入 |
+| 评审人 A（物理/数值） | EQ-MG-1…9 自洽与量纲、恒等式构造性核查、分段常值前提证明、锚点独立复算（源轨复用面 + 聚合代数）、包络角点、L0 判据对照、复用面正确性（源轨零改动核实） | **PASS_WITH_CONDITIONS** | 方程自洽、恒等式按构造成立、分段常值前提成立（(b) 形态结构推论）、锚点 96/96 复现、L0 判据对照属实、源轨零改动核实通过；4 条件：A-1（P1）gate 补 I_A 两键、A-2（P2）SOC(60) 包络角点更正、A-3（P2）包络口径改标 + UI 可达包络行登记、A-4 oracle 独立性「源物理复用委托」形制（处置见 10.2） |
+| 评审人 B（治理/口径/回归面） | §7 五项进入条件、scope 落地路径、O-13 语义差异、33 模式 + I-5 孤岛红线双自查、golden 治理与 verify_golden 注册面、t_clear 守卫扩展涟漪、不动清单、Q1…Q7 裁定点、步数账、预期失效面 | **PASS_WITH_CONDITIONS** | 五项条件/scope 落地/O-13 声明/双自查/golden 治理/t_clear 涟漪登记属实；6 条件：B-1 I-5 自查表第 2 行真实口径、B-2 MS-3 核对面统一（采强者：源通道序列 ≤1e-12）、B-3 verify_golden 实机制（无 --all）、B-4 scenario.js 系统枚举文案修复扩两处（已随 CHG-20261108-03 提前修复）、B-5 §6.1 引 V06 原文 + I-5 改写覆盖注记、B-6 实现时点终裁（已由 CHG-20261108-04 §5① 闭合——处置见 10.2） |
+| 用户批准（V090 DEC-1 → V110 DEC-1） | 批准与实现排期 | **批准** | CHG-20261110-01（用户 2026-11-10「统一采用推荐决策」指令链——GTL1-G2b-02 先例：用户指令链即书面批准记录；V110_WAVE_DESIGN v1 批准登记）；实现时点终裁：CHG-20261108-04 §5① = v1.0.x 首项，本波 v1.1.0 执行（V110 DEC-1）。MG-G2b-02 收口（2026-11-11） |
 
-## 11. 决策点汇总（评审裁定点；批准轮定案后落正文——PV-DRAFT-Q1/WT-DRAFT-Q1 体例）
+### 10.2 条件处置追记（A-1…A-4 / B-1…B-6 共 10 项——9 项落正文 + B-4 已提前修复；全部按推荐处置）
 
-| # | 决策 | 推荐 | 备选 |
+| # | 条件（来源） | 处置与落点 |
+|---|---|---|
+| A-1 | **gate 补 I_A 两键（A，P1）**：verify_golden T-A 路径直接索引 I_A_rtol/I_A_atol（标量 metric 兜底支路 / I_/bias 序列支路 / 事件容差缺省键），四 T-A golden 先例 gate 全带键；修 gate 不修码 | gate 块补 `I_A_rtol:1e-12` / `I_A_atol:1e-15` 两键，死键规避论证改写——落点 **§4 项 6** |
+| A-2 | **SOC(60) 包络更正（A，P2）**：SOC0=100 ∧ P_bess=−8 全窗充电为域内可达角点，原 [−0.34, 99.9] 漏上摆端 | SOC(60) 包络更正为 **[−0.3333, +100.3333] pp**——落点 **§3.5「SOC 摆幅」行** |
+| A-3 | **包络口径改标（A，P2）**：原「UI 全域」实为参数域端点叉积复算，非 UI 单 Run 可达面 | §3.5 改标「参数域叉积包络」+「UI 单 Run 可达包络行」登记为 **MG-G2b-04 实现轮显式工作面**——落点 **§3.5 标题 + 表前注记**；**已落地（v1.1.0，W7）**：signals 页页脚单 Run 可达包络行（措辞带「不是参数域叉积包络」改标口径；e2e E-15 机检 + ui-walkthrough 断言承载，CHG-20261110-02） |
+| A-4 | **oracle 独立性形制（A/B 同汇；V110 DEC-2 同口径）**：复用面独立性须以「源物理复用委托」形制显式声明 | §4 项 1 增独立性声明：(i) 跨 oracle import 显式授权 + (ii) MS-3 逐位审计 + (iii) 不 import src/**——落点 **§4 项 1 ④** |
+| B-1 | **I-5 自查表第 2 行真实口径（B）**：保护/检同期词面实际出现于 limitations 与否定式声明，原「全部文案无此类词」与实况不符 | 第 2 行改真实口径（词面限于 limitations 命名 + 否定式声明；UI 教学文案无肯定性表述）——落点 **§6.3 专项表第 2 行** |
+| B-2 | **MS-3 核对面表述统一（B）**：v0.1「标量逐位」与「源序列逐位」两处口径不一，采强者 | MS-3 统一为「源通道序列 ≤1e-12（标量为核对子集）」——落点 **§4 项 3**；R-6 缓解同步——落点 **§9 R-6** |
+| B-3 | **verify_golden 实机制（B）**：verify_golden 无 `--all` 机制；mg001 为 per-model 注册行 + run-g2 per-model 调用步（V110 DEC-5：33→35，第 34 步 verify mg001） | §4 项 8 改实机制口径 + §8 MG-G2b-04 步数账 31→33 改 33→35（第 34/35 步）+ §9 R-10 同步——落点 **§4 项 8 / §8 MG-G2b-04 行 / §9 R-10** |
+| B-4 | **scenario.js 系统枚举文案修复扩两处（B）**：:150/:157 均缺 WT-001 | **已随 CHG-20261108-03 提前修复**（枚举改 knownSystemIds 动态派生，2026-11-11 实读 scenario.js:91/168）；MG-G2b-03 余留面 = 枚举含 MG-001 确认——处置注记落 **§头部残留登记 / §4 项 7** |
+| B-5 | **§6.1 引任务书原文（B）**：v0.1 仅转述「多源协调 + 间歇性 + 储能」，未引 V06_ROADMAP B-3 行原文 | §6.1 引原文「MG-001 微电网（多源耦合 + 孤岛检测）」并注明 I-5 口径改写覆盖（「孤岛检测」→「脱离主馈线的功率平衡重整演示」）——落点 **§6.1 新增注记** |
+| B-6 | **实现时点终裁（B）**：终裁已闭合——CHG-20261108-04 §5① = v1.0.x 首项，本波 v1.1.0 执行（V110 DEC-1） | 正文实现时点结论处标注终裁闭合——落点 **§5 末条 / §7 ④ / §8 引言 / 文尾状态行** |
+
+## 11. 决策点汇总（**定案记录**：MG-DRAFT-Q1…Q7 已于 MG-G2b-02 收口定案——2026-11-11，全部采推荐项，结论已落正文对应位置（§0/§1.1/§1.2/§1.4/§1.7/§2.4/§6.1），候选与理由保留；MG-IMP-Q1/Q2 保留**实现轮待答**，随 MG-G2b-03/04 定案——批准轮体例沿 PV-DRAFT-Q1/WT-DRAFT-Q1；**→ MG-IMP-Q1/Q2 已于 MG-G2b-03/04 收口定案（2026-11-11，见下行定案注记——证据 evidence/g8/v110-release.md，CHG-20261110-02）**）
+
+| # | 决策 | 定案（采推荐） | 备选 |
 |---|---|---|---|
 | MG-DRAFT-Q1 | 孤岛机制形态 | **(b) island_event 作为故障族**（t_start=脱离 / t_clear=重连；单故障/Run 零破坏 + 故障卡片/目录/引擎分派零新语义 + **聚合 oracle 全闭式、T-A 按构造**（岛内源恒健康 ⇒ chase 分段常值 ⇒ SOC 分段解析））；「间歇性叠加改变卸载量」以场景级 Run 对比承载 | (a) 事件级模式切换键（inertia_model/thermal_model 先例同构；教学面最富——独立时刻组合可达；涟漪 = cfg 新键 + validateConfig + fault-lab UI 新控件 + 岛内时变 ⇒ SOC 数值化 ⇒ oracle/tier 重设计）；(c) island_event 捆绑联动参数族（单时刻组合可达；族语义混杂 + 同样破坏 SOC 闭式前提）——均登记涟漪未采 |
 | MG-DRAFT-Q2 | island_event 参数形态 | **零参数族（params: []）**——脱离/重连语义由 t_start_s/t_clear_s 完整承载，无幅值语义；挂空 magnitude 为伪参数（I-2 不采）；库内首例，MG-IMP-Q2 三面核查 | 挂空 magnitude（默认值 0、无效应）——数据不诚实，不推荐 |
@@ -596,13 +630,19 @@ copy-guard 33 模式为全库禁词、扫 src/**（tools/copy-guard.mjs:15 SCOPE
 | MG-DRAFT-Q5 | BESS 调度面配置暴露 | **initial 增 p_sched_kW ∈ [−8,8]（默认 +5）**——储能调峰教学点可玩（计划面充/放电可调） | 固定 +5 kW（调峰面不可玩，教学定位弱）——不推荐 |
 | MG-DRAFT-Q6 | load_step 参数域 | **有符号域 [−10, +20] kW**——倒送角点域内可达 + load_eff ≥ 0 由域设计保证（负负荷域外化，MG-IMP-Q1 减负） | 正域 [5,20]（FC/GT 字面先例）——倒送角点不可达；[−15,20]——负负荷角点需钳位裁定，域内出现无物理意义值——均次优 |
 | MG-DRAFT-Q7 | 源子轨配置固定面 | **G0/v0/子轨故障面固定（PV G0=1000、WT v0=9、无 sensor/actuator 联动）**——锚点面/包络面/复算面最小，联动开放须未来显式 CHG | 暴露 G0/v0 联动或 FL sensor_bias 联动——MG initial 键面膨胀 + 包络翻倍 + 复算面重推，首版不采 |
-| MG-IMP-Q1 | 手拼配置钳位 + 步数账细节 | **保持实现轮裁定**（不预裁）：engine 侧钳位 or UI 联动校验二选一须记录（PV/WT-IMP-Q1 先例）；新断言优先并入现有步 | — |
-| MG-IMP-Q2 | 零参数族 + t_clear 守卫扩展 + 双事件快照核查 | **保持实现轮裁定**（不预裁）：validateConfig 空参数行为、fault 卡片渲染、V-09 双快照对 gt001 actuator_clear 先例核对——三面核查须记录 | — |
+| MG-IMP-Q1 | 手拼配置钳位 + 步数账细节 | **已定案（2026-11-11，MG-G2b-04/W5）**：采 **validateConfig reject 纪律**（engine.js MG-001 分支——SOC 域越界 push 结构化错误，:398-410 惯例依据；fault.params/t_start/t_clear reject 先例 :364-366/:413/:422 同款；UI 联动校验不采——引擎侧为唯一守卫面，scope fall-through 教学语义维持）；新断言并入 engine-mg.test.js（run-g2 第 35 步）+ schema initial_p_sched_kW 域校验同款纪律（R-8 先例） | — |
+| MG-IMP-Q2 | 零参数族 + t_clear 守卫扩展 + 双事件快照核查 | **已定案（2026-11-11，MG-G2b-03/04 收口，W4/W5）**：**双事件快照经 buildEvents/buildSnapshots 通用链**（island_event t_start=脱离 / t_clear=重连，gt001 actuator_clear 先例同构）——**三面核查全过**：① oracle MS 自检/golden V-09/W2-1 双 null 相位规则（emit 硬条件）；② 引擎快照逐位对齐（engine-mg 382 断言含 null 布局面）；③ EVENT_KEYS 零变化（island_event 为族非键，t_clear_s 既有键——scenario.test 既有负例路径零变化断言）；validateConfig 空参数（params:[]）行为 = 无参数校验需求直接放行 + fault 卡片渲染 e2e E-14 机检过 | — |
 
 ---
 
-**文件结束**。MG001_G2B_SPEC_DRAFT v0.1（2026-11-08，B-3 规格起草人起草，CHG-20261108-01 授权链）。
-**状态 `DRAFT`**：待双路独立评审（MG-G2b-02）+ 用户书面批准（V090 DEC-1——批准与实现随用户裁定：
-批准早则 v1.0 收敛前实现，否则 v1.0.x 首项）。本草案零代码/golden/oracle 触碰（V090 §0 不动清单；
-锚点数值为复算预填，§3.4/§3.5，临时脚本已按纪律删除），终值以 mg001_oracle emit 冻结为准；
-本规格批准（若下达）不自动打开任何验收路径（§5）。
+**文件结束**。MG001_G2B_SPEC_APPROVED v1.0（2026-11-11，MG-G2b-02 收口；曾用名
+MG001_G2B_SPEC_DRAFT——2026-11-08 B-3 规格起草人起草 v0.1，CHG-20261108-01 授权链，
+时点状态见 §10/§11 历史记录）。
+**状态 `APPROVED v1.0`**：批准记录：CHG-20261110-01（用户 2026-11-10「统一采用推荐决策」指令链，
+GTL1-G2b-02 先例）。双路评审 A:PASS_WITH_CONDITIONS(4) / B:PASS_WITH_CONDITIONS(6)，条件
+A-1…A-4 / B-1…B-6（B-4 已随 CHG-20261108-03 提前修复）与 MG-DRAFT-Q1…Q7 定案已全部落入正文
+（§10 评审记录回填 + 条件处置追记 / §11 定案记录）；实现时点终裁已闭合：CHG-20261108-04 §5① =
+v1.0.x 首项，本波 v1.1.0 执行（V110 DEC-1）——MG-G2b-03/04 依 §8 本波执行。
+MG-IMP-Q1/Q2 保留实现轮待答（随 MG-G2b-03/04 定案）。起草轮零代码/golden/oracle 触碰
+（V090 §0 不动清单；锚点数值为复算预填，§3.4/§3.5，临时脚本已按纪律删除），终值以
+mg001_oracle emit 冻结为准；本规格批准不自动打开任何验收路径（§5）。

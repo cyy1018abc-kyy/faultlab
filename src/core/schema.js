@@ -133,6 +133,12 @@
          initial v0_ms 键面按 system.bounds 派生（R-8 同款）——WT-001 声明 v0_ms ∈ [6,10]；
          其他系统 undefined → 不进入投影/哈希（G0_W_m2 / inertia_model 同款先例）。 */
       initial_v0_ms: cfg.initial && cfg.initial.v0_ms,
+      /* MG-001（MG001_G2B_SPEC_APPROVED v1.0 §1.1/Q5 定案；W6 投影缺口补齐，CHG-20261110-01
+         批准链）：initial p_sched_kW 为 MG 自有配置量（BESS 调度计划，bounds 声明 [−8,8] kW）
+         ——W5 未投影致 MG config_hash 对 p_sched_kW 零敏感（同配置改 p_sched_kW → hash 不变，
+         改参不产生新 Run 面）。键面按 R-8 显式键列本制追加（G0_W_m2/v0_ms 同款）：
+         其他系统 undefined → 不进入投影/哈希，既有五系统 config_hash 输出零变化。 */
+      initial_p_sched_kW: cfg.initial && cfg.initial.p_sched_kW,
       /* A-1 惯性双轨 → L1 三轨（GTL1_G2B_SPEC_APPROVED v1.0 §2.4；GT-001 声明；
          其他系统 undefined → 不进入投影/哈希） */
       inertia_model: cfg.inertia_model,
@@ -257,6 +263,20 @@
                  sc.initial_v0_ms > initBounds.v0_ms.max + 1e-9) {
         bad('initial_v0_ms', 'initial_v0_ms 必须在 ' + initBounds.v0_ms.min + '–' +
           initBounds.v0_ms.max + ' m/s 之间', '检查配置');
+      }
+    }
+    /* MG-001（MG001_G2B_SPEC_APPROVED v1.0 §1.1/Q5；W6 投影缺口补齐，CHG-20261110-01）：
+       initial_p_sched_kW 校验补入（域取 bounds.p_sched_kW [−8,8]，声明才要求——
+       R-8 G0_W_m2/v0_ms 同款；与 engine.js validateConfig MG 分支 MG-IMP-Q1 reject
+       纪律同域。bounds 驱动、无系统清单硬编码；声明面之外的初值键处置不变；
+       反查失败回退既有键面。） */
+    if (initBounds && initBounds.p_sched_kW) {
+      if (!isNum(sc.initial_p_sched_kW)) {
+        bad('initial_p_sched_kW', 'initial_p_sched_kW 必须是数字（kW）', '检查配置');
+      } else if (sc.initial_p_sched_kW < initBounds.p_sched_kW.min - 1e-9 ||
+                 sc.initial_p_sched_kW > initBounds.p_sched_kW.max + 1e-9) {
+        bad('initial_p_sched_kW', 'initial_p_sched_kW 必须在 ' + initBounds.p_sched_kW.min + '–' +
+          initBounds.p_sched_kW.max + ' kW 之间', '检查配置');
       }
     }
     if (sc.noise !== null && sc.noise !== undefined) {
