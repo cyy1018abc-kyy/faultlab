@@ -2,13 +2,18 @@
 """verify_golden.py — 一键校验：重跑独立 oracle → 按 golden 内置容差比对（MODEL_VALIDATION_SPEC §3.6）。
 
 用法：
-  python scripts/verify_golden.py                # 默认双 golden：fl001（v1 off 默认轨）+
-                                                 #   fl001_l1（v2 thermal 轨）顺序验证，
-                                                 #   两者都过才 exit 0（DEC-6 步①并入口径，
-                                                 #   FLTH §7.3「优先并入现有步」）
+  python scripts/verify_golden.py                # 默认三 golden：fl001（v1 off 默认轨）+
+                                                 #   fl001_l1（v2 thermal 轨）+ fc001_l1
+                                                 #   （v2 电化学轨）顺序验证，全部通过才
+                                                 #   exit 0（DEC-6 步①并入口径，FLTH §7.3
+                                                 #   「优先并入现有步」；B-5 定案尾追加
+                                                 #   fc001_l1——CHG-20261113-01 批准链）
   python scripts/verify_golden.py fl001          # 仅 fl001（显式参数不扩面，仍只验 fl001_v1）
   python scripts/verify_golden.py fl001_l1       # FL-001 thermal 轨（FLTH-G2b-03 / CHG-20261107-01）
   python scripts/verify_golden.py fc001          # FC-001（P1-06 / G2b-lite）
+  python scripts/verify_golden.py fc001_l1       # FC-001 电化学轨（FCECH-G2b-03 / CHG-20261113-01
+                                                 #   批准链；golden fc001_v2，tier T-B，
+                                                 #   T-B `_V` 分支 = B-4 定案显式硬项）
   python scripts/verify_golden.py gt001          # GT-001（V3-31 / G2b v1.1；GTL1-G2b-03 起
                                                  #  重指向 gt001_v3 L1 thermo 轨，tier T-B）
   python scripts/verify_golden.py pv001          # PV-001（PV-G2b-03 / v0.7，CHG-20261104-10 批准链）
@@ -23,8 +28,8 @@
   V-01 golden 存在且可解析；V-02 sidecar SHA-256 一致；
   V-03 generated_by.oracle_source_sha256 == 当前 oracle 源码 SHA-256；
   V-03b approval 批准摘要一致（去除 generated_by/approval 后内容摘要）；
-  V-04 oracle 自检全过（fl001 SC-1…9 / fl001_l1 FL-1…8 / fc001 SC-1…7 / gt001_l1 GL-1…8 /
-       pv001 PS-1…7 / wt001 WS-1…8 / mg001 MS-1…8）；
+  V-04 oracle 自检全过（fl001 SC-1…9 / fl001_l1 FL-1…8 / fc001 SC-1…10 / fc001_l1 FEC-1…8 /
+       gt001_l1 GL-1…8 / pv001 PS-1…7 / wt001 WS-1…8 / mg001 MS-1…8）；
   V-05 关键点（19.9/21.5/26.0/60.0 s 的 true/meas 对）——tier 分派：T-A rtol 1e-12
        （I_A 键，既有路径零改动）/ T-B 按 series_limit 序列容差键（GTL1-G2b-03 参数化）；
   V-06 标量（E/SOC）gate 容差（±1e-6 kWh / ±1e-5 pp）；
@@ -59,6 +64,8 @@ import fl001_oracle  # noqa: E402
 import fl001_l1_oracle  # noqa: E402  FL-001 L1 thermal 轨（FLTH-G2b-03 / CHG-20261107-01 批准链；
                         #   FL001_THERMAL_G2B_SPEC_APPROVED §4 项 7——注册行为显式工作面）
 import fc001_oracle  # noqa: E402
+import fc001_l1_oracle  # noqa: E402  FC-001 L1 电化学轨（FCECH-G2b-03 / CHG-20261113-01 批准链；
+                        #   FC001_ELECTROCHEM_G2B_SPEC_APPROVED §4 项 8——注册行为显式工作面）
 import gt001_oracle  # noqa: E402  （swing/linear 冻结归档轨：verify_golden 注册面已重指向
                      #   gt001_l1_oracle；本 import 维持 oracle_base 契约探针与历史可比性）
 import gt001_l1_oracle  # noqa: E402  GT-001 L1 thermo 轨（GTL1-G2b-03 / CHG-20261104-12 批准链）
@@ -109,6 +116,28 @@ MODELS = {
             ("E_fc_true_kWh", "kWh"), ("E_bat_true_kWh", "kWh"), ("E_bat_est_kWh", "kWh"),
             ("E_load_kWh", "kWh"),
             ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
+        ],
+    },
+    "fc001_l1": {
+        # FCECH-G2b-03（CHG-20261113-01）：FC-001 电化学轨 golden fc001_v2（5 Run 全部
+        # electrochem_model=on；oracle=fc001_l1_oracle 出生接入 oracle_base，FC 规格 §4 项 8
+        # ——「fc001 条目重指向」不适用（FLTH §4 项 7 同构）：MODELS["fc001"] 继续验
+        # fc001_v1（off 默认轨）零改动，电化学轨走本条目）。scalars 按 fc001_v2.json 实际
+        # 键面全量注册（17 项 = fc001_v1 镜像 14 键 + T_st_end_K/V_stack_end_V/
+        # P_loss_stack_end_kW 三新键）；非 kWh 类在 V-06 走 SOC_pp 支（fl001_l1
+        # T_bat_end_K 现行先例）；event_tol 沿 fc001 现行缺省 I_A_atol。
+        "oracle": fc001_l1_oracle,
+        "golden_file": "fc001_v2.json",
+        "i_true": "I_fc_true_A", "i_meas": "I_fc_meas_A",
+        "scalars": [
+            ("E_fc_true_kWh", "kWh"), ("E_bat_true_kWh", "kWh"), ("E_bat_est_kWh", "kWh"),
+            ("E_load_kWh", "kWh"),
+            ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
+            ("I_fc_true_20post_A", "A"), ("I_fc_meas_20post_A", "A"),
+            ("I_fc_true_60_A", "A"), ("I_fc_true_26_A", "A"),
+            ("max_abs_r_true_kW", "kW"), ("max_abs_r_meas_kW", "kW"),
+            ("int_I_fc_60s_As", "As"),
+            ("T_st_end_K", "K"), ("V_stack_end_V", "V"), ("P_loss_stack_end_kW", "kW"),
         ],
     },
     "gt001": {
@@ -168,9 +197,13 @@ MODELS = {
     },
 }
 
-# 默认（无参）运行的双 golden 序列（DEC-6：run-g2 步①同一 python 调用内顺序验证，
-# FLTH §7.3「优先并入现有步」口径；两者都过才 exit 0）。
-DEFAULT_MODELS = ["fl001", "fl001_l1"]
+# 默认（无参）运行的 golden 序列（DEC-6：run-g2 步①同一 python 调用内顺序验证，
+# FLTH §7.3「优先并入现有步」口径；全部通过才 exit 0）。
+# B-5 定案（FCECH-G2b-03 / CHG-20261113-01 批准链）：尾追加 "fc001_l1" —— 步① 无参调用
+# 三 golden 顺序验证（fl001 → fl001_l1 → fc001_l1，FL 先例形态）；步① label「verify_golden
+# fl001」自 V080 起滞后于 fl001_l1 并入（先例在案沿用不修——V120 DEC-5 同款维持登记），
+# FC golden 挂载位置 = 本序列尾。
+DEFAULT_MODELS = ["fl001", "fl001_l1", "fc001_l1"]
 
 KEY_POINTS = [19.9, 21.5, 26.0, 60.0]
 
@@ -224,6 +257,14 @@ def series_limit(sid, arr, tol):
             return tol["SOC_pp"]
         if sid.endswith("_pct"):
             return tol["SOC_pp"]
+        # B-4 定案（FCECH-G2b-03 / CHG-20261113-01）：T-B 分派 `_V` 分支新增（显式硬项，
+        # additive）。置于 elif 链尾：前序 _A/_Hz/_rpm/_K/_kPa/r_true/r_meas/_kW/SOC/_pct
+        # 匹配全部先于本支、不受影响；且仅当 gate 声明 V_stack_atol/V_stack_rtol 键时激活
+        # ——gt001_v3 V_bus_V 等既有 _V 后缀键所在 gate 无此键 ⇒ 照旧落 f_Hz_atol 兜底，
+        # 既有键路由行为逐字节不变（fc001_v2 V_stack_V 不再落 f_Hz_atol 兜底——量纲错配
+        # + 无 f_Hz_atol 键的 T-B gate 直接 KeyError 风险解除）。
+        if sid.endswith("_V") and "V_stack_atol" in tol and "V_stack_rtol" in tol:
+            return max(tol["V_stack_atol"], tol["V_stack_rtol"] * max(1.0, _amax(arr)))
         return tol["f_Hz_atol"]
     if sid.endswith("_Hz"):
         return tol.get("f_Hz_atol", 1e-9)

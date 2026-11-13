@@ -58,8 +58,12 @@
       blindVisible: exposure === 'blind_observable',
       tableOnly: o.tableOnly === true
     };
-    /* 观测噪声尺度（仅噪声开启时作用于 primary 传感器通道；0 = 不直接加噪声） */
+      /* 观测噪声尺度（仅噪声开启时作用于 primary 传感器通道；0 = 不直接加噪声） */
     s.noiseSigma = o.noiseSigma || 0;
+    /* on 轨专属列标记（FC-001 电化学三信号——FCECH-G2b-04 任务5裁定：registry.runHashInput
+       signals 哈希面为整 signals 对象，null 列改变 off 轨 run_hash ⇒ 列仅 on 轨构建、off 轨
+       结构性缺席；engine.makeSeries 按本标记门控。存在才落键——既有全部信号定义零变化）。 */
+    if (o.onTrackOnly === true) s.onTrackOnly = true;
     return s;
   }
 
@@ -418,6 +422,12 @@
     topologyViewBox: [0, 0, 1000, 620],
     defaults: {
       feedback_mode: 'closed_loop',
+      /* FC-001 L1 电化学轨开关（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §1.1，CHG-20261113-01
+         批准链；FLTH thermal_model 单键先例同构）：electrochem_model: off|on，默认 off——
+         off 轨（L0/fc001_v1）为验收轨与 fc001_v1 冻结锚点承载面，on 轨（L1/fc001_v2）经显式
+         选择到达。B-1(a) 定案：场景缺省轨解析只在 engine normalizeConfig 盖章层发生；
+         engine validate 侧枚举守卫同构（engine.js electrochem_model 分支）。 */
+      electrochem_model: 'off',
       initial: { load_kW: 30, SOC_pct: 60 },
       noise: { enabled: false, seed: 12345, level: 0 }
     },
@@ -518,6 +528,9 @@
     signalCategories: [
       { id: 'current', label: '电流' },
       { id: 'power', label: '功率' },
+      /* FC-001 L1 电化学轨（FCECH-G2b-04，CHG-20261113-01；GT-001 thermal 类目先例同构）：
+         三新信号（T_st_K/V_stack_V/P_loss_stack_kW）类目——additive，既有类目零变化。 */
+      { id: 'thermal', label: '热力' },
       { id: 'soc', label: 'SOC' },
       { id: 'residual', label: '残差' },
       { id: 'actuator', label: '执行器' }
@@ -543,7 +556,16 @@
       sig({ id: 'r_true_kW', label: '真实功率平衡残差', shortLabel: 'r_true', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '真实功率守恒残差，理想模型下恒为 0。', formula: 'r_true = P_fc,true + P_bat,true − P_load', precision: 6, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
       sig({ id: 'r_meas_kW', label: '测量一致性残差', shortLabel: 'r_meas', unit: 'kW', category: 'residual', sourceKind: 'DERIVED', definition: '由测量构造的功率平衡残差；故障期间 ≈ +4 kW，是测量偏差，不是能量损失。', formula: 'r_meas = P_fc,meas + P_bat,meas − P_load', precision: 2, chart: { style: 'dashed', colorToken: 'obs', axis: 'left' }, blindVisible: true }),
       sig({ id: 'valve_cmd_pct', label: '阀门指令开度', shortLabel: 'valve_cmd', unit: '%', category: 'actuator', sourceKind: 'CONTROLLER', definition: '控制器下发的氢气阀开度指令；健康场景保持 100%。', formula: 'valve_cmd = 100%', precision: 0, chart: { style: 'dashdot', colorToken: 'warm', axis: 'right' }, blindVisible: true }),
-      sig({ id: 'valve_meas_pct', label: '阀门实际开度', shortLabel: 'valve_meas', unit: '%', category: 'actuator', sourceKind: 'OBSERVATION', definition: '氢气阀实际开度测量；卡涩场景为 magnitude%。', formula: 'valve_meas = 100%（卡涩：magnitude%）', precision: 0, chart: { style: 'dashed', colorToken: 'obs', axis: 'right', step: true }, blindVisible: true })
+      sig({ id: 'valve_meas_pct', label: '阀门实际开度', shortLabel: 'valve_meas', unit: '%', category: 'actuator', sourceKind: 'OBSERVATION', definition: '氢气阀实际开度测量；卡涩场景为 magnitude%。', formula: 'valve_meas = 100%（卡涩：magnitude%）', precision: 0, chart: { style: 'dashed', colorToken: 'obs', axis: 'right', step: true }, blindVisible: true }),
+      /* FC-001 L1 电化学轨三新信号（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §1.3，
+         CHG-20261113-01 批准链；GTL1 尾插先例；全非盲显、不设 blindVisible——盲包语义
+         零变化）。onTrackOnly = FCECH-G2b-04 任务5裁定（registry.runHashInput signals
+         哈希面为整 signals 对象、null 列改变 off 轨 run_hash ⇒ §3.1 off 轨零变化为最高
+         判据，列仅 electrochem_model=on 轨构建；GT/FL 全程 null 列先例为宽容期落地面，
+         八面冻结后不可复制）。单位字典零新增（K——GT C-3 既有、V/kW 既有）。 */
+      sig({ id: 'T_st_K', label: '电堆温度', shortLabel: 'T_st', unit: 'K', category: 'thermal', sourceKind: 'MODEL_STATE', definition: '电堆单节点集总温度（L1 新动态状态，RK4 状态向量 y=[T_st]；EQ-FCEC-3，T_st(0) = T_amb = 298.15 K 冷启动；off 轨无热面，结构性缺席）。', formula: 'C_st·dT_st/dt = P_loss_W − h_st·(T_st − T_amb), C_st = 1500 J/K, h_st = 120 W/K', precision: 3, chart: { style: 'solid', colorToken: 'warm', axis: 'left' }, onTrackOnly: true }),
+      sig({ id: 'V_stack_V', label: '电堆端电压', shortLabel: 'V_stack', unit: 'V', category: 'thermal', sourceKind: 'MODEL_STATE', definition: '电堆集总等效端电压（代数量，EQ-FCEC-1 三损失项极化链；非单池——A-fcec-polarization；off 轨 A-const-v 恒压口径，结构性缺席）。', formula: 'V_stack = E0(T_st) − c_act·ln(1+I/I_0) − R_ohm(T_st)·I − c_conc·ln(I_lim/(I_lim−I))', precision: 3, chart: { style: 'solid', colorToken: 'warm', axis: 'left' }, onTrackOnly: true }),
+      sig({ id: 'P_loss_stack_kW', label: '电堆热损失功率（模型记账项）', shortLabel: 'P_loss,st', unit: 'kW', category: 'thermal', sourceKind: 'DERIVED', definition: '电堆热损失功率（模型记账项）：P_loss_W = (E0 − V_stack)·I，信号面 kW 基（EQ-FCEC-4，W 记账——A-3 定案）；热损失是模型记账项，不是能量损失。', formula: 'P_loss_W = (E0(T_st) − V_stack)·I；P_loss_stack_kW = P_loss_W/1000', precision: 6, chart: { style: 'solid', colorToken: 'warm', axis: 'left' }, onTrackOnly: true })
     ],
     faults: [
       fault({
@@ -607,17 +629,75 @@
         { id: 'EQ-4', latex_text: 'r_true = P_fc,true + P_bat − P_load; r_meas = P_fc,meas + P_bat,meas − P_load', note: '真实/测量残差定义' },
         { id: 'EQ-5', latex_text: 'SOC_true = SOC0 − ∫P_bat,true dt / (40 kWh) × 100%', note: 'SOC 积分定义' },
         { id: 'EQ-6', latex_text: 'τ_ref·dI_fc_ref/dt + I_fc_ref = (P_load(t) − 10)/0.4, τ_ref = 2.5 s', note: '功率分配器级一阶跟随；仅 load_step 轨激活（其余轨 I_fc_ref = (P_load − 10)/0.4 恒值）' }
-      ]
+      ],
+      /* FC-001 L1 电化学轨声明面（B-2 定案 additive 子对象——FC001_ELECTROCHEM_G2B_SPEC_APPROVED
+         v1.0 §3.1 项 3/§8 FCECH-G2b-04，CHG-20261113-01 批准链）：on 轨全部声明面挂本模型级
+         additive 字段，置于 model_hash 九字段哈希域之外（engine.js modelManifest hashObject
+         具名九键输入清单零变化 ⇒ model_hash/run_hash 既有输入零变化）；上方 assumptions/
+         limitations/equations/claims/unit_system/equation_ids 五数组与字段逐字节不动，
+         UI 按轨条件渲染（on 显示本子对象，off 显示上方原文——诚实性由变体渲染承载）。
+         文本 = 批准文本 §1.4/§1.6 冻结原文迁入（copy-guard 预检 §6.3 + 终检）。 */
+      electrochem: {
+        assumptions: [
+          { id: 'A-fcec-polarization', text: '【仅 electrochem_model=on 适用】电堆端电压按三损失项极化链（EQ-FCEC-1）计算，为电堆集总等效（非单池、无水管理/气体扩散/双电层动态）。' },
+          { id: 'A-fcec-params', text: '【仅 electrochem_model=on 适用】全部极化/热参数为教学整定值（非实测参数）：按参考工作点复现铭牌（V_stack(50 A, T_st(0)) = 400 V）、60 s 窗内温度轨可见性与 healthy 工作点温度不变性（k_E = 50·α_ohm·R_ohm0）整定，不对应任何真实 PEMFC 电堆参数辨识；温度面符号为教学叙事整定（k_E>0、α_ohm≥0），不代表 PEMFC 物性方向（真实 dE_rev/dT<0）。' },
+          { id: 'A-fcec-heat', text: '【仅 electrochem_model=on 适用】电堆热为内部记账：P_loss_W = (E0 − V_stack)·I【W】进 T_st ODE（EQ-FCEC-3/4，W 记账——A-3 定案）；母线恒等式 P_fc + P_bat ≡ P_load 按构造维持；热损失是模型记账项，不是能量损失。' },
+          { id: 'A-fcec-dispatch', text: '【仅 electrochem_model=on 适用】功率分配器换算维持 0.4 kV 名义电压（EQ-6 原样——控制器不感知 V_stack，行为级控制器口径）；分配目标与电堆实际功率之差由电池缓冲吸收（理想平衡源口径不变）。' },
+          { id: 'A-fcec-meas', text: '【仅 electrochem_model=on 适用】测量换算维持铭牌恒压口径（P_fc,meas = 0.4·I_meas）；r_meas 定义恒等扩展含恒压口径偏差项（Q5）——口径偏差项在参考工作点 (I=50 A, T_st(0)) 处为零（healthy 全轨 I≡50 + 整定依据④ ⇒ 全轨为零）；偏离工作点显非零口径偏差——口径偏差是模型已知结构项，不是测量故障。' },
+          { id: 'A-fcec-l1', text: '【仅 electrochem_model=on 适用】电化学-热模型为教学尺度单节点集总示意（L1-lite），不是经过验证的设备控制器或电堆电化学模型。' }
+        ],
+        limitations: [
+          '【electrochem_model=on 轨】水管理/气体扩散/双电层/寿命衰减未建模（off 轨既有 limitation 第 1 条原文保留——分域化改写挂本子对象，B-2 定案）。',
+          '【electrochem_model=on 轨】浓差域外（I ≥ I_lim = 150 A）行为未定义——域守卫/钳位为实现轮裁定面（登记不静默；注册域最大电流 137.5 A < I_lim，裕度 12.5 A）。',
+          '【electrochem_model=on 轨】无热保护（高温降额/热失控——FLTH §6.1 项 7 同款）。',
+          '【electrochem_model=on 轨】单节点集总热（无堆内温度分布）。'
+        ],
+        equations: [
+          { id: 'EQ-FCEC-1', latex_text: 'V_stack(I, T_st) = E0(T_st) − c_act·ln(1 + I/I_0) − R_ohm(T_st)·I − c_conc·ln(I_lim/(I_lim − I))', note: 'V-I 极化链（三损失项）：活化对数近似 + 欧姆 + 浓差（Q4 定案 (a) 对数式）；I < I_lim 值域硬条件（§3.3）；V_stack 为电堆集总等效端电压（非单池——A-fcec-polarization）【仅 electrochem_model=on 适用】' },
+          { id: 'EQ-FCEC-2', latex_text: 'on 域：P_fc,true = V_stack·I_fc/1000（kW）；off 域：P_fc = 0.4·I_fc 原样', note: '电堆功率换算（on 域替换 EQ-3 前半 A-const-v 电堆半边；EQ-3 off 域逐字保留）' },
+          { id: 'EQ-FCEC-3', latex_text: 'C_st·dT_st/dt = P_loss_W − h_st·(T_st − T_amb)，T_st(0) = T_amb = 298.15 K，C_st = 1500 J/K，h_st = 120 W/K', note: '电堆单节点集总热平衡 ODE（W 记账——A-3 定案；牛顿冷却、冷启动假设；EQ-FLTH-4 形态复用）【仅 electrochem_model=on 适用】' },
+          { id: 'EQ-FCEC-4', latex_text: 'P_loss_W = (E0(T_st) − V_stack)·I【W】；信号面 P_loss_stack_kW = P_loss_W/1000', note: '热损失口径（Q3 定案 (a)——W 基，A-3）：按构造 = 三损失项×电流（E0 在差分中相消、零新增常数）【仅 electrochem_model=on 适用】' },
+          { id: 'EQ-FCEC-5', latex_text: 'E0(T_st) = E0_ref + k_E·(T_st − T_ref)，T_ref = 298.15 K；k_E = 50·α_ohm·R_ohm0 = 0.1 V/K', note: 'E0 温度面（线性；k_E ≥ 0 由恒等式承载——A-2(i) 定案）；两温度面均线性 ⇒ healthy 全轨 V_stack(50,·) ≡ 400 V 精确恒等（E0_ref 由整定依据①锚点闭式派生：400 + c_act·ln6 + 50·R_ohm0 + c_conc·ln1.5）【仅 electrochem_model=on 适用】' },
+          { id: 'EQ-FCEC-6', latex_text: 'R_ohm(T_st) = R_ohm0·(1 + α_ohm·(T_st − T_ref))，R_ohm0 = 0.5 Ω，α_ohm = 0.004 1/K', note: '欧姆电阻温度面（线性式；正温度反馈项——稳定性条件 h_st > α_ohm·R_ohm0·I²【W/K】，137.5 A 角点裕度 +82.1875 W/K）【仅 electrochem_model=on 适用】' },
+          { id: 'EQ-FCEC-7', latex_text: 'r_true := P_fc,true + P_bat,true − P_load ≡ 0；r_meas := 0.4·b + (0.4 − V_stack/1000)·I_fc；on 域 SOC_true/E_bat/P_bat 按 P_fc,true 重算（真实功率基），SOC_est（测量链 0.4·I_meas 未动）与 L0 逐位同', note: '电气面保留 EQ-1/2/5/6 原样（测量链/控制面零升级）；r_meas 第二项为恒压测量口径偏差项——参考工作点 (I=50 A, T_st(0)) 处为零、偏离工作点显非零（模型已知结构项、非测量故障——A-1/Q5 定案）；记账基 A-5 定案；分配器 EQ-6 原样（A-fcec-dispatch）' }
+        ],
+        /* UI 变体（§1.6 冻结文案；FLTH levelFor/summaryFor 派生先例同构——FL001.levelFor） */
+        level_on: 'L1 · 电堆极化与单节点热（数值仿真级）',
+        summary_on: '电堆按极化曲线出力、损耗热加热电堆（模型记账口径）。',
+        notes: '教学尺度电化学-热集总示意（L1-lite），非机组/电网动态验证。'
+      }
     },
     acceptance: {
       reference: '契约 §5.2',
       exactness: 'FC-001 为验收范围（非逐位）；真实守恒、无 NaN',
+      /* A-3② 分域登记（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §4 项 10②，CHG-20261113-01；
+         FLTH A-3② 注释登记先例同构）：以下 keyValues 为 off 轨（L0 / fc001_v1）专用冻结锚点
+         ——现状值零改动；electrochem_model=on 轨验收 keyValues 由 fc001_v2 golden 承载
+         （FCECH-G2b-03 emit），本键面不引用 off 轨锚点作 on 轨通过判据；cfg→golden 分派
+         off→fc001_v1 / on→fc001_v2（两门禁面，轨区分由 golden_id 承载——Q1 定案 B）。 */
       keyValues: {
         I_fc_true_start_A: 50, I_fc_true_end_A: 40, P_fc_true_kW: [20, 16], P_bat_true_kW: [10, 14],
         E_load_kWh: 0.5, E_fc_plus_E_bat_kWh: 0.5, r_meas_peak_kW: 4.0,
         SOC_true_end_pct: 59.4755556, SOC_est_end_pct: 59.5866667, SOC_err_pp: 0.1111111
       }
     }
+  };
+
+  /* FC-001 电化学轨层级/摘要派生（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §1.6 UI 变体，
+     CHG-20261113-01 批准链；FL001.levelFor/summaryFor 派生先例同构——FLTH-IMP-Q2 实现方式
+     选择登记适用）：FC 默认 off，level/summary 保持 off 默认静态字符串（home/list/signals/
+     causal 等全部静态消费入口零变化），on 轨层级经 levelFor(cfg)/summaryFor(cfg) 派生
+     （变体文案 = model.electrochem.level_on/summary_on 批准冻结文本）。
+     off（或缺省/未知 cfg）时两函数返回与 level/summary 字段相同的现值——off 域零变化。 */
+  FC001.levelFor = function (cfg) {
+    return (cfg && cfg.electrochem_model === 'on')
+      ? FC001.model.electrochem.level_on
+      : FC001.level;
+  };
+  FC001.summaryFor = function (cfg) {
+    return (cfg && cfg.electrochem_model === 'on')
+      ? FC001.summary + FC001.model.electrochem.summary_on
+      : FC001.summary;
   };
 
   /* ================================================================== */
@@ -3076,6 +3156,11 @@
     /* FLTH-G2b-04（FLTH §2.0）：声明了 thermal_model 的系统（FL-001，默认 off）同构盖章；
        未声明的系统不产生该字段。engine validate 侧枚举守卫同构（engine.js thermal_model 分支）。 */
     if (s.defaults.thermal_model) cfg.thermal_model = s.defaults.thermal_model;
+    /* FC-001 电化学轨（FCECH-G2b-04 / B-7 双盖章落点之二——FC001_ELECTROCHEM_G2B_SPEC_APPROVED
+       v1.0 §1.1/§8，CHG-20261113-01 批准链）：声明了 electrochem_model 的系统（FC-001，默认
+       off）同构盖章；未声明的系统不产生该字段。engine validate 侧枚举守卫同构
+       （engine.js electrochem_model 分支）；cfg 值不进 scenarioView 投影/哈希（B-3(a)）。 */
+    if (s.defaults.electrochem_model) cfg.electrochem_model = s.defaults.electrochem_model;
     return cfg;
   }
 

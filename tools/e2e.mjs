@@ -32,6 +32,17 @@
  *   E-15 MG-001 signals 页 + A-3 单 Run 可达包络行（MG001_G2B_SPEC_APPROVED v1.0
  *        §3.5 A-3 修订的 UI 落地面）：关键信号 601 点 + 页脚包络行在场 +
  *        措辞带「不是参数域叉积包络」改标口径。
+ *   E-16 scenario 页 FC electrochem_model 编辑器（V120 W5，FC001_ELECTROCHEM_G2B_SPEC_
+ *        APPROVED v1.0 §1.6/§2 B-1(a)）：
+ *        FC 样例事件卡编辑器在场 + 缺省态「默认 off（未钉轨）」不写键；钉 on 写入
+ *        场景键（电化学模型 on chip + 场景哈希变化）；回退未钉轨恢复既有哈希。
+ *   E-17 FC on 轨 deep-link 系统页（V120 W5；?demo 深链形态沿 E-11/E-14，轨翻转经
+ *        既有草稿/运行语义 updateDraft electrochem_model=on + createRun 标准入口）：
+ *        on 轨 Run 数据面（cfg=on + T_st/V_stack/P_loss 三新信号 601 点）+ header
+ *        层级徽章切 level_on + 摘要追加 summary_on 句 + on 轨模型声明面板在场。
+ *   E-18 FC signals 页 on 轨三新列（V120 W5）：off 对照（信号目录 21 列、T_st_K
+ *        结构性缺席——off 域零变化守卫）→ on 轨（信号目录 24 列 + 三新列 601 点 +
+ *        电堆温度信号行在场——通用渲染零改动核实）。
  *
  * 退出码：0=全部通过；1=存在失败项。报告写 <--out 目录>/e2e-report.json。
  *
@@ -39,6 +50,10 @@
  *   断言 57→65（E-10 增 MG 卡面 1 条、E-13 增 MG 键 1 条、新增 E-14/E-15 各 3 条）；
  *   既有 E-01..E-13 旅程与判据零语义变化（E-10 卡数 5→6、E-12 排除清单增 MG-001
  *   为系统数扩展面）。旅程覆盖清单随 E-14/E-15 增补，执行顺序与退出码不变。
+ *
+ * V120 FC 电化学轨波（V120_WAVE_DESIGN §2 W5，CHG-20261113-01 批准链）：
+ *   断言 65→76（新增 E-16 三条 / E-17 五条 / E-18 三条，全 additive——轨翻转经
+ *   既有草稿/运行语义，既有 E-01..E-15 旅程与判据零语义变化）；执行顺序与退出码不变。
  *
  * V0.3.0 T3 双浏览器追溯增强（不改变旅程、40 条断言、执行顺序与退出码）：
  *   - --out 输出目录在 main() 启动即创建（原为截图/写报告时才创建）；
@@ -517,6 +532,169 @@ async function main() {
     ok(scnChk.hasWT && scnChk.hasDwt, 'E-13：scenario 页 METRIC_PICK 声明 WT-001 键（focal/ΔE_wt/d_wt）', JSON.stringify(scnChk));
     ok(scnChk.hasMG, 'E-13：scenario 页 METRIC_PICK 声明 MG-001 键（focal 不可用/EQ-MG-8 账本口径）', JSON.stringify(scnChk));
     ok(scnChk.hasThermal, 'E-13：scenario 页含 FL thermal_model off/on 事件列展示面');
+
+    /* E-16 scenario 页 FC electrochem_model 编辑器（V120 W5，CHG-20261113-01 批准链；
+       B-1(a) 显式键条件式形态——缺省态不写键（「默认 off（未钉轨）」），仅显式 off/on
+       写入归一化事件并入 scenarioHash；deep-link 样例装载走既有「FC-001 样例」按钮） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&page=scenario' });
+    await wait(1200);
+    const echLoad = await cdp.evalExpr(`(function(){
+      const btns = Array.prototype.slice.call(document.querySelectorAll('.scn-import-actions button'));
+      const fcBtn = btns.filter(function (b) { return (b.textContent || '').indexOf('FC-001 样例') !== -1; })[0];
+      if (fcBtn) fcBtn.click();
+      return { clicked: !!fcBtn, page: FL.store.getState().page };
+    })()`);
+    await wait(600);
+    const echDefault = await cdp.evalExpr(`(function(){
+      const edits = Array.prototype.slice.call(document.querySelectorAll('.scn-ech-edit'));
+      const pressed = edits.map(function (e) {
+        const cur = e.querySelector('.seg .seg-item[aria-pressed="true"]');
+        return cur ? cur.dataset.value : '';
+      });
+      const chips = Array.prototype.slice.call(document.querySelectorAll('.scn-event-chips .chip'))
+        .map(function (c) { return c.textContent || ''; });
+      return { page: FL.store.getState().page, edits: edits.length, pressed: pressed,
+               textHasDefault: document.getElementById('page-scenario').textContent.indexOf('默认 off（未钉轨）') !== -1,
+               echChips: chips.filter(function (t) { return t.indexOf('电化学模型') !== -1; }),
+               hashBefore: (document.querySelector('.scn-hash-val') || {}).textContent || '' };
+    })()`);
+    ok(echLoad.page === 'scenario' && echDefault.page === 'scenario' &&
+      echDefault.edits === 1 && echDefault.pressed[0] === 'absent' && echDefault.textHasDefault &&
+      echDefault.echChips.length === 0,
+      'E-16：FC 场景事件卡 electrochem 编辑器在场 + 缺省态「默认 off（未钉轨）」不写键（无 chip）',
+      JSON.stringify(echDefault));
+    await cdp.evalExpr(`(function(){
+      const seg = document.querySelector('.scn-ech-edit .seg');
+      const onBtn = seg ? seg.querySelector('.seg-item[data-value="on"]') : null;
+      if (onBtn) onBtn.click();
+    })()`);
+    await wait(500);
+    const echPinned = await cdp.evalExpr(`(function(){
+      const chips = Array.prototype.slice.call(document.querySelectorAll('.scn-event-chips .chip'))
+        .map(function (c) { return c.textContent || ''; });
+      const cur = document.querySelector('.scn-ech-edit .seg .seg-item[aria-pressed="true"]');
+      return { pressed: cur ? cur.dataset.value : '',
+               echChips: chips.filter(function (t) { return t.indexOf('电化学模型 on') !== -1; }),
+               hashNow: (document.querySelector('.scn-hash-val') || {}).textContent || '' };
+    })()`);
+    ok(echPinned.pressed === 'on' && echPinned.echChips.length === 1 &&
+      echPinned.hashNow && echPinned.hashNow !== echDefault.hashBefore,
+      'E-16：钉 on 写入场景键（电化学模型 on chip 在场 + 场景内容哈希随显式键变化）',
+      JSON.stringify(echPinned));
+    await cdp.evalExpr(`(function(){
+      const seg = document.querySelector('.scn-ech-edit .seg');
+      const btn = seg ? seg.querySelector('.seg-item[data-value="absent"]') : null;
+      if (btn) btn.click();
+    })()`);
+    await wait(500);
+    const echRestored = await cdp.evalExpr(`(function(){
+      const chips = Array.prototype.slice.call(document.querySelectorAll('.scn-event-chips .chip'))
+        .map(function (c) { return c.textContent || ''; });
+      const cur = document.querySelector('.scn-ech-edit .seg .seg-item[aria-pressed="true"]');
+      return { pressed: cur ? cur.dataset.value : '',
+               echChips: chips.filter(function (t) { return t.indexOf('电化学模型') !== -1; }),
+               hashNow: (document.querySelector('.scn-hash-val') || {}).textContent || '' };
+    })()`);
+    ok(echRestored.pressed === 'absent' && echRestored.echChips.length === 0 &&
+      echRestored.hashNow === echDefault.hashBefore,
+      'E-16：回退未钉轨恢复既有哈希（B-1a 缺省态键不存在——既有 FC 场景 scenarioHash 零变化面）',
+      JSON.stringify(echRestored));
+
+    /* E-17 FC on 轨 deep-link 系统页（V120 W5；?demo=1&reset=1&system= 深链形态沿
+       E-11/E-14；轨翻转经既有草稿/运行语义——updateDraft electrochem_model=on +
+       createRun（标准 Run 入口，validateConfig FC 枚举守卫承接），不引入新执行语义） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=FC-001&page=system' });
+    await wait(1500);
+    const fcOffChk = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      return { systemId: s.systemId, page: s.page, hasRun: !!r,
+               cfgTrack: r && r.config ? r.config.electrochem_model : '' };
+    })()`);
+    eq(fcOffChk.systemId + '@' + fcOffChk.page + '@' + fcOffChk.cfgTrack, 'FC-001@system@off',
+      'E-17：?system=FC-001 深链进入 FC 系统页（demo Run = off 默认轨）');
+    const fcOnCreate = await cdp.evalExpr(`(function(){
+      FL.store.actions.updateDraft(function (d) { d.electrochem_model = 'on'; });
+      const res = FL.store.actions.createRun({ silent: true });
+      return { ok: !!(res && res.ok), err: res && res.error ? String(res.error) : '' };
+    })()`);
+    await wait(700);
+    const fcOnUI = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      const sig = r && r.timeseries && r.timeseries.signals ? r.timeseries.signals : {};
+      const len = function (id) { return sig[id] ? sig[id].length : 0; };
+      const badges = Array.prototype.slice.call(document.querySelectorAll('.sys-head-meta .badge'))
+        .map(function (b) { return b.textContent || ''; });
+      const sub = (document.querySelector('.sys-page-sub') || {}).textContent || '';
+      const panel = document.querySelector('.sys-track-panel');
+      const panelText = panel ? panel.textContent : '';
+      return { cfgTrack: r && r.config ? r.config.electrochem_model : '',
+               tst: len('T_st_K'), vst: len('V_stack_V'), pls: len('P_loss_stack_kW'),
+               badges: badges, subHasSummaryOn: sub.indexOf('电堆按极化曲线出力') !== -1,
+               panelFound: !!panel,
+               panelHasAssumption: panelText.indexOf('A-fcec-polarization') !== -1,
+               panelHasNote: panelText.indexOf('L1-lite') !== -1 };
+    })()`);
+    ok(fcOnCreate.ok && fcOnUI.cfgTrack === 'on' && fcOnUI.tst === 601 && fcOnUI.vst === 601 && fcOnUI.pls === 601,
+      'E-17：FC on 轨 Run 数据面（cfg electrochem_model=on + T_st/V_stack/P_loss 三新信号 601 点）',
+      JSON.stringify({ ok: fcOnCreate.ok, err: fcOnCreate.err, cfgTrack: fcOnUI.cfgTrack,
+        tst: fcOnUI.tst, vst: fcOnUI.vst, pls: fcOnUI.pls }));
+    ok(fcOnUI.badges.some(function (t) { return t.indexOf('L1 · 电堆极化与单节点热') !== -1; }),
+      'E-17：system 页 header 层级徽章切 level_on（L1 · 电堆极化与单节点热（数值仿真级））',
+      JSON.stringify(fcOnUI.badges));
+    ok(fcOnUI.subHasSummaryOn,
+      'E-17：system 页摘要追加 summary_on 句（电堆按极化曲线出力、损耗热加热电堆（模型记账口径））',
+      fcOnUI.subHasSummaryOn ? 'ok' : JSON.stringify(fcOnUI).slice(0, 160));
+    ok(fcOnUI.panelFound && fcOnUI.panelHasAssumption && fcOnUI.panelHasNote,
+      'E-17：system 页 on 轨模型声明面板在场（A-fcec 假设 + L1-lite 定位句——B-2 变体渲染）',
+      JSON.stringify({ panelFound: fcOnUI.panelFound,
+        panelHasAssumption: fcOnUI.panelHasAssumption, panelHasNote: fcOnUI.panelHasNote }));
+
+    /* E-18 FC signals 页 on 轨三新列（V120 W5；off 对照 = 结构性缺席守卫——
+       makeSeries onTrackOnly 门控零变化；on 轨三列由 simulateFC001Electrochem 补建） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=FC-001&page=signals' });
+    await wait(1500);
+    const fcOffSig = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      return { page: s.page, runSystem: r ? r.systemId : '',
+               catCount: r && r.signals ? r.signals.length : 0,
+               tst: !!(r && r.timeseries && r.timeseries.signals && r.timeseries.signals.T_st_K) };
+    })()`);
+    ok(fcOffSig.page === 'signals' && fcOffSig.runSystem === 'FC-001' &&
+      fcOffSig.catCount === 21 && !fcOffSig.tst,
+      'E-18：FC off 轨对照——信号目录 21 列、T_st_K 结构性缺席（off 域零变化守卫）',
+      JSON.stringify(fcOffSig));
+    const fcOnSigCreate = await cdp.evalExpr(`(function(){
+      FL.store.actions.updateDraft(function (d) { d.electrochem_model = 'on'; });
+      const res = FL.store.actions.createRun({ silent: true });
+      return { ok: !!(res && res.ok) };
+    })()`);
+    await wait(700);
+    const fcOnSigDom = await cdp.evalExpr(`(function(){
+      FL.store.actions.setPageState('signals', { category: 'thermal' });
+      return { ok: true };
+    })()`);
+    await wait(500);
+    const fcOnSig = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      const sig = r && r.timeseries && r.timeseries.signals ? r.timeseries.signals : {};
+      const len = function (id) { return sig[id] ? sig[id].length : 0; };
+      const items = Array.prototype.slice.call(document.querySelectorAll('.sig-item'));
+      const tstItem = items.filter(function (i) { return (i.textContent || '').indexOf('电堆温度') !== -1; }).length;
+      return { page: s.page, catCount: r && r.signals ? r.signals.length : 0,
+               tst: len('T_st_K'), vst: len('V_stack_V'), pls: len('P_loss_stack_kW'),
+               tstItem: tstItem };
+    })()`);
+    ok(fcOnSigCreate.ok && fcOnSig.catCount === 24 && fcOnSig.tst === 601 && fcOnSig.vst === 601 && fcOnSig.pls === 601,
+      'E-18：FC on 轨 signals 页——信号目录 24 列 + 三新列 601 点（T_st/V_stack/P_loss）',
+      JSON.stringify({ ok: fcOnSigCreate.ok, catCount: fcOnSig.catCount,
+        tst: fcOnSig.tst, vst: fcOnSig.vst, pls: fcOnSig.pls }));
+    ok(fcOnSigDom.ok && fcOnSig.page === 'signals' && fcOnSig.tstItem > 0,
+      'E-18：signals 页 on 轨渲染面（热力类目电堆温度 T_st 信号行在场——run.signals 通用渲染零改动核实）',
+      JSON.stringify({ page: fcOnSig.page, tstItem: fcOnSig.tstItem }));
 
     /* E-14 MG-001 深链系统页 + 四族注入面（v1.1.0 UI 接线路 CHG-20261110-01；
        island_event 零参数族 = MG-DRAFT-Q2 定案——无幅值输入，t_clear_s 重连时刻

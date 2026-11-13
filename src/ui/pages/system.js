@@ -7,7 +7,17 @@
    MG-001 island_event 零参数族注入面——无幅值输入（params:[] 走既有通用渲染零行），
    增 t_clear_s 重连时刻编辑器（域 (t_start, duration)、0.1 s 网格、缺省 35 s =
    golden mg001_v1 island_reconnect 锚定值，MG_ISLAND_T_CLEAR_DEFAULT_S 常量处注释）；
-   故障家族卡/参数渲染主体仍为通用机制（四族卡自动入列，PV/WT 新族无图标先例沿）。 */
+   故障家族卡/参数渲染主体仍为通用机制（四族卡自动入列，PV/WT 新族无图标先例沿）。
+   FC 电化学轨 UI 线（CHG-20261113-01 批准链，V120_WAVE_DESIGN §2 W5 /
+   FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §1.6）：
+   ① header 层级徽章 cfg 感知——cfg 在手时经 sys.levelFor 派生（on 轨显示 level_on 全文
+   「L1 · 电堆极化与单节点热（数值仿真级）」；off/无 cfg 维持现 L0 前缀形态，off 域零变化）；
+   ② header 摘要 cfg 感知——经 sys.summaryFor 派生（on 轨追加 summary_on 句「电堆按极化
+   曲线出力、损耗热加热电堆（模型记账口径）」；off/无 cfg 返回静态 summary，零变化）；
+   ③ on 轨模型声明面板（additive，refs.trackPanel）——FC on 轨运行时渲染
+   model.electrochem 批准子对象（A-fcec-* 假设 / on 轨 limitations / 定位句），off 轨
+   隐藏零渲染（B-2 定案「on 显示子对象、off 显示原文」的 UI 承载面；内容全部来自
+   systems.js 冻结字段，本页零新增声明文案）。 */
 (function () {
   'use strict';
   const FL = window.FL = window.FL || {};
@@ -61,6 +71,7 @@
     inspectorKey: null, inspectorValues: [],
     headerKey: null, runKey: null, noticeKey: null, badgeKey: null,
     faultKey: null, leftNoticeKey: null, topoNoteKey: null,
+    subKey: null, trackKey: null,
     refs: {},
     escHandler: null
   };
@@ -151,6 +162,12 @@
     const r = state0 && state0.activeRun;
     if (!r || !sys) return null;
     return r.systemId === sys.id ? r : null;
+  }
+  /* cfg 在手判据（home.js cfgOf 先例同构）：当前 activeRun 属于本系统时返回其 config；
+     levelFor/summaryFor 变体派生（systems.js FL001/FC001 派生入口）与 on 轨面板判据共用。 */
+  function runCfgOf(state0, sys) {
+    const r = state0 && state0.activeRun;
+    return (r && sys && r.systemId === sys.id && r.config) ? r.config : null;
   }
   function fieldLabel(field) {
     if (!field) return '配置';
@@ -638,6 +655,8 @@
       ui.icon('board', { size: 13 }), el('span', {}, '部件检查器')
     ]);
     refs.topoNotice = el('div', { class: 'sys-topo-notice' });
+    /* FC 电化学轨 on 轨模型声明面板（V120 W5，additive——off 轨 hidden 零渲染，见文件头③） */
+    refs.trackPanel = el('div', { class: 'sys-track-panel-host', hidden: true });
     refs.svg = svgEl('svg', {
       class: 'sys-edges', xmlns: SVG_NS, preserveAspectRatio: 'none',
       'aria-hidden': 'true', focusable: 'false'
@@ -660,7 +679,7 @@
         ])
       ]),
       el('div', { class: 'panel-body sys-topo-body' }, [
-        refs.topoNotice, refs.stageScroll
+        refs.topoNotice, refs.trackPanel, refs.stageScroll
       ]),
       el('div', { class: 'panel-foot sys-topo-foot' }, [refs.topoLegend, refs.topoNote])
     ]);
@@ -713,6 +732,7 @@
     const meta = local.refs.headMeta;
     ui.clear(meta);
     const chips = [];
+    const runCfg = runCfgOf(state0, sys);
     if (state0.activeRun) {
       chips.push(ui.badge(state0.activeRun.runId + ' · ' + (state0.activeRun.role || 'trial'), { tone: 'info' }));
       const cfg = state0.activeRun.config || {};
@@ -722,7 +742,17 @@
     }
     if (state0.draftDirty) chips.push(ui.badge('草稿已修改', { tone: 'warn', icon: 'warning' }));
     if (state0.computeState === 'computing') chips.push(ui.badge('计算中', { tone: 'warn' }));
-    chips.push(ui.badge((sys.level || 'L0').split('·')[0].trim(), { tone: 'neutral' }));
+    /* 层级徽章 cfg 感知（FC001 spec §1.6 UI 变体 + FLTH levelFor home.js 先例同构——
+       systems.js FL001/FC001.levelFor 派生入口，cfg 在手时调用）：on 轨显示 level_on 全文，
+       off/无 cfg 维持现 L0 前缀形态（levelFor 缺省返回静态 level ⇒ off 域零变化）。 */
+    const lvlFull = (typeof sys.levelFor === 'function' && runCfg)
+      ? String(sys.levelFor(runCfg) || sys.level || 'L0')
+      : (sys.level || 'L0');
+    if (runCfg && typeof sys.levelFor === 'function' && lvlFull !== (sys.level || 'L0')) {
+      chips.push(ui.badge(lvlFull, { tone: 'warm' }));
+    } else {
+      chips.push(ui.badge((sys.level || 'L0').split('·')[0].trim(), { tone: 'neutral' }));
+    }
     chips.forEach((c) => meta.appendChild(c));
   }
 
@@ -1518,6 +1548,48 @@
   }
 
   /* ================================================================== */
+  /* FC 电化学轨 on 轨模型声明面板（V120 W5；登记见文件头③）              */
+  /* ================================================================== */
+  /* 仅 on 轨渲染（B-2 定案「on 显示子对象、off 显示上方原文」的 UI 承载面）：FC on 轨
+     运行时把 model.electrochem 批准子对象（A-fcec-* 假设 / on 轨 limitations / 定位句）
+     逐条渲染——内容全部读 systems.js 冻结字段，本页零新增声明文案。off 轨/无运行/
+     其他系统：hidden 零渲染（off 域零变化）。 */
+  function renderTrackPanel(state0, sys, run) {
+    const host = local.refs.trackPanel;
+    if (!host) return;
+    const ec = (sys && sys.model && sys.model.electrochem) || null;
+    const cfg = run ? run.config : null;
+    const onTrack = !!(ec && cfg && cfg.electrochem_model === 'on');
+    const key = (sys ? sys.id : '') + '|' + (run ? run.runId : 'none') + '|' + (onTrack ? 'on' : 'off');
+    if (local.trackKey === key) return;
+    local.trackKey = key;
+    ui.clear(host);
+    host.hidden = !onTrack;
+    if (!onTrack) return;
+    const panel = el('div', { class: 'sys-track-panel', 'data-testid': 'fc-track-panel' }, [
+      el('div', { class: 'sys-track-head' }, [
+        el('span', { class: 'eyebrow' }, '电化学轨模型声明 · electrochem_model=on'),
+        ui.badge(typeof sys.levelFor === 'function' ? sys.levelFor(cfg) : (sys.level || 'L1'), { tone: 'warm' })
+      ]),
+      el('div', { class: 'sys-track-block' }, [
+        el('div', { class: 'eyebrow' }, '模型假设 · assumptions（on 轨适用）'),
+        el('ul', { class: 'sys-track-list' }, (ec.assumptions || []).map((a) =>
+          el('li', {}, [el('span', { class: 'mono' }, a.id || ''), el('span', {}, a.text || '')]))
+        )
+      ]),
+      el('div', { class: 'sys-track-block' }, [
+        el('div', { class: 'eyebrow' }, '适用局限 · limitations（on 轨适用）'),
+        el('ul', { class: 'sys-track-list' }, (ec.limitations || []).map((t) => el('li', {}, String(t))))
+      ]),
+      ec.notes ? el('div', { class: 'sys-track-note' }, [
+        ui.icon('info', { size: 13 }),
+        el('span', {}, String(ec.notes))
+      ]) : null
+    ]);
+    host.appendChild(panel);
+  }
+
+  /* ================================================================== */
   /* right column: inspector                                            */
   /* ================================================================== */
   function selectComponent(id) {
@@ -1802,6 +1874,8 @@
       local.refs.title.textContent = local.sys.title;
       local.refs.code.textContent = local.sys.experimentCode || local.sys.id;
       local.refs.sub.textContent = local.sys.summary || '';
+      local.subKey = null;
+      local.trackKey = null;
       buildFamilyCards(local.sys);
       buildTopology(local.sys);
       renderTopoNote(state0, local.sys, runOf(state0, local.sys));
@@ -1833,6 +1907,18 @@
     if (local.headerKey !== hKey) {
       local.headerKey = hKey;
       buildHeaderMeta(state0, sys);
+    }
+
+    /* header 摘要 cfg 感知（V120 W5；systems.js FL001/FC001.summaryFor 派生入口——home.js
+       summaryTextOf 先例同构）：on 轨追加 summary_on 句，off/无 cfg 返回静态 summary
+       （off 域零变化）。Run 切换/轨翻转即刷新（runId + 文本双键）。 */
+    const subText = (typeof sys.summaryFor === 'function')
+      ? String(sys.summaryFor(runCfgOf(state0, sys)) || sys.summary || '')
+      : (sys.summary || '');
+    const subKey = sys.id + '|' + (state0.activeRun ? state0.activeRun.runId : 'none') + '|' + subText;
+    if (local.subKey !== subKey) {
+      local.subKey = subKey;
+      local.refs.sub.textContent = subText;
     }
 
     /* left */
@@ -1871,6 +1957,7 @@
     /* center */
     renderTopoHeader(state0, sys, run);
     renderTopoNotice(state0, sys, run, draft);
+    renderTrackPanel(state0, sys, run);
     updateFaultMarks(state0, sys, draft, run);
     updateNodeValues(state0, run);
     updateNodeSelection(state0);

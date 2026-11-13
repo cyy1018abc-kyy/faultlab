@@ -3,6 +3,10 @@
    序列逐点一致 + config_hash/run_hash 全等）/ 校验器错误信息字段完整性 / 场景共享信封
    （C-5，DEC-3 / CHG-20261108-01：导出确定性 roundtrip 同哈希 / 校验和篡改拒绝 /
    裸 JSON back-compat / 信封 version 错误拒绝）。
+   §10（FCECH-G2b-04 / CHG-20261113-01，V120 波 W4 追加节，既有 §0–§9 断言零改动）：
+   事件级 electrochem_model 键（B-1(a) 显式键条件式——合法两值保留 / 缺省全链 absent /
+   非法值与未声明轨系统拒绝 / 三值哈希互异 + 既有 FC 场景哈希=改前基线字面量锚定 /
+   execute 透传与 off 等价 / 信封 roundtrip checksum 稳定 / 源级白名单机检）。
    运行：node tests/scenario.test.js；失败非零退出。
    装载：src/core/scenario.js 已并入 tests/core-load.js CORE_FILES（V072 残留清单 5，
    S1 临时 (0,eval) 自装载退役）——bootstrap() 直接就绪 FL.core.scenario，浏览器序
@@ -680,6 +684,134 @@ ok(errEnv && errEnv.name === 'ScenarioError' && Array.isArray(errEnv.errors) && 
   'exportScenarioEnvelope 非法输入 → ScenarioError（携带结构化 errors）', errEnv && errEnv.message);
 
 
+/* ------------------------------------------------------------------ *
+ * 10. 事件级 electrochem_model 键（FCECH-G2b-04 / CHG-20261113-01 批准链，
+ *     V120 波 W4；FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2 B-1 定案采 (a)
+ *     ——偏离 thermal/inertia 先例（§7/§8）：仅在场景输入显式提供时写入归一化
+ *     事件与 hashProjection，缺省（不提供）全链 absent、不解析为系统默认轨
+ *     （缺省轨由引擎 normalizeConfig 盖章层承载——Q9 定案）⇒ 既有 FC 场景
+ *     scenarioHash 零变化；未声明该轨的系统出现即拒绝）
+ * ------------------------------------------------------------------ */
+
+/* 10.0 源级白名单机检（EVENT_KEYS/ELECTROCHEM_MODELS 为模块内常量、非公共 API——
+   engine-pv §6 arena 源级守卫体例） */
+(function scenarioSourceWhitelist() {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'core', 'scenario.js'), 'utf8');
+  const iKeys = src.indexOf('var EVENT_KEYS =');
+  ok(iKeys !== -1 && src.slice(iKeys, src.indexOf(';', iKeys)).indexOf("'electrochem_model'") !== -1,
+    '源级：scenario.js EVENT_KEYS 白名单含 electrochem_model（FCECH-G2b-04 显式 CHG，CHG-20261113-01）');
+  const iEnum = src.indexOf('var ELECTROCHEM_MODELS =');
+  ok(iEnum !== -1 && src.slice(iEnum, src.indexOf(';', iEnum)).indexOf("['off', 'on']") !== -1,
+    "源级：ELECTROCHEM_MODELS = ['off', 'on']（枚举两值，thermal_model §8 同构）");
+})();
+
+/* 10.1 合法两值：显式提供保留进归一化事件（§7/§8 体例同构） */
+const FC_ECHEM_EV = { key: 'ev1', family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop' };
+['off', 'on'].forEach((track) => {
+  const p = SC.parseScenario(scen('FC-001', [Object.assign(clone(FC_ECHEM_EV), { electrochem_model: track })]));
+  ok(p.ok && p.scenario.events[0].electrochem_model === track,
+    'FC 事件 electrochem_model=' + track + ' 解析通过并保留（合法两值枚举，B-1(a) 显式键入归一化面）', JSON.stringify(p.errors));
+});
+
+/* 10.2 缺省（不提供）全链 absent——不解析为系统默认轨（B-1(a) 偏离 §8 thermal
+   缺省解析先例：thermal 缺省解析轨 thermal_model=off 入归一化面，electrochem
+   缺省轨只由引擎 normalizeConfig 盖章承载——Q9 定案） */
+const pFcAbsent = SC.parseScenario(scen('FC-001', [clone(FC_ECHEM_EV)]));
+ok(pFcAbsent.ok && !('electrochem_model' in pFcAbsent.scenario.events[0]),
+  'FC 事件缺省 electrochem_model 全链 absent（不解析为系统默认轨——B-1(a)/Q9，缺省轨由引擎盖章层承载）', JSON.stringify(pFcAbsent.errors));
+ok(!('electrochem_model' in pEmpty.scenario.events[0]),
+  '既有 FC 场景（§1 FC load_step，无轨键）归一化后无 electrochem_model 键——既有场景解析面零变化（B-1(a)）');
+
+/* 10.3 负例（目录面守卫）：非法值 / 非字符串 / 未声明该轨的系统出现即拒绝
+   （封闭白名单，t_clear_s/inertia_model/thermal_model 先例同构） */
+neg(scen('FC-001', [Object.assign(clone(FC_ECHEM_EV), { electrochem_model: 'dual' })]),
+  'N60 FC electrochem_model 非法值（枚举外）', 'events[0].electrochem_model', 'off / on');
+neg(scen('FC-001', [Object.assign(clone(FC_ECHEM_EV), { electrochem_model: 42 })]),
+  'N61 FC electrochem_model 非字符串', 'events[0].electrochem_model', 'off / on');
+neg(scen('FL-001', [ev({ electrochem_model: 'on' })]),
+  'N62 FL 事件带 electrochem_model（系统未声明电化学模型轨）', 'events[0].electrochem_model', '未声明电化学模型轨');
+neg(scen('GT-001', [Object.assign(clone(GT_TRACK_EV), { electrochem_model: 'off' })]),
+  'N63 GT 事件带 electrochem_model（系统未声明电化学模型轨）', 'events[0].electrochem_model', '未声明电化学模型轨');
+neg(scen('PV-001', [{ key: 'a', family: 'sensor_drift', params: { magnitude: 100 }, t_start_s: 20, feedback_mode: 'closed_loop', electrochem_model: 'on' }]),
+  'N64 PV 事件带 electrochem_model（系统未声明电化学模型轨）', 'events[0].electrochem_model', '未声明电化学模型轨');
+neg(scen('WT-001', [{ key: 'a', family: 'sensor_drift', params: { magnitude: 1 }, t_start_s: 20, feedback_mode: 'closed_loop', electrochem_model: 'on' }]),
+  'N65 WT 事件带 electrochem_model（系统未声明电化学模型轨）', 'events[0].electrochem_model', '未声明电化学模型轨');
+
+/* 10.4 哈希形态（B-1(a)/Q9 定案）：显式 on ≠ 显式 off ≠ 缺省（三者互异——
+   与 §7/§8「缺省=显式默认值同哈希」相反：electrochem 缺省不入哈希）；
+   缺省键场景哈希与改前基线值逐位同（字面量锚定——W3 探针：git HEAD 20db6f4
+   v1.1.0 改前 src/core/scenario.js 对 §5 fcLoad 场景 scenarioHash 复算值，
+   B-1(a) 显式键条件式 ⇒ 既有 FC 场景 scenarioHash 零变化） */
+const FC_ECHEM_SCEN = scen('FC-001', [clone(FC_ECHEM_EV)]);
+const hFcAbsent = SC.scenarioHash(FC_ECHEM_SCEN);
+const hFcOff = SC.scenarioHash(scen('FC-001', [Object.assign(clone(FC_ECHEM_EV), { electrochem_model: 'off' })]));
+const hFcOn = SC.scenarioHash(scen('FC-001', [Object.assign(clone(FC_ECHEM_EV), { electrochem_model: 'on' })]));
+ok(hFcOn !== hFcOff, 'scenarioHash：显式 on ≠ 显式 off（解析轨入哈希——显式键条件式）');
+ok(hFcOff !== hFcAbsent, 'scenarioHash：显式 off ≠ 缺省（缺省全链 absent 不入哈希——B-1(a) 偏离热/惯量先例，Q9）');
+ok(hFcOn !== hFcAbsent, 'scenarioHash：显式 on ≠ 缺省（三值互异，无「缺省=显式默认值」合并面）');
+const FC_PRECHANGE_HASH = '9dff3ee54a858bc2c71d7f335c7c06c8da13762dd33d5cd85ae608acd76b0de6';
+eq(SC.scenarioHash(fcLoad), FC_PRECHANGE_HASH,
+  '既有 FC 场景（§5 fcLoad）scenarioHash = 改前基线字面量（git HEAD 复算锚定——B-1(a)/Q9：键缺席场景哈希零变化）');
+eq(SC.scenarioHash(reverseKeysDeep(FC_ECHEM_SCEN)), hFcAbsent, 'FC 缺省轨场景键序倒置 → 同 scenarioHash');
+eq(SC.scenarioHash(reverseKeysDeep(scen('FC-001', [Object.assign(clone(FC_ECHEM_EV), { electrochem_model: 'on' })]))), hFcOn,
+  'FC 钉轨场景键序倒置 → 同 scenarioHash（on）');
+const pFcIdem = SC.parseScenario(pFcAbsent.scenario);
+ok(pFcIdem.ok && SC.scenarioHash(pFcIdem.scenario) === hFcAbsent, 'FC 归一化场景（缺省轨 absent）再哈希幂等');
+
+/* 10.5 executeScenario：显式键透传引擎配置（轨分派生效）；缺省轨 absent → 引擎
+   normalizeConfig 盖章层承载（cfg=off、轨列结构性缺席——场景层全链 absent） */
+const FC_ECHEM_EXEC = scen('FC-001', [
+  Object.assign(clone(FC_ECHEM_EV), { key: 'ev-absent' }),
+  Object.assign(clone(FC_ECHEM_EV), { key: 'ev-off', electrochem_model: 'off' }),
+  Object.assign(clone(FC_ECHEM_EV), { key: 'ev-on', electrochem_model: 'on' })
+]);
+const fcEchemRes = SC.executeScenario(FC_ECHEM_EXEC, { runIdPrefix: 'FC-ECHEM', createdAt: TS });
+eq(fcEchemRes.runs.length, 3, 'FC 三轨场景执行 3 Run');
+eq(fcEchemRes.runs[0].config.electrochem_model, 'off', 'FC Run1（缺省）config.electrochem_model=off（引擎 normalizeConfig 盖章——场景层 absent）');
+eq(fcEchemRes.runs[1].config.electrochem_model, 'off', 'FC Run2（显式 off）config.electrochem_model=off');
+eq(fcEchemRes.runs[2].config.electrochem_model, 'on', 'FC Run3（显式 on）config.electrochem_model=on（解析值透传引擎）');
+eq(fcEchemRes.scenarioHash, SC.scenarioHash(FC_ECHEM_EXEC), 'FC 三轨场景 scenarioHash 与独立计算一致');
+ok(fcEchemRes.runs[2].timeseries.signals.T_st_K !== undefined &&
+  fcEchemRes.runs[2].timeseries.signals.T_st_K.every((v) => v !== null),
+  'FC Run3（on）电化学列面在场（T_st_K 全程有值——simulateFC001Electrochem 分派生效）');
+ok(fcEchemRes.runs[0].timeseries.signals.T_st_K === undefined &&
+  fcEchemRes.runs[1].timeseries.signals.T_st_K === undefined,
+  'FC Run1/2（缺省/显式 off）无电化学列（off 轨结构性缺席——makeSeries onTrackOnly 门控）');
+eq(FL.registry.verifyRunHash(fcEchemRes.runs[2]), true, 'FC Run3（on）run_hash 自校验通过');
+ok(fcEchemRes.runs[0].manifest.run_hash !== fcEchemRes.runs[2].manifest.run_hash &&
+  fcEchemRes.runs[1].manifest.run_hash !== fcEchemRes.runs[2].manifest.run_hash,
+  'FC run_hash：缺省/off ↔ on 互异（序列内容承载轨区分）');
+ok(fcEchemRes.runs[0].manifest.config_hash === fcEchemRes.runs[2].manifest.config_hash &&
+  fcEchemRes.runs[1].manifest.config_hash === fcEchemRes.runs[2].manifest.config_hash,
+  'B-3(a) 已知局限登记：FC on/off config_hash 同值（scenarioView 不投影 electrochem_model——轨区分由 run_hash/序列内容承载，不静默）');
+
+/* execute off 等价：场景缺省轨 Run 与手工显式 off Run 逐位一致（off 路径仿真行为
+   零变化——B-1(a) 缺省轨只在盖章层解析；FLTH §2.0④ 同款判据） */
+const manualFcOff = FL.registry.createRun({
+  config: FL.core.createConfig('FC-001', {
+    feedback_mode: 'closed_loop',
+    fault: { family: 'sensor_drift', t_start_s: 20, params: { magnitude: 10 } },
+    electrochem_model: 'off',
+    noise: { enabled: false }
+  }),
+  runId: 'MAN-FC-OFF',
+  createdAt: TS
+});
+eq(fcEchemRes.runs[0].manifest.config_hash, manualFcOff.manifest.config_hash, 'FC 缺省轨 Run config_hash = 手工显式 off Run');
+ok(JSON.stringify(fcEchemRes.runs[0].timeseries) === JSON.stringify(manualFcOff.timeseries),
+  'FC 缺省轨 Run 时间序列与手工显式 off Run 逐点一致（off 等价）');
+eq(fcEchemRes.runs[0].manifest.run_hash, manualFcOff.manifest.run_hash, 'FC 缺省轨 Run run_hash = 手工显式 off Run（t/signals/events/metrics/checks 内容面全等）');
+
+/* 10.6 信封 roundtrip（含 electrochem_model 场景 checksum 稳定——§9 C-5 机制对新键面） */
+const envFcOn = SC.exportScenarioEnvelope(scen('FC-001', [Object.assign(clone(FC_ECHEM_EV), { electrochem_model: 'on' })]));
+eq(envFcOn.content_checksum, hFcOn, '信封 content_checksum = scenarioHash（含 electrochem_model 场景）');
+eq(JSON.stringify(SC.exportScenarioEnvelope(JSON.stringify(scen('FC-001', [Object.assign(clone(FC_ECHEM_EV), { electrochem_model: 'on' })])))),
+  JSON.stringify(envFcOn), '含 electrochem_model 场景两次导出逐字节同 JSON（确定性，无时间戳/无随机）');
+const rtFcOn = SC.importScenarioEnvelope(JSON.parse(JSON.stringify(envFcOn)));
+ok(rtFcOn.ok === true && rtFcOn.via === 'envelope', '含 electrochem_model 信封导入 ok（via=envelope）', JSON.stringify(rtFcOn.errors));
+eq(SC.scenarioHash(rtFcOn.scenario), hFcOn, 'roundtrip：含 electrochem_model 场景导出 → 导入 → 同 scenarioHash（checksum 稳定）');
+
+
 console.log('\n================================================');
 console.log('PASS ' + pass + ' / FAIL ' + fail + (fail ? '  ✗' : '  ✓'));
 if (fail) {
@@ -688,4 +820,4 @@ if (fail) {
   console.log('================================================');
   process.exit(1);
 }
-console.log('场景编排核心（C-2 S1）测试全部通过：负例 ' + negResults.length + ' 类 / roundtrip / 执行等价 / 字段完整性。');
+console.log('场景编排核心（C-2 S1）测试全部通过：负例 ' + negResults.length + ' 类 / roundtrip / 执行等价 / 字段完整性 + electrochem_model 键节（§10，B-1(a)/Q9）。');

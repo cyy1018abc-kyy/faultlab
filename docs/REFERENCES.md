@@ -11,7 +11,7 @@
 | FMPy | 待核对 | 待核对 | modelDescription 准入字段表 + 能力位 + doStep 时序语义；`simulate_fmu()` 作独立 oracle 纪律 | 仅验收工具，不进运行期依赖 | R-2a / R-2b |
 | tep2py（TEP） | 待核对 | 待核对 | 故障目录表格化字段（ID/作用位置/类型/幅值/时刻）；故障**类型**可映射、**数值**不可迁移 | 仅目录格式参考 | R-1 |
 | SKAB | 待核对 | 待核对 | 点级/区间级双口径指标 + 「无对照不出百分比」原则 | 仅指标口径草案，P1 隔离 | R-5 |
-| TESPy | GPL-3.0 | 待核对 | 声明式部件组织；稳态自洽检查方法论 | 只参考设计与算例，不复制代码进 MIT 仓库 | 缓办→A-4 |
+| TESPy | **MIT**（2026-11-13 核实更正——原登记 GPL-3.0 系假设，实测不符） | 已核对：**MIT License**（Copyright (c) Francesco Witte；LICENSE blob sha `0a8fd1f33886c87fa6313cf9fcd1f4a69a33a480`）；2026-11-13 经 api.github.com `repos/oemof/tespy/license` 端点直读 LICENSE 全文（base64 解码核对，核实人 = V120 波 W6）；记录 `evidence/gt/tespy-independent-case.md` §8.7 | 声明式部件组织；稳态自洽检查方法论 | 只参考设计与算例，不复制代码进 MIT 仓库 | 缓办→A-4 |
 | PowerGridworld | 待核对 | 待核对 | Plant/Sensor/Controller 接口三分法；seed + 配置固化旁证 | 仅接口对照附录 | R-4 |
 | simbench | 待核对 | 待核对 | 拓扑/元件与时间序列/场景两层拆分 | 仅分层 RFC 参考 | 缓办→B-1 |
 | PythonFMU | 待核对 | 待核对 | FMU 导出契约模板（FmuBase 接口）；元数据清单反向校准准入字段 | 仅在决定支持导出时参考（P3） | 未排期 |
@@ -36,4 +36,6 @@
 | 2026-11-04 | R-4（PowerGridworld） | `FaultLab-evaluation/NEXT/RFC_MODEL_INTERFACE_I11_APPROVED.md` §11 对照附录（接口三分法决策表 + 不借边界 + 结论：不改任何裁定） | GitHub API 直读 `NREL/PowerGridworld` main@`82ead57d`（README + `gridworld/base.py`）；未引入代码/依赖 | 维持待核对 |
 | 2026-11-04 | R-5（SKAB） | `docs/METRICS_P1.md` v1 草案（点级/区间级双口径 + 检测延迟 + 误报率 FAR/MAR；文档头显著标注「P1 才启用，不进产品」；§2 与 pre/post 事件卡口径对齐；§5 与内部一致性检查不得并列宣称） | GitHub API 直读 `waico/SKAB` README（v0.9 标签列 anomaly/changepoint、leaderboard 指标 F1/FAR/MAR、评价窗在变化点右侧）；未引入代码/依赖 | 维持待核对（旁注：GitHub API 元数据 spdx_id=GPL-3.0，非核实记录；即便属实也只借口径不复制代码） |
 
-**文件结束**。REFERENCES v1.1（2026-11-04；v1 基础上追加 R-2a/R-4/R-5 执行记录）。
+**文件结束**。REFERENCES v1.1（2026-11-04；v1 基础上追加 R-2a/R-4/R-5 执行记录）→
+v1.2（2026-11-13；R-TESPy 行「GPL-3.0 待核对」→「MIT 已核对」回填——V120 波 W6 LICENSE
+核实，CHG-20261113-02 批准链；登记纪律保守超集效力不变）。

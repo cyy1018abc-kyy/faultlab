@@ -399,7 +399,13 @@
        （本波零扩展）——MG 键控改在本检查面补 '-'，既有五系统 allowedUnits 面零变化
        （WT units 状态维持其规格登记的现状，不在本波触碰）。 */
     if (system.id === 'MG-001') allowedUnits.push('-');
-    (system.signals || []).forEach(function (sg) {
+    /* on 轨专属列缺席不计（FCECH-G2b-04 任务5裁定配套——FC001_ELECTROCHEM_G2B_SPEC_APPROVED
+       v1.0 §3.1 off 轨零变化最高判据，CHG-20261113-01）：units 检查的遍历与计数按
+       timeseries.signals 列在场（makeSeries 建列面）——FC off 轨三列结构性缺席 ⇒
+       计数/遍历/消息逐字节不变（run_hash 的 checks 面零变化）；FC on 轨列在场 ⇒ 照常
+       纳入。既有系统全部信号有列（makeSeries 为目录全量建列）⇒ 本门控对其零变化。 */
+    var catalogSignals = (system.signals || []).filter(function (sg) { return !!series[sg.id]; });
+    catalogSignals.forEach(function (sg) {
       if (!sg.unit || typeof sg.unit !== 'string') unitIssues.push(sg.id + ' 缺单位');
       else if (allowedUnits.indexOf(sg.unit) === -1) unitIssues.push(sg.id + ' 单位未声明：' + sg.unit);
     });
@@ -409,7 +415,7 @@
       '全部信号单位在 modelManifest.units 中声明',
       unitIssues.length,
       unitIssues.length === 0
-        ? ((system.signals || []).length + ' 个信号单位齐备（' + allowedUnits.join('/') + '；rpm/pp 为展示单位）')
+        ? (catalogSignals.length + ' 个信号单位齐备（' + allowedUnits.join('/') + '；rpm/pp 为展示单位）')
         : ('单位问题：' + unitIssues.join('；'))
     ));
 

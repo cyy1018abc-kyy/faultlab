@@ -25,6 +25,17 @@
      导入框占位文案系统枚举补全为六系统（原缺 WT-001 的 v0.8 残留一并清算）；
      事件卡 t_clear_s「清除」chip 为既有通用面（renderEventCard 对 number 型
      t_clear_s 已渲染）——MG island_event 场景零新增分支；解析/运行/导出语义零变化。
+   - [登记·FC 电化学轨 UI 线 CHG-20261113-01 批准链，V120_WAVE_DESIGN §2 W5 /
+     FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §1.6/§2]
+     FC electrochem_model 事件卡编辑器（additive）：仅声明该轨的系统（FC-001）事件卡
+     渲染三态选择器（未钉轨 / 钉 off / 钉 on）——**B-1(a) 显式键条件式形态**：缺省态
+     不写键（「默认 off（未钉轨）」诚实文案；缺省轨由引擎 normalizeConfig 盖章层承载，
+     场景键全链 absent ⇒ 既有 FC 场景 scenarioHash 零变化），仅用户显式选择 off/on 才
+     写入归一化事件并入内容哈希；事件卡/Run 行 electrochem chip 为显式键展示面
+     （B-1a：缺省不显示，与哈希现实一致——FL thermal_chip 先例同构，FL 侧零变化）；
+     跨深度对比提示文案按 ALINE §6.4 固定句式（「模型深度导致的表达力差异」）。
+     解析/运行/导出语义零变化（编辑器仅改 local.parsed.scenario 的显式键并重算哈希，
+     executeScenario/exportScenarioEnvelope 幂等再归一化承接）。
    ========================================================================= */
 (function () {
   'use strict';
@@ -69,6 +80,26 @@
       tone: value === 'on' ? 'warm' : 'neutral',
       title: 'thermal_model = ' + value + '（FL-001 模型深度开关：off = L0 行为级轨，on = L1 单节点集总热轨）'
     });
+  }
+  /* FC-001 electrochem_model 事件/Run 展示（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §1.6，
+     CHG-20261113-01 批准链，V120 W5；FL thermal_chip 先例同构——thermalChipOf 上方）。
+     B-1(a)：事件卡 chip 仅显式键在场时渲染（缺省全链 absent——与哈希现实一致，缺省不显示）；
+     Run 行 chip 恒显（defaults 盖章后 FC Run 恒带键，FL Run 恒带 thermal_model 键同款）。 */
+  const ELECTROCHEM_LABEL = { on: '电化学模型 on', off: '电化学模型 off' };
+  function electrochemChipOf(value) {
+    if (value !== 'on' && value !== 'off') return null;
+    return ui.chip(ELECTROCHEM_LABEL[value], {
+      tone: value === 'on' ? 'warm' : 'neutral',
+      title: 'electrochem_model = ' + value + '（FC-001 模型深度开关：off = L0 行为级轨，on = L1 电堆极化与单节点热轨）'
+    });
+  }
+  /* 声明该轨的系统守卫（systems.js defaults.electrochem_model——W3 落地 FC-001）：
+     编辑器仅对声明系统的场景渲染（scenario.js 核心侧 declaresElectrochem 同判据）。 */
+  function declaresElectrochem(systemId) {
+    try {
+      const sys = FL.systems.get(systemId);
+      return !!(sys && sys.defaults && sys.defaults.electrochem_model);
+    } catch (e) { return false; }
   }
   const MAX_ERROR_ROWS = 12;
 
@@ -390,6 +421,56 @@
   }
 
   /* ===================================================================
+     FC electrochem_model 事件卡编辑器（V120 W5，登记见文件头）
+     =================================================================== */
+  /* 事件轨态：'absent'（缺省——键不存在，引擎盖章层按系统默认 off 承载）/ 'off' / 'on'。
+     显式 off/on 写入归一化事件并入 scenarioHash（B-1(a) 显式键条件式）；absent 删除键
+     ⇒ 哈希恢复既有形态（既有 FC 场景 scenarioHash 零变化）。 */
+  function electrochemPinOf(ev) {
+    return (ev && (ev.electrochem_model === 'on' || ev.electrochem_model === 'off'))
+      ? ev.electrochem_model : 'absent';
+  }
+  function setElectrochemPin(eventKey, value) {
+    if (!parsedOk()) return;
+    const s = local.parsed.scenario;
+    let ev = null;
+    for (let i = 0; i < s.events.length; i++) {
+      if (s.events[i] && s.events[i].key === eventKey) { ev = s.events[i]; break; }
+    }
+    if (!ev) return;
+    if (value === 'absent') delete ev.electrochem_model;
+    else if (value === 'off' || value === 'on') ev.electrochem_model = value;
+    else return;
+    const SC = scenarioModule();
+    try { local.scenarioHash = SC ? SC.scenarioHash(s) : null; } catch (e) { local.scenarioHash = null; }
+    syncAll(api.getState(), 'scenario-ech-pin');
+  }
+  /* 单事件编辑器行（仅声明该轨的系统事件卡渲染——declaresElectrochem 守卫）：
+     三态分段选择 + 诚实缺省文案；全部提示文案按批准句式（ALINE §6.4 固定句式 +
+     跨深度对比教学点），实现轮迁入前已按规格 §6.3 预检（0 命中）。 */
+  function buildElectrochemEditor(ev) {
+    const current = electrochemPinOf(ev);
+    const seg = ui.segmented({
+      ariaLabel: '电化学模型轨',
+      value: current,
+      options: [
+        { value: 'absent', label: '默认 off（未钉轨）', title: '缺省态：场景键 electrochem_model 不存在（B-1a），引擎按系统默认轨 off 盖章，场景内容哈希与既有 FC 场景一致' },
+        { value: 'off', label: '钉 off', title: '显式写入 electrochem_model = "off"（L0 行为级轨）——写入归一化事件并入场景内容哈希' },
+        { value: 'on', label: '钉 on', title: '显式写入 electrochem_model = "on"（L1 电堆极化与单节点热轨）——写入归一化事件并入场景内容哈希' }
+      ],
+      onChange: (v) => setElectrochemPin(ev.key, v)
+    });
+    seg.dataset.trackKey = ev.key;
+    return h('div', { class: 'scn-ech-edit', dataset: { eventKey: ev.key }, 'data-testid': 'scenario-ech-editor' }, [
+      h('span', { class: 'scn-ech-key mono' }, 'electrochem_model'),
+      seg,
+      h('span', { class: 'scn-ech-hint' },
+        '缺省态键不存在（B-1a）：仅显式选择才写入场景键并入内容哈希，缺省轨由引擎盖章层承载。' +
+        '同故障 off ↔ on 成对运行承载跨深度对比——模型深度导致的表达力差异。')
+    ]);
+  }
+
+  /* ===================================================================
      教学路径草稿读取入口（最小改动，登记见文件头）
      =================================================================== */
   /* src/ui/pages/teaching.js 第⑤步「生成评测场景」把 scenarioSpec 写入 sessionStorage
@@ -630,6 +711,10 @@
     /* FL-001 thermal_model 事件列（L5 EVENT_KEYS 白名单加键后可解析展示；缺省不显示） */
     const thermalChip = thermalChipOf(ev.thermal_model);
     if (thermalChip) chips.push(thermalChip);
+    /* FC-001 electrochem_model 事件列（V120 W5；B-1(a)：仅显式键在场时渲染——缺省态
+       键不存在不显示，与场景哈希现实一致；编辑器见 buildElectrochemEditor） */
+    const echChip = electrochemChipOf(ev.electrochem_model);
+    if (echChip) chips.push(echChip);
     const paramChips = Object.keys(ev.params || {}).map((k) => {
       const p = def && def.params ? def.params.filter((pp) => pp.key === k)[0] : null;
       const label = p && p.label ? p.label : k;
@@ -645,7 +730,9 @@
           ev.label ? h('span', { class: 'scn-event-label' }, ev.label) : null
         ]),
         h('div', { class: 'scn-event-chips' }, chips),
-        paramChips.length ? h('div', { class: 'scn-params' }, paramChips) : null
+        paramChips.length ? h('div', { class: 'scn-params' }, paramChips) : null,
+        /* FC electrochem_model 编辑器（V120 W5，B-1a 形态；仅声明该轨的系统——FC-001） */
+        declaresElectrochem(s.system) ? buildElectrochemEditor(ev) : null
       ])
     ]);
   }
@@ -694,7 +781,10 @@
         ui.chip(modeLabel(run.config.feedback_mode),
           { tone: run.config.feedback_mode === 'monitor' ? 'neutral' : 'acc' }),
         /* FL-001 thermal_model Run 列（off/on；defaults盖章后 FL Run 恒带键，其余系统不显示） */
-        thermalChipOf(run.config.thermal_model)
+        thermalChipOf(run.config.thermal_model),
+        /* FC-001 electrochem_model Run 列（V120 W5；defaults 盖章后 FC Run 恒带键——
+           off 显示「电化学模型 off」、on 显示「电化学模型 on」，FL thermal 同款口径） */
+        electrochemChipOf(run.config.electrochem_model)
       ]),
       h('div', { class: 'scn-run-metrics' }, metricNodes),
       h('span', { class: 'scn-run-hash mono', title: 'config_hash ' + (run.configHash || '') },

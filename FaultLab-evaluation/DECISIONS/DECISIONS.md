@@ -1351,3 +1351,109 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   四处登记点同步。
   **批准人：用户（2026-11-13「统一采用推荐决策」指令链，CHG-20261110-02 ④ 推荐口径承接）；
   记录人：Lead Agent。**
+- `CHG-20261113-01`：**V120_WAVE_DESIGN v1 批准（v1.2.0 波：A-5 P1 FC 电化学批准与实现轮 + TESPy C1/C2 角点补全 + v1.1.x 残留清算——八面冻结下第二个 additive/minor 波）**。
+  用户 2026-11-13 指令「设计下一轮的长期方案，统一采用推荐决策，采用并发多个子智能体来加速任务；不要和已有进程冲突。」
+  ① `NEXT/V120_WAVE_DESIGN.md` v1 生效——**DEC-1…8 全采推荐项**：FC P1 批准轮（FCECH-G2b-02 收口：双路独立评审 A 物理/B 治理先行 → 条件落正文 → 参数面十常量批准轮定案（三整定依据+域扫描证据）→ Q1…Q8 定案 → 更名 FC001_ELECTROCHEM_G2B_SPEC_APPROVED.md v1.0）与实现轮（FCECH-G2b-03/04：fc001_l1_oracle + fc001_v2 5 Run 镜像 T-B + 引擎 on 轨 early-return + scenario 键 electrochem_model additive + UI on 变体 + 0 新步并入体例）；classify 二选一=Q1 采候选 B（cfg 键分域，scope.js 零改动）；TESPy C1/C2 采 stdlib 口径 (a)+GL-1 同构判据（Q-T1…Q-T4 全采 (a)）；步数账 35→35 零增步（FL v0.8.0 并入先例，预算 ≤35 申报，FIRST-35 机检）；additive 三不承诺 + off 轨逐位硬条件。
+  ② **FC P1 批准经本指令链登记**（GTL1-G2b-02 先例：用户指令链即书面批准记录；WT-001/MG-001 同例）——批准轮双路评审先行、条件落正文后生效；P2/P3 串行约束维持（P1 落地为串行链首环）。
+  ③ V06_ROADMAP §3 增补 v1.2.0 行（本波）。
+  ④ **CHG-20261113-02 预留**（v1.2.0 发布）。
+  ⑤ 冲突规避机检（2026-11-13）：CronList/OffPeakList/ListWorkflowRuns 全空 + 工作树 clean（HEAD=20db6f4 v1.1.0）——无已有进程冲突；派发文件面互斥（三阶段 9 路）、评审 A/B 串行互不可见、不 push 不 rebase。
+  ⑥ 波前补记：CHG-20261110-02 ④ 两项遗留按推荐口径闭合——perf 阈值再登记 31500 ms（CHG-20261110-03，G7 闭合 35/35 两次独立）；v1.1.0 本地提交 20db6f4（不推送，同批暂缓延续）。
+  **推送按用户裁定暂缓（同批：v0.7.1 起至 v1.1.0）——本波产出并入同批**。
+  **批准人：用户（2026-11-13「统一采用推荐决策」指令链）；记录人：Lead Agent。**
+- `CHG-20261113-02`：**v1.2.0 发布收口（G7 波前已闭合——G8 本 CHG；八面冻结下第二个 additive/minor 发布）**。
+  承接 CHG-20261113-01（V120_WAVE_DESIGN 三阶段 9 路 W1a/W1b/W1c/W2…W6 已完成）；本 CHG = W7 门禁与证据路收口登记（编号用 ④ 预留号）。
+  **① 发布门结果全表（2026-11-13 全部真实运行）**：
+  1. `python tools/build.py` exit 0——FaultLab.html 1633.2→**1679.7 KiB**（css=10 js=33）；
+  2. `node tools/run-g2.mjs` × 2 独立（中间零改动）——**均 35/35 PASS，exit 0 × 2**
+     （r1 78450 ms / r2 78179 ms；tier 分解 r1 = core 28 步 28 pass 74375 ms + extended 7 步
+     7 pass 3910 ms，r2 = core 28/28 74087 ms + extended 7/7 3913 ms）；**0 新步**（run-g2
+     维持 35 步——verify_golden fc001_l1 并入步① DEFAULT_MODELS 三 golden 顺序验证、engine
+     on 轨并入 engine-fc 既有步⑥，V120 DEC-5）；perf 步实测 12255/12263 ms ≪ 31500 ms
+     （G7 波前闭合阈值——CHG-20261110-03，本波零判据变更）；
+  3. `python -I scripts/verify_golden.py` 默认 + fl001/fl001_l1/fc001/fc001_l1/gt001/pv001/
+     wt001/mg001 逐模型 ×8——**九次调用全 exit 0**：default 三 golden 80（fl001 25 +
+     fl001_l1 25 + fc001_l1 30）+ 25+25+30+**30（fc001_l1 新注册行首验）**+35+25+30+30
+     = **310 checks 0 fail**（全 8 注册行；附 fc001_l1_oracle FEC-1…8 自检 exit 0 + 路由
+     审计 10 golden × 975 序列键 0 错配，本轮追加实跑）；
+  4. `python -I tools/oracle/oracle_base.py` 自检 exit 0（T-1…T-8 全 pass + conformance ok）；
+  5. `node tools/copy-guard.mjs` exit 0——**PASS 39 patterns 0 命中**（词表 39/14 基线维持）；
+  6. `node tools/file-smoke.mjs --rounds 3` exit 0（**3×80=240/0**，76616 ms）+
+     `node tools/ui-walkthrough.mjs` exit 0（**63/63**，31430 ms）+
+     `node tools/e2e.mjs` exit 0（**76/76**，23719 ms）；
+  7. **golden 零变化终检**：`git status --short data/golden/` 仅 2 新增（fc001_v2.json/.sha256）+
+     `git diff --stat -- data/golden/` 空 + 既有 9 golden 字节复核（fc001_v1 1,093,755 /
+     fl001_v1 659,299 / fl001_v2 930,796 / gt001_v1 1,449,900 / gt001_v2 1,452,353 /
+     gt001_v3 2,372,494 / mg001_v1 1,051,804 / pv001_v1 788,738 / wt001_v1 1,461,288 字节
+     ——与 v1.1.0 时点零变化；新增 fc001_v2 1,363,737 字节）；
+  8. **测试面 23 文件全绿**（今日 run-g2 两轮覆盖全部 23 个 .test.js + 抽查复跑 core 11363/0、
+     engine-fc 484/0、scenario 437/0、schema 317/0、registry 60/0 本轮实证一致）：core 11363/
+     engine-fc 484/scenario 437/schema 317/registry 60/engine-gt 451/engine 428/engine-mg 382/
+     teaching 235/engine-pv 166/engine-wt 228/leaderboard 78/arena 155/arena-protocol-negative 42/
+     causal-rules 149/plants 83/event-phase 46/bundle 35/report 32/scope-guard 30/compare 27/
+     backend 两件（admission+bridge）全绿。
+  **② 交付清单**：
+  （一）**FC P1 批准轮收口 + 实现轮**（主线，A-5 串行链首环）：批准轮 FCECH-G2b-02 收口
+     （双评审 A:PASS_WITH_CONDITIONS(7)/B:PASS_WITH_CONDITIONS(7)，14 条件全按推荐落正文 +
+     参数面十常量定案（E0_ref 425.130134484272 V 闭式派生等，三整定依据 + §3.3 六项域扫描
+     证据）+ Q1…Q9 定案（Q1 采 B cfg 键分域、scope.js 结构零改动 / B-1(a) 显式键条件式 /
+     B-2 model.electrochem additive 子对象（model_hash 九字段哈希域外）/ B-3(a) schema
+     零投影 / B-4 verify_golden T-B `_V` 分支 / B-5 DEFAULT_MODELS 追加 / B-7 盖章双落点），
+     更名 FC001_ELECTROCHEM_G2B_SPEC_APPROVED.md v1.0，批准记录=CHG-20261113-01 指令链）；
+     实现轮 FCECH-G2b-03/04——fc001_l1_oracle.py（oracle_base 出生接入 + RK4 T_st + L0
+     级联独立逐字复刻非 import、复刻位级无损 9.237e-14 + FEC-1…8 自检）+ **fc001_v2 第 10 个
+     golden**（5 Run 镜像 fc001_v1 全集全 electrochem_model=on / schema v2 / T-B /
+     1,363,737 字节 + sidecar / approval 首签 CHG-20261113-01 / supersedes="fc001_v1（字节
+     冻结留档）"，MODELS["fc001_l1"] 注册行）+ engine simulateFC001 电化学 on 轨 early-return
+     （off 路径逐字不动；引擎↔oracle 397/397、T_st bitwise 0.0、off 轨 timeseries
+     ALL-BYTE-IDENTICAL、onTrackOnly 列门控——off 轨结构性不建列）+ systems.js FC SystemDef
+     扩展（defaults 键 + 3 新信号 T_st_K/V_stack_V/P_loss_stack_kW + model.electrochem
+     子对象 + level_on/summary_on 派生变体 + acceptance.keyValues 分域）+ scenario
+     EVENT_KEYS/ELECTROCHEM_MODELS/declaresElectrochem（B-1(a) 显式键——缺省全链 absent）
+     + schema scenarioView 零投影（B-3(a)）+ normalizeConfig/defaultConfig 盖章双落点（B-7）
+     + R-6 分派守卫 + UI 三态编辑器/track 面板/chip 徽章/level 摘要派生 + FAULT_CATALOG
+     v1.5→v1.6 + tests 断言面 +246（engine-fc 294→484/scenario 389→437/schema 309→317/
+     core 11357→11363）+ **步数账 35→35（0 新步，I-7 申报，FIRST-35 机检既有 35 步零改动）**；
+  （二）**TESPy C1/C2 角点补全**（产品面外证据面）：stdlib 定比热口径 (a) + GL-1 六判据
+     同构 **6/6 × 2 角点 = 12/12 PASS**（独立实现 vs oracle 同参六量 bit-identical）+
+     Q-T1…Q-T4 全采 (a)；**LICENSE 核实发现：TESPy 实际 MIT License**（api.github.com 直读
+     2026-11-13，blob sha 0a8fd1f3…a480，Copyright (c) Francesco Witte）——非 R-TESPy 行
+     登记假设的 GPL-3.0；隔离纪律保守超集效力不变；**R-TESPy 行回填落 docs/REFERENCES.md
+     （本 CHG ③ 同轮清偿 v1.1.x 硬前置）**；
+  （三）**残留清算**：perf 阈值再登记 ✓（CHG-20261110-03 波前）/ FC P1 批准轮 ✓（=本波
+     首项）/ TESPy C1/C2 ✓（12/12）/ 步①·步 31 标签滞后维持登记不修（V120 DEC-5）/ 
+     REFERENCES R-TESPy 回填 ✓（MIT——C3 真 TESPy 口径 (b) 候选硬前置清偿）。
+  **③ additive 三不承诺兑现（DEC-8/V1_FACES §3.4——跨代码版本字面锚定探针，发布轮实跑
+  HEAD=20db6f4 v1.1.0 代码 vs 本波工作树同一输入逐字节比对）**：① 哈希零变化——机检
+  scenario 437/registry 60/schema 317 全绿 + 探针四项全等：既有 FC 场景（无键）scenarioHash
+  1f062266…dec96f 两版同值（缺省键全链 absent；显式 off a23dc6c5…/显式 on d3ee31bb… =
+  新键只影响使用它的输入）、FC healthy config_hash 8822c1d4… 两版同值（on/off 同值
+  5ec18601…——B-3(a) 零投影登记不静默）、model_hash c6a938f2…3eb83 两版同值（B-2 九字段
+  哈希域外）、off 轨 healthy Run run_hash 6ac0ae17…204c6 两版同值（onTrackOnly 列门控 +
+  探针双佐证）；② 既有 9 golden 字节零触碰——git diff 空 + verify_golden 全 8 注册行 exit 0
+  （V-02 复验）+ 字节表；fc001_v2 = 新 id 新文件；③ 既有 35 run-g2 步判据零翻转——FIRST-35
+  机检 + 本轮 35 步全 pass × 2（0 新步；perf 阈值系波前已闭合项非本波动作）。
+  **④ v1.2.x 待办登记**：
+     —— **A-5 P2 FL 批准轮候选 = 排 P1 落地一个发布周期后**（v1.2.0 即 P1 落地点——P2
+        earliest v1.3.0，且须**显式重开「SOC 定义不动」裁定**：FL 热模型深化触及 SOC/容量
+        折算面，A5 §4 串行链第二环）；P3 GT 草案可并行（实现仍严格串行）；
+     —— Arena exposure 三值映射验证轮（Arena 盲测池扩张 PV/WT/MG 入池前置）；
+     —— MG 教学路径（v1.2.x 候选延续）；METRICS_P1 QP-4 假候选率测量放行（候选延续）；
+     —— C3 真 TESPy 口径 (b)（**登记已就绪**——LICENSE 已核实 MIT + REFERENCES 已回填，
+        评审人/用户仓库外自备环境任务，只比趋势与量级）；
+     —— 步① label「verify_golden fl001」/ 步 31 label「61 断言」滞后固化——随下次
+        tools/run-g2.mjs 触碰统一同步（避免 FIRST-35 机检扰动，维持登记）。
+  **⑤ v1.2.0 时点画像**：**六系统 + FC L1 电化学轨**（FL-001 L0+L1-thermal / FC-001
+     L0+**L1 电化学 on 轨（electrochem_model，默认 off）** / GT-001 L0b 双存档+L1 thermo
+     默认 / PV-001 L0 / WT-001 L0b / MG-001 聚合层 L0——ARENA_EXCLUDED）、**10 golden
+     字节冻结**（既有 9 + fc001_v2；§3.4 强于 semver）、**11 oracle**（fc001_l1_oracle 出生
+     接入）、11 页面、**run-g2 35 步 0 新步**（I-7 预算 ≤35 维持）、e2e **76** /
+     file-smoke **80** / ui-walkthrough **63**、词表 **39/14**（维持）、FaultLab.html
+     **1679.7 KiB**、**DEFAULT_MODELS 三 golden**（fl001/fl001_l1/fc001_l1）、
+     V1_FACES 八面冻结维持（本波修订全部 additive——快照计数同步，冻结条款语义零变化）。
+  证据 `evidence/g8/v120-release.md`（发布门 1–8 全表 + golden 字节表 + 23 测试文件汇总 +
+  additive 三不承诺兑现声明 + 跨版本哈希字面锚定探针）。
+  **推送按用户裁定暂缓（同批 v0.7.1–v1.2.0 延续——本波产出并入同批，本地提交随收口轮决定，
+  V120 DEC-7 同口径）**。
+  **批准人：用户（2026-11-13 CHG-20261113-01 指令链——本收口登记为其波次授权的执行记录）；
+  记录人：W7 门禁与证据路。**

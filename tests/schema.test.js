@@ -1,5 +1,8 @@
 /* owner: core-contract | module: tests/schema | contract: NEXT/DATA_CONTRACT_SPEC.md
    G2 四件套④ Schema/单位字典（PHY-10 / SA-24 子集 / I-01）。
+   §2e（FCECH-G2b-04 / CHG-20261113-01，V120 波 W4 追加节，既有断言零改动）：
+   FC-001 electrochem_model 契约面——scenarioView 不投影（B-3(a)，config_hash 零变化）
+   + validateScenarioConfig 显式键枚举守卫正反例（W3 schema.js :236-240 落地）。
    运行：node tests/schema.test.js；失败非零退出。 */
 'use strict';
 
@@ -212,6 +215,31 @@ eq(contract.validateScenarioConfig(Object.assign({}, scPVf, { bias_A: 1000 })).l
   'PV 偏置幅值不适用电流域 |b|≤20 检查（bias_A 分派按信号目录是否存在 bias_A 信号，残留①口径）');
 code(contract.validateScenarioConfig(Object.assign({}, scFault, { model_id: 'x-unknown', bias_A: 30 })), 'CN-E02',
   '电流域检查反查失败回退生效（FL |b|≤20 在未知 model_id 下仍拒绝）');
+
+/* ------------------------------------------------------------------ *
+ * 2e. FC-001 electrochem_model 契约面（FCECH-G2b-04 / CHG-20261113-01，
+ *      V120 波 W4；FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2 B-3 定案采 (a)）：
+ *      scenarioView 不投影 electrochem_model（thermal_model 先例同构——config_hash
+ *      对轨值零敏感，FC on/off 两轨 config_hash 同值=显式登记已知局限，轨区分由
+ *      run_hash/序列内容承载）；validateScenarioConfig 枚举守卫仅对显式携带该键的
+ *      契约视图生效（外部构造/异版本导出包——inertia_model 守卫同形态），
+ *      scenarioView 产出的既有投影该键恒 undefined ⇒ 全部既有输入零触发。
+ * ------------------------------------------------------------------ */
+const fcBaseView = core.createConfig('FC-001', { fault: { family: 'none', faultId: null, t_start_s: 20, params: { magnitude: 0 } } });
+const scFC = contract.scenarioView(fcBaseView);
+const scFCOn = contract.scenarioView(core.createConfig('FC-001', { electrochem_model: 'on', fault: { family: 'none', faultId: null, t_start_s: 20, params: { magnitude: 0 } } }));
+eq(scFC.electrochem_model, undefined, 'FC scenarioView 无 electrochem_model 键（B-3(a)：不投影——config_hash 契约面哈希零变化）');
+eq(scFCOn.electrochem_model, undefined, 'FC on 轨 cfg scenarioView 同样不投影 electrochem_model（轨值不入 config_hash——已知局限登记不静默）');
+eq(JSON.stringify(scFC), JSON.stringify(scFCOn), 'FC on/off cfg 场景视图逐字节同（config_hash 同值承载面——轨区分由 run_hash/序列内容）');
+eq(contract.validateScenarioConfig(scFC).length, 0, 'FC-001 Run 导出校验通过（既有投影无 electrochem_model 键——守卫零触发）');
+eq(contract.validateScenarioConfig(Object.assign({}, scFC, { electrochem_model: 'on' })).length, 0,
+  '显式 electrochem_model=on 契约视图通过（合法枚举——外部构造视图守卫形态，inertia_model 同构）');
+code(contract.validateScenarioConfig(Object.assign({}, scFC, { electrochem_model: 'dual' })), 'CN-E02',
+  '显式 electrochem_model 非法值（枚举外）拒绝（W3 schema.js :236-240 落地）');
+code(contract.validateScenarioConfig(Object.assign({}, scFC, { electrochem_model: 42 })), 'CN-E02',
+  '显式 electrochem_model 非字符串拒绝（类型面）');
+eq(contract.validateScenarioConfig(Object.assign({}, scFC, { electrochem_model: null })).length, 0,
+  'electrochem_model=null 可缺省（inertia_model 守卫同形态——null 不触发枚举守卫）');
 
 /* ------------------------------------------------------------------ *
  * 3. TimeSeries §2.4（n 由参数派生，禁止硬编码 601；T-07 / SA-01）

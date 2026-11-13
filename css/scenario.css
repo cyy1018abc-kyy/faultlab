@@ -63,6 +63,19 @@
 .pg-scenario .scn-event-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .pg-scenario .scn-params { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 
+/* ---- FC electrochem_model 事件卡编辑器（V120 W5；B-1(a) 显式键条件式形态——
+   缺省态不写键，仅显式 off/on 写入场景键并入内容哈希；仅声明该轨的系统事件卡渲染） ---- */
+.pg-scenario .scn-ech-edit {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 2px; padding: 6px 8px;
+  border: 1px dashed var(--line-1); border-radius: var(--r-sm, 6px);
+  background: rgba(17, 22, 29, .45);
+}
+.pg-scenario .scn-ech-key { font-size: 10.5px; color: var(--acc-soft); }
+.pg-scenario .scn-ech-edit .seg { gap: 4px; }
+.pg-scenario .scn-ech-edit .seg-item { font-size: 11px; padding: 3px 8px; }
+.pg-scenario .scn-ech-hint { font-size: 10.5px; color: var(--ink-3); line-height: 1.5; min-width: 200px; flex: 1 1 220px; }
+
 .pg-scenario .scn-seq-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* ---- results ---- */

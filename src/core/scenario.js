@@ -43,8 +43,9 @@
 
   var TOP_KEYS = ['scenario_id', 'version', 'label', 'system', 'events'];
   /* thermal_model 显式 CHG 随 CHG-20261107-01 登记（FL001_THERMAL_G2B_SPEC_APPROVED v1.0
-     §2.0 / V080_WAVE_DESIGN DEC-2） */
-  var EVENT_KEYS = ['key', 'label', 'family', 'params', 't_start_s', 't_clear_s', 'inertia_model', 'thermal_model', 'feedback_mode'];
+     §2.0 / V080_WAVE_DESIGN DEC-2）。electrochem_model 显式 CHG 随 CHG-20261113-01 登记
+     （FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2/§8 FCECH-G2b-04）。 */
+  var EVENT_KEYS = ['key', 'label', 'family', 'params', 't_start_s', 't_clear_s', 'inertia_model', 'thermal_model', 'electrochem_model', 'feedback_mode'];
   /* 事件级模型深度轨（B-2 定案，CHG-20261104-12 ③）：枚举三值；缺省解析为系统默认轨
      （defaults.inertia_model，GT-001 = thermo，Q4 定案）；scenarioHash 含解析后的轨。
      跨深度对比场景（A 线教学 payoff）经该键显式钉轨。 */
@@ -53,6 +54,14 @@
      （defaults.thermal_model，FL-001 = off，FLTH-IMP-Q3 定案维持）；scenarioHash 含
      解析后的轨（既有 FL 场景哈希变化属预期失效面，见 hashProjection 注）。 */
   var THERMAL_MODELS = ['off', 'on'];
+  /* 事件级电化学轨（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2 B-1 定案采 (a)——偏离
+     thermal/inertia 先例，CHG-20261113-01 批准链）：枚举两值；**仅在场景输入显式提供时**
+     写入归一化事件与 hashProjection（显式键条件式哈希形态），缺省轨解析只在引擎
+     normalizeConfig 盖章层发生（engine.js electrochem_model 盖章行）——偏离先例理由 =
+     face③ 冻结边界原文「新键只影响使用它的输入，既有场景解析与哈希不变」（V1_FACES
+     :184-186）禁止缺省轨入哈希形态（热/惯量先例的既有场景哈希变化发生在 v0.x 宽容期、
+     属登记预期失效面，八面冻结后不可复制）⇒ 既有 FC 场景 scenarioHash 零变化（Q9 定案）。 */
+  var ELECTROCHEM_MODELS = ['off', 'on'];
 
   /* 授权状态守卫（准入条件：非「已删除」）：事实源 docs/FAULT_CATALOG.md §1/§4。
      FL-001 load_step 已按 O-13（CHG-20261030-06）删除——systems.js 目录已不含该族，
@@ -405,6 +414,25 @@
       thermal = system.defaults.thermal_model;
     }
 
+    /* electrochem_model（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2 B-1 定案采 (a)，显式 CHG
+       随 CHG-20261113-01 登记；可选事件级电化学轨）：枚举 off|on。**与 inertia_model/thermal_model
+       的关键偏离（Q9 定案）**：仅在场景输入显式提供时校验并写入归一化事件与 hashProjection，
+       **缺省（不提供）全链 absent——不解析为系统默认轨**（缺省轨由引擎 normalizeConfig 盖章层
+       承载，engine.js electrochem_model 行）；非法值拒绝入结构化错误；未声明该轨的系统上出现
+       即拒绝（封闭白名单，t_clear_s/inertia_model 先例同构）。显式键条件式哈希形态 ⇒ 既有
+       FC 场景 scenarioHash 零变化（face③ 冻结边界原文——V1_FACES:184-186）。 */
+    var electrochem = null;
+    var declaresElectrochem = !!(system && system.defaults && system.defaults.electrochem_model);
+    if (ev.electrochem_model !== undefined) {
+      if (!declaresElectrochem) {
+        errors.push({ field: at + '.electrochem_model', message: '系统 ' + (system ? system.id : '?') + ' 未声明电化学模型轨（electrochem_model 仅适用于声明该轨的系统）' });
+      } else if (ELECTROCHEM_MODELS.indexOf(ev.electrochem_model) === -1) {
+        errors.push({ field: at + '.electrochem_model', message: '必须为 off / on（收到 ' + String(ev.electrochem_model) + '）' });
+      } else {
+        electrochem = ev.electrochem_model;
+      }
+    }
+
     /* feedback_mode */
     var mode = null;
     if (ev.feedback_mode === undefined) {
@@ -422,6 +450,7 @@
     if (tClear !== null) out.t_clear_s = tClear;
     if (inertia !== null) out.inertia_model = inertia; /* 解析后的轨（缺省 = 系统默认轨）入归一化面与哈希 */
     if (thermal !== null) out.thermal_model = thermal; /* 解析后的轨（缺省 = 系统默认轨）入归一化面与哈希 */
+    if (electrochem !== null) out.electrochem_model = electrochem; /* B-1(a)：仅显式提供时入归一化面与哈希（缺省轨不入——引擎盖章层承载） */
     return out;
   }
 
@@ -448,7 +477,11 @@
      thermal_model：未声明轨的系统为 undefined（哈希不变）；FL 事件解析轨（缺省 = off）
      入哈希——既有 FL 场景哈希变化属预期失效面（CHG-20261107-01 显式 CHG 登记，
      V080_WAVE_DESIGN §3「tests/registry.test.js per-Run config 哈希面随 scenario
-     thermal_model 键更新（预期失效，逐项登记）」）。 */
+     thermal_model 键更新（预期失效，逐项登记）」）。
+     electrochem_model：B-1(a) 显式键条件式（偏离热/惯量先例——Q9 定案）：仅显式提供时
+     在归一化事件有值、入哈希；缺省（未提供）为 undefined，canonicalize 按不存在处理 ⇒
+     既有 FC 场景 scenarioHash 零变化（缺省轨由引擎 normalizeConfig 盖章层承载，不入
+     scenarioHash——轨区分由引擎盖章层 cfg 与 run_hash/序列内容承载，已知局限登记不静默）。 */
   function hashProjection(s) {
     return {
       version: s.version,
@@ -462,6 +495,7 @@
           t_clear_s: e.t_clear_s, /* 缺省/无清除为 undefined，canonicalize 按不存在处理 */
           inertia_model: e.inertia_model, /* 解析后的模型深度轨（缺省系统为 undefined） */
           thermal_model: e.thermal_model, /* 解析后的热模型轨（未声明系统为 undefined；FL 场景哈希变化 = 预期失效面） */
+          electrochem_model: e.electrochem_model, /* B-1(a)：仅显式提供时有值（缺省 undefined 不入哈希 ⇒ 既有场景哈希零变化） */
           feedback_mode: e.feedback_mode
         };
       })
@@ -498,6 +532,10 @@
        盖章（engine normalizeConfig thermal_model 行），解析值（off/on）传给 Run cfg；
        引擎 validateConfig 枚举守卫 + simulateFL001Thermal 分派承接口。 */
     if (ev.thermal_model) patch.thermal_model = ev.thermal_model;
+    /* 解析后的电化学轨透传（FCECH-G2b-04 / B-1(a)，CHG-20261113-01）：仅显式提供时透传
+       （缺省轨已由 normalizeConfig 盖章——engine electrochem_model 行，场景层全链 absent）；
+       引擎 validateConfig 枚举守卫 + simulateFC001Electrochem 分派承接口。 */
+    if (ev.electrochem_model) patch.electrochem_model = ev.electrochem_model;
     return FL.core.createConfig(systemId, patch);
   }
 

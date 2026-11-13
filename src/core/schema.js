@@ -227,6 +227,16 @@
         sc.inertia_model !== 'swing' && sc.inertia_model !== 'linear' && sc.inertia_model !== 'thermo') {
       bad('inertia_model', 'inertia_model 必须为 swing / linear / thermo', '检查配置');
     }
+    /* FC-001 电化学轨（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2 B-3 定案采 (a)，CHG-20261113-01；
+       thermal_model 先例同构——scenarioView 现状即不投影 thermal_model/electrochem_model）：
+       scenarioView 不投影 electrochem_model ⇒ FC on/off 两轨 config_hash 同值（FL 现状同款），
+       轨区分由 run_hash/序列内容承载——显式登记已知局限，不静默。本守卫仅对显式携带该键的
+       契约视图生效（外部构造/异版本导出包——inertia_model 守卫同形态），枚举 off|on；
+       scenarioView 产出的既有投影该键恒为 undefined ⇒ 全部既有输入零触发。 */
+    if (sc.electrochem_model !== undefined && sc.electrochem_model !== null &&
+        sc.electrochem_model !== 'off' && sc.electrochem_model !== 'on') {
+      bad('electrochem_model', 'electrochem_model 必须为 off / on', '检查配置');
+    }
     /* R-8（CHG-20261105-01 清算项 2）：initial 键面按 system.bounds 派生——声明才要求
        （PV-001 bounds 无 SOC_pct，健康 PV Run 不再误报 CN-E02；FL/FC/GT bounds 均含 SOC_pct，
        键面与报文逐字不变）；PV-001 的 G0_W_m2 校验补入（域取 bounds.G0_W_m2，

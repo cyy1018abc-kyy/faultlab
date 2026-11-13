@@ -373,6 +373,25 @@
 .pg-system .sys-topo-notice:empty { display: none; }
 .pg-system .sys-topo-notice .notice { padding: 8px 11px; font-size: 11px; }
 .pg-system .sys-topo-notice .notice svg { width: 13px; height: 13px; flex-basis: 13px; margin-top: 1px; }
+/* FC 电化学轨 on 轨模型声明面板（V120 W5——additive，off 轨 [hidden] 零渲染；内容
+   全部来自 systems.js model.electrochem 批准冻结字段，本文件零新增声明文案） */
+.pg-system .sys-track-panel-host[hidden] { display: none; }
+.pg-system .sys-track-panel {
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-1); border-radius: var(--r-md);
+  background: rgba(17, 22, 29, .55);
+}
+.pg-system .sys-track-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pg-system .sys-track-block .eyebrow { display: block; margin-bottom: 4px; }
+.pg-system .sys-track-list {
+  margin: 0; padding-left: 18px;
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 11.5px; color: var(--ink-1); line-height: 1.55;
+}
+.pg-system .sys-track-list .mono { font-size: 10.5px; color: var(--acc-soft); margin-right: 6px; }
+.pg-system .sys-track-note { display: flex; align-items: flex-start; gap: 6px; font-size: 11px; color: var(--ink-3); line-height: 1.6; }
+.pg-system .sys-track-note svg { width: 13px; height: 13px; flex-basis: 13px; margin-top: 2px; }
 .pg-system .sys-norun {
   display: flex;
   align-items: center;

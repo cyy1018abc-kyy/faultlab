@@ -195,6 +195,14 @@
     if (system.defaults && system.defaults.thermal_model && !out.thermal_model) {
       out.thermal_model = system.defaults.thermal_model;
     }
+    /* FC-001 电化学双轨（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §1.1/§8 FCECH-G2b-04
+       盖章双落点之一（B-7 定案），CHG-20261113-01 批准链；thermal_model 盖章块同构新行）：
+       声明了 electrochem_model 的系统补默认轨（FC-001 默认 = off）。B-1(a)/B-3(a) 定案：
+       缺省轨解析只在本盖章层发生（场景缺省轨不入 scenarioHash），cfg 值不进 scenarioView
+       投影/哈希（schema.js 同 thermal_model 先例），off 路径仿真行为零变化。 */
+    if (system.defaults && system.defaults.electrochem_model && out.electrochem_model === undefined) {
+      out.electrochem_model = system.defaults.electrochem_model;
+    }
 
     var dInitial = deepClone(system.defaults.initial);
     out.initial = deepMerge(dInitial, isPlainObject(out.initial) ? out.initial : {});
@@ -311,6 +319,15 @@
     if (system.defaults && system.defaults.thermal_model) {
       if (config.thermal_model !== 'off' && config.thermal_model !== 'on') {
         push('thermal_model', '必须为 off / on（当前 ' + String(config.thermal_model) + '）');
+      }
+    }
+
+    /* FC-001 电化学双轨（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §1.1，CHG-20261113-01 批准；
+       仅声明了 defaults.electrochem_model 的系统——FC-001，枚举 off|on，默认 off；
+       thermal_model 分支同构） */
+    if (system.defaults && system.defaults.electrochem_model) {
+      if (config.electrochem_model !== 'off' && config.electrochem_model !== 'on') {
+        push('electrochem_model', '必须为 off / on（当前 ' + String(config.electrochem_model) + '）');
       }
     }
 
@@ -556,6 +573,17 @@
   function makeSeries(system, n) {
     var series = {};
     system.signals.forEach(function (sg) {
+      /* on 轨专属列门控（FCECH-G2b-04 任务5裁定——FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0
+         §1.3/§3.1 张力裁定，CHG-20261113-01 批准链）：registry.runHashInput 的 signals 哈希面
+         为整 timeseries.signals 对象（registry.js runHashInput 实读），canonicalize 对 null
+         值键照序列化 ⇒ null 列改变 off 轨 run_hash。八面冻结后 off 轨 run_hash 逐位零变化为
+         最高判据（§3.1）⇒ 带 onTrackOnly 标记的信号列不在此建列（off 轨结构性缺席、
+         timeseries.signals 逐字节不变），on 轨由 simulateFC001Electrochem 补建三列。
+         GT thermo 八信号 / FL thermal 两信号的全程 null 列先例为 v0.x 宽容期落地面
+         （CHG-20261104-12/CHG-20261107-01 登记预期失效面），八面冻结后不可复制。
+         既有系统全部信号定义无此标记 ⇒ 本门控对其零变化（改前探针实证：null 列
+         6ac0ae17…→0dd7e9a1… 变哈希；undefined 键哈希中性但非 null 列形态）。 */
+      if (sg.onTrackOnly) return;
       var arr = new Array(n + 1);
       for (var i = 0; i <= n; i++) arr[i] = null;
       series[sg.id] = arr;
@@ -947,6 +975,11 @@
   }
 
   function simulateFC001(system, cfg, t) {
+    /* FC-001 电化学轨分派（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §1.1/§8 FCECH-G2b-04，
+       CHG-20261113-01 批准；FLTH/GT thermo early-return 分派先例同构，R-守卫）：
+       electrochem_model = on 走 RK4 极化链（simulateFC001Electrochem，§1.4 EQ-FCEC-1…7
+       冻结更新序），off 路径（plant 家族 + 内联 load/actuator 路径）全量代码逐字不动。 */
+    if (cfg.electrochem_model === 'on') return simulateFC001Electrochem(system, cfg, t);
     if (fc001PlantCapable(cfg)) return simulateFC001Plant(system, cfg, t);
     var n = t.length - 1;
     var dt = cfg.dt_s;
@@ -1035,6 +1068,211 @@
         E_load: intDemand,
         E_source: V * intIfc,
         E_bat: intDemand - V * intIfc,
+        E_bat_est: intDemand - V * (intIfc + intB),
+        intB: intB
+      }
+    };
+  }
+
+  /* ---------------- FC-001 L1 电化学轨（V-I 极化链 + 电堆单节点热） ----------------
+     FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §1.3/§1.4/§1.5（方程/常量/更新序唯一权威文本，
+     CHG-20261113-01 批准链）+ §8 FCECH-G2b-04（实现轮）。数值口径（独立 oracle =
+     tools/oracle/fc001_l1_oracle.py 同式同序复刻，T-B 双实现——不承诺跨语言逐位）：
+     - 电气面 L0 序逐字保留（EQ-FCEC-7）：healthy/sensor/monitor 家族走 plants/fc001.js
+       适配器（plant.stepOf/bAt/iMeasAt 与 simulateFC001Plant 同源——I_fc 精确指数子步、
+       intIfc/intB 同源）、load_step/actuator_fault 走内联级联 foStep 子步递推（refStep 弃
+       积分项仅取 .y/target/foStep 同序——EQ-6 分配器 0.4 kV 名义电压原样，A-fcec-dispatch）；
+       I_fc/I_fc_ref 保留 L0 更新序——非 RK4 状态、不依赖 T_st（§1.3，电气面逐位同的结构原因）；
+     - T_st 经典 RK4 固定步长 h = DT_INT = 0.01（6000 子步/60 s，T-B 数值轨）；RHS 内 I 冻结
+       于子步起点值（§4 项 3 口径，FLTH Q2 同构）；RHS = (P_loss_W − h_st·(T_st − T_amb))/C_st
+       （EQ-FCEC-3，W 记账——A-3 定案）；I 冻结口径下子步内为线性常系数 ODE（EQ-FCEC-4/6
+       结构推论——oracle FEC-7 交叉证据面成立）；
+     - EQ-FCEC-1/5/6 极化链：V_stack = E0(T_st) − c_act·ln(1+I/I_0) − R_ohm(T_st)·I
+       − c_conc·ln(I_lim/(I_lim−I))；E0_ref 由整定依据①锚点闭式派生（非自由度：
+       400 + c_act·ln6 + 50·R_ohm0 + c_conc·ln1.5，印刷值 425.130134484272 为其 15 位表示）；
+       k_E = 50·α_ohm·R_ohm0（整定依据④恒等式——两温度面线性 ⇒ healthy 全轨
+       V_stack(50,·) ≡ 400 V、P_fc ≡ 20 kW、SOC/E_bat/r_meas 与 L0 逐位同恢复）；
+     - EQ-FCEC-2/4：P_fc,true = V_stack·I_fc/1000（on 域替换 EQ-3 前半 A-const-v 电堆半边）；
+       P_loss_W = (E0 − V_stack)·I【W】（信号面 /1000——A-3 W 记账）；E_fc 账本子步梯形
+       （FLTH Q4 同款 idiom）；
+     - EQ-FCEC-7 记账基（A-5 定案）：SOC_true/E_bat/P_bat 按 P_fc,true 重算（真实功率基，
+       P_bat = P_load − P_fc,true 理想平衡源口径不变 ⇒ r_true ≡ 0 按构造）；SOC_est/P_fc,meas
+       测量链 0.4 kV 恒压口径未动与 L0 逐字（A-fcec-meas）；r_meas = P_fc,meas + P_bat − P_load
+       （与 0.4·b + (0.4 − V_stack/1000)·I_fc 浮点等价——参考工作点 (I=50,T_st(0)) 处为零，
+       healthy 全轨 I≡50 + 整定依据④ ⇒ 全轨为零，conservation-meas ≤1e-6 判据承载）；
+     - record(601 点)：由 (I_fc, T_st, b) 重算全部代数量（当前状态值——非累计值）；事件
+       快照面零扩展维持既有机制（buildSnapshots 按列在场构建）；三新信号（T_st_K/V_stack_V/
+       P_loss_stack_kW，§1.3 全非盲显）仅 on 轨构建（任务5裁定：SystemDef.signals 带
+       onTrackOnly 标记、makeSeries 门控跳过——off 轨 timeseries.signals 逐字节不变）。
+     域守卫登记（§1.6 ②/§3.3）：I < I_lim = 150 A 为 EQ-FCEC-1 值域硬条件——注册域最大
+     电流 137.5 A（load0=45 + step20 极端角点）< I_lim（裕度 12.5 A）；normalizeConfig 不
+     新增钳位（批准轮确认维持），越域后果经 model.electrochem.limitations 声明。 */
+  function simulateFC001Electrochem(system, cfg, t) {
+    var n = t.length - 1;
+    /* §1.5 十常量定案值（FCECH-G2b-02；教学整定值、非实测——A-fcec-params；
+       表达式顺序 = 批准文本左结合序，oracle 同序复刻） */
+    var V = 0.4;              // 电池半边 0.4 kV 名义电压（A-fcec-dispatch——分配器/电池半边原样）
+    var E0_REF = 400 + 0.05 * Math.log(1 + 50 / 10) + 50 * 0.5 + 0.1 * Math.log(150 / (150 - 50));
+                              // ^ EQ-FCEC-5 整定依据①闭式派生（非自由度）：400 + c_act·ln6 + 50·R_ohm0 + c_conc·ln1.5
+    var K_E = 0.1;            // = 50·α_ohm·R_ohm0（整定依据④恒等式——A-2(i) 定案）
+    var I_0 = 10;             // 活化损失特征电流（A）
+    var C_ACT = 0.05;         // 活化过电位尺度（V）
+    var R_OHM0 = 0.5;         // 参考欧姆电阻（Ω）
+    var ALPHA_OHM = 0.004;    // 欧姆电阻温度系数（1/K）
+    var C_CONC = 0.1;         // 浓差损失尺度（V）
+    var I_LIM = 150;          // 浓差极限电流（A）——> 137.5 A 注册域硬条件（§3.3；登记不静默）
+    var C_ST = 1500;          // 电堆集总热容（J/K）
+    var H_ST = 120;           // 牛顿冷却系数（W/K）——h_st > α_ohm·R_ohm0·I²（A-3 W 口径稳定性界）
+    var T_AMB = 298.15;       // 环境温度（K），T_st(0) = T_amb（冷启动）
+    var T_REF = 298.15;       // 参考温度（K）
+
+    var family = cfg.fault.family;
+    var faulted = family !== 'none';
+    var tStart = faulted ? cfg.fault.t_start_s : null;
+    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
+    var load0 = cfg.initial.load_kW;
+    var soc0 = cfg.initial.SOC_pct;
+    var P_bat_ref = 10;
+    var I_fc_base = (load0 - P_bat_ref) / V;
+    var isLoad = family === 'load_step';
+    var isAct = family === 'actuator_fault';
+    var I_fc_cap = isAct ? I_fc_base * magnitude / 100 : null;
+
+    /* EQ-FCEC-5/6/1/4（表达式顺序 = 批准文本左结合序——oracle e0_of/r_ohm_of/v_stack/p_loss_w 同构） */
+    function e0Of(tK) { return E0_REF + K_E * (tK - T_REF); }
+    function rOhmOf(tK) { return R_OHM0 * (1 + ALPHA_OHM * (tK - T_REF)); }
+    function vStack(iA, tK) {
+      return e0Of(tK)
+        - C_ACT * Math.log(1 + iA / I_0)
+        - rOhmOf(tK) * iA
+        - C_CONC * Math.log(I_LIM / (I_LIM - iA));
+    }
+    function pLossW(iA, tK) { return (e0Of(tK) - vStack(iA, tK)) * iA; }
+    function pFcTrueKw(iA, tK) { return vStack(iA, tK) * iA / 1000; }
+    /* EQ-FCEC-3 RK4 右端：dT/dt = (P_loss_W − h_st·(T−T_amb))/C_st（I 冻结于子步起点——§4 项 3） */
+    function rhsT(tK, iFroz) { return (pLossW(iFroz, tK) - H_ST * (tK - T_AMB)) / C_ST; }
+    /* 一个 DT_INT 子步的 T_st 推进（经典 RK4；I 冻结 iFroz——FLTH/GT thermo RK4 结构同构） */
+    function rk4Step(iFroz, t0) {
+      var k1 = rhsT(t0, iFroz);
+      var k2 = rhsT(t0 + DT_INT / 2 * k1, iFroz);
+      var k3 = rhsT(t0 + DT_INT / 2 * k2, iFroz);
+      var k4 = rhsT(t0 + DT_INT * k3, iFroz);
+      return t0 + DT_INT / 6 * (k1 + 2 * k2 + 2 * k3 + k4);
+    }
+
+    /* 电气面（EQ-FCEC-7 L0 序保留）：plant 家族（none/sensor_drift）走适配器，
+       load_step/actuator_fault 走内联级联（RFC §3 S2 验收边界沿 L0——plant 不覆盖两族） */
+    var usePlant = fc001PlantCapable(cfg);
+    var plant = usePlant ? FL.core.plants.createFc001Plant(cfg) : null;
+    /* 内联族（load/actuator）测量通道无偏置（engine bAt 的 isSensor 限定——oracle
+       numeric core b = 0.0「非 sensor 轨测量通道无偏置」同口径） */
+    function bAt() { return 0; }
+    function demandAt(time) { return (isLoad && tStart != null && time >= tStart - 1e-9) ? load0 + magnitude : load0; }
+
+    var series = makeSeries(system, n);
+    /* 任务5裁定（§3.1 off 轨零变化最高判据）：三新信号为 on 轨专属列——SystemDef.signals
+       带 onTrackOnly 标记（makeSeries 门控跳过），on 轨此处补建；off 轨 timeseries.signals
+       保持既有 21 键逐字节不变 ⇒ off 轨 run_hash 零变化。 */
+    system.signals.forEach(function (sg) {
+      if (sg.onTrackOnly && !series[sg.id]) {
+        var arr = new Array(n + 1);
+        for (var i0 = 0; i0 <= n; i0++) arr[i0] = null;
+        series[sg.id] = arr;
+      }
+    });
+
+    var I_fc = usePlant ? plant.I_fc_ref : I_fc_base;
+    var I_fc_ref = I_fc_base;
+    var T_st = T_AMB;
+    var intIfc = 0;
+    var intB = 0;
+    var intDemand = 0;
+    var intPfcTrue = 0;   /* ∫P_fc,true dt（kW·s，子步梯形——E_fc 账本，FLTH Q4 idiom） */
+
+    function record(k) {
+      var time = t[k];
+      var b = usePlant ? plant.bAt(time) : bAt();
+      var demand = demandAt(time);
+      var iFc = I_fc;
+      var iMeas = usePlant ? plant.iMeasAt(iFc, time) : iFc + b;
+      var e0v = e0Of(T_st);
+      var vSt = vStack(iFc, T_st);
+      var pFcTrue = vSt * iFc / 1000;   /* EQ-FCEC-2（on 域电堆半边替换） */
+      var pFcMeas = V * iMeas;          /* 测量链 0.4 kV 恒压口径未动（A-fcec-meas/Q5 定案） */
+      var pBat = demand - pFcTrue;      /* 理想平衡源口径（定义式记账——r_true ≡ 0 的构造基） */
+      var pBatEst = demand - pFcMeas;
+      series.I_fc_true_A[k] = iFc;
+      series.I_fc_meas_A[k] = iMeas;
+      series.I_fc_ref_A[k] = usePlant ? plant.I_fc_ref : I_fc_ref;
+      series.bias_A[k] = b;
+      series.I_fc_cap_A[k] = (isAct && time >= tStart - 1e-9) ? I_fc_cap : null;
+      series.P_fc_true_kW[k] = pFcTrue;
+      series.P_fc_meas_kW[k] = pFcMeas;
+      series.I_bat_true_A[k] = pBat / V;
+      series.I_bat_meas_A[k] = pBat / V;
+      series.P_bat_true_kW[k] = pBat;
+      series.P_bat_meas_kW[k] = pBat;
+      series.P_bat_est_kW[k] = pBatEst;
+      series.P_load_demand_kW[k] = demand;
+      series.P_load_served_kW[k] = demand;
+      series.V_bus_V[k] = 400;
+      series.SOC_true_pct[k] = soc0 - (intDemand - intPfcTrue) / (CAP_KWH * 3600) * 100;            /* A-5 真实功率基 */
+      series.SOC_est_pct[k] = soc0 - (intDemand - V * intIfc - V * intB) / (CAP_KWH * 3600) * 100;  /* 测量链 L0 逐字（EQ-FCEC-7） */
+      series.r_true_kW[k] = pFcTrue + pBat - demand;   /* 定义恒等 ≡ 0（按构造） */
+      series.r_meas_kW[k] = pFcMeas + pBat - demand;   /* EQ-FCEC-7：= 0.4·b + (0.4 − V_stack/1000)·I_fc */
+      series.valve_cmd_pct[k] = 100;
+      series.valve_meas_pct[k] = (isAct && time >= tStart - 1e-9) ? magnitude : 100;
+      /* 三新电化学信号（当前状态值重算——非累计值，FLTH §2.3 注记②同款） */
+      series.T_st_K[k] = T_st;
+      series.V_stack_V[k] = vSt;
+      series.P_loss_stack_kW[k] = (e0v - vSt) * iFc / 1000;   /* EQ-FCEC-4 信号面 = P_loss_W/1000 */
+    }
+
+    record(0);
+    for (var k = 1; k <= n; k++) {
+      for (var j = 0; j < SUB; j++) {
+        var time = (k - 1) * SUB * DT_INT + j * DT_INT;
+        var bSub = usePlant ? plant.bAt(time) : bAt();
+        var demandSub = demandAt(time);
+        intDemand += demandSub * DT_INT;
+        intB += bSub * DT_INT;
+        /* ① 电气面（L0 序保留，EQ-FCEC-7）：I_start = 子步起点值（同时是②③的冻结输入） */
+        var iStart = I_fc;
+        var tSt0 = T_st;
+        if (usePlant) {
+          var plantStep = plant.stepOf(iStart, time, DT_INT);
+          I_fc = plantStep.y;
+          intIfc += plantStep.integral;
+        } else {
+          if (isLoad) {
+            /* EQ-6 功率分配器级（A-fcec-dispatch：0.4 kV 名义电压原样——目标每子步移动，
+               refStep 弃积分项仅取 .y，L0 逐字） */
+            var refStep = foStep(I_fc_ref, (demandSub - P_bat_ref) / V, 2.5, DT_INT);
+            I_fc_ref = refStep.y;
+          }
+          var target;
+          if (isAct) target = (tStart != null && time >= tStart - 1e-9) ? Math.min(I_fc_ref, I_fc_cap) : I_fc_ref;
+          else target = I_fc_ref;
+          var step = foStep(iStart, target, isAct ? 1.5 : 1.2, DT_INT);
+          I_fc = step.y;
+          intIfc += step.integral;
+        }
+        /* ② T_st RK4（EQ-FCEC-3；RHS 内 I 冻结于子步起点 iStart——§4 项 3 口径） */
+        T_st = rk4Step(iStart, tSt0);
+        /* ③ E_fc 账本子步梯形（EQ-FCEC-2 真实功率基，FLTH Q4 同款 idiom） */
+        intPfcTrue += 0.5 * (pFcTrueKw(iStart, tSt0) + pFcTrueKw(I_fc, T_st)) * DT_INT;
+      }
+      record(k);
+    }
+    return {
+      series: series,
+      integrals: {
+        E_load: intDemand,
+        /* EQ-FCEC-2/7（A-5 真实功率基）：E_source = ∫P_fc,true dt；
+           E_bat = ∫P_bat,true = ∫P_load − ∫P_fc,true（理想平衡源口径，恒等基组装）；
+           E_bat_est 测量链 L0 逐字（0.4 kV 口径） */
+        E_source: intPfcTrue,
+        E_bat: intDemand - intPfcTrue,
         E_bat_est: intDemand - V * (intIfc + intB),
         intB: intB
       }
@@ -1976,10 +2214,18 @@
     if (!events.length) return [];
     var dt = cfg.dt_s;
     var units = {};
-    system.signals.forEach(function (sg) { units[sg.id] = sg.unit || ''; });
+    /* on 轨专属列缺席即跳过（FCECH-G2b-04 任务5裁定配套——FC001_ELECTROCHEM_G2B_SPEC_APPROVED
+       v1.0 §2「事件快照零扩展」+ §3.1 off 轨零变化最高判据，CHG-20261113-01）：off 轨
+       timeseries.signals 不含 onTrackOnly 三列 ⇒ off 轨快照 units/variables 逐字节不变；
+       on 轨列在场 ⇒ 按 makeSeries/varsAt 既有机制纳入（FL thermal 引擎侧快照同形态）。
+       既有系统全列在场（makeSeries 为全部目录信号建列）⇒ 本门控对其零变化。 */
+    system.signals.forEach(function (sg) { if (series[sg.id]) units[sg.id] = sg.unit || ''; });
     function varsAt(idx) {
       var out = {};
-      system.signals.forEach(function (sg) { out[sg.id] = series[sg.id] ? series[sg.id][idx] : null; });
+      system.signals.forEach(function (sg) {
+        if (!series[sg.id]) return;   /* on 轨专属列结构性缺席（off 轨）——不产 null 键 */
+        out[sg.id] = series[sg.id][idx];
+      });
       return out;
     }
     var snapsOut = [];
@@ -2565,7 +2811,15 @@
       modelHash: modelHash,
       engineVersion: ENGINE_VERSION,
       modelManifest: deepClone(manifest),
-      signals: deepClone(system.signals),
+      /* Run 挂载信号目录（任务5裁定配套——FCECH-G2b-04，CHG-20261113-01）：on 轨专属信号
+         在结构性缺席轨（onTrackOnly 且列未构建，FC off 轨三列）不挂入 Run 目录——
+         run.signals 与 timeseries.signals 键面保持一致（core.test.js 序列/目录一致性
+         不变量承载；bundle.timeseriesCsv 缺列容错面同口径）。既有系统全部信号有列
+         ⇒ 本过滤对其零变化；SystemDef 目录（FL.systems.get().signals）仍含全量 24 信号
+         （§3.1 项 4 信号目录更新为登记预期面；本字段不入 run_hash/五类哈希）。 */
+      signals: deepClone(system.signals).filter(function (sg) {
+        return !(sg.onTrackOnly && !series[sg.id]);
+      }),
       timeseries: { t: t, signals: series },
       events: events,
       snapshots: snapshots,

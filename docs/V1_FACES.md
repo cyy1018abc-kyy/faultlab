@@ -70,12 +70,18 @@
 MG001 :1373〔v1.1.0，CHG-20261110-02〕；
 注册表 `ALL` :2483〔v1.1.0 六成员现 :2991——CHG-20261110-02〕；`FL.systems` 公共 API :2586-2596；UNITS 字典 :110-114）；字段面文档
 docs/CONTRACT.md §4.2-§4.4（:232-316）；`defaultConfig` 盖章逻辑 :2546-2572。
+〔v1.2.0 行号注（CHG-20261113-02，FC 电化学轨 additive 后实读）：FC001 块现 :406（level :413、
+defaults `electrochem_model:'off'` :430、signals :538 起 **24 项**——三新信号 T_st_K/V_stack_V/
+P_loss_stack_kW :566-568 带 `onTrackOnly:true`、faults :570、model_id/model_version :603-604、
+`model.electrochem` additive 子对象 :640 起〔A-fcec-* 6 条 + on 域 limitations 4 项 +
+EQ-FCEC-1..7 + level_on :665 / summary_on :666〕）；MG001 现 :1453；`ALL` 现 :3071；
+`FL.systems` 现 :3179——行号快照规则不变，按符号锚点重对、不逐行信任快照。〕
 实例画像（本 ask 逐项实读计数）：
 
 | 系统 | model_id / model_version | level 标签 | 信号数 | 故障族 | 方程面 |
 |---|---|---|---|---|---|
 | FL-001 | `fl001` / `1.1.0`（:301-302） | L0（:126）+ thermal on 轨 | 18 | sensor_drift / actuator_fault（:269/:281） | EQ-1..6 + EQ-A/B + EQ-FLTH-1..9（:339-359） |
-| FC-001 | `fc.pem.l0` / `1.1.0`（:579-580） | L0（:407） | 21 | sensor_drift / load_step / actuator_fault（:548/:558/:568） | EQ-1..6 |
+| FC-001 | `fc.pem.l0` / `1.1.0`（:579-580；现行 :603-604——model_version 维持仅登记，Q1 定案 B） | L0（:407；现行 :413）+ **L1 电化学 on 轨**（electrochem_model off|on 默认 off；level_on「L1 · 电堆极化与单节点热（数值仿真级）」:665 经 levelFor/summaryFor 派生——既有静态消费入口零变化）（v1.2.0，CHG-20261113-02） | **24**〔v1.1.0 时点 21 + 3 新信号 T_st_K/V_stack_V/P_loss_stack_kW——onTrackOnly on 轨专属列、off 轨结构性缺席〕 | sensor_drift / load_step / actuator_fault（:548/:558/:568；现行 :570 起——族面零变化） | EQ-1..6 + **EQ-FCEC-1..7（on 轨，model.electrochem 子对象承载；off 轨 EQ 面零变化）**（v1.2.0，CHG-20261113-02） |
 | GT-001 | `gt.sync.l0` / `1.2.0`（:830/:833） | L1 thermo（:631），swing/linear 遗留轨 | 27 | sensor_drift / load_step / actuator_fault（:799/:809/:819） | EQ-1..6 + EQ-GTL1-1..12（:875-893） |
 | PV-001 | `pv.pv.l0` / `1.0.0`（:1066-1067） | L0（:919） | 17 | sensor_drift / shading_step（:1044/:1055） | EQ-PV-1..7（:1090 起） |
 | WT-001 | `wt.aero.l0b` / `1.0.0`（:1314-1315） | L0b（:1136） | 22 | sensor_drift / actuator_fault / gust_step（:1283/:1293/:1303） | EQ-WT-1..9（:1342 起） |
@@ -83,6 +89,9 @@ docs/CONTRACT.md §4.2-§4.4（:232-316）；`defaultConfig` 盖章逻辑 :2546-
 
 （v1.1.0，CHG-20261110-02：上表增 MG-001 行——**六系统快照**；MG-001 为 additive 实例，
 字段面承诺同等适用，`ALL` 注册表六成员。）
+（v1.2.0，CHG-20261113-02：FC-001 行更新——信号 21→**24**（+3 新信号 onTrackOnly）、level 增
+**L1 电化学 on 轨**派生变体（electrochem_model 默认 off）、EQ 面增 **EQ-FCEC-1..7**（on 轨
+model.electrochem 子对象）——additive 字段面承诺同等适用，`ALL` 注册表六成员不变、零新系统。）
 
 **承诺内容**（v1.0 起冻结的部分）：
 - 字段面语义：id/title/shortTitle/experimentCode/level/summary/questions/duration_s/dt_s/
@@ -112,7 +121,8 @@ docs/CONTRACT.md §4.2-§4.4（:232-316）；`defaultConfig` 盖章逻辑 :2546-
 
 **事实源**：ORACLE_INTERFACE_D2 §3（:117-184，字段面 §3.1、tier 制度 §3.2 引 ALINE §3 :75-92、
 approval §3.3、backend 留位 §3.4、正交性 §3.5）；data/golden/ 既有 8 golden + 8 sidecar
-（本 ask 列目录实证；v1.1.0 增 mg001_v1 → **现存 9 golden + 9 sidecar**，CHG-20261110-02）；
+（本 ask 列目录实证；v1.1.0 增 mg001_v1 → **现存 9 golden + 9 sidecar**，CHG-20261110-02；
+v1.2.0 增 fc001_v2 → **现存 10 golden + 10 sidecar**，CHG-20261113-02）；
 逐文件 tier/schema 实测（本 ask 用 python 逐文件读取）：
 
 | golden | schema 版本 | gate.tier | Run 数 | 状态 |
@@ -120,6 +130,7 @@ approval §3.3、backend 留位 §3.4、正交性 §3.5）；data/golden/ 既有
 | fl001_v1 | v1 | （无 tier 字段，v1 面） | 4 | 在验（MODELS["fl001"]，off 默认轨） |
 | fl001_v2 | v2 | T-B | 4 | 在验（MODELS["fl001_l1"]，thermal on） |
 | fc001_v1 | v1 | （无 tier 字段，v1 面） | 5 | 在验 |
+| fc001_v2 | v2 | T-B | 5 | 在验（MODELS["fc001_l1"]，5 Run 镜像 fc001_v1 全集全 electrochem_model=on、approval CHG-20261113-01、supersedes="fc001_v1（字节冻结留档）"——v1.2.0 增行，CHG-20261113-02） |
 | gt001_v1 | v1 | （无 tier 字段） | 6 | 字节冻结留档（linear 存档轨） |
 | gt001_v2 | v1 | T-A | 6 | 字节冻结留档（swing 存档轨；CRLF 写盘 F-8 登记豁免，ORACLE_D2 §6） |
 | gt001_v3 | v2 | T-B | 6 | 在验（MODELS["gt001"] 重指向，scripts/verify_golden.py:117） |
@@ -139,7 +150,7 @@ approval §3.3、backend 留位 §3.4、正交性 §3.5）；data/golden/ 既有
   （scripts/verify_golden.py:178/:224/:337 T-B 分支）；
 - V-03 语义（generated_by.oracle_source_sha256 = oracle 源文件自身字节 SHA-256）、V-03b
   approval 摘要算法（剥离 generated_by/approval 后 canonical JSON 的 SHA-256）；
-- **既有 9 golden 文件字节冻结（v1.1.0 计数快照同步：v1.0.0 时点 8 + mg001_v1，CHG-20261110-02——
+- **既有 10 golden 文件字节冻结（v1.2.0 计数快照同步：v1.1.0 时点 9 + fc001_v2，CHG-20261113-02——
   字节冻结承诺语义零变化，仅计数事实面更新）**（V-02 sidecar 绑定实际字节）——该承诺强于 semver：
   任何重出（含保 id）都是 G2b/CHG 事件，旧文件字节永不就地改写（先例口径：Q3 冻结归档债）；
 - 新 golden（新 id）默认 schema v2；verify_golden MODELS 注册行语义（重指向须 CHG；
@@ -298,6 +309,12 @@ tier/all **35 步 34 pass / 1 fail**——唯一失败步 perf.mjs E2E 主旅程
 §0，阈值再登记待用户裁定）。〔v1.1.0 闭合补记（CHG-20261110-03，2026-11-13）：阈值按同一
 「实测峰值×2」公式再登记 15000→**31500 ms**（D-4 程序，用户指令链采推荐口径）+ 复跑
 `--tier all` 两次独立 **35/35 PASS**（61716/59915 ms）——**G7 已闭合**。〕〕
+〔v1.2.0 快照（CHG-20261113-02）：**35 步维持 0 新步**（V120 DEC-5——verify_golden fc001_l1
+并入步① DEFAULT_MODELS **三 golden 顺序验证** fl001→fl001_l1→fc001_l1、engine on 轨并入
+engine-fc 既有步⑥；FIRST-35 机检既有 35 步零改动，预算 ≤35 维持）；最近全量
+artifacts/run-g2-report.json = 2026-11-13 tier/all **35 步 35 pass / 0 fail**（35/35 × 2 独立，
+78450/78179 ms；perf 步实测 12255/12263 ms ≪ 31500 ms——G7 维持闭合）；步① label
+「verify_golden fl001」滞后先例延续（现实际覆盖三 golden，随下次 tools 触碰统一固化）。〕
 
 **承诺内容**（v1.0 起冻结的部分）：
 - 四件套构成缺一不可（①数值：verify_golden + engine 测试；②浏览器 E2E；③RunRegistry/
@@ -325,7 +342,9 @@ tier/all **35 步 34 pass / 1 fail**——唯一失败步 perf.mjs E2E 主旅程
 **事实源**：tools/copy-guard.mjs——扫描域 SCOPES=['src'] :15、BANNED 禁词 33 模式 :18-26
 （含电网/惯量/一次调频验证类禁词——孤岛/并网表述红线的机检面）、ALLOW 批准否定/限定串
 11 条 :29-37〔v1.1.0 词表快照同步：**BANNED 39 模式 / ALLOW 14 条**——MG 六词入表 +
-ALLOW 增量 3 串，deviations.md D-27 评估/D-28 落地，CHG-20261110-02〕、sealed 标识符 token 剥离（D-11）:44-46、命中 exit 1 / PASS 摘要 :67-74、
+ALLOW 增量 3 串，deviations.md D-27 评估/D-28 落地，CHG-20261110-02；v1.2.0 维持注
+（CHG-20261113-02）：词表 **39/14 基线维持**——本波零增词（FC on 轨文案走「【仅
+electrochem_model=on 适用】」既有分域句式纪律，发布轮 copy-guard 实跑 0 命中）〕、sealed 标识符 token 剥离（D-11）:44-46、命中 exit 1 / PASS 摘要 :67-74、
 「允许列表每次扩充须在 evidence deviations.md 记录」:8；制度依据 UI_COPY_GUARDRAILS §6.3/
 §8.2（G0-DEC-13）；挂 run-g2 步 17（tools/run-g2.mjs:105，core 层）。
 
@@ -411,7 +430,10 @@ package/发布证据与 CHG 文本中）：
 | 6 | 评测生态——协议批准 | ARENA_EVAL_PROTOCOL v1.1 批准（CHG-20261030-03）+ MVP 五件套全部落地（arena-protocol.js/arena2-gen.mjs/arena2-verify.mjs/负例测试/run-g2 步 19） | run-g2.mjs:107；本 ask 列文件实证 | ✅ |
 | 7 | 评测生态——对外首场 | 流程就绪（EVAL_TRACK_GUIDE v2 §6；组织方=用户）——运营项随时可启动，非代码收敛条件 | V06_ROADMAP §2 :70 | ✅（就绪；首场时点归组织方） |
 | 8 | 架构稳定 | 零第三方依赖/离线可跑/零构建 ES2020（O-03，CONTRACT.md §2）；I-1…I-7 不变式沿袭（V06 §0）；D-5 插件化评估=推荐 v1.0 不做（V090 DEC-4）；D-3 FMU=外部依赖挂起（等样本，不做清单内） | V090 §0/DEC-4；V06 §6 | ✅ |
-| 9 | 全门禁 | 最近全量 run-g2 tier=all 30/30 ok（2026-11-08，commit 1331ed3 = v0.8.0 收盘轮）——**v0.9.0 收盘须复跑 31 步全量**（预算 ≤32）〔v1.1.0 快照同步（CHG-20261110-02）：步数账现值 **35**；最近全量 2026-11-11 tier/all **34/35**——perf.mjs 时长门禁阻塞登记（v110-release §0），G7 闭合待 perf 阈值再登记裁定〔CHG-20261110-03（2026-11-13）已闭合：阈值 31500 ms 再登记 + 复跑 35/35 两次独立 PASS〕〕 | artifacts/run-g2-report.json（本 ask 读取） | ⏳ 随本波 G 门禁兑现 |
+| 9 | 全门禁 | 最近全量 run-g2 tier=all 30/30 ok（2026-11-08，commit 1331ed3 = v0.8.0 收盘轮）——**v0.9.0 收盘须复跑 31 步全量**（预算 ≤32）〔v1.1.0 快照同步（CHG-20261110-02）：步数账现值 **35**；最近全量 2026-11-11 tier/all **34/35**——perf.mjs 时长门禁阻塞登记（v110-release §0），G7 闭合待 perf 阈值再登记裁定〔CHG-20261110-03（2026-11-13）已闭合：阈值 31500 ms 再登记 + 复跑 35/35 两次独立 PASS〕
+〔v1.2.0 快照（CHG-20261113-02）：最近全量 2026-11-13 tier/all **35/35 × 2 独立**
+（78450/78179 ms；0 新步——35 维持，步① 三 golden；perf 步 12255/12263 ms ≪ 31500 ms，
+G7 维持闭合）——证据 evidence/g8/v120-release.md §4〕〕 | artifacts/run-g2-report.json（本 ask 读取） | ⏳ 随本波 G 门禁兑现 |
 | 10 | 文档完整 | 现有：docs/{CONTRACT,FAULT_CATALOG v1.4,SCOPE,REFERENCES,METRICS_P1,AGENT_PROTOCOL} + NEXT 规格族 + tools/oracle/README + 本文。发布轮补：本文 §2 标注经发布 CHG 转正、迁移指南义务声明生效（§3.3）、面③/#10 残留裁定 | docs/ 与 NEXT/ 列目录实证 | ⏳ 发布轮动作 |
 | 11 | 残留登记（本 ask 发现，非 V06 原文项） | ①scenario.js 系统枚举错误文案未含 WT-001（:150/:157；解析行为不受影响——本 ask Node 探针实证 WT-001 可解析）；②tests/teaching.test.js 与 tests/leaderboard.test.js 未入 run-g2 步账（各自独立可跑、当前实跑均绿）——v1.0 发布轮裁定补挂（预算制内）或登记豁免 | 本文面③/面⑦「不在承诺内」 | 🔶 收敛前裁定 |
 
@@ -506,6 +528,35 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
 - **§7 登记清算清单逐项清账标注**（五项 ✓ 全清）+ 该清单「FC」→「FL」转写笔误勘误
   （W5 grep 实证卡在 FL-001）。
 
+## 9. v1.2.0 additive 修订记录（2026-11-13，CHG-20261113-02）
+
+本节为 v1.2.0 发布轮对本文件的全部修订索引——**全部 additive（事实同步行 +
+「（v1.2.0，CHG-20261113-02）」标注），冻结条款语义零变化；§1 转正记录与 §3 breaking
+政策文本零触碰**：
+
+- **面① FC-001 实例画像行更新**：信号 21→**24**（+3 新信号 T_st_K/V_stack_V/P_loss_stack_kW，
+  `onTrackOnly` on 轨专属列、off 轨结构性缺席）+ level 增 **L1 电化学 on 轨**注记
+  （electrochem_model off|on 默认 off；level_on 经 levelFor/summaryFor 派生——既有静态
+  消费入口零变化）+ EQ 面增 **EQ-FCEC-1..7**（on 轨 model.electrochem 子对象承载）+
+  事实源行 systems.js **v1.2.0 行号注**（FC001 :406 起、MG001 :1453、`ALL` :3071、
+  `FL.systems` :3179——快照规则不变）；六系统成员不变、零新系统；
+- **面② golden 表增 fc001_v2 行**（5 Run 镜像 fc001_v1 全集全 electrochem_model=on、T-B、
+  schema v2、approval CHG-20261113-01、supersedes="fc001_v1（字节冻结留档）"）+
+  「既有 9 golden」计数快照 → **10 golden**（v1.1.0 时点 9 + fc001_v2——字节冻结承诺
+  语义零变化，仅计数事实面更新并标注）；
+- **面⑦ 步数快照注**：**35 步维持 0 新步**（V120 DEC-5——verify_golden fc001_l1 并入步①
+  DEFAULT_MODELS 三 golden、engine on 轨并入 engine-fc 既有步⑥；FIRST-35 机检既有 35 步
+  零改动）+ 最近全量证据快照更新（2026-11-13 **35/35 × 2 独立**，perf 步 12255/12263 ms
+  ≪ 31500 ms——G7 维持闭合）+ 步① label 滞后先例延续注；
+- **面⑧ 词表快照维持注**：**39/14 基线维持**（本波零增词——FC on 轨文案走既有分域句式
+  纪律，copy-guard 发布轮实跑 0 命中）；
+- **§4 #9 行快照同步**（35/35 × 2 本轮——2026-11-13，证据 v120-release §4）；
+- 面③/面⑤/面⑥/面④/§3/§1 零触碰（scenario 新键 `electrochem_model` additive 语义由
+  面③ 冻结边界原文「新可选事件键……新键只影响使用它的输入」直接承载，B-1(a) 显式键
+  条件式形态即对该边界的兑现，无需修订面③ 文本——已随 CHG-20261113-01 批准登记）。
+
 **文件结束**。V1_FACES v1（2026-11-08，T6 起草，CHG-20261108-01）→ v1.0.0 冻结转正
 （CHG-20261108-04，用户 v1.0.0 发布指令链）→ **v1.1.0 additive 修订**（CHG-20261110-02：
-六系统/9 golden/35 步/39 词——全部 additive，冻结语义零变化）。
+六系统/9 golden/35 步/39 词——全部 additive，冻结语义零变化）→ **v1.2.0 additive 修订**
+（CHG-20261113-02：FC L1 电化学轨/10 golden/35 步 0 新步/39 词维持——全部 additive，
+冻结语义零变化）。

@@ -1,7 +1,7 @@
 {
-  "journey": "ui-walkthrough-59",
+  "journey": "ui-walkthrough-63",
   "ok": true,
-  "pass": 59,
+  "pass": 63,
   "fail": 0,
   "failures": [],
   "scope": {
@@ -19,6 +19,7 @@
       "C 故障原理卡 12",
       "D 系统页深链 18",
       "E 六系统声明面 6",
+      "G FC 电化学轨 on 走查 4",
       "F 全程守卫 4"
     ],
     "redline_terms": [
@@ -47,14 +48,14 @@
     }
   },
   "code": {
-    "commit_sha": "61820f1f36d6e19d3422bb99fa8633fbc54fa382",
+    "commit_sha": "20db6f4a3b1405ac22ddd20903b841cfc312b47e",
     "branch": "main",
     "worktree_dirty": true
   },
   "execution": {
     "command": "node tools/ui-walkthrough.mjs",
-    "started_at": "2026-11-11T23:50:32.412Z",
-    "generated_at": "2026-11-11T23:50:59.398Z",
-    "duration_ms": 26986
+    "started_at": "2026-11-13T20:40:09.514Z",
+    "generated_at": "2026-11-13T20:40:40.944Z",
+    "duration_ms": 31430
   }
 }

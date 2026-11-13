@@ -81,6 +81,35 @@ systems.js 登记现状（FCEXT_G2B_SPEC_APPROVED §1.2/§1.4）：assumption `A
 `src/core/plants/fc001.js` 数值子步路径（I-11 S2 移植），load_step/actuator 走内联路径——
 扩展轮新 Run 走内联路径，存量 Run 走 plant 路径（口径一致性由 oracle 对照兜底）。
 
+**electrochem 轨注记（FCECH-G2b-03/04，2026-11-13 落地；`FC001_ELECTROCHEM_G2B_SPEC_APPROVED.md` v1.0，CHG-20261113-01 批准链）**：
+FC-001 增 `electrochem_model: "off"|"on"` 配置开关（默认 **off**——off 轨 = 上表三族 L0 物理面 +
+fc001_v1 golden 零变化，本注记不改变上表任何故障族行）。on 域内电堆新增单节点集总热容温度
+状态 T_st（EQ-FCEC-3：C_st·dT_st/dt = P_loss_W − h_st·(T_st − T_amb)，T_st(0)=T_amb=298.15 K
+冷启动）、V-I 极化链三损失项端电压 V_stack（EQ-FCEC-1，V_stack 为电堆集总等效端电压——
+A-fcec-polarization）与热损失记账 P_loss_W = (E0 − V_stack)·I（EQ-FCEC-4，W 记账——A-3 定案；
+**热损失是模型记账项，不是能量损失**）；on 域功率换算 P_fc,true = V_stack·I/1000
+（EQ-FCEC-2，替换 EQ-3 前半 A-const-v 电堆半边——EQ-3 off 域逐字保留）、r_meas 定义恒等扩展
+含恒压口径偏差项（EQ-FCEC-7，Q5/A-1 定案：口径偏差项在参考工作点 (I=50 A, T_st(0)) 处为零、
+偏离工作点显非零——模型已知结构项、非测量故障）——方程集 **EQ-FCEC-1…7**（故障族注入面与
+测量链/控制面零升级——EQ-1/2/5/6 原样，功率分配器 EQ-6 原样，A-fcec-dispatch 分域登记）。
+on 轨 golden = **fc001_v2**（5 Run 全部 electrochem_model=on，镜像 fc001_v1 全集；schema v2、
+model_version 1.1.0、method_id=`fc001_l1_polarization_rk4_dt0.01`、gate tier **T-B**、
+supersedes=fc001_v1（off 轨字节冻结留档）；oracle `tools/oracle/fc001_l1_oracle.py` 出生即
+oracle_base 接入；verify_golden 注册行 `fc001_l1` 已追加、默认（无参）运行扩为 fl001 +
+fl001_l1 + fc001_l1 三 golden——V080 DEC-6 步①并入口径沿袭）。场景面 **B-1(a) 显式键条件式**
+（偏离 thermal/inertia 先例——Q9 定案）：`electrochem_model` 仅在场景输入显式提供时写入
+归一化事件与 scenarioHash（缺省全链 absent，缺省轨由引擎 normalizeConfig 盖章层承载 ⇒
+既有 FC 场景 scenarioHash 零变化）；cfg 值不进 scenarioView 投影/哈希（B-3(a)，已知局限：
+FC on/off 两轨 config_hash 同值——轨区分由 run_hash/序列内容承载，不静默）。三新信号
+T_st_K / V_stack_V / P_loss_stack_kW 带 **onTrackOnly** 标记（仅 on 轨建列、off 轨全程 null、
+全非盲显不设 blindVisible——盲包语义零变化；run.signals 目录 21→24）。系统 scope 维持
+**approved_fc**（electrochem 轨为**物理深度轨、非新故障族**——上表三族定义/参数域/授权状态/
+族白名单零变化，本注记 = 族面零变化声明；fc001_v2 验收 = T-B 门禁，fc001_v1 冻结锚点不作
+on 轨通过判据——acceptance.keyValues off 轨专用分域登记）；默认 off ⇒ P0/盲包语义零变化。
+UI 变体（规格 §1.6 冻结文案，CHG-20261113-01 批准链）：on 轨层级
+「L1 · 电堆极化与单节点热（数值仿真级）」、定位句「教学尺度电化学-热集总示意（L1-lite），
+非机组/电网动态验证」。
+
 ## 3. GT-001 燃气涡轮（L0b swing / linear + L1 thermo 三轨，scope=extension_preview）
 
 | fault id | 家族 | 类型 | 作用位置 | 幅值参数 | 默认时刻 | 授权状态 | golden | 因果模板 |
@@ -131,6 +160,7 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | 2026-11-08 | FL-001（三族不变，模型轨面） | **thermal 轨（thermal_model=on）G2b 批准并实现落地 → off/on 双轨制 + off 默认**（§1 节增 thermal 轨注记行：golden 增 fl001_v2 4 Run 全部 on——schema v2、method fl001_thermal_rk4_dt0.01、gate tier T-B、supersedes=fl001_v1、model_version 1.1.0、oracle `tools/oracle/fl001_l1_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261107-01 批准链首签；EQ-FLTH-1…9 登记；verify_golden `fl001_l1` 注册行 + T-B series_limit 三分支补全（`_A`→I_A 键新分支、r_true/r_meas 判别前置于 `_kW` 解除遮蔽——gt001_v3 r_true_kW 六 Run 散差实测 0.0 后统一前移，B-3 裁定）+ 默认运行扩为 fl001+fl001_l1 双 golden；off 轨/fl001_v1 零变化；系统 scope 维持 approved_p0、族白名单零改动） | FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2/§4（项 4/6/7/8）+ V080_WAVE_DESIGN DEC-2/DEC-6 + CHG-20261107-01 |
 | 2026-11-08 | WT-001 `v_sensor_bias` / `pitch_stuck` / `gust_step` | **新系统登记（新增 §7 节）→ extension_preview**（WT G2b 批准 CHG-20261107-01；oracle `tools/oracle/wt001_oracle.py` + golden wt001_v1 5 Run 首签（schema v2、method wt001_l0b_euler_dt0.01、gate T-A，approval=CHG-20261107-01 批准链首签）+ verify_golden 注册行落地，WT-G2b-03；`gust_step` 为新族名（不复用 shading_step/load_step——环境输入侧上行气象阶跃，§2.3 族名裁定）；引擎 WT 轨/systems.js 由 WT-G2b-04 同波接入） | WT001_G2B_SPEC_APPROVED v1.0 §2/§4 + V080_WAVE_DESIGN DEC-4（CHG-20261107-01） |
 | 2026-11-11 | MG-001 `load_step` / `pv_shading_link` / `wt_gust_link` / `island_event` | **新系统登记（新增 §8 节）→ extension_preview**（MG G2b 批准 CHG-20261110-01；oracle `tools/oracle/mg001_oracle.py` 源轨复用委托接入（pv001/wt001 oracle import 显式授权 + BESS 能量面内联 + MS-3 复用一致性 emit 硬条件）+ golden mg001_v1 5 Run 首签（schema v2、method mg001_aggregate_analytic、gate T-A（含 I_A 两键，A-1 修订）、approval=CHG-20261110-01 批准链首签）+ verify_golden `mg001` 注册行落地 + scenario.js t_clear_s 守卫扩展 (GT-001×actuator_fault) ∨ (MG-001×island_event)（EVENT_KEYS/hashProjection 零变化）——MG-G2b-03/04，V110_WAVE_DESIGN DEC-5 步数账 33→35；`island_event` 零参数族（params:[]，库内首例，Q2 定案）；`shading_link`/`gust_link` 新族名（MG 聚合层子轨联动转发，不复用 PV/WT 本地族名）；MG `load_step` 为聚合输入阶跃（与 FL-001 已删除 load_step（O-13）无语义继承——O-13 语义差异声明）；引擎 MG 轨/systems.js MG001 SystemDef/UI 六系统化 + ARENA_EXCLUDED 增 'MG-001' 同波接入（V110 W5/W6/W7）） | MG001_G2B_SPEC_APPROVED v1.0 §2/§4 + V110_WAVE_DESIGN DEC-1/DEC-4/DEC-5（CHG-20261110-01） |
+| 2026-11-13 | FC-001（三族不变，模型轨面） | **electrochem 轨（electrochem_model=on）G2b 批准并实现落地 → off/on 双轨制 + off 默认**（§2 节增 electrochem 轨注记行：golden 增 fc001_v2 5 Run 全部 on——schema v2、method fc001_l1_polarization_rk4_dt0.01、gate tier T-B、supersedes=fc001_v1、model_version 1.1.0、oracle `tools/oracle/fc001_l1_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261113-01 批准链首签；EQ-FCEC-1…7 登记；verify_golden `fc001_l1` 注册行 + 默认运行扩为 fl001+fl001_l1+fc001_l1 三 golden；scenario 面 B-1(a) 显式键条件式——EVENT_KEYS additive 新键 electrochem_model、缺省全链 absent、既有 FC 场景 scenarioHash 零变化（偏离 thermal/inertia 先例，Q9 定案）；三新信号 T_st_K/V_stack_V/P_loss_stack_kW 带 onTrackOnly（run.signals 21→24、off 轨 null、全非盲显——盲包语义零变化）；off 轨/fc001_v1 零变化；系统 scope 维持 approved_fc、族白名单零改动——**非新故障族，族面零变化声明**） | FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2/§4（项 10/§1.1）/§8 FCECH-G2b-03/04 + V120_WAVE_DESIGN §2 W2/W3/W5 + CHG-20261113-01 |
 
 ## 6. PV-001 光伏逆变器（L0，scope=extension_preview）
 
@@ -284,7 +314,10 @@ UI 单 Run 可达包络行（signals 页）为当前单 Run 引擎逐点计算�
 
 ---
 
-**文件结束**。FAULT_CATALOG v1.5（2026-11-11：新增 §8 MG-001 节（四族含新族
+**文件结束**。FAULT_CATALOG v1.6（2026-11-13：§2 FC-001 增 electrochem 轨注记行
+（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0，FCECH-G2b-03/04，CHG-20261113-01 批准链，
+系统 scope 维持 approved_fc、族面零变化——物理深度轨非新故障族）+ §5 勘误表登记；
+v1.5 = 2026-11-11 新增 §8 MG-001 节（四族含新族
 shading_link/gust_link 与零参数族 island_event；MG-G2b-03/04，CHG-20261110-01 批准链，
 系统级/族级 scope=extension_preview）+ §4 映射表/§5 勘误表登记；v1.4 = 2026-11-08
 §1 FL-001 增 thermal 轨注记行 + §4/§5 登记 + 新增 §7 WT-001 节（三族含新族 gust_step；
@@ -292,5 +325,5 @@ WT-G2b-03/FLTH-G2b-03，CHG-20261107-01 批准链，系统级/族级 scope 维�
 FL approved_p0 / WT extension_preview）；v1.3 = 2026-11-05 GT-001 L1 thermo 轨三轨制
 更新见 §3/§4/§5（GTL1-G2b-03，CHG-20261104-12 批准链，系统级/族级
 scope=extension_preview 维持）；v1.2 = 2026-11-04 v1.1 实现落地更新 + 新增 §6 PV-001 节
-（PV-G2b-03，CHG-20261104-10 批准链）；冻结时点 = A-2/A-3 评审包提交时）。
+（PV-G2b-03，CHG-20261104-10 批准链）；冻结时点 = A-2/A-3 评审包提交时点）。
 维护规则：族增删/参数域变更/授权状态变化 → 先更本目录 §5 勘误表并登记 CHG，再动 systems.js。
