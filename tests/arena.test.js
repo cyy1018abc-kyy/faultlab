@@ -342,6 +342,50 @@ ok(FL.systems.list().length === 6, 'systems.list() 返回 6 系统（扩池面�
   ok(!v2Err, systemId + ' v2 盲包 V-01…V-06b 全量校验通过', v2Err ? String(v2Err.message) : '');
 });
 
+/* ------------------ 8c. 新族诊断提交可达（V150 O-1，CHG-20261114-05） ------------------ */
+section('8c. 新族诊断提交可达（V150 O-1 CHG-20261114-05：提交族枚举 additive 扩展 +shading_step/gust_step/shading_link/gust_link/island_event）');
+/* 枚举值域断言：新 5 族经 parseExternalBundle 合法接受（枚举=入池六系统目录活跃族全集 + none，
+   族名全集非按系统——MG load_step 与既有 load_step 同名共用；既有 4 值路径由 §1–§8 全量回归零变化覆盖）。 */
+['shading_step', 'gust_step', 'shading_link', 'gust_link', 'island_event'].forEach((fam) => {
+  const parsedFam = FL.arena.parseExternalBundle(JSON.stringify({
+    round: 1, diagnosis: { faultDetected: true, faultType: fam, component: 'none', confidence: 0.9 }
+  }));
+  ok(parsedFam.ok === true, '8c：新族 ' + fam + ' 提交面合法接受', parsedFam.errors.map((e) => e.message).join(';'));
+});
+/* 越界负例镜像：pv_shading_link/wt_gust_link 为 FAULT_CATALOG v1.7 目录项 id、族名为
+   shading_link/gust_link——枚举收族名不收 id，仍拒收。 */
+['pv_shading_link', 'wt_gust_link'].forEach((id) => {
+  const parsedId = FL.arena.parseExternalBundle(JSON.stringify({
+    round: 1, diagnosis: { faultDetected: true, faultType: id, component: 'none', confidence: 0.9 }
+  }));
+  ok(parsedId.ok === false, '8c：目录项 id ' + id + ' 非族名仍拒收');
+});
+/* MG-001 真族轮提交→评分冒烟（seed 7 场景流含 shading_link/island_event/gust_link 新族——
+   完美提交回显真值，family/component 等值匹配可达满分。island_event 为零参数族：真值幅值
+   unit='' 不满足提交侧非空 unit 规则，按「缺失幅值记 0」冻结口径提交 null——family/component
+   可达性为本节目标，幅值边为既有观察项）。 */
+const mgMatchO1 = FL.arena.createMatch({ systemId: 'MG-001', rounds: 6, seed: 7, noise: false, agentIds: [] });
+const mgFamsO1 = mgMatchO1.rounds.map((r) => r.truth.faultFamily);
+['shading_link', 'island_event', 'gust_link'].forEach((fam) => {
+  ok(mgFamsO1.indexOf(fam) >= 0, '8c：MG-001 seed7 场景流含新族 ' + fam, mgFamsO1.join(','));
+});
+mgMatchO1.rounds.filter((r) => !r.truth.healthy).forEach((r) => {
+  const fam = r.truth.faultFamily;
+  const diag = {
+    faultDetected: true, faultType: fam, component: r.truth.component,
+    magnitude: (r.truth.magnitude && r.truth.magnitude.unit)
+      ? { value: r.truth.magnitude.value, unit: r.truth.magnitude.unit } : null,
+    detectTime_s: r.truth.t_fault, confidence: 0.95
+  };
+  let s = null;
+  let e = null;
+  try { s = FL.arena.scoreExternalDiagnosis(mgMatchO1, r.index, diag); } catch (err) { e = err; }
+  ok(!e && s, '8c：R' + r.index + ' ' + fam + ' 外部提交→评分不抛错（V-07 面可达）', e ? String(e.message) : '');
+  if (e || !s) return;
+  ok(s.family === 1 && s.component === 1, '8c：R' + r.index + ' ' + fam + ' family/component 评分可达（满分）',
+    JSON.stringify({ family: s.family, component: s.component }));
+});
+
 /* ----------------------------------------------------- 9. Agent 接口细节 */
 section('9. Agent 统一接口与 firstAlarmT');
 const metaRound = matchA.rounds.find((r) => !r.truth.healthy) || matchA.rounds[0];

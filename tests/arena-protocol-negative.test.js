@@ -1,5 +1,7 @@
 /* owner: arena-protocol | module: tests/arena-protocol-negative | contract: NEXT/ARENA_EVAL_PROTOCOL_APPROVED.md 附录 A/§8
-   盲评测协议 v2 负例矩阵（N-B1…N-B17，冻结后不得删减只可增补）+ MVP smoke（gen→verify→score_hash）
+   盲评测协议 v2 负例矩阵（N-B1…N-B17 冻结 + N-B18/N-B19 增补——V150 O-1 CHG-20261114-05，
+   面⑤「不得删减只可增补」）+ MVP smoke（gen→verify→score_hash）
+   + 新族提交→评分可达 smoke（O-1：诊断族枚举 additive 扩展，评分消费点=等值匹配自动可达）
    + deriveChangePoints 健康局假候选率实测（QP-4 首发前置，协议 §6.3）。
    运行：node tests/arena-protocol-negative.test.js；失败非零退出。 */
 'use strict';
@@ -201,6 +203,111 @@ const BASE = makeBase();
 })();
 
 /* =========================================================
+ * 附录 A 增补（V150 O-1：CHG-20261114-05，面⑤「不得删减只可增补」——
+ * 冻结 N-B1…N-B17 零改动，增补 N-B18/N-B19 与新族可达 smoke）
+ * ========================================================= */
+/* N-B18 新族合法提交正例（V150 O-1 增补）：诊断提交族枚举 additive 扩展
+   （+shading_step/gust_step/shading_link/gust_link/island_event——入池六系统目录活跃族
+   全集 + none；枚举=族名全集非按系统，MG load_step 与既有 load_step 同名共用） */
+(() => {
+  ['shading_step', 'gust_step', 'shading_link', 'gust_link', 'island_event'].forEach((fam, i) => {
+    const s = perfectSubmission(BASE.bundle, BASE.reveal);
+    s.results[0].diagnosis.faultType = fam;
+    let err = null;
+    try { AP.validateSubmissionV2(s, BASE.bundle); } catch (e) { err = e; }
+    ok(!err, 'N-B18.' + (i + 1) + ' 新族合法提交通过 V-07（' + fam + '）', err ? String(err.message) : '');
+  });
+})();
+/* N-B19 提交族枚举越界负例（V150 O-1 增补）：目录项 id 非族名（pv_shading_link/wt_gust_link
+   为 FAULT_CATALOG v1.7 目录项 id、族名为 shading_link/gust_link——枚举收族名不收 id）
+   与空族仍拒收 */
+(() => {
+  const s = perfectSubmission(BASE.bundle, BASE.reveal);
+  s.results[0].diagnosis.faultType = 'pv_shading_link';
+  expectCode(() => AP.validateSubmissionV2(s, BASE.bundle), 'AE-E11', 'N-B19a 目录项 id pv_shading_link 非族名（仍拒收）');
+  const s2 = perfectSubmission(BASE.bundle, BASE.reveal);
+  s2.results[0].diagnosis.faultType = 'wt_gust_link';
+  expectCode(() => AP.validateSubmissionV2(s2, BASE.bundle), 'AE-E11', 'N-B19b 目录项 id wt_gust_link 非族名（仍拒收）');
+  const s3 = perfectSubmission(BASE.bundle, BASE.reveal);
+  s3.results[0].diagnosis.faultType = '';
+  expectCode(() => AP.validateSubmissionV2(s3, BASE.bundle), 'AE-E11', 'N-B19c 空族名（仍拒收）');
+})();
+
+/* =========================================================
+ * O-1 增补 smoke：新族提交→评分可达（CHG-20261114-05）。评分消费点=等值匹配
+ * （scoreDiagnosis faultType===faultFamily / component===component——ARENA_EVAL_PROTOCOL
+ * _APPROVED §6.4），提交过 V-07 后 family/component 评分项自动可达。
+ * island_event 为零参数族：真值幅值 {value,unit:''} 不满足既有提交侧非空 unit 规则，
+ * 按「缺失幅值记 0」冻结口径提交 null → round_score=85.0（幅值边为既有观察项，不在
+ * 本增补面内——真值构造面零触碰）。
+ * ========================================================= */
+(() => {
+  function makeBaseFamily(systemId, family) {
+    const seed = 9024;
+    const setup = { systemId, rounds: 1, seed, noise: true, agentIds: [] };
+    const config = FL.systems.defaultConfig(systemId);
+    config.feedback_mode = 'closed_loop';
+    config.initial = clone(config.initial || {});
+    config.noise = { enabled: true, seed: (seed + 0 * 7919) >>> 0, level: 1 };
+    const faultDef = FL.systems.fault(systemId, family);
+    const magnitude = AP.magnitudeFromRoll(0.5, faultDef);
+    config.fault = { family, faultId: faultDef.id, t_start_s: 20, params: { magnitude } };
+    const run = core.simulate(config);
+    const observables = AP.blindObservables(run);
+    const samples = AP.buildSamples(run, observables);
+    const sc = {
+      config, healthy: false, family, faultDef, faultId: faultDef.id, magnitude,
+      unit: faultDef.params && faultDef.params[0] ? faultDef.params[0].unit : '',
+      tStart: 20, feedbackMode: 'closed_loop',
+      expectedComponent: (FL.systems.get(systemId).faultAnchors || {})[family] || 'none'
+    };
+    const truth = AP.deriveTruth(sc, run);
+    const bundle = AP.buildBundleV2({ systemId, rounds: [{ index: 1, observables, samples }] });
+    const mapping = [{ round: 1, truth, match_id: bundle.match_id }];
+    const reveal = AP.buildRevealV2({ testsetId: bundle.testset_id, matchId: bundle.match_id, seed, systemId, mapping });
+    return { bundle, reveal, truth };
+  }
+  const cases = [
+    ['PV-001', 'shading_step', 100], ['WT-001', 'gust_step', 100],
+    ['MG-001', 'shading_link', 100], ['MG-001', 'gust_link', 100],
+    ['MG-001', 'island_event', 85]
+  ];
+  cases.forEach((c, i) => {
+    const systemId = c[0], family = c[1], expectScore = c[2];
+    let ctx = null;
+    let err = null;
+    try { ctx = makeBaseFamily(systemId, family); } catch (e) { err = e; }
+    ok(!err && ctx, 'O1-smoke.' + (i + 1) + 'a ' + systemId + '×' + family + ' 盲包+reveal 构造不抛错', err ? String(err.message) : '');
+    if (!ctx) return;
+    let vErr = null;
+    try { AP.validateBundleV2(ctx.bundle, { approvedTestsetIds: [ctx.bundle.testset_id] }); } catch (e) { vErr = e; }
+    ok(!vErr, 'O1-smoke.' + (i + 1) + 'b ' + family + ' 盲包 V-01…V-06b 通过', vErr ? String(vErr.message) : '');
+    const sub = {
+      protocol: 'v2', agent: { name: 'O-1 增补 smoke' },
+      testset_id: ctx.bundle.testset_id, match_id: ctx.bundle.match_id,
+      results: [{ round: 1, diagnosis: {
+        faultDetected: true, faultType: family, component: ctx.truth.component,
+        magnitude: (ctx.truth.magnitude && ctx.truth.magnitude.unit)
+          ? { value: ctx.truth.magnitude.value, unit: ctx.truth.magnitude.unit } : null,
+        detectTime_s: ctx.truth.t_fault, confidence: 1
+      } }]
+    };
+    let sErr = null;
+    try { AP.validateSubmissionV2(sub, ctx.bundle); } catch (e) { sErr = e; }
+    ok(!sErr, 'O1-smoke.' + (i + 1) + 'c ' + family + ' 新族提交通过 V-07', sErr ? String(sErr.message) : '');
+    if (sErr) return;
+    const report = AP.scoreV2({
+      bundle: ctx.bundle, submission: sub, reveal: ctx.reveal,
+      blindSha256: core.hashString(JSON.stringify(ctx.bundle)),
+      submissionSha256: core.hashString(JSON.stringify(sub))
+    });
+    eq(report.rounds[0].family, '1.0000', 'O1-smoke.' + (i + 1) + 'd ' + family + ' family 评分可达');
+    eq(report.rounds[0].component, '1.0000', 'O1-smoke.' + (i + 1) + 'e ' + family + ' component 评分可达（' + ctx.truth.component + '）');
+    eq(report.rounds[0].round_score, expectScore.toFixed(1), 'O1-smoke.' + (i + 1) + 'f ' + family + ' round_score=' + expectScore);
+  });
+})();
+
+/* =========================================================
  * MVP smoke：gen（共享模块）→ validate → 提交 → score_hash
  * ========================================================= */
 (() => {
@@ -294,4 +401,4 @@ if (fail) {
   failures.forEach((f) => console.log('  ✗ ' + f));
   process.exit(1);
 }
-console.log('PASS ' + pass + ' / FAIL 0 ✓（N-B1…N-B17 负例 + MVP smoke + QP-4 假候选率实测）');
+console.log('PASS ' + pass + ' / FAIL 0 ✓（N-B1…N-B17 冻结负例 + N-B18/N-B19 增补 + MVP smoke + O-1 新族可达 smoke + QP-4 假候选率实测）');

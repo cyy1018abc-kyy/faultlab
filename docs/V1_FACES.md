@@ -261,6 +261,16 @@ tools/run-g2.mjs:107）。
 
 **不在承诺内**：
 - scenario_rules 代际内容（sr1 之外的生成规则代——规则代演进 = additive，新代不回改 sr1）；
+- **诊断提交族覆盖（v1.5.0，CHG-20261114-05）**：诊断提交 faultType 枚举由 4 值
+  （sensor_drift/load_step/actuator_fault/none）additive 扩至 **9 值**（+shading_step/
+  gust_step/shading_link/gust_link/island_event——入池六系统目录活跃族全集 + none；枚举=
+  族名全集非按系统——pv_shading_link/wt_gust_link 为 FAULT_CATALOG v1.7 目录项 id、族名
+  为 shading_link/gust_link，枚举收族名不收 id）——**入池六系统全活跃族 family/component
+  评分可达**（既有 4 值路径零变化探针承载；协议批准文本无枚举清单载面，「规则代演进 =
+  additive」口径——ARENA_EVAL_PROTOCOL_APPROVED.md 零触碰）；附录 A 17 负例**零删减**
+  （N-B18/N-B19 增补承载——「不得删减只可增补」原文兑现）；已知观察项：island_event
+  零参数族幅值不可达 → round_score 85.0 上限（family/component 可达性不受影响——显式
+  CHG 候选登记，待用户裁定）；
 - deriveChangePoints 首发的放行门槛数值（QP-4：健康局假候选率须测量并公布后才放行——
   ARENA §6.3/:249；该测量面已挂 run-g2 步 19）〔**v1.3.0 放行注记（CHG-20261113-05，
   V130 DEC-4）**：门槛已测量并公布——健康局假候选率实测随 run-g2 步 19 发布、断言门槛
@@ -602,6 +612,25 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
 - **§4 #9 快照**：v1.4.0 快照注（35/35 ×2 + 阈值 71500 ms）；
 - 入池/pool/面⑤ 等 v1.3.0 修订零触碰；§1/§3/面③④⑤⑥ 零触碰。
 
+## 12. v1.5.0 additive 修订记录（2026-11-14，CHG-20261114-05）
+
+本节为 v1.5.0 发布轮对本文件的全部修订索引——**全部 additive（事实同步行 +
+「（v1.5.0，CHG-20261114-05）」标注），冻结条款语义零变化；§1 转正记录与 §3 breaking
+政策文本零触碰**：
+
+- **面⑤ 诊断提交族覆盖注记（V150 DEC-2 显式 CHG 面）**：「不在承诺内」scenario_rules
+  行后新增注记——诊断提交 faultType 枚举 4→**9 值**（+shading_step/gust_step/shading_link/
+  gust_link/island_event——入池六系统目录活跃族全集 + none），**入池六系统全活跃族
+  family/component 评分可达**；名实差修正（pv_shading_link/wt_gust_link 为 FAULT_CATALOG
+  v1.7 目录项 id、族名为 shading_link/gust_link——枚举收族名不收 id）；协议批准文本无
+  枚举清单载面，「规则代演进 = additive」口径——ARENA_EVAL_PROTOCOL_APPROVED.md 零
+  触碰；附录 A 17 负例**零删减**（N-B18/N-B19 增补承载）；既有 4 值路径零变化探针；
+  island_event 零参数族幅值不可达 → round_score 85.0 上限观察项登记（显式 CHG 候选）；
+- **面② 11 golden 不变**（本波零新 golden——计数快照维持 v1.4.0 时点，零修订条目）；
+- **面①/面③/面④/面⑥/面⑦/面⑧/§3/§1/§4 零触碰**：run-g2 35 步 0 新步维持（步 19/25
+  断言数增为测试体量面、非步账面）、词表 39/14 维持（copy-guard 发布轮实跑 0 命中）、
+  perf 阈值 71500 ms 维持（perf 步实测 12725/12568 ms）。
+
 **文件结束**。V1_FACES v1（2026-11-08，T6 起草，CHG-20261108-01）→ v1.0.0 冻结转正
 （CHG-20261108-04，用户 v1.0.0 发布指令链）→ **v1.1.0 additive 修订**（CHG-20261110-02：
 六系统/9 golden/35 步/39 词——全部 additive，冻结语义零变化）→ **v1.2.0 additive 修订**
@@ -609,4 +638,5 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
 冻结语义零变化）→ **v1.3.0 additive 修订**（CHG-20261113-05：面⑤ QP-4 放行 + 入池登记/
 面① ARENA_EXCLUDED 快照同步/本 §10 修订记录——全部 additive，冻结语义零变化）→ **v1.4.0 additive 修订**
 （CHG-20261114-02/03：FL capacity on 轨/11 golden/35 步 0 新步/39 词维持/阈值 71500 ms 再登记——全部 additive，
-冻结语义零变化）。
+冻结语义零变化）→ **v1.5.0 additive 修订**（CHG-20261114-05：面⑤ 诊断族覆盖注记 4→9 值/
+11 golden 不变/35 步 0 新步/39 词维持——全部 additive，冻结语义零变化）。

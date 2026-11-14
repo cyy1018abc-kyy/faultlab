@@ -1582,7 +1582,17 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   证据 `evidence/g8/v140-release.md`。**推送按用户裁定暂缓（同批 v0.7.1–v1.4.0 延续——本波产出并入同批）**。
   **编号说明**：-01 ④ 原预留 -02 为 v1.4.0 发布；-02 实际由 perf 阈值再登记占用（CHG-20261110-03 先例同构），发布顺延 **-03**（偏差登记于此）。
   **批准人：用户（2026-11-14 CHG-20261114-01 指令链——本收口登记为其波次授权的执行记录）；记录人：Lead Agent。**
-- `CHG-20261114-03`：**G9/G10 架构与门禁 spec 外部输入落档（降级 DRAFT）+ 排程与物理处置双裁定（v1.5.0+ 候选波前置登记）**。
+- `CHG-20261114-04`：**V150_WAVE_DESIGN v1 批准（v1.5.0 波：A-5 P3 GT 燃烧延迟 G2b 草案轮 + O-1 盲包诊断族枚举扩展——八面冻结下第五个 additive/minor 波）**。
+  用户 2026-11-14 指令「下一步」——承接 V140 收口汇报的下一轮首项与既定授权句式（CHG-20261114-01 同款链）。
+  ① `NEXT/V150_WAVE_DESIGN.md` v1 生效——**DEC-1…4 全采推荐项**：P3 GT 草案+双路评审（本波唯一 G2b 草案名额；τ_comb 燃烧延迟 y=[f,T3,x_comb] 2→3 维 ODE；键面张力二选一=核心裁定点——形态 a inertia_model 枚举扩值（GTL1 §2.4 三值枚举先例）vs 形态 b 正交二键（FL capacity 先例）vs 被排除形态 thermo 原地深化（A5 §3 :182-184 硬伤）；推荐由草案实读后给出、批准留待用户 v1.6.0+、实现严格串行）；O-1 盲包诊断族枚举 additive 扩展至入池六系统全活跃族（附录 A 17 负例只增不删）；步数账 35→35 零增步（FIRST-35 机检）；additive 三不承诺。
+  ② V140 ④ 待办承接状态：P3=本波首项；O-1=本波第二线；C3 真 TESPy 维持挂起（用户前轮中断，不自动重试）；G9/G10 外部 spec 事宜维持「须用户明示后重立」（v1.4.0 隔离件不预设）。
+  ③ V06_ROADMAP §3 增补 v1.5.0 行（本波）。
+  ④ **CHG-20261114-05 预留**（v1.5.0 发布）。
+  ⑤ 冲突规避机检（2026-11-14）：CronList/OffPeakList/ListWorkflowRuns 全空 + 工作树 clean（HEAD=229a15d）——无已有进程冲突；派发文件面互斥、评审 A/B 串行互不可见、不 push 不 rebase；**代理中断降级路径**：中断路改主线接管（W8 先例）。
+  **推送按用户裁定暂缓（同批：v0.7.1 起至 v1.4.0）——本波产出并入同批**。
+  **批准人：用户（2026-11-14「下一步」指令链——既定候选清单与推荐口径承接）；记录人：Lead Agent。**
+- `CHG-20261114-06`：**G9/G10 架构与门禁 spec 外部输入落档（降级 DRAFT）+ 排程与物理处置双裁定（v1.5.0+ 候选波前置登记）**。
+  **编号勘正（2026-11-14，主线收口）**：本条原编号 `CHG-20261114-03` 与 v1.4.0 发布记录（CHG-20261114-03，主线收口）重号——外部落档与主线收口为并行线同日编号冲突（CHG-20261028-01/02 并行线同号先例同构），勘正为 **-06**（当日首个空闲号），内容逐字保留、零改动；落档文件与记录的交付时点在 v1.4.0 发布（229a15d）之后，由用户渠道交付。
   用户 2026-11-14 下发外部编制 spec（原文档 ID `SPEC-V0.5-G9-G10-APPROVED`：G9 = FC-001 5 态 L1-FMU（C99/FMI 2.0 Co-Sim + Python ctypes host + HTTP bridge/预烘焙兜底）与 I-11 S3 收口；G10 = Arena L2 query-budget 协议（2.0 s 粗信标免费 + 0.1 s 门控切片预算 + query_ledger 防篡改 + MCP stdio server））——本记录为其入链处置。
   ① **落档**：`NEXT/G9_G10_ARCH_GATE_SPEC_DRAFT.md`（勘误头 + 原文逐字保留未修订）；原文自带 APPROVED 状态**降级 DRAFT**——本仓治理链不自动生效。
   ② **核对结论**：引用钩子逐项核实成立（I-11 S3 未排期、V312 B-4「FMU 各自另批」、`tools/backend/py/fmu_runner.py`/`fmu_admission.py` 在位、arena V-00…V-10 + N-B 负例套件在位、G0-DEC-08/11 + 基线 7aed9f6 在位、V140 不做清单 D-3「FMU 样本未到」由本 spec 解锁）；唯版本框架陈旧（原文 v0.5.0/v0.4.0 已于 2026-10-31 消费——现行 v1.3.0、V140=v1.4.0 在飞、V1_FACES 八面冻结）。
@@ -1590,3 +1600,105 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   ④ **裁定二（FC-001 物理处置，用户选「降级 DRAFT 走 G2b」）**：5 态空间 PEMFC（52 V/100 A/80 cell、微重力膜分离器、N₂ 累积）为第三轨新物理（≠ fc001_v1 L0 级联 / ≠ fc001_v2 电化学 on-track 400 V 锚）——按 Q-4 守卫 1 / L1_FEASIBILITY_RFC 口径**走 G2b 草案 + 双路评审，批准轮收口后方可实现**；golden 走新 id fc001_fmu_v1，不撞既有 golden 字节冻结。
   ⑤ 契约面预裁定待办七项登记于落档文件勘误头（601/602 行契约面、fmu_sha256 additive 五哈希零变化、V312 FROZEN 钉 hash 须 CHG、run-g2 步预算扩账 I-7、feedback_mode 等新键 B-1a 显式键纪律、copy-guard 词面作用域 MG=microgrid≠microgravity、arena L2 预算常量协议附记）。
   **批准人：用户（2026-11-14 双裁定——AskUserQuestion 排程题选「V140 先行，G9/G10 随后」+ 处置题选「降级 DRAFT 走 G2b 双评审」）；记录人：Lead Agent。**
+- `CHG-20261114-05`：**v1.5.0 发布收口（G7→G8）——P3 GT 燃烧延迟 G2b 草案轮 + O-1 盲包诊断族枚举扩展（八面冻结下第五个 additive/minor 发布）**。
+  承接 CHG-20261114-04（V150_WAVE_DESIGN 三阶段 W1→W2a→W2b→W3→W4 全完成；本 CHG = W4 门禁与证据路收口登记，-04 ④ 预留号）。
+  **① 发布门全表（2026-11-14 全部真实运行）**：
+  1. `python tools/build.py` exit 0 ×2——FaultLab.html **1736.7 KiB**（1,778,360 B，css=10 js=33，
+     两次构建幂等）。**诚实登记**：≠ 派发预期 1735.8 KiB——1735.8 系 v1.4.0 工件时点（构建于
+     本波 W3 落地前），本波重打包含 W3 O-1 `src/agents/arena.js` 枚举扩展（28,110→29,053 B
+     = **+943 B**，FaultLab.html 增量 1,777,417→1,778,360 B 逐字节相等归因）——UI 页面零改动
+     成立，v1.5.0 时点画像以实测 1736.7 KiB 为准；
+  2. `node tools/run-g2.mjs` × 2 独立（中间零改动）——**均 35/35 PASS，exit 0 × 2**
+     （r1 109848 ms / r2 110185 ms；r2 tier 分解 = core 28 步 28 pass 104686 ms + extended
+     7 步 7 pass 5308 ms）；**0 新步**（35 维持——FIRST-35 机检既有 35 步顺序/判据/命令零
+     改动；步 19 arena-protocol-negative 42→**80**、步 25 arena.test 198→**218** 断言数
+     additive 增长，既有断言零删改）；perf 步实测 **12725/12568 ms ≪ 71500 ms**（CHG-
+     20261114-02 阈值维持，本波零判据变更——G7 维持闭合）；
+  3. `python -I scripts/verify_golden.py` 默认四 golden + 逐模型 ×9——**十次调用全 exit 0**：
+     default = fl001 25 + fl001_l1 25 + fc001_l1 30 + fl001_cap 25 = **105**；逐模型 fl001 25 /
+     fl001_l1 25 / fc001 30 / fc001_l1 30 / fl001_cap 25 / gt001 35 / pv001 25 / wt001 30 /
+     mg001 30 = **255**——合计 **360 checks / 0 fail**（与 v1.4.0 基线全同）；
+  4. `python -I tools/oracle/oracle_base.py` 自检 exit 0（T-1…T-8 全 pass + conformance ok）；
+     `node tools/copy-guard.mjs` exit 0——**PASS 39 patterns 0 命中**（词表 39/14 基线维持，
+     本波零增词）；
+  5. `node tools/file-smoke.mjs --rounds 3` exit 0（**3×98=294/0**）+ `node tools/ui-walkthrough.mjs`
+     exit 0（**67/67**，36692 ms）+ `node tools/e2e.mjs` exit 0（**94/94**，35948 ms）；
+  6. **golden 零变化终检**：`git status --short data/golden/` **空**（11 golden + 11 sidecar =
+     22 文件全 tracked 零改动）+ `git diff --stat -- data/golden/` 空 + 11 golden 字节复核与
+     v1.4.0 时点逐字节全同（fc001_v1 1,093,755 / fc001_v2 1,363,737 / fl001_v1 659,299 /
+     fl001_v2 930,796 / fl001_v3 971,314 / gt001_v1 1,449,900 / gt001_v2 1,452,353 /
+     gt001_v3 2,372,494 / mg001_v1 1,051,804 / pv001_v1 788,738 / wt001_v1 1,461,288 字节；
+     本波零新 golden）；
+  7. **测试面 23 文件全绿**（run-g2 两轮全覆盖 + 逐文件实跑计数）：core 11365/engine 589/
+     scenario 493/schema 329/teaching 283/engine-fc 484/engine-mg 382/engine-gt 451/
+     engine-pv 166/engine-wt 228/**arena 218**（W3，时点 198）/**arena-protocol-negative 80**
+     （W3，时点 42）/registry 60/leaderboard 78/bundle 35/causal-rules 149/plants 83/
+     event-phase 46/report 32/compare 27/scope-guard 30/backend-admission 81/backend-bridge 13；
+     抽查复跑 arena-protocol-negative（80/0）/arena（218/0）/core（11365/0）各一次实证一致。
+  **② 交付清单**：
+  （一）**A-5 P3 GT 燃烧延迟 G2b 草案轮**（本波唯一 G2b 草案名额，GTCMB-G2b-01）：
+     `NEXT/GT001_COMBUSTION_G2B_SPEC_DRAFT.md` v0.1（起草 448 行；τ_comb 燃烧延迟二阶状态、
+     y=[f,T3,x_comb] 2→3 维 ODE（x_comb 新动态 ODE 状态——I-2 诚实区分、GT 无 SOC 定义面
+     登记）；**键面张力三形态八维对照 + 推荐形态 a 可推翻**（inertia_model 枚举扩值〔GTL1
+     先例〕vs 正交二键〔FL 先例〕vs thermo 原地深化=被排除形态 A5 §3.2 :182-184 硬伤）；
+     稳态不变性结构推论（d/dt=0 ⇒ Q_f,d ≡ Q_f——三点稳态不变、延迟不改稳态值只改暂态路径）；
+     零新信号提案 Q10a；τ_comb 五项判据框架数值零编造；gt001_v4 预登记/四代 supersedes 链/
+     GCMB-1…8/T-B+降 T-C 双向预案；Q1…Q13 全候选+推荐不定案）+ **双路独立评审结论代录 §10**
+     （W4，互不可见——评审报告全文随波次记录归档 2026-11-14 W2a/W2b）：**A:PASS_WITH_
+     CONDITIONS(6)**（1 P1——§3.2/§3.3 逐锚点登记「渐近稳态 vs t=60 采样」两口径（GTL1 A-3
+     体例；18.266/1044.16 等在 golden 中是采样值非稳态值）；3 P2——「逐位同」措辞与 T-B
+     制度一致化/τ_comb 判据框架增闭环收敛+网格可辨性/GCMB 增 GL-6 同构 gap 检查；2 P3；
+     稳态不变性/量纲/RK4 三维分区独立重推全过）+ **B:PASS_WITH_CONDITIONS(5)**（2 P2——
+     三处字面守卫须 additive 编辑〔engine.js:320-324/schema.js:231-234/scenario.js:401-402〕
+     「自动覆盖」表述订正/config_hash 投影行失实订正（inertia_model 现状在投影内
+     schema.js:144——修正后强化形态 a；B-3a 局限只适用形态 b 且 healthy 局 run_hash 跨轨
+     同值碰撞须补登）；3 P3；八面声明/先例对照公允性/步数账/体例属实）；条件 A-1…A-6/
+     B-1…B-5 原样登记不处置（§10.2）；**状态仍 DRAFT，批准留待用户（v1.6.0 轮 GTCMB-G2b-02）**；
+  （二）**O-1 盲包诊断提交族枚举扩展**（V130 O-1 → V150 DEC-2；显式 CHG 面 = 本 CHG）：
+     src/agents/arena.js faultType 枚举 4→9 值（+shading_step/gust_step/shading_link/gust_link/
+     island_event——入池六系统目录活跃族全集 + none；**名实差修正**：pv_shading_link/
+     wt_gust_link 为 FAULT_CATALOG v1.7 目录项 id、族名为 shading_link/gust_link——枚举收
+     族名不收 id）；既有 4 值路径零变化探针（TEMP 同输入同输出）；负例套件 additive——
+     arena-protocol-negative 42→**80**（附录 A 冻结 N-B1…N-B17 零删减 + N-B18 新族合法
+     正例 ×5 + N-B19 越界负例（目录项 id/空族仍拒收 AE-E11）+ 新族可达 smoke）、arena.test
+     198→**218**（§8c 新族提交可达 + 越界镜像 + MG-001 真族轮评分冒烟）、e2e 94 零变化
+     （tools/** 零触碰）；ARENA_EVAL_PROTOCOL_APPROVED.md **不改**（批准文本无枚举清单
+     载面，实现侧 additive 更贴合其规则句——面⑤「规则代演进 = additive」口径）；
+  （三）**新观察项登记**：island_event 零参数族幅值不可达 → round_score **85.0 上限**
+     （真值幅值 {value,unit:''} 不满足提交侧非空 unit 规则、按「缺失幅值记 0」冻结口径；
+     family/component 可达性不受影响——本波 O-1 目标已达成）；幅值可达化 = 后续显式 CHG
+     候选（待用户裁定）；
+  （四）**小清算**：步①/步 31/步 32 描述标签滞后维持登记不修（tools/** 本波零触碰）；
+     C3 真 TESPy 挂起维持；G9/G10 维持「须用户明示」（如实登记：收口时点工作树现存未跟踪
+     `NEXT/G9_G10_ARCH_GATE_SPEC_DRAFT.md` 与 DECISIONS.md 尾部一条**重复编号 CHG-20261114-03**
+     的 G9/G10 落档记录，均非本波文件面、零触碰——重号偏差登记，归后续用户明示处置）。
+  **③ additive 三不承诺兑现（V150 DEC-4/V1_FACES §3.4）**：① 哈希零变化——本波零
+     SystemDef/scenario 声明面改动（P3 只草案零代码；O-1 为诊断提交面 faultType 校验值域、
+     不入 run/config/scenario 哈希——W3 探针证明）+ verify_golden 360 checks 全过 + registry/
+     schema/scenario 机检全绿佐证；② 既有 11 golden 字节零触碰——git status/diff 空 +
+     V-02 sidecar 复验全过 + 字节表（本波零新 golden）；③ 既有 35 run-g2 步判据零翻转——
+     0 新步 + 本轮 35 步全 pass × 2（步 19/25 断言数增为 additive 值域扩展、既有 4 值路径
+     零变化探针，非判据翻转）。
+  **④ v1.5.x 待办**：
+     —— **P3 GT 批准轮 + 实现 = v1.6.0 首项候选**（GTCMB-G2b-02…04：评审条件 6+5 落正文
+        （A-1 两口径逐锚点登记 = P1 硬项）+ 键形态裁定（推荐形态 a 可推翻——B-2 修正后
+        强化形态 a）+ Q1…Q13 定案 + τ_comb/EQ-GTL2 精确式/锚点数值批准轮定案；批准留待
+        用户）；
+     —— O-1 后续：island_event 幅值可达性显式 CHG 候选（待用户裁定）；
+     —— C3 真 TESPy 挂起维持（待用户明示）；G9/G10 须用户明示；
+     —— 步①/步 31/步 32 描述标签固化随下次 tools 触碰（维持登记）。
+  **⑤ v1.5.0 时点画像**：**六系统全入 Arena 盲测池**（FL-001 L0+L1-thermal+capacity on 轨 /
+     FC-001 L0+L1 电化学轨 / GT-001 L0b 双存档+L1 thermo 默认 / PV-001 L0 / WT-001 L0b /
+     MG-001 聚合层 L0）、**11 golden 字节冻结**（§3.4 强于 semver）、10+2 oracle、11 页面、
+     **run-g2 35 步 0 新步**（I-7 预算 ≤35 维持）、**诊断提交族枚举 9 值**、
+     arena-protocol-negative **80** / arena **218**、e2e 94 / file-smoke 98 / ui-walkthrough 67、
+     词表 **39/14**（维持）、FaultLab.html **1736.7 KiB**（+943 B = O-1 arena.js——派发预期
+     1735.8 系 v1.4.0 工件时点，偏差登记见 ①1）、V1_FACES 八面冻结维持（本波修订全部
+     additive——面⑤ 诊断族覆盖注记 + §12 修订记录，冻结条款语义零变化）。
+  证据 `evidence/g8/v150-release.md`（发布门 1–7 全表 + golden 字节表 + 23 测试文件汇总 +
+  additive 三不承诺兑现声明 + build 体量偏差诚实登记）。
+  **⑥ 推送按用户裁定暂缓（同批 v0.7.1–v1.5.0 延续——本波产出并入同批；实测本地 ahead 1 =
+  v1.4.0 229a15d，origin/main 现指 v1.3.0 27c5e22——如实登记，本地提交随收口轮决定，
+  V150 DEC-4 同口径）**。
+  **⑦ 批准人：用户（CHG-20261114-04 指令链——本收口登记为其波次授权的执行记录）；
+  记录人：W4 门禁与证据路。**

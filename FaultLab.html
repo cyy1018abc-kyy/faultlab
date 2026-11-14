@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   FaultLab — Virtual Energy Lab V0.1 (single-file offline build)
-  built: 2026-11-14 10:24:19
+  built: 2026-11-14 17:02:47
   css files inlined: 10, js files inlined: 33
   Source of truth: index.html + src/ + css/. Rebuild with: python tools/build.py
   Data note: analytic / behaviour-level (L0) demo model — not Simulink, not measured field data.
@@ -18987,9 +18987,17 @@ function importScenarioEnvelope(payload) {
     if (typeof d.faultDetected !== 'boolean') {
       errors.push({ path: path + '.faultDetected', message: '必须是布尔值 true/false' });
     }
-    const families = ['sensor_drift', 'load_step', 'actuator_fault', 'none'];
+    /* 诊断提交族枚举（faultType 值域）——V150 O-1（CHG-20261114-05，DEC-2 additive 扩展）：
+       由既有 4 值扩至入池六系统目录活跃族全集 + none（枚举=族名全集，非按系统——MG load_step
+       与既有 load_step 同名共用）。追加 PV shading_step、WT gust_step、MG shading_link/gust_link/
+       island_event（FAULT_CATALOG v1.7 族名口径：pv_shading_link/wt_gust_link 为目录项 id，
+       族名为 shading_link/gust_link——枚举收族名不收 id）。既有 4 值路径零变化（探针：TEMP
+       同输入同输出）；评分消费点为等值匹配（scoreDiagnosis faultType===faultFamily），新族
+       提交通过校验后 family/component 评分项自动可达。附录 A 17 负例零删减。 */
+    const families = ['sensor_drift', 'load_step', 'actuator_fault', 'none',
+      'shading_step', 'gust_step', 'shading_link', 'gust_link', 'island_event'];
     if (typeof d.faultType !== 'string' || families.indexOf(d.faultType) < 0) {
-      errors.push({ path: path + '.faultType', message: '必须是 sensor_drift / load_step / actuator_fault / none 之一' });
+      errors.push({ path: path + '.faultType', message: '必须是 sensor_drift / load_step / actuator_fault / none / shading_step / gust_step / shading_link / gust_link / island_event 之一' });
     }
     if (d.component != null && typeof d.component !== 'string') {
       errors.push({ path: path + '.component', message: '必须是字符串（部件 id 或 none）' });
