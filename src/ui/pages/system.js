@@ -17,7 +17,18 @@
    ③ on 轨模型声明面板（additive，refs.trackPanel）——FC on 轨运行时渲染
    model.electrochem 批准子对象（A-fcec-* 假设 / on 轨 limitations / 定位句），off 轨
    隐藏零渲染（B-2 定案「on 显示子对象、off 显示原文」的 UI 承载面；内容全部来自
-   systems.js 冻结字段，本页零新增声明文案）。 */
+   systems.js 冻结字段，本页零新增声明文案）。
+   FL 容量轨 UI 线（CHG-20261114-01 批准链，V140_WAVE_DESIGN §2 W5 /
+   FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.6）：
+   ④ on_cap 轨模型声明面板（additive，refs.trackPanel 复用）——FL on_cap 轨（cfg
+   thermal_model=on + capacity_model=on）运行时渲染 model.capacity 批准子对象
+   （A-flcap-* 假设 5 / on 轨 limitations 5 / EQ-FLTH-10…12 / 定位句），FC 面板同构、
+   内容全部来自 systems.js 冻结字段（本页零新增声明文案）；off/(on,off) 轨、无运行、
+   其他系统 hidden 零渲染（off 域零变化）。
+   ⑤ header 层级徽章/摘要 cfg 感知对本轨零改动核实——buildHeaderMeta/render 经
+   sys.levelFor/sys.summaryFor 派生入口（W3 已扩 capacity_model 分支），on_cap 轨显示
+   level_on「L1 · 单节点热-容量折算模型（数值仿真级）」与 summary_on 追加句，off/(on,off)
+   域返回值逐字不变（systems.js 冻结派生，本页零改动）。 */
 (function () {
   'use strict';
   const FL = window.FL = window.FL || {};
@@ -1548,25 +1559,36 @@
   }
 
   /* ================================================================== */
-  /* FC 电化学轨 on 轨模型声明面板（V120 W5；登记见文件头③）              */
+  /* on 轨模型声明面板（V120 W5 FC 电化学轨③ + V140 W5 FL 容量轨④）      */
   /* ================================================================== */
   /* 仅 on 轨渲染（B-2 定案「on 显示子对象、off 显示上方原文」的 UI 承载面）：FC on 轨
-     运行时把 model.electrochem 批准子对象（A-fcec-* 假设 / on 轨 limitations / 定位句）
-     逐条渲染——内容全部读 systems.js 冻结字段，本页零新增声明文案。off 轨/无运行/
-     其他系统：hidden 零渲染（off 域零变化）。 */
+     运行时把 model.electrochem 批准子对象（A-fcec-* 假设 / on 轨 limitations / 定位句）、
+     FL on_cap 轨（thermal_model=on + capacity_model=on——组合守卫蕴含，V140 W5）运行时
+     把 model.capacity 批准子对象（A-flcap-* 假设 / on 轨 limitations / EQ-FLTH-10…12 /
+     定位句）逐条渲染——内容全部读 systems.js 冻结字段，本页零新增声明文案。off 轨/
+     (on,off) 轨/无运行/其他系统：hidden 零渲染（off 域零变化）。两面板共享 host 互斥
+     （一 Run 属一系统，ech/cap 不同时为真）。 */
   function renderTrackPanel(state0, sys, run) {
     const host = local.refs.trackPanel;
     if (!host) return;
     const ec = (sys && sys.model && sys.model.electrochem) || null;
+    const cap = (sys && sys.model && sys.model.capacity) || null;
     const cfg = run ? run.config : null;
-    const onTrack = !!(ec && cfg && cfg.electrochem_model === 'on');
-    const key = (sys ? sys.id : '') + '|' + (run ? run.runId : 'none') + '|' + (onTrack ? 'on' : 'off');
+    const echOn = !!(ec && cfg && cfg.electrochem_model === 'on');
+    const capOn = !!(cap && cfg && cfg.capacity_model === 'on');
+    const key = (sys ? sys.id : '') + '|' + (run ? run.runId : 'none') + '|' +
+      (echOn ? 'ech' : '') + (capOn ? 'cap' : '');
     if (local.trackKey === key) return;
     local.trackKey = key;
     ui.clear(host);
-    host.hidden = !onTrack;
-    if (!onTrack) return;
-    const panel = el('div', { class: 'sys-track-panel', 'data-testid': 'fc-track-panel' }, [
+    host.hidden = !(echOn || capOn);
+    if (echOn) host.appendChild(buildEchTrackPanel(sys, cfg, ec));
+    if (capOn) host.appendChild(buildCapTrackPanel(sys, cfg, cap));
+  }
+
+  /* FC 电化学轨面板（V120 W5 既有内容体——仅抽为构建函数，DOM 结构逐字节不变） */
+  function buildEchTrackPanel(sys, cfg, ec) {
+    return el('div', { class: 'sys-track-panel', 'data-testid': 'fc-track-panel' }, [
       el('div', { class: 'sys-track-head' }, [
         el('span', { class: 'eyebrow' }, '电化学轨模型声明 · electrochem_model=on'),
         ui.badge(typeof sys.levelFor === 'function' ? sys.levelFor(cfg) : (sys.level || 'L1'), { tone: 'warm' })
@@ -1586,7 +1608,37 @@
         el('span', {}, String(ec.notes))
       ]) : null
     ]);
-    host.appendChild(panel);
+  }
+
+  /* FL 容量轨面板（V140 W5；FC 面板同构 + on 轨方程块 EQ-FLTH-10…12——capacity 子对象
+     equations 三条以 id + note 渲染，latex_text 全文不入面板（信号页/导出面承载）） */
+  function buildCapTrackPanel(sys, cfg, cap) {
+    return el('div', { class: 'sys-track-panel', 'data-testid': 'fl-capacity-panel' }, [
+      el('div', { class: 'sys-track-head' }, [
+        el('span', { class: 'eyebrow' }, '容量轨模型声明 · capacity_model=on'),
+        ui.badge(typeof sys.levelFor === 'function' ? sys.levelFor(cfg) : (sys.level || 'L1'), { tone: 'warm' })
+      ]),
+      el('div', { class: 'sys-track-block' }, [
+        el('div', { class: 'eyebrow' }, '模型假设 · assumptions（on 轨适用）'),
+        el('ul', { class: 'sys-track-list' }, (cap.assumptions || []).map((a) =>
+          el('li', {}, [el('span', { class: 'mono' }, a.id || ''), el('span', {}, a.text || '')]))
+        )
+      ]),
+      el('div', { class: 'sys-track-block' }, [
+        el('div', { class: 'eyebrow' }, '适用局限 · limitations（on 轨适用）'),
+        el('ul', { class: 'sys-track-list' }, (cap.limitations || []).map((t) => el('li', {}, String(t))))
+      ]),
+      (cap.equations || []).length ? el('div', { class: 'sys-track-block' }, [
+        el('div', { class: 'eyebrow' }, 'on 轨方程 · equations（EQ-FLTH-10…12）'),
+        el('ul', { class: 'sys-track-list' }, (cap.equations || []).map((q) =>
+          el('li', {}, [el('span', { class: 'mono' }, q.id || ''), el('span', {}, q.note || '')]))
+        )
+      ]) : null,
+      cap.notes ? el('div', { class: 'sys-track-note' }, [
+        ui.icon('info', { size: 13 }),
+        el('span', {}, String(cap.notes))
+      ]) : null
+    ]);
   }
 
   /* ================================================================== */

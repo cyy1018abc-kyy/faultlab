@@ -7,7 +7,9 @@
  *   v0.7.2 T3 体例 50 断言重建为正式工具，并扩展到五系统覆盖；v1.1.0 MG 六系统波
  *   （V110_WAVE_DESIGN §2 W7，CHG-20261110-01 批准链）扩展到六系统 59 断言；
  *   V120 FC 电化学轨波（V120_WAVE_DESIGN §2 W5，CHG-20261113-01 批准链）增 §G
- *   FC on 轨走查（4 断言，全 additive）至 63 断言。
+ *   FC on 轨走查（4 断言，全 additive）至 63 断言；V140 FL 容量轨波（V140_WAVE_DESIGN
+ *   §2 W5，CHG-20261114-01 批准链）增 §H FL on_cap 轨走查（4 断言，全 additive）至
+ *   67 断言。
  *
  * **使用规程（发布轮）**：
  *   1. 本工具**不进 run-g2**（深度走查耗时，V090_WAVE_DESIGN DEC-5 定案）；
@@ -17,9 +19,9 @@
  *      报告 ui-walkthrough-report.json + 各系统页截图写入 --out 目录；
  *   3. 走查对象 = index.html 开发态（--port 起 http.server；发布工件面由
  *      tools/file-smoke.mjs 以 file:// 覆盖，两者互补不重复）；
- *   4. 退出码 0=63 断言全过；1=存在失败项。失败即发布轮阻塞项，按 G4 惯例留痕。
+ *   4. 退出码 0=67 断言全过；1=存在失败项。失败即发布轮阻塞项，按 G4 惯例留痕。
  *
- * 覆盖（63 断言；v0.7.2 T3 体例 + 六系统扩展 + V120 §G）：
+ * 覆盖（67 断言；v0.7.2 T3 体例 + 六系统扩展 + V120 §G + V140 §H）：
  *   §A home 六系统卡（7）：卡数/卡序/徽章面（基准实验/已验收/扩展预览）/level 徽章/
  *      默认故障行/tagline/CTA；
  *   §B 实验详情面板（12 = 6 系统 × 2）：详情主面板 + level 徽章、三问题块恰 3 项；
@@ -36,6 +38,12 @@
  *      （A-fcec 假设 + L1-lite 定位句——B-2 变体渲染面）、signals 页热力类目
  *      T_st 信号行（24 列通用渲染面）；轨翻转经既有草稿/运行语义（updateDraft +
  *      createRun 标准入口），REDLINE_TERMS 零改动；
+ *   §H FL-001 容量轨 on_cap 走查（4；V140 W5，FL001_CAPACITY_G2B_SPEC_APPROVED
+ *      v1.0 §1.6）：on_cap 轨 Run 数据面（cfg thermal_model=on + capacity_model=on
+ *      + E_cap_kWh 601 点）+ system 页 level_on 徽章 + summary_on 摘要 + capacity
+ *      声明面板（A-flcap 假设 + EQ-FLTH-10 方程 + 定位句——B-2 变体渲染面）、
+ *      signals 页 soc 类目 E_cap 信号行（19 列通用渲染面）；轨翻转经既有草稿/运行
+ *      语义（updateDraft + createRun 标准入口），REDLINE_TERMS 零改动；
  *   §F 全程守卫（4）：零 console error、零外部请求、渲染文本无 undefined 泄漏、
  *      肯定性孤岛检测/保护/检同期与电网保护/稳定验证类红线词渲染面扫描
  *      （B-1 口径——「孤岛」裸词为 MG-001 状态/模式命名面（孤岛状态/孤岛面/
@@ -523,6 +531,73 @@ async function main() {
       'W-G：FC on 轨 signals 页热力类目 T_st 信号行在场（信号目录 24 列——run.signals 通用渲染面）',
       JSON.stringify(fcOnSigWalk));
 
+    /* ===== §H FL-001 容量轨 on_cap 走查（3 断言；V140 W5） ===== */
+    /* 轨翻转经既有草稿/运行语义（updateDraft thermal_model/capacity_model 双键 +
+       createRun 标准入口，组合守卫 validateConfig 承接，不引入新执行语义）；on_cap 轨
+       系统页文本纳入 §F 红线/泄漏扫描面（A-flcap-* 批准冻结文案经规格 §6.4 预检——
+       11 词根零命中）。 */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=FL-001&page=system' });
+    await wait(1400);
+    await cdp.evalExpr(`(function(){
+      FL.store.actions.updateDraft(function (d) { d.thermal_model = 'on'; d.capacity_model = 'on'; });
+      return FL.store.actions.createRun({ silent: true });
+    })()`);
+    await wait(800);
+    pageTexts['system-FL-001-cap'] = await collectText(cdp, 'page-system');
+    const flCapWalk = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      const sig = r && r.timeseries && r.timeseries.signals ? r.timeseries.signals : {};
+      const badges = Array.prototype.slice.call(document.querySelectorAll('.sys-head-meta .badge'))
+        .map(function (b) { return b.textContent || ''; });
+      const sub = (document.querySelector('.sys-page-sub') || {}).textContent || '';
+      const panel = document.querySelector('.sys-track-panel');
+      const panelText = panel ? panel.textContent : '';
+      return { page: s.page, runSystem: r ? r.systemId : '',
+               cfgTh: r && r.config ? r.config.thermal_model : '',
+               cfgCap: r && r.config ? r.config.capacity_model : '',
+               ecap: sig.E_cap_kWh ? sig.E_cap_kWh.length : 0,
+               badges: badges, subHasSummaryOn: sub.indexOf('电池按温度折算可用容量') !== -1,
+               panelFound: !!panel,
+               panelTestId: panel ? panel.getAttribute('data-testid') : '',
+               panelHasAssumption: panelText.indexOf('A-flcap-cap') !== -1,
+               panelHasEq: panelText.indexOf('EQ-FLTH-10') !== -1,
+               panelHasNote: panelText.indexOf('非机组/电网动态验证') !== -1 };
+    })()`);
+    ok(flCapWalk.page === 'system' && flCapWalk.runSystem === 'FL-001' &&
+      flCapWalk.cfgTh === 'on' && flCapWalk.cfgCap === 'on' && flCapWalk.ecap === 601,
+      'W-H：FL on_cap 轨 Run 数据面（cfg thermal_model=on + capacity_model=on + E_cap_kWh 601 点）',
+      JSON.stringify({ cfgTh: flCapWalk.cfgTh, cfgCap: flCapWalk.cfgCap, ecap: flCapWalk.ecap }));
+    ok(flCapWalk.badges.some(function (t) { return t.indexOf('L1 · 单节点热-容量折算模型') !== -1; }),
+      'W-H：FL on_cap 轨 system 页 level_on 徽章（L1 · 单节点热-容量折算模型（数值仿真级））',
+      JSON.stringify(flCapWalk.badges));
+    ok(flCapWalk.subHasSummaryOn && flCapWalk.panelFound &&
+      flCapWalk.panelTestId === 'fl-capacity-panel' && flCapWalk.panelHasAssumption &&
+      flCapWalk.panelHasEq && flCapWalk.panelHasNote,
+      'W-H：FL on_cap 轨 system 页 summary_on 摘要 + capacity 声明面板（A-flcap 假设 + EQ-FLTH-10 方程 + 定位句——B-2 变体渲染）',
+      JSON.stringify({ subHasSummaryOn: flCapWalk.subHasSummaryOn, panelFound: flCapWalk.panelFound,
+        panelTestId: flCapWalk.panelTestId, panelHasAssumption: flCapWalk.panelHasAssumption,
+        panelHasEq: flCapWalk.panelHasEq, panelHasNote: flCapWalk.panelHasNote }));
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=FL-001&page=signals' });
+    await wait(1300);
+    await cdp.evalExpr(`(function(){
+      FL.store.actions.updateDraft(function (d) { d.thermal_model = 'on'; d.capacity_model = 'on'; });
+      FL.store.actions.createRun({ silent: true });
+      FL.store.actions.setPageState('signals', { category: 'soc' });
+      return true;
+    })()`);
+    await wait(800);
+    const flCapSigWalk = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      const items = Array.prototype.slice.call(document.querySelectorAll('.sig-item'));
+      const ecapItem = items.filter(function (i) { return (i.textContent || '').indexOf('可用容量') !== -1; }).length;
+      return { page: s.page, catCount: r && r.signals ? r.signals.length : 0, ecapItem: ecapItem };
+    })()`);
+    ok(flCapSigWalk.page === 'signals' && flCapSigWalk.catCount === 19 && flCapSigWalk.ecapItem > 0,
+      'W-H：FL on_cap 轨 signals 页 soc 类目 E_cap 信号行在场（信号目录 19 列——run.signals 通用渲染面）',
+      JSON.stringify(flCapSigWalk));
+
     /* teaching 页纳入红线扫描面（不单独计断言） */
     await cdp.send('Page.navigate', { url: base + '/index.html?page=teaching' });
     await wait(900);
@@ -535,7 +610,7 @@ async function main() {
     /* ===== §F 全程守卫（4 断言） ===== */
     const allText = Object.keys(pageTexts).map((k) => pageTexts[k]).join('\n');
     ok(allText.indexOf('undefined') === -1,
-      'W-F：渲染文本无 undefined 泄漏（home/6×system+FC on 轨/scenario/signals×2/teaching/compare)');
+      'W-F：渲染文本无 undefined 泄漏（home/6×system+FC on 轨+FL on_cap 轨/scenario/signals×2/teaching/compare)');
     const redlineHits = REDLINE_TERMS.filter((t) => allText.indexOf(t) !== -1);
     eq(JSON.stringify(redlineHits), JSON.stringify([]),
       'W-F：肯定性孤岛检测/保护/检同期与电网保护/稳定验证类红线词渲染面零命中（' +
@@ -560,13 +635,13 @@ async function main() {
         userAgent: browserVersion.userAgent, jsVersion: browserVersion.jsVersion }
     : { product: null, revision: null, userAgent: null, jsVersion: null };
   const report = {
-    journey: 'ui-walkthrough-63',
+    journey: 'ui-walkthrough-67',
     ok: fail === 0,
     pass, fail,
     failures,
     scope: {
       systems: SYSTEMS,
-      sections: ['A home 六系统卡 7', 'B 详情面板 12', 'C 故障原理卡 12', 'D 系统页深链 18', 'E 六系统声明面 6', 'G FC 电化学轨 on 走查 4', 'F 全程守卫 4'],
+      sections: ['A home 六系统卡 7', 'B 详情面板 12', 'C 故障原理卡 12', 'D 系统页深链 18', 'E 六系统声明面 6', 'G FC 电化学轨 on 走查 4', 'H FL 容量轨 on_cap 走查 4', 'F 全程守卫 4'],
       redline_terms: REDLINE_TERMS
     },
     environment: { chrome: CHROME, base, node: process.version, browser },

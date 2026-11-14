@@ -6,6 +6,10 @@
    - 排行榜 + 逐轮真值揭晓 + 每个 Agent 诊断 vs 真值 + 评分分解
    - 盲测数据包导出（单轮 / 整场，无真值） + 外部诊断导入
    - 口径说明：评分权重、盲测设计、内置确定性 Agent 强项/弱项
+   - [O-4 文案清扫（V140_WAVE_DESIGN §0 项 3 / §2 W5，CHG-20261114-01 批准链）]：
+     ARENA_EXCLUDED 收缩为空、六系统全部入池（v1.3.0，CHG-20261113-05）后，两处
+     用户可见文案仍为「三系统」滞后口径——实验系统字段提示行与引擎就绪行最小改写为
+     六系统口径（systems.list() = 6 实读；纯文案面，选择器/评分/导出语义零变化）。
    ========================================================================= */
 (function () {
   'use strict';
@@ -299,7 +303,9 @@
       onChange: (checked) => { applySetupPatch({ noise: !!checked }); }
     });
 
-    const systemField = ui.field({ label: '实验系统', control: refs.systemSeg, hint: '仅作用于本场盲测，不改变全局实验系统；三系统均有独立故障目录与盲观测通道。' });
+    /* O-4 清扫（V140 W5，CHG-20261114-01）：「三系统」→ 六系统口径（ARENA_EXCLUDED=[]、
+       systems.list()=6——V130 入池后滞后文案；前文案「三系统均有独立故障目录与盲观测通道」） */
+    const systemField = ui.field({ label: '实验系统', control: refs.systemSeg, hint: '仅作用于本场盲测，不改变全局实验系统；六系统均有独立故障目录与盲观测通道。' });
     const roundsField = ui.field({ label: '盲测轮数', control: refs.roundsSeg, hint: '每轮独立随机隐藏场景；小样本保证至少 1 个健康局。' });
     const seedField = ui.field({ label: '随机种子', control: h('div', { class: 'row' }, [refs.seedInput, h('span', { class: 'input-unit' }, 'seed')]), hint: '同 seed + 同设置逐字节复现。' });
     const noiseField = ui.field({ label: '观测噪声', control: refs.noiseSwitch, hint: '仅叠加在 OBSERVATION 通道，确定性。' });
@@ -825,7 +831,8 @@
     } else {
       refs.engineNote.setAttribute('data-tone', '');
       refs.engineNote.appendChild(ui.icon('check', { size: 13 }));
-      refs.engineNote.appendChild(h('span', {}, '就绪：' + local.agentCatalog.length + ' 个内置确定性演示 Agent（非 LLM），三系统可用。'));
+      /* O-4 清扫（V140 W5，CHG-20261114-01）：「三系统可用」→ 六系统口径（前文案） */
+      refs.engineNote.appendChild(h('span', {}, '就绪：' + local.agentCatalog.length + ' 个内置确定性演示 Agent（非 LLM），六系统可用。'));
     }
   }
 

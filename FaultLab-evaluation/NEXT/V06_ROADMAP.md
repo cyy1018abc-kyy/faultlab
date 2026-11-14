@@ -90,7 +90,8 @@ run-g2 25 步（tier 分层候选）。
 | **v1.0.0** | 三系统 L0b/L1 完整 + 教学生态收敛 + 架构稳定 → **1.0 API 承诺**（SystemDef/Scenario/EvalAgent 契约冻结） | 全线 | 全门禁 + 文档完整 |
 | **v1.1.0** | B-3 MG-001 批准与实现（首项，V1_FACES §5 裁定①）+ A-5 P1 FC G2b 草案轮 + v1.0.x 残留清算 → 八面冻结后首轮 additive（minor） | B-3(实现)/A-5(P1 草案) | G2b（MG 批准轮）→ G7（步数 ≤35）→ G8 |
 | **v1.2.0** | A-5 P1 FC 电化学批准与实现（electrochem_model off|on、fc001_v2 T-B、classify 采候选 B cfg 键分域）+ TESPy C1/C2 角点补全（产品面外）+ v1.1.x 残留清算 → additive minor | A-5(P1 实现)/D-GT(角点) | G2b（FC 批准轮）→ G7（步数 35，0 增步）→ G8 |
-| **v1.3.0**（本波） | A-5 P2 FL 容量/内阻 G2b 草案轮（SOC 重开=裁定点请求，批准 v1.4.0）+ Arena exposure 三值映射验证轮（PV/WT/MG 逐系统入池裁定）+ MG 教学路径 + QP-4 放行 + C3 真 TESPy 口径 (b) → additive minor | A-5(P2 草案)/C-3(路径)/面⑤(QP-4/入池) | G2b（P2 草案+双评审）→ G7（步数 35，0 增步）→ G8 |
+| **v1.3.0** | A-5 P2 FL 容量/内阻 G2b 草案轮（SOC 重开=裁定点请求，批准 v1.4.0）+ Arena exposure 三值映射验证轮（PV/WT/MG 逐系统入池裁定）+ MG 教学路径 + QP-4 放行 + C3 真 TESPy 口径 (b) → additive minor | A-5(P2 草案)/C-3(路径)/面⑤(QP-4/入池) | G2b（P2 草案+双评审）→ G7（步数 35，0 增步）→ G8 |
+| **v1.4.0**（本波） | A-5 P2 FL 容量/内阻批准与实现（SOC 重开经指令链裁定、组合键 capacity_model、fl001_v3 T-B、_kWh 分派分支）+ P3 GT 燃烧延迟草案轮（τ_comb 三维 ODE）→ additive minor | A-5(P2 实现)/A-5(P3 草案) | G2b（P2 批准轮；P3 草案+双评审）→ G7（步数 35，0 增步）→ G8 |
 
 ## 4. 决策点（已按用户指令全采推荐项）
 

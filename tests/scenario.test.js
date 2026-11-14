@@ -7,6 +7,11 @@
    事件级 electrochem_model 键（B-1(a) 显式键条件式——合法两值保留 / 缺省全链 absent /
    非法值与未声明轨系统拒绝 / 三值哈希互异 + 既有 FC 场景哈希=改前基线字面量锚定 /
    execute 透传与 off 等价 / 信封 roundtrip checksum 稳定 / 源级白名单机检）。
+   §11（FLCAP-G2b-04 / CHG-20261114-01，V140 波 W4 追加节，既有 §0–§10 断言零改动）：
+   事件级 capacity_model 键（§10 B-1(a) 先例同构 + Q11 组合守卫落点二——合法两值保留 /
+   缺省全链 absent + 既有 FL 场景哈希=改前基线字面量锚定 / (off,on) 组合结构化拒绝 /
+   execute 三态透传与 off 等价 / run_hash 互异 + config_hash 同值（B-3a）/
+   信封 roundtrip checksum 稳定 / 源级白名单机检）。
    运行：node tests/scenario.test.js；失败非零退出。
    装载：src/core/scenario.js 已并入 tests/core-load.js CORE_FILES（V072 残留清单 5，
    S1 临时 (0,eval) 自装载退役）——bootstrap() 直接就绪 FL.core.scenario，浏览器序
@@ -812,6 +817,146 @@ ok(rtFcOn.ok === true && rtFcOn.via === 'envelope', '含 electrochem_model 信�
 eq(SC.scenarioHash(rtFcOn.scenario), hFcOn, 'roundtrip：含 electrochem_model 场景导出 → 导入 → 同 scenarioHash（checksum 稳定）');
 
 
+/* ------------------------------------------------------------------ *
+ * 11. 事件级 capacity_model 键（FLCAP-G2b-04 / CHG-20261114-01 批准链，
+ *     V140 波 W4 追加节，既有 §0–§10 断言零改动；FL001_CAPACITY_G2B_SPEC_
+ *     APPROVED v1.0 §1.1 裁定点二定案 (a) 组合键 + §2 显式 CHG——§10 electrochem
+ *     B-1(a) 先例同构：仅在场景输入显式提供时写入归一化事件与 hashProjection，
+ *     缺省（不提供）全链 absent、不解析为系统默认轨（缺省轨由引擎 normalizeConfig
+ *     盖章层承载——Q11/Q9 定案纪律）⇒ 既有 FL 场景 scenarioHash 零变化；
+ *     组合守卫（Q11 落点二）：capacity_model=on 前置 thermal_model=on——(off,on)
+ *     结构化拒绝（三元封闭路由 §4 项 10②）
+ * ------------------------------------------------------------------ */
+
+/* 11.0 源级白名单机检（EVENT_KEYS/CAPACITY_MODELS 为模块内常量、非公共 API——
+   §10.0 engine-pv §6 arena 源级守卫体例） */
+(function scenarioSourceWhitelistCap() {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'core', 'scenario.js'), 'utf8');
+  const iKeys = src.indexOf('var EVENT_KEYS =');
+  ok(iKeys !== -1 && src.slice(iKeys, src.indexOf(';', iKeys)).indexOf("'capacity_model'") !== -1,
+    '源级：scenario.js EVENT_KEYS 白名单含 capacity_model（FLCAP-G2b-04 显式 CHG，CHG-20261114-01）');
+  const iEnum = src.indexOf('var CAPACITY_MODELS =');
+  ok(iEnum !== -1 && src.slice(iEnum, src.indexOf(';', iEnum)).indexOf("['off', 'on']") !== -1,
+    "源级：CAPACITY_MODELS = ['off', 'on']（枚举两值，ELECTROCHEM_MODELS §10 同构）");
+})();
+
+/* 11.1 合法两值：显式提供保留进归一化事件（§8/§10 体例同构） */
+const FL_CAP_EV = { key: 'ev1', family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop', thermal_model: 'on' };
+['off', 'on'].forEach((track) => {
+  const p = SC.parseScenario(scen('FL-001', [Object.assign(clone(FL_CAP_EV), { capacity_model: track })]));
+  ok(p.ok && p.scenario.events[0].capacity_model === track,
+    'FL 事件 capacity_model=' + track + ' 解析通过并保留（合法两值枚举，B-1(a) 显式键入归一化面）', JSON.stringify(p.errors));
+});
+
+/* 11.2 缺省（不提供）全链 absent——不解析为系统默认轨（B-1(a) 偏离 §8 thermal
+   缺省解析先例：thermal 缺省解析轨 thermal_model=off 入归一化面，capacity 缺省轨
+   只由引擎 normalizeConfig 盖章承载——Q11/Q9 定案纪律） */
+const pFlCapAbsent = SC.parseScenario(scen('FL-001', [clone(FL_CAP_EV)]));
+ok(pFlCapAbsent.ok && !('capacity_model' in pFlCapAbsent.scenario.events[0]),
+  'FL 事件缺省 capacity_model 全链 absent（不解析为系统默认轨——B-1(a)/Q11，缺省轨由引擎盖章层承载）', JSON.stringify(pFlCapAbsent.errors));
+ok(!('capacity_model' in pFL.scenario.events[0]) && !('capacity_model' in pFL.scenario.events[1]) && !('capacity_model' in pFL.scenario.events[2]),
+  '既有 FL 三事件场景（§1 FL3，无轨键）归一化后无 capacity_model 键——既有场景解析面零变化（B-1(a)）');
+
+/* 11.3 负例（目录面守卫 + 组合守卫）：非法值 / 非字符串 / 未声明该轨的系统出现即拒绝
+   （封闭白名单，t_clear_s/inertia_model/thermal_model/electrochem_model 先例同构）+
+   (off,on) 组合结构化拒绝（Q11 落点二——场景热轨解析值缺省/off 均拒，显式 off 不触发） */
+neg(scen('FL-001', [Object.assign(clone(FL_CAP_EV), { capacity_model: 'dual' })]),
+  'N66 FL capacity_model 非法值（枚举外）', 'events[0].capacity_model', 'off / on');
+neg(scen('FL-001', [Object.assign(clone(FL_CAP_EV), { capacity_model: 42 })]),
+  'N67 FL capacity_model 非字符串', 'events[0].capacity_model', 'off / on');
+neg(scen('FC-001', [Object.assign(clone(FC_ECHEM_EV), { capacity_model: 'on' })]),
+  'N68 FC 事件带 capacity_model（系统未声明容量模型轨）', 'events[0].capacity_model', '未声明容量模型轨');
+neg(scen('GT-001', [Object.assign(clone(GT_TRACK_EV), { capacity_model: 'off' })]),
+  'N69 GT 事件带 capacity_model（系统未声明容量模型轨）', 'events[0].capacity_model', '未声明容量模型轨');
+neg(scen('PV-001', [{ key: 'a', family: 'sensor_drift', params: { magnitude: 100 }, t_start_s: 20, feedback_mode: 'closed_loop', capacity_model: 'on' }]),
+  'N70 PV 事件带 capacity_model（系统未声明容量模型轨）', 'events[0].capacity_model', '未声明容量模型轨');
+neg(scen('WT-001', [{ key: 'a', family: 'sensor_drift', params: { magnitude: 1 }, t_start_s: 20, feedback_mode: 'closed_loop', capacity_model: 'on' }]),
+  'N71 WT 事件带 capacity_model（系统未声明容量模型轨）', 'events[0].capacity_model', '未声明容量模型轨');
+neg(scen('FL-001', [{ key: 'ev1', family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop', capacity_model: 'on' }]),
+  'N72 FL (off,on) 组合拒绝（场景热轨缺省解析 off——三元封闭路由 §4 项 10②）', 'events[0].capacity_model', 'thermal_model=on');
+neg(scen('FL-001', [Object.assign(clone(FL_CAP_EV), { thermal_model: 'off', capacity_model: 'on' })]),
+  'N73 FL 显式 (thermal off, capacity on) 组合拒绝（组合守卫——capacity 轨以 thermal 轨为承载前提）', 'events[0].capacity_model', 'thermal_model=on');
+const pCapOnOff = SC.parseScenario(scen('FL-001', [Object.assign(clone(FL_CAP_EV), { capacity_model: 'off' })]));
+ok(pCapOnOff.ok && pCapOnOff.scenario.events[0].capacity_model === 'off',
+  '对照：显式 (thermal on, capacity off) 合法——(on,off) 三元路由支不触发组合守卫（§4 项 10②）', JSON.stringify(pCapOnOff.errors));
+
+/* 11.4 哈希形态（B-1(a)/Q11 定案）：显式 on ≠ 显式 off ≠ 缺省（三者互异——
+   与 §8「缺省=显式默认值同哈希」相反：capacity 缺省不入哈希）；
+   缺省键场景哈希与改前基线值逐位同（字面量锚定——W4 探针：git HEAD 27c5e22
+   v1.3.0 改前 src/core/scenario.js 对 FL sensor_drift 场景 scenarioHash 复算值，
+   B-1(a) 显式键条件式 ⇒ 既有 FL 场景 scenarioHash 零变化） */
+const FL_CAP_SCEN = scen('FL-001', [clone(FL_CAP_EV)]);
+const hFlCapAbsent = SC.scenarioHash(FL_CAP_SCEN);
+const hFlCapOff = SC.scenarioHash(scen('FL-001', [Object.assign(clone(FL_CAP_EV), { capacity_model: 'off' })]));
+const hFlCapOn = SC.scenarioHash(scen('FL-001', [Object.assign(clone(FL_CAP_EV), { capacity_model: 'on' })]));
+ok(hFlCapOn !== hFlCapOff, 'scenarioHash：显式 on ≠ 显式 off（解析轨入哈希——显式键条件式）');
+ok(hFlCapOff !== hFlCapAbsent, 'scenarioHash：显式 off ≠ 缺省（缺省全链 absent 不入哈希——B-1(a) 偏离热/惯量先例，Q11）');
+ok(hFlCapOn !== hFlCapAbsent, 'scenarioHash：显式 on ≠ 缺省（三值互异，无「缺省=显式默认值」合并面）');
+const FL_PRECHANGE_HASH = '9e45b115600ce82acd1ac3ccd54eb02ab4c6ff84ea9e8c8feba28e5b57c25625';
+eq(SC.scenarioHash(scen('FL-001', [{ key: 'ev1', family: 'sensor_drift', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop' }])), FL_PRECHANGE_HASH,
+  '既有 FL 场景（无轨键）scenarioHash = 改前基线字面量（git HEAD 27c5e22 复算锚定——B-1(a)/Q11：键缺席场景哈希零变化）');
+eq(SC.scenarioHash(reverseKeysDeep(FL_CAP_SCEN)), hFlCapAbsent, 'FL 缺省轨场景键序倒置 → 同 scenarioHash');
+eq(SC.scenarioHash(reverseKeysDeep(scen('FL-001', [Object.assign(clone(FL_CAP_EV), { capacity_model: 'on' })]))), hFlCapOn,
+  'FL 钉轨场景键序倒置 → 同 scenarioHash（on）');
+const pFlCapIdem = SC.parseScenario(pFlCapAbsent.scenario);
+ok(pFlCapIdem.ok && SC.scenarioHash(pFlCapIdem.scenario) === hFlCapAbsent, 'FL 归一化场景（缺省轨 absent）再哈希幂等');
+
+/* 11.5 executeScenario 三态：显式键透传引擎配置（轨分派生效）；缺省轨 absent → 引擎
+   normalizeConfig 盖章层承载（cfg=off、轨列结构性缺席——场景层全链 absent） */
+const FL_CAP_EXEC = scen('FL-001', [
+  Object.assign(clone(FL_CAP_EV), { key: 'ev-absent' }),
+  Object.assign(clone(FL_CAP_EV), { key: 'ev-off', capacity_model: 'off' }),
+  Object.assign(clone(FL_CAP_EV), { key: 'ev-on', capacity_model: 'on' })
+]);
+const flCapRes = SC.executeScenario(FL_CAP_EXEC, { runIdPrefix: 'FL-CAP', createdAt: TS });
+eq(flCapRes.runs.length, 3, 'FL 三轨场景执行 3 Run');
+eq(flCapRes.runs[0].config.capacity_model, 'off', 'FL Run1（缺省）config.capacity_model=off（引擎 normalizeConfig 盖章——场景层 absent）');
+eq(flCapRes.runs[1].config.capacity_model, 'off', 'FL Run2（显式 off）config.capacity_model=off');
+eq(flCapRes.runs[2].config.capacity_model, 'on', 'FL Run3（显式 on）config.capacity_model=on（解析值透传引擎）');
+eq(flCapRes.runs[0].config.thermal_model, 'on', 'FL Run1（缺省）config.thermal_model=on（解析热轨透传——组合前置承载）');
+eq(flCapRes.scenarioHash, SC.scenarioHash(FL_CAP_EXEC), 'FL 三轨场景 scenarioHash 与独立计算一致');
+ok(flCapRes.runs[2].timeseries.signals.E_cap_kWh !== undefined &&
+  flCapRes.runs[2].timeseries.signals.E_cap_kWh.every((v) => v === 40),
+  'FL Run3（on）E_cap_kWh 列面在场（全程有值——simulateFL001Capacity 分派生效；healthy 参数窗 < T_cap0 ⇒ ≡40）');
+ok(flCapRes.runs[0].timeseries.signals.E_cap_kWh === undefined &&
+  flCapRes.runs[1].timeseries.signals.E_cap_kWh === undefined,
+  'FL Run1/2（缺省/显式 off）无 E_cap_kWh 列（off 轨结构性缺席——makeSeries onTrackOnly 门控）');
+eq(FL.registry.verifyRunHash(flCapRes.runs[2]), true, 'FL Run3（on）run_hash 自校验通过');
+ok(flCapRes.runs[0].manifest.run_hash !== flCapRes.runs[2].manifest.run_hash &&
+  flCapRes.runs[1].manifest.run_hash !== flCapRes.runs[2].manifest.run_hash,
+  'FL run_hash：缺省/off ↔ on 互异（序列内容承载轨区分）');
+ok(flCapRes.runs[0].manifest.config_hash === flCapRes.runs[2].manifest.config_hash &&
+  flCapRes.runs[1].manifest.config_hash === flCapRes.runs[2].manifest.config_hash,
+  'B-3(a) 已知局限登记：FL on/off config_hash 同值（scenarioView 不投影 capacity_model——轨区分由 run_hash/序列内容承载，不静默）');
+
+/* execute off 等价：场景缺省轨 Run 与手工显式 off Run 逐位一致（off 路径仿真行为
+   零变化——B-1(a) 缺省轨只在盖章层解析；FLTH §2.0④ 同款判据） */
+const manualFlCapOff = FL.registry.createRun({
+  config: FL.core.createConfig('FL-001', {
+    feedback_mode: 'closed_loop',
+    fault: { family: 'sensor_drift', t_start_s: 20, params: { magnitude: 10 } },
+    thermal_model: 'on',
+    capacity_model: 'off',
+    noise: { enabled: false }
+  }),
+  runId: 'MAN-FL-CAP-OFF',
+  createdAt: TS
+});
+eq(flCapRes.runs[0].manifest.config_hash, manualFlCapOff.manifest.config_hash, 'FL 缺省轨 Run config_hash = 手工显式 off Run');
+ok(JSON.stringify(flCapRes.runs[0].timeseries) === JSON.stringify(manualFlCapOff.timeseries),
+  'FL 缺省轨 Run 时间序列与手工显式 off Run 逐点一致（off 等价）');
+eq(flCapRes.runs[0].manifest.run_hash, manualFlCapOff.manifest.run_hash, 'FL 缺省轨 Run run_hash = 手工显式 off Run（t/signals/events/metrics/checks 内容面全等）');
+
+/* 11.6 信封 roundtrip（含 capacity_model 场景 checksum 稳定——§9 C-5 机制对新键面） */
+const envFlCapOn = SC.exportScenarioEnvelope(scen('FL-001', [Object.assign(clone(FL_CAP_EV), { capacity_model: 'on' })]));
+eq(envFlCapOn.content_checksum, hFlCapOn, '信封 content_checksum = scenarioHash（含 capacity_model 场景）');
+eq(JSON.stringify(SC.exportScenarioEnvelope(JSON.stringify(scen('FL-001', [Object.assign(clone(FL_CAP_EV), { capacity_model: 'on' })])))),
+  JSON.stringify(envFlCapOn), '含 capacity_model 场景两次导出逐字节同 JSON（确定性，无时间戳/无随机）');
+const rtFlCapOn = SC.importScenarioEnvelope(JSON.parse(JSON.stringify(envFlCapOn)));
+ok(rtFlCapOn.ok === true && rtFlCapOn.via === 'envelope', '含 capacity_model 信封导入 ok（via=envelope）', JSON.stringify(rtFlCapOn.errors));
+eq(SC.scenarioHash(rtFlCapOn.scenario), hFlCapOn, 'roundtrip：含 capacity_model 场景导出 → 导入 → 同 scenarioHash（checksum 稳定）');
+
+
 console.log('\n================================================');
 console.log('PASS ' + pass + ' / FAIL ' + fail + (fail ? '  ✗' : '  ✓'));
 if (fail) {
@@ -820,4 +965,4 @@ if (fail) {
   console.log('================================================');
   process.exit(1);
 }
-console.log('场景编排核心（C-2 S1）测试全部通过：负例 ' + negResults.length + ' 类 / roundtrip / 执行等价 / 字段完整性 + electrochem_model 键节（§10，B-1(a)/Q9）。');
+console.log('场景编排核心（C-2 S1）测试全部通过：负例 ' + negResults.length + ' 类 / roundtrip / 执行等价 / 字段完整性 + electrochem_model 键节（§10，B-1(a)/Q9）+ capacity_model 键节（§11，B-1(a)/Q11 组合键）。');

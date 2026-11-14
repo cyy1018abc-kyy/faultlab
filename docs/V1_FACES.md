@@ -80,7 +80,7 @@ EQ-FCEC-1..7 + level_on :665 / summary_on :666〕）；MG001 现 :1453；`ALL` �
 
 | 系统 | model_id / model_version | level 标签 | 信号数 | 故障族 | 方程面 |
 |---|---|---|---|---|---|
-| FL-001 | `fl001` / `1.1.0`（:301-302） | L0（:126）+ thermal on 轨 | 18 | sensor_drift / actuator_fault（:269/:281） | EQ-1..6 + EQ-A/B + EQ-FLTH-1..9（:339-359） |
+| FL-001 | `fl001` / `1.1.0`（:301-302） | L0（:126）+ thermal on 轨 + capacity on 轨（level_on 派生，v1.4.0） | 19〔18+1 onTrackOnly〕（v1.4.0，CHG-20261114-02） | sensor_drift / actuator_fault（:269/:281） | EQ-1..6 + EQ-A/B + EQ-FLTH-1..9 + EQ-FLTH-10..12（capacity on 轨，v1.4.0） |
 | FC-001 | `fc.pem.l0` / `1.1.0`（:579-580；现行 :603-604——model_version 维持仅登记，Q1 定案 B） | L0（:407；现行 :413）+ **L1 电化学 on 轨**（electrochem_model off|on 默认 off；level_on「L1 · 电堆极化与单节点热（数值仿真级）」:665 经 levelFor/summaryFor 派生——既有静态消费入口零变化）（v1.2.0，CHG-20261113-02） | **24**〔v1.1.0 时点 21 + 3 新信号 T_st_K/V_stack_V/P_loss_stack_kW——onTrackOnly on 轨专属列、off 轨结构性缺席〕 | sensor_drift / load_step / actuator_fault（:548/:558/:568；现行 :570 起——族面零变化） | EQ-1..6 + **EQ-FCEC-1..7（on 轨，model.electrochem 子对象承载；off 轨 EQ 面零变化）**（v1.2.0，CHG-20261113-02） |
 | GT-001 | `gt.sync.l0` / `1.2.0`（:830/:833） | L1 thermo（:631），swing/linear 遗留轨 | 27 | sensor_drift / load_step / actuator_fault（:799/:809/:819） | EQ-1..6 + EQ-GTL1-1..12（:875-893） |
 | PV-001 | `pv.pv.l0` / `1.0.0`（:1066-1067） | L0（:919） | 17 | sensor_drift / shading_step（:1044/:1055） | EQ-PV-1..7（:1090 起） |
@@ -125,7 +125,7 @@ model.electrochem 子对象）——additive 字段面承诺同等适用，`ALL`
 **事实源**：ORACLE_INTERFACE_D2 §3（:117-184，字段面 §3.1、tier 制度 §3.2 引 ALINE §3 :75-92、
 approval §3.3、backend 留位 §3.4、正交性 §3.5）；data/golden/ 既有 8 golden + 8 sidecar
 （本 ask 列目录实证；v1.1.0 增 mg001_v1 → **现存 9 golden + 9 sidecar**，CHG-20261110-02；
-v1.2.0 增 fc001_v2 → **现存 10 golden + 10 sidecar**，CHG-20261113-02）；
+v1.2.0 增 fc001_v2 → 10 golden，CHG-20261113-02；v1.4.0 增 fl001_v3 → **现存 11 golden + 11 sidecar**，CHG-20261114-02）；
 逐文件 tier/schema 实测（本 ask 用 python 逐文件读取）：
 
 | golden | schema 版本 | gate.tier | Run 数 | 状态 |
@@ -153,7 +153,7 @@ v1.2.0 增 fc001_v2 → **现存 10 golden + 10 sidecar**，CHG-20261113-02）�
   （scripts/verify_golden.py:178/:224/:337 T-B 分支）；
 - V-03 语义（generated_by.oracle_source_sha256 = oracle 源文件自身字节 SHA-256）、V-03b
   approval 摘要算法（剥离 generated_by/approval 后 canonical JSON 的 SHA-256）；
-- **既有 10 golden 文件字节冻结（v1.2.0 计数快照同步：v1.1.0 时点 9 + fc001_v2，CHG-20261113-02——
+- **既有 11 golden 文件字节冻结（v1.2.0 计数快照同步：v1.1.0 时点 9 + fc001_v2，CHG-20261113-02；v1.4.0 计数快照同步：v1.3.0 时点 10 + fl001_v3，CHG-20261114-02——
   字节冻结承诺语义零变化，仅计数事实面更新）**（V-02 sidecar 绑定实际字节）——该承诺强于 semver：
   任何重出（含保 id）都是 G2b/CHG 事件，旧文件字节永不就地改写（先例口径：Q3 冻结归档债）；
 - 新 golden（新 id）默认 schema v2；verify_golden MODELS 注册行语义（重指向须 CHG；
@@ -443,7 +443,7 @@ package/发布证据与 CHG 文本中）：
 | 6 | 评测生态——协议批准 | ARENA_EVAL_PROTOCOL v1.1 批准（CHG-20261030-03）+ MVP 五件套全部落地（arena-protocol.js/arena2-gen.mjs/arena2-verify.mjs/负例测试/run-g2 步 19） | run-g2.mjs:107；本 ask 列文件实证 | ✅ |
 | 7 | 评测生态——对外首场 | 流程就绪（EVAL_TRACK_GUIDE v2 §6；组织方=用户）——运营项随时可启动，非代码收敛条件 | V06_ROADMAP §2 :70 | ✅（就绪；首场时点归组织方） |
 | 8 | 架构稳定 | 零第三方依赖/离线可跑/零构建 ES2020（O-03，CONTRACT.md §2）；I-1…I-7 不变式沿袭（V06 §0）；D-5 插件化评估=推荐 v1.0 不做（V090 DEC-4）；D-3 FMU=外部依赖挂起（等样本，不做清单内） | V090 §0/DEC-4；V06 §6 | ✅ |
-| 9 | 全门禁 | 最近全量 run-g2 tier=all 30/30 ok（2026-11-08，commit 1331ed3 = v0.8.0 收盘轮）——**v0.9.0 收盘须复跑 31 步全量**（预算 ≤32）〔v1.1.0 快照同步（CHG-20261110-02）：步数账现值 **35**；最近全量 2026-11-11 tier/all **34/35**——perf.mjs 时长门禁阻塞登记（v110-release §0），G7 闭合待 perf 阈值再登记裁定〔CHG-20261110-03（2026-11-13）已闭合：阈值 31500 ms 再登记 + 复跑 35/35 两次独立 PASS〕
+| 9 | 全门禁 | 最近全量 run-g2 tier=all 30/30 ok（2026-11-08，commit 1331ed3 = v0.8.0 收盘轮）——**v0.9.0 收盘须复跑 31 步全量**（预算 ≤32）〔v1.1.0 快照同步（CHG-20261110-02）：步数账现值 **35**；最近全量 2026-11-11 tier/all **34/35**——perf.mjs 时长门禁阻塞登记（v110-release §0），G7 闭合待 perf 阈值再登记裁定〔CHG-20261110-03（2026-11-13）已闭合：阈值 31500 ms 再登记 + 复跑 35/35 两次独立 PASS〕〔v1.4.0 快照（CHG-20261114-02）：perf 阈值再登记 31500→71500 ms（旅程 81→94 断言 additive 增长，峰值×2 公式）+ 复跑 35/35 两次独立 PASS（111626/110026 ms）〕
 〔v1.2.0 快照（CHG-20261113-02）：最近全量 2026-11-13 tier/all **35/35 × 2 独立**
 （78450/78179 ms；0 新步——35 维持，步① 三 golden；perf 步 12255/12263 ms ≪ 31500 ms，
 G7 维持闭合）——证据 evidence/g8/v120-release.md §4〕〕 | artifacts/run-g2-report.json（本 ask 读取） | ⏳ 随本波 G 门禁兑现 |
@@ -588,9 +588,25 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
 - **面②/面③/面④/面⑥/面⑦/面⑧/§3/§1/§4 零触碰**：10 golden 不变（本波零新 golden）、
   run-g2 35 步 0 新步维持、词表 39/14 维持（copy-guard 发布轮实跑 0 命中）。
 
+
+## 11. v1.4.0 additive 修订记录（2026-11-14，CHG-20261114-02/03）
+
+- **面① FL-001 画像行**：signals 18→**19**（E_cap_kWh onTrackOnly）+ capacity on 轨注记 +
+  EQ-FLTH-10..12（capacity on 轨）——全部 additive（capacity 声明面挂 SystemDef 子对象于
+  model_hash 九字段域外，既有五数组逐字节不动）；
+- **面② golden 表 + fl001_v3 行**（4 Run 镜像全 (on,on)/T-B/schema v2/approval CHG-20261114-01/
+  supersedes=fl001_v2）+ 计数快照 10→**11 golden**（字节冻结承诺语义零变化）；
+- **面⑦ 快照注**：35 步维持 0 新步 + DEFAULT_MODELS 四 golden + perf 阈值再登记 71500 ms
+  （CHG-20261114-02，D-4 程序同构）+ 35/35 两次独立（111626/110026 ms）；
+- **面⑧ 39/14 维持注**：v1.4.0 零增词（copy-guard 发布轮实跑 0 命中）；
+- **§4 #9 快照**：v1.4.0 快照注（35/35 ×2 + 阈值 71500 ms）；
+- 入池/pool/面⑤ 等 v1.3.0 修订零触碰；§1/§3/面③④⑤⑥ 零触碰。
+
 **文件结束**。V1_FACES v1（2026-11-08，T6 起草，CHG-20261108-01）→ v1.0.0 冻结转正
 （CHG-20261108-04，用户 v1.0.0 发布指令链）→ **v1.1.0 additive 修订**（CHG-20261110-02：
 六系统/9 golden/35 步/39 词——全部 additive，冻结语义零变化）→ **v1.2.0 additive 修订**
 （CHG-20261113-02：FC L1 电化学轨/10 golden/35 步 0 新步/39 词维持——全部 additive，
 冻结语义零变化）→ **v1.3.0 additive 修订**（CHG-20261113-05：面⑤ QP-4 放行 + 入池登记/
-面① ARENA_EXCLUDED 快照同步/本 §10 修订记录——全部 additive，冻结语义零变化）。
+面① ARENA_EXCLUDED 快照同步/本 §10 修订记录——全部 additive，冻结语义零变化）→ **v1.4.0 additive 修订**
+（CHG-20261114-02/03：FL capacity on 轨/11 golden/35 步 0 新步/39 词维持/阈值 71500 ms 再登记——全部 additive，
+冻结语义零变化）。

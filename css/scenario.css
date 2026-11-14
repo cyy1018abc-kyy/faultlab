@@ -76,6 +76,21 @@
 .pg-scenario .scn-ech-edit .seg-item { font-size: 11px; padding: 3px 8px; }
 .pg-scenario .scn-ech-hint { font-size: 10.5px; color: var(--ink-3); line-height: 1.5; min-width: 200px; flex: 1 1 220px; }
 
+/* ---- FL capacity_model 事件卡编辑器（V140 W5，CHG-20261114-01 批准链；electrochem
+   编辑器同构 + 组合守卫禁用态——thermal 未钉 on 时「钉 on」disabled（.seg-item:disabled
+   既有主题样式），守卫提示行 warn 色承载「场景层拒绝句式对齐」文案） ---- */
+.pg-scenario .scn-cap-edit {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 2px; padding: 6px 8px;
+  border: 1px dashed var(--line-1); border-radius: var(--r-sm, 6px);
+  background: rgba(17, 22, 29, .45);
+}
+.pg-scenario .scn-cap-key { font-size: 10.5px; color: var(--acc-soft); }
+.pg-scenario .scn-cap-edit .seg { gap: 4px; }
+.pg-scenario .scn-cap-edit .seg-item { font-size: 11px; padding: 3px 8px; }
+.pg-scenario .scn-cap-hint { font-size: 10.5px; color: var(--ink-3); line-height: 1.5; min-width: 200px; flex: 1 1 220px; }
+.pg-scenario .scn-cap-hint.is-guarded { color: var(--warn); }
+
 .pg-scenario .scn-seq-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* ---- results ---- */

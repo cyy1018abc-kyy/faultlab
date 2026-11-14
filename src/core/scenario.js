@@ -13,6 +13,9 @@
                        MG001_G2B_SPEC_APPROVED v1.0 §2.4 守卫扩展，CHG-20261110-01 批准链),
                      inertia_model?: 'swing'|'linear'|'thermo'(仅 GT-001，缺省解析为系统默认轨),
                      thermal_model?: 'off'|'on'(仅 FL-001，缺省解析为系统默认轨),
+                     capacity_model?: 'off'|'on'(仅 FL-001，B-1(a) 显式键条件式——缺省全链 absent，
+                       缺省轨由引擎 normalizeConfig 盖章层承载；FL001_CAPACITY_G2B_SPEC_
+                       APPROVED v1.0 §2，CHG-20261114-01 批准链),
                      feedback_mode: 'closed_loop'|'monitor' } ] }；
        （island_event 为 MG 故障族、非事件键——EVENT_KEYS/hashProjection 零变化，
          族准入面 = systems.js 故障目录成员 + 上述 t_clear_s 守卫扩展；规格 §4 项 8。）
@@ -44,8 +47,9 @@
   var TOP_KEYS = ['scenario_id', 'version', 'label', 'system', 'events'];
   /* thermal_model 显式 CHG 随 CHG-20261107-01 登记（FL001_THERMAL_G2B_SPEC_APPROVED v1.0
      §2.0 / V080_WAVE_DESIGN DEC-2）。electrochem_model 显式 CHG 随 CHG-20261113-01 登记
-     （FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2/§8 FCECH-G2b-04）。 */
-  var EVENT_KEYS = ['key', 'label', 'family', 'params', 't_start_s', 't_clear_s', 'inertia_model', 'thermal_model', 'electrochem_model', 'feedback_mode'];
+     （FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2/§8 FCECH-G2b-04）。capacity_model 显式
+     CHG 随 CHG-20261114-01 登记（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §2/§8 FLCAP-G2b-04）。 */
+  var EVENT_KEYS = ['key', 'label', 'family', 'params', 't_start_s', 't_clear_s', 'inertia_model', 'thermal_model', 'capacity_model', 'electrochem_model', 'feedback_mode'];
   /* 事件级模型深度轨（B-2 定案，CHG-20261104-12 ③）：枚举三值；缺省解析为系统默认轨
      （defaults.inertia_model，GT-001 = thermo，Q4 定案）；scenarioHash 含解析后的轨。
      跨深度对比场景（A 线教学 payoff）经该键显式钉轨。 */
@@ -62,6 +66,15 @@
      :184-186）禁止缺省轨入哈希形态（热/惯量先例的既有场景哈希变化发生在 v0.x 宽容期、
      属登记预期失效面，八面冻结后不可复制）⇒ 既有 FC 场景 scenarioHash 零变化（Q9 定案）。 */
   var ELECTROCHEM_MODELS = ['off', 'on'];
+  /* 事件级容量/内阻二阶效应轨（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.1 裁定点二定案 (a)
+     组合键 + §2 显式 CHG，CHG-20261114-01 批准链；ELECTROCHEM_MODELS B-1(a) 先例同构）：
+     枚举两值；**仅在场景输入显式提供时**写入归一化事件与 hashProjection（B-1(a) 显式键
+     条件式哈希形态），缺省（不提供）全链 absent——不解析为系统默认轨（缺省轨解析只在引擎
+     normalizeConfig 盖章层发生，engine.js capacity_model 盖章行）⇒ 既有 FL 场景
+     scenarioHash 零变化。组合守卫（Q11 落点二——双落点之二，engine validate 为落点一）：
+     capacity_model=on 前置 thermal_model=on，显式 on 而场景热轨缺省/off → 结构化拒绝
+     （三元封闭路由 (off,on)=拒绝——§4 项 10②）。 */
+  var CAPACITY_MODELS = ['off', 'on'];
 
   /* 授权状态守卫（准入条件：非「已删除」）：事实源 docs/FAULT_CATALOG.md §1/§4。
      FL-001 load_step 已按 O-13（CHG-20261030-06）删除——systems.js 目录已不含该族，
@@ -433,6 +446,39 @@
       }
     }
 
+    /* capacity_model（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.1/§2，显式 CHG 随
+       CHG-20261114-01 登记；可选事件级容量/内阻二阶效应轨）：枚举 off|on。**与 thermal_model
+       的关键偏离 = electrochem B-1(a) 先例同构（Q11/Q9 定案纪律）**：仅在场景输入显式提供时
+       校验并写入归一化事件与 hashProjection，**缺省（不提供）全链 absent——不解析为系统
+       默认轨**（缺省轨由引擎 normalizeConfig 盖章层承载，engine.js capacity_model 行）；
+       非法值拒绝入结构化错误；未声明该轨的系统上出现即拒绝（封闭白名单先例同构）。
+       守卫前置（§2 场景新键行）：declaresCapacity 要求 defaults.thermal_model 已声明——
+       capacity 轨以 thermal 轨为承载前提的组合前置结构承载。
+       **组合守卫（Q11 落点二——双落点之二）**：capacity_model=on 前置 thermal_model=on；
+       显式 on 而场景热轨解析值缺省/off（含场景缺省解析为系统默认 off）→ 结构化拒绝——
+       三元封闭路由 (off,on)=拒绝（§4 项 10②；engine validate 落点一同构守卫）。显式 off
+       不触发组合守卫（(on,off) 为合法三元路由支）。 */
+    var capacity = null;
+    var declaresCapacity = !!(system && system.defaults && system.defaults.capacity_model &&
+      system.defaults.thermal_model);
+    if (ev.capacity_model !== undefined) {
+      if (!declaresCapacity) {
+        errors.push({ field: at + '.capacity_model', message: '系统 ' + (system ? system.id : '?') + ' 未声明容量模型轨（capacity_model 仅适用于声明该轨的系统）' });
+      } else if (CAPACITY_MODELS.indexOf(ev.capacity_model) === -1) {
+        errors.push({ field: at + '.capacity_model', message: '必须为 off / on（收到 ' + String(ev.capacity_model) + '）' });
+      } else {
+        capacity = ev.capacity_model;
+      }
+    }
+    if (capacity === 'on') {
+      var thermalResolved = (ev.thermal_model !== undefined) ? thermal
+        : (declaresThermal ? system.defaults.thermal_model : null);
+      if (thermalResolved !== 'on') {
+        errors.push({ field: at + '.capacity_model', message: 'capacity_model=on 需要前置 thermal_model=on（当前场景热轨为 ' + String(thermalResolved) + '——(off,on) 非法组合拒绝，capacity 轨以 thermal 轨为承载前提）' });
+        capacity = null;
+      }
+    }
+
     /* feedback_mode */
     var mode = null;
     if (ev.feedback_mode === undefined) {
@@ -451,6 +497,7 @@
     if (inertia !== null) out.inertia_model = inertia; /* 解析后的轨（缺省 = 系统默认轨）入归一化面与哈希 */
     if (thermal !== null) out.thermal_model = thermal; /* 解析后的轨（缺省 = 系统默认轨）入归一化面与哈希 */
     if (electrochem !== null) out.electrochem_model = electrochem; /* B-1(a)：仅显式提供时入归一化面与哈希（缺省轨不入——引擎盖章层承载） */
+    if (capacity !== null) out.capacity_model = capacity; /* B-1(a)：仅显式提供时入归一化面与哈希（缺省轨不入——引擎盖章层承载；FLCAP-G2b-04，CHG-20261114-01） */
     return out;
   }
 
@@ -481,7 +528,11 @@
      electrochem_model：B-1(a) 显式键条件式（偏离热/惯量先例——Q9 定案）：仅显式提供时
      在归一化事件有值、入哈希；缺省（未提供）为 undefined，canonicalize 按不存在处理 ⇒
      既有 FC 场景 scenarioHash 零变化（缺省轨由引擎 normalizeConfig 盖章层承载，不入
-     scenarioHash——轨区分由引擎盖章层 cfg 与 run_hash/序列内容承载，已知局限登记不静默）。 */
+     scenarioHash——轨区分由引擎盖章层 cfg 与 run_hash/序列内容承载，已知局限登记不静默）。
+     capacity_model：B-1(a) 显式键条件式（同 Q9 纪律——FLCAP-G2b-04，CHG-20261114-01 批准链）：
+     仅显式提供时有值、入哈希；缺省为 undefined（canonicalize 按不存在处理）⇒ 既有 FL 场景
+     scenarioHash 零变化（缺省轨由引擎 normalizeConfig 盖章层承载，不入 scenarioHash——
+     轨区分由引擎盖章层 cfg 与 run_hash/序列内容承载，已知局限登记不静默）。 */
   function hashProjection(s) {
     return {
       version: s.version,
@@ -495,6 +546,7 @@
           t_clear_s: e.t_clear_s, /* 缺省/无清除为 undefined，canonicalize 按不存在处理 */
           inertia_model: e.inertia_model, /* 解析后的模型深度轨（缺省系统为 undefined） */
           thermal_model: e.thermal_model, /* 解析后的热模型轨（未声明系统为 undefined；FL 场景哈希变化 = 预期失效面） */
+          capacity_model: e.capacity_model, /* B-1(a)：仅显式提供时有值（缺省 undefined 不入哈希 ⇒ 既有场景哈希零变化） */
           electrochem_model: e.electrochem_model, /* B-1(a)：仅显式提供时有值（缺省 undefined 不入哈希 ⇒ 既有场景哈希零变化） */
           feedback_mode: e.feedback_mode
         };
@@ -536,6 +588,11 @@
        （缺省轨已由 normalizeConfig 盖章——engine electrochem_model 行，场景层全链 absent）；
        引擎 validateConfig 枚举守卫 + simulateFC001Electrochem 分派承接口。 */
     if (ev.electrochem_model) patch.electrochem_model = ev.electrochem_model;
+    /* 解析后的容量/内阻二阶效应轨透传（FLCAP-G2b-04 / B-1(a)，CHG-20261114-01）：仅显式
+       提供时透传（缺省轨已由 normalizeConfig 盖章——engine capacity_model 行，场景层全链
+       absent）；引擎 validateConfig 枚举 + 组合守卫 + simulateFL001Capacity 分派承接口
+       （(off,on) 组合已被场景层守卫拒绝——双落点之二，引擎侧为第三道防线）。 */
+    if (ev.capacity_model) patch.capacity_model = ev.capacity_model;
     return FL.core.createConfig(systemId, patch);
   }
 

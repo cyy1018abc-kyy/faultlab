@@ -327,13 +327,17 @@ sysList.forEach((item) => {
 
 /* FL-001 必含信号集合（契约 §5.1 表 + FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §1.2 两热信号：
    T_bat_K/P_loss_kW 为 L4 信号目录 +2 的预期失效面，16→18——L9a 逐项登记；
-   off 轨两列全程 null 的序列面断言由 tests/engine.test.js 步 1 承载） */
+   off 轨两列全程 null 的序列面断言由 tests/engine.test.js 步 1 承载。
+   E_cap_kWh 为 FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §3.1 项 4 预期失效面
+   （CHG-20261114-01 批准链；FLCAP-G2b-04 信号目录 additive，18→19——Q10 定案最小集
+   单新信号、onTrackOnly 门控：off/(on,off) 轨结构性缺席不建列，序列面断言由
+   tests/engine.test.js on_cap 节承载；manifest model_hash 零变化——signals 不入哈希域） */
 const FL_REQUIRED_SIGNALS = ['I_bat_true_A', 'I_bat_meas_A', 'I_ref_A', 'bias_A', 'I_bat_cap_A',
   'P_bat_true_kW', 'P_bat_meas_kW', 'P_gen_true_kW', 'P_gen_meas_kW', 'P_load_demand_kW',
   'P_load_served_kW', 'V_bus_V', 'SOC_true_pct', 'SOC_est_pct', 'r_true_kW', 'r_meas_kW',
-  'T_bat_K', 'P_loss_kW'];
+  'T_bat_K', 'P_loss_kW', 'E_cap_kWh'];
 const flSignalIds = systems.get('FL-001').signals.map((s) => s.id);
-eq(flSignalIds.slice().sort().join(','), FL_REQUIRED_SIGNALS.slice().sort().join(','), 'FL-001 必含信号集合（18 个，+thermal 两信号）');
+eq(flSignalIds.slice().sort().join(','), FL_REQUIRED_SIGNALS.slice().sort().join(','), 'FL-001 必含信号集合（19 个，+thermal 两信号 +capacity E_cap_kWh）');
 eq(systems.signalMap('FL-001').I_bat_meas_A.blindVisible, true, 'FL-001 I_bat_meas_A blindVisible');
 eq(systems.signalMap('FL-001').I_bat_true_A.chart.style, 'solid', 'FL-001 I_true 为实线');
 eq(systems.signalMap('FL-001').I_bat_meas_A.chart.style, 'dashed', 'FL-001 I_meas 为虚线');

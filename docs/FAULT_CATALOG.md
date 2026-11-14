@@ -47,6 +47,45 @@ on 不回写电气面）。on 轨 golden = **fl001_v2**（4 Run 全部 thermal_m
 DEC-6 步①并入口径）。系统 scope 维持 **approved_p0**（thermal 轨为模型面扩展、非新故障族；
 默认 off ⇒ P0/盲包语义零变化）。
 
+**capacity 轨注记（FLCAP-G2b-03/04，2026-11-14 落地；`FL001_CAPACITY_G2B_SPEC_APPROVED.md` v1.0，CHG-20261114-01 批准链）**：
+FL-001 增 `capacity_model: "off"|"on"` 配置开关（默认 **off**——off 轨与 thermal on 无
+capacity 轨 = 上表两族既有物理面 + fl001_v1/fl001_v2 golden 零变化，本注记不改变上表任何
+故障族行）。**组合前置与三元封闭路由**：capacity_model=on 前置 thermal_model=on——
+(thermal_model, capacity_model) → golden 三元分派 (off,·)→fl001_v1 / (on,off)→fl001_v2 /
+(on,on)→fl001_v3 / **(off,on)=非法组合结构化拒绝（不静默钳位）**（engine validate +
+scenario 解析双落点守卫，Q11 定案）。on_cap 域内新增 R_int 温度二次项
+（EQ-FLTH-10：R_int(T)=R0·(1+α·θ+β·θ²)，β=5×10⁻⁷ 1/K² 教学整定值）、SOC_true 分母改
+时变可用容量 E_cap(T_bat)=η_cap(T_bat)·E_nom（EQ-FLTH-11，η_cap(T)=max(η_floor,
+1−k_cap·max(0,T−T_cap0))，η_floor=0.5/k_cap=0.004 1/K/T_cap0=313.15 K；**≡ EQ-FLTH-7
+capacity_model=on 域内修订——「SOC 定义不动」（V072 DEC-2）裁定重开采纳（仅 on 域生效），
+域外 EQ-FLTH-7 原式逐字不动；SOC_est 维持铭牌容量测量记账口径，测量链/控制面零升级**）
+与稳态二次代数方程数值稳定小根 θ₋（EQ-FLTH-12，闭式保留 + 稳定性条件 h > I²R0(α+2βθ)）——
+方程集 **EQ-FLTH-10…12**（故障族注入面与电气面 EQ-FLTH-1 原样；healthy 局 T_bat <
+T_cap0 ⇒ E_cap ≡ 40 kWh 精确 ⇒ SOC 面 fl001_v2 healthy 逐位同；SOC_err 为测量链偏差 +
+容量折算双因——容量因子非零仅现于高温段，模型已知结构项、非测量故障）。on_cap 轨
+golden = **fl001_v3**（4 Run 全部 thermal_model=on + capacity_model=on，镜像 fl001_v2
+全集；schema v2、model_version 1.1.0 维持仅登记、method_id=`fl001_capacity_rk4_dt0.01`、
+gate tier **T-B**、supersedes=fl001_v2（off 轨字节冻结留档，存档场次继续引用 v2）；
+oracle `tools/oracle/fl001_cap_oracle.py` 出生即 oracle_base 接入；verify_golden 注册行
+`fl001_cap` 已追加、默认（无参）运行扩为 fl001 + fl001_l1 + fc001_l1 + fl001_cap 四
+golden——V080 DEC-6 步①并入口径沿袭）。场景面 **B-1(a) 显式键条件式**（偏离
+thermal/inertia 先例——沿 FC electrochem Q9 定案同构）：`capacity_model` 仅在场景输入
+显式提供时写入归一化事件与 scenarioHash（缺省全链 absent，缺省轨由引擎 normalizeConfig
+盖章层承载 ⇒ 既有 FL 场景 scenarioHash 零变化）；cfg 值不进 scenarioView 投影/哈希
+（B-3(a)，已知局限：capacity on/off 两轨 config_hash 同值——轨区分由 run_hash/序列内容
+承载，不静默）。新信号 **E_cap_kWh**（可用容量（温度折算），kWh 既有单位零新增）带
+**onTrackOnly** 标记（仅 on_cap 轨建列；off 轨与 thermal on 无 capacity 轨结构性缺席不建列
+⇒ run_hash signals 面零变化；全非盲显不设 blindVisible——盲包语义零变化；run.signals
+目录 18→19；η_cap 不出信号——Q10 定案最小集）。系统 scope 维持 **approved_p0**
+（capacity 轨为**物理深度轨、非新故障族**——上表两族定义/参数域/授权状态/族白名单零变化，
+本注记 = 族面零变化声明；fl001_v3 验收 = T-B 门禁，off 轨 acceptance.keyValues 冻结锚点
+专用分域、不作 on_cap 轨通过判据——轨区分由 golden_id 承载）；默认 off ⇒ P0/盲包语义
+零变化。UI 变体（规格 §1.6 冻结文案，CHG-20261114-01 批准链）：on_cap 轨层级
+「L1 · 单节点热-容量折算模型（数值仿真级）」、定位句「教学尺度容量-内阻二阶效应示意
+（L1 扩展），非机组/电网动态验证」；scenario 页 capacity_model 三态钉选编辑器
+（缺省态不写键 + 组合守卫 UI 禁用态——thermal 未钉 on 时「钉 on」不可选，拒绝句式与
+场景层对齐）。
+
 **实现事实（A-3 评审输入；2026-11-04 实现落地已补齐）**：引擎 `simulateFL001`（engine.js:549–619）——健康/传感器轨
 一阶闭环 τ=1.5 s 跟踪 I_ref=25 A；actuator 轨 target = min(controlTarget, I_cap)、
 **τ=0.4 s**（engine.js:610–611）；I_bat_cap_A 信号自 t_start 起有效、其余场景 null；
@@ -161,6 +200,7 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | 2026-11-08 | WT-001 `v_sensor_bias` / `pitch_stuck` / `gust_step` | **新系统登记（新增 §7 节）→ extension_preview**（WT G2b 批准 CHG-20261107-01；oracle `tools/oracle/wt001_oracle.py` + golden wt001_v1 5 Run 首签（schema v2、method wt001_l0b_euler_dt0.01、gate T-A，approval=CHG-20261107-01 批准链首签）+ verify_golden 注册行落地，WT-G2b-03；`gust_step` 为新族名（不复用 shading_step/load_step——环境输入侧上行气象阶跃，§2.3 族名裁定）；引擎 WT 轨/systems.js 由 WT-G2b-04 同波接入） | WT001_G2B_SPEC_APPROVED v1.0 §2/§4 + V080_WAVE_DESIGN DEC-4（CHG-20261107-01） |
 | 2026-11-11 | MG-001 `load_step` / `pv_shading_link` / `wt_gust_link` / `island_event` | **新系统登记（新增 §8 节）→ extension_preview**（MG G2b 批准 CHG-20261110-01；oracle `tools/oracle/mg001_oracle.py` 源轨复用委托接入（pv001/wt001 oracle import 显式授权 + BESS 能量面内联 + MS-3 复用一致性 emit 硬条件）+ golden mg001_v1 5 Run 首签（schema v2、method mg001_aggregate_analytic、gate T-A（含 I_A 两键，A-1 修订）、approval=CHG-20261110-01 批准链首签）+ verify_golden `mg001` 注册行落地 + scenario.js t_clear_s 守卫扩展 (GT-001×actuator_fault) ∨ (MG-001×island_event)（EVENT_KEYS/hashProjection 零变化）——MG-G2b-03/04，V110_WAVE_DESIGN DEC-5 步数账 33→35；`island_event` 零参数族（params:[]，库内首例，Q2 定案）；`shading_link`/`gust_link` 新族名（MG 聚合层子轨联动转发，不复用 PV/WT 本地族名）；MG `load_step` 为聚合输入阶跃（与 FL-001 已删除 load_step（O-13）无语义继承——O-13 语义差异声明）；引擎 MG 轨/systems.js MG001 SystemDef/UI 六系统化 + ARENA_EXCLUDED 增 'MG-001' 同波接入（V110 W5/W6/W7）） | MG001_G2B_SPEC_APPROVED v1.0 §2/§4 + V110_WAVE_DESIGN DEC-1/DEC-4/DEC-5（CHG-20261110-01） |
 | 2026-11-13 | FC-001（三族不变，模型轨面） | **electrochem 轨（electrochem_model=on）G2b 批准并实现落地 → off/on 双轨制 + off 默认**（§2 节增 electrochem 轨注记行：golden 增 fc001_v2 5 Run 全部 on——schema v2、method fc001_l1_polarization_rk4_dt0.01、gate tier T-B、supersedes=fc001_v1、model_version 1.1.0、oracle `tools/oracle/fc001_l1_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261113-01 批准链首签；EQ-FCEC-1…7 登记；verify_golden `fc001_l1` 注册行 + 默认运行扩为 fl001+fl001_l1+fc001_l1 三 golden；scenario 面 B-1(a) 显式键条件式——EVENT_KEYS additive 新键 electrochem_model、缺省全链 absent、既有 FC 场景 scenarioHash 零变化（偏离 thermal/inertia 先例，Q9 定案）；三新信号 T_st_K/V_stack_V/P_loss_stack_kW 带 onTrackOnly（run.signals 21→24、off 轨 null、全非盲显——盲包语义零变化）；off 轨/fc001_v1 零变化；系统 scope 维持 approved_fc、族白名单零改动——**非新故障族，族面零变化声明**） | FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2/§4（项 10/§1.1）/§8 FCECH-G2b-03/04 + V120_WAVE_DESIGN §2 W2/W3/W5 + CHG-20261113-01 |
+| 2026-11-14 | FL-001（两族不变，模型轨面） | **capacity 轨（capacity_model=on，前置 thermal_model=on）G2b 批准并实现落地 → (off,·)/(on,off)/(on,on)/(off,on)=拒绝 三元封闭路由**（§1 节增 capacity 轨注记行：golden 增 fl001_v3 4 Run 全部 on_cap（thermal_model=on + capacity_model=on 双键入 config 块）——schema v2、method fl001_capacity_rk4_dt0.01、gate tier T-B、supersedes=fl001_v2（off 轨字节冻结留档）、model_version 1.1.0 维持仅登记、oracle `tools/oracle/fl001_cap_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261114-01 批准链首签；EQ-FLTH-10…12 登记（EQ-FLTH-2/7/9 域内修订——「SOC 定义不动」V072 DEC-2 裁定重开采纳、仅 capacity_model=on 域内生效，域外 EQ-FLTH-7 原式逐字不动，SOC_est 维持铭牌容量测量记账口径）；verify_golden `fl001_cap` 注册行 + 默认运行扩为 fl001+fl001_l1+fc001_l1+fl001_cap 四 golden；scenario 面 B-1(a) 显式键条件式——EVENT_KEYS additive 新键 capacity_model、缺省全链 absent、既有 FL 场景 scenarioHash 零变化 + 组合守卫双落点（engine validate + scenario，(off,on) 结构化拒绝、三元封闭路由 Q11 定案）；新信号 E_cap_kWh 带 onTrackOnly（run.signals 18→19、off 轨与 thermal on 无 capacity 轨结构性缺席、全非盲显——盲包语义零变化；η_cap 不出信号 Q10 定案）；off/(on,off) 轨零变化（fl001_v1/v2 字节冻结）；系统 scope 维持 approved_p0、族白名单零改动——**物理深度轨非新故障族，族面零变化声明**） | FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §2/§4（项 9/10/§6.2.1）/§8 FLCAP-G2b-03/04 + V140_WAVE_DESIGN §2 W2/W3/W4/W5 + CHG-20261114-01 |
 
 ## 6. PV-001 光伏逆变器（L0，scope=extension_preview）
 
@@ -314,7 +354,11 @@ UI 单 Run 可达包络行（signals 页）为当前单 Run 引擎逐点计算�
 
 ---
 
-**文件结束**。FAULT_CATALOG v1.6（2026-11-13：§2 FC-001 增 electrochem 轨注记行
+**文件结束**。FAULT_CATALOG v1.7（2026-11-14：§1 FL-001 增 capacity 轨注记行
+（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0，FLCAP-G2b-03/04，CHG-20261114-01 批准链，
+系统 scope 维持 approved_p0、族面零变化——物理深度轨非新故障族；三元封闭路由
+(off,·)/(on,off)/(on,on)/(off,on)=拒绝 + EQ-FLTH-10…12 域内修订登记）+ §5 勘误表登记；
+v1.6 = 2026-11-13 §2 FC-001 增 electrochem 轨注记行
 （FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0，FCECH-G2b-03/04，CHG-20261113-01 批准链，
 系统 scope 维持 approved_fc、族面零变化——物理深度轨非新故障族）+ §5 勘误表登记；
 v1.5 = 2026-11-11 新增 §8 MG-001 节（四族含新族

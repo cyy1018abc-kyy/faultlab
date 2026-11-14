@@ -48,6 +48,15 @@
  *        路径卡 8 条 + hero 计数徽章同步 + path-mg-001 卡在场 + 可展开 5 步
  *        （步骤卡 id 序列 = DEC-5 模板）+ I-5 句式与 mg001_v1 锚点文案面
  *        （钳位 8 kW / P_shed 2 kW / t_clear 35 s）——只读渲染面断言，零新执行语义。
+ *   E-20 FL 容量轨 UI 面（V140 W5，CHG-20261114-01 批准链，FL001_CAPACITY_G2B_SPEC_
+ *        APPROVED v1.0 §1.6/§2）：
+ *        scenario 页 FL capacity_model 编辑器（B-1(a) 缺省态不写键 + 组合守卫 UI 禁用态
+ *        ——thermal 缺省解析 off 时「钉 on」disabled、点击零效果；钉 off 写键 + 回退
+ *        恢复哈希；thermal_model=on 场景前置满足后「钉 on」写入）+ FL on_cap deep-link
+ *        系统页（cfg thermal=on + capacity=on + E_cap_kWh 601 点 + level_on 徽章 +
+ *        summary_on 摘要 + capacity 声明面板 A-flcap/EQ-FLTH-10/定位句）+ signals 页
+ *        off 对照（18 列 E_cap 结构性缺席）/on_cap（19 列 + E_cap 601 点 + soc 类目
+ *        渲染面——通用渲染零改动核实）+ arena 页 O-4 六系统口径文案断言。
  *
  * 退出码：0=全部通过；1=存在失败项。报告写 <--out 目录>/e2e-report.json。
  *
@@ -63,6 +72,12 @@
  * V130 MG 教学路径波（V130_WAVE_DESIGN §2 W4，DEC-3 CHG-20261113-04 批准链）：
  *   断言 76→81（新增 E-19 教学页 path-mg-001 五条，全 additive——教学页渲染面只读
  *   断言，既有 E-01..E-18 旅程与判据零语义变化，W3 E-12 区零接触）；执行顺序与退出码不变。
+ *
+ * V140 FL 容量轨波（V140_WAVE_DESIGN §2 W5，CHG-20261114-01 批准链）：
+ *   断言 81→94（新增 E-20 FL 容量轨 UI 面十三条，全 additive——scenario 编辑器/
+ *   组合守卫、system 页 on_cap 变体、signals 页 E_cap 列、arena O-4 清扫后文案；
+ *   既有 E-01..E-19 旅程与判据零语义变化，W3/W4 波内他人已改区零接触）；执行顺序
+ *   与退出码不变。
  *
  * V0.3.0 T3 双浏览器追溯增强（不改变旅程、40 条断言、执行顺序与退出码）：
  *   - --out 输出目录在 main() 启动即创建（原为截图/写报告时才创建）；
@@ -704,6 +719,246 @@ async function main() {
     ok(fcOnSigDom.ok && fcOnSig.page === 'signals' && fcOnSig.tstItem > 0,
       'E-18：signals 页 on 轨渲染面（热力类目电堆温度 T_st 信号行在场——run.signals 通用渲染零改动核实）',
       JSON.stringify({ page: fcOnSig.page, tstItem: fcOnSig.tstItem }));
+
+    /* E-20 FL 容量轨 UI 面（V140 W5，CHG-20261114-01 批准链；FL001_CAPACITY_G2B_SPEC_
+       APPROVED v1.0 §1.6/§2。① scenario 页 capacity 编辑器（B-1(a) 显式键条件式 +
+       组合守卫 UI 禁用态——Q11 双落点之二 UI 侧；deep-link 样例装载走既有「FL-001
+       样例」按钮，thermal 钉 on 走既有导入框/解析入口）；② deep-link 系统页 on_cap
+       数据面/level_on/summary_on/capacity 面板沿 E-17 形态（轨翻转经既有草稿/运行
+       语义 updateDraft + createRun 标准入口）；③ signals 页 off 对照/on_cap E_cap 列
+       沿 E-18 形态；④ arena 页 O-4 六系统口径文案断言） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&page=scenario' });
+    await wait(1200);
+    const capLoad = await cdp.evalExpr(`(function(){
+      const btns = Array.prototype.slice.call(document.querySelectorAll('.scn-import-actions button'));
+      const flBtn = btns.filter(function (b) { return (b.textContent || '').indexOf('FL-001 样例') !== -1; })[0];
+      if (flBtn) flBtn.click();
+      return { clicked: !!flBtn, page: FL.store.getState().page };
+    })()`);
+    await wait(600);
+    const capDefault = await cdp.evalExpr(`(function(){
+      const edits = Array.prototype.slice.call(document.querySelectorAll('.scn-cap-edit'));
+      const cur = edits.length ? edits[0].querySelector('.seg .seg-item[aria-pressed="true"]') : null;
+      const seg = document.querySelector('.scn-cap-edit .seg');
+      const onBtn = seg ? seg.querySelector('.seg-item[data-value="on"]') : null;
+      const chips = Array.prototype.slice.call(document.querySelectorAll('.scn-event-chips .chip'))
+        .map(function (c) { return c.textContent || ''; });
+      return { page: FL.store.getState().page, edits: edits.length,
+               pressed: cur ? cur.dataset.value : '',
+               capChips: chips.filter(function (t) { return t.indexOf('容量模型') !== -1; }),
+               onDisabled: onBtn ? onBtn.disabled : null,
+               guardText: document.getElementById('page-scenario').textContent.indexOf('(off,on) 非法组合拒绝') !== -1,
+               hashBefore: (document.querySelector('.scn-hash-val') || {}).textContent || '' };
+    })()`);
+    ok(capLoad.page === 'scenario' && capDefault.page === 'scenario' &&
+      capDefault.edits === 1 && capDefault.pressed === 'absent' &&
+      capDefault.capChips.length === 0 && capDefault.onDisabled === true && capDefault.guardText,
+      'E-20：FL 场景事件卡 capacity 编辑器在场 + 缺省态「默认 off（未钉轨）」不写键（无 chip）+ 组合守卫禁用态/提示在场（thermal 缺省解析 off——场景层拒绝句式对齐）',
+      JSON.stringify(capDefault));
+    await cdp.evalExpr(`(function(){
+      const seg = document.querySelector('.scn-cap-edit .seg');
+      const onBtn = seg ? seg.querySelector('.seg-item[data-value="on"]') : null;
+      if (onBtn) onBtn.click();
+    })()`);
+    await wait(500);
+    const capGuard = await cdp.evalExpr(`(function(){
+      const chips = Array.prototype.slice.call(document.querySelectorAll('.scn-event-chips .chip'))
+        .map(function (c) { return c.textContent || ''; });
+      const cur = document.querySelector('.scn-cap-edit .seg .seg-item[aria-pressed="true"]');
+      return { pressed: cur ? cur.dataset.value : '',
+               capChips: chips.filter(function (t) { return t.indexOf('容量模型') !== -1; }),
+               hashNow: (document.querySelector('.scn-hash-val') || {}).textContent || '' };
+    })()`);
+    ok(capGuard.pressed === 'absent' && capGuard.capChips.length === 0 &&
+      capGuard.hashNow === capDefault.hashBefore,
+      'E-20：组合守卫禁用态——thermal 未钉 on 时「钉 on」不可选（点击零效果，键不入哈希、场景哈希不变）',
+      JSON.stringify(capGuard));
+    await cdp.evalExpr(`(function(){
+      const seg = document.querySelector('.scn-cap-edit .seg');
+      const btn = seg ? seg.querySelector('.seg-item[data-value="off"]') : null;
+      if (btn) btn.click();
+    })()`);
+    await wait(500);
+    const capOff = await cdp.evalExpr(`(function(){
+      const chips = Array.prototype.slice.call(document.querySelectorAll('.scn-event-chips .chip'))
+        .map(function (c) { return c.textContent || ''; });
+      const cur = document.querySelector('.scn-cap-edit .seg .seg-item[aria-pressed="true"]');
+      return { pressed: cur ? cur.dataset.value : '',
+               capChips: chips.filter(function (t) { return t.indexOf('容量模型 off') !== -1; }),
+               hashNow: (document.querySelector('.scn-hash-val') || {}).textContent || '' };
+    })()`);
+    ok(capOff.pressed === 'off' && capOff.capChips.length === 1 &&
+      capOff.hashNow && capOff.hashNow !== capDefault.hashBefore,
+      'E-20：钉 off 写入场景键（容量模型 off chip 在场 + 场景内容哈希随显式键变化）',
+      JSON.stringify(capOff));
+    await cdp.evalExpr(`(function(){
+      const seg = document.querySelector('.scn-cap-edit .seg');
+      const btn = seg ? seg.querySelector('.seg-item[data-value="absent"]') : null;
+      if (btn) btn.click();
+    })()`);
+    await wait(500);
+    const capRestored = await cdp.evalExpr(`(function(){
+      const chips = Array.prototype.slice.call(document.querySelectorAll('.scn-event-chips .chip'))
+        .map(function (c) { return c.textContent || ''; });
+      const cur = document.querySelector('.scn-cap-edit .seg .seg-item[aria-pressed="true"]');
+      return { pressed: cur ? cur.dataset.value : '',
+               capChips: chips.filter(function (t) { return t.indexOf('容量模型') !== -1; }),
+               hashNow: (document.querySelector('.scn-hash-val') || {}).textContent || '' };
+    })()`);
+    ok(capRestored.pressed === 'absent' && capRestored.capChips.length === 0 &&
+      capRestored.hashNow === capDefault.hashBefore,
+      'E-20：回退未钉轨恢复既有哈希（B-1a 缺省态键不存在——既有 FL 场景 scenarioHash 零变化面）',
+      JSON.stringify(capRestored));
+    await cdp.evalExpr(`(function(){
+      const s = FL.core.scenario.samples()['FL-001'];
+      const scn = JSON.parse(JSON.stringify(s));
+      scn.events[0].thermal_model = 'on';
+      const ta = document.querySelector('[data-testid="scenario-import-text"]');
+      ta.value = JSON.stringify(scn, null, 2);
+      ta.dispatchEvent(new Event('input'));
+      const btns = Array.prototype.slice.call(document.querySelectorAll('.scn-import-actions button'));
+      const parseBtn = btns.filter(function (b) { return (b.textContent || '').indexOf('解析校验') !== -1; })[0];
+      if (parseBtn) parseBtn.click();
+      return true;
+    })()`);
+    await wait(600);
+    /* 前置满足态基线先读（thermal 钉 on、capacity 未钉的解析哈希），后点击钉 on */
+    const capOnBase = await cdp.evalExpr(`(function(){
+      const seg = document.querySelector('.scn-cap-edit .seg');
+      const onBtn = seg ? seg.querySelector('.seg-item[data-value="on"]') : null;
+      return { attempted: onBtn ? !onBtn.disabled : false,
+               hashT: (document.querySelector('.scn-hash-val') || {}).textContent || '' };
+    })()`);
+    await cdp.evalExpr(`(function(){
+      const seg = document.querySelector('.scn-cap-edit .seg');
+      const onBtn = seg ? seg.querySelector('.seg-item[data-value="on"]') : null;
+      if (onBtn && !onBtn.disabled) onBtn.click();
+      return true;
+    })()`);
+    await wait(500);
+    const capOnPinned = await cdp.evalExpr(`(function(){
+      const chips = Array.prototype.slice.call(document.querySelectorAll('.scn-event-chips .chip'))
+        .map(function (c) { return c.textContent || ''; });
+      const cur = document.querySelector('.scn-cap-edit .seg .seg-item[aria-pressed="true"]');
+      return { pressed: cur ? cur.dataset.value : '',
+               capChips: chips.filter(function (t) { return t.indexOf('容量模型 on') !== -1; }),
+               hashNow: (document.querySelector('.scn-hash-val') || {}).textContent || '' };
+    })()`);
+    ok(capOnBase.attempted && capOnPinned.pressed === 'on' && capOnPinned.capChips.length === 1 &&
+      capOnPinned.hashNow && capOnPinned.hashNow !== capOnBase.hashT,
+      'E-20：thermal_model=on 场景「钉 on」可选并写入场景键（容量模型 on chip 在场 + 场景内容哈希随显式键变化——前置满足态）',
+      JSON.stringify({ attempted: capOnBase.attempted, pressed: capOnPinned.pressed,
+        capChips: capOnPinned.capChips.length, hashChanged: capOnPinned.hashNow !== capOnBase.hashT }));
+
+    /* E-20② FL on_cap deep-link 系统页（沿 E-17 形态；轨翻转经既有草稿/运行语义——
+       updateDraft thermal_model/capacity_model 双键 + createRun 标准入口，组合守卫
+       validateConfig 承接） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=FL-001&page=system' });
+    await wait(1500);
+    const flOnCreate = await cdp.evalExpr(`(function(){
+      FL.store.actions.updateDraft(function (d) { d.thermal_model = 'on'; d.capacity_model = 'on'; });
+      const res = FL.store.actions.createRun({ silent: true });
+      return { ok: !!(res && res.ok), err: res && res.error ? String(res.error) : '' };
+    })()`);
+    await wait(700);
+    const flOnUI = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      const sig = r && r.timeseries && r.timeseries.signals ? r.timeseries.signals : {};
+      const len = function (id) { return sig[id] ? sig[id].length : 0; };
+      const badges = Array.prototype.slice.call(document.querySelectorAll('.sys-head-meta .badge'))
+        .map(function (b) { return b.textContent || ''; });
+      const sub = (document.querySelector('.sys-page-sub') || {}).textContent || '';
+      const panel = document.querySelector('.sys-track-panel');
+      const panelText = panel ? panel.textContent : '';
+      return { cfgTh: r && r.config ? r.config.thermal_model : '',
+               cfgCap: r && r.config ? r.config.capacity_model : '',
+               ecap: len('E_cap_kWh'), tbat: len('T_bat_K'),
+               badges: badges,
+               subHasSummaryOn: sub.indexOf('电池按温度折算可用容量') !== -1,
+               panelFound: !!panel,
+               panelTestId: panel ? panel.getAttribute('data-testid') : '',
+               panelHasAssumption: panelText.indexOf('A-flcap-cap') !== -1,
+               panelHasEq: panelText.indexOf('EQ-FLTH-10') !== -1,
+               panelHasNote: panelText.indexOf('非机组/电网动态验证') !== -1 };
+    })()`);
+    ok(flOnCreate.ok && flOnUI.cfgTh === 'on' && flOnUI.cfgCap === 'on' &&
+      flOnUI.ecap === 601 && flOnUI.tbat === 601,
+      'E-20：FL on_cap 轨 Run 数据面（cfg thermal_model=on + capacity_model=on + E_cap_kWh 601 点）',
+      JSON.stringify({ ok: flOnCreate.ok, err: flOnCreate.err, cfgTh: flOnUI.cfgTh,
+        cfgCap: flOnUI.cfgCap, ecap: flOnUI.ecap, tbat: flOnUI.tbat }));
+    ok(flOnUI.badges.some(function (t) { return t.indexOf('L1 · 单节点热-容量折算模型') !== -1; }),
+      'E-20：system 页 header 层级徽章切 level_on（L1 · 单节点热-容量折算模型（数值仿真级））',
+      JSON.stringify(flOnUI.badges));
+    ok(flOnUI.subHasSummaryOn,
+      'E-20：system 页摘要追加 summary_on 句（电池按温度折算可用容量、内阻随温升非线性增大（教学折算面））',
+      flOnUI.subHasSummaryOn ? 'ok' : JSON.stringify(flOnUI).slice(0, 160));
+    ok(flOnUI.panelFound && flOnUI.panelTestId === 'fl-capacity-panel' &&
+      flOnUI.panelHasAssumption && flOnUI.panelHasEq && flOnUI.panelHasNote,
+      'E-20：system 页 on_cap 轨模型声明面板在场（A-flcap 假设 + EQ-FLTH-10 方程 + 定位句——B-2 变体渲染）',
+      JSON.stringify({ panelFound: flOnUI.panelFound, panelTestId: flOnUI.panelTestId,
+        panelHasAssumption: flOnUI.panelHasAssumption, panelHasEq: flOnUI.panelHasEq,
+        panelHasNote: flOnUI.panelHasNote }));
+
+    /* E-20③ FL signals 页 off 对照 + on_cap E_cap 列（沿 E-18 形态；off 对照 =
+       结构性缺席守卫——makeSeries onTrackOnly 门控零变化；on_cap 列由
+       simulateFL001Capacity 补建） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?demo=1&reset=1&system=FL-001&page=signals' });
+    await wait(1500);
+    const flOffSig = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      return { page: s.page, runSystem: r ? r.systemId : '',
+               catCount: r && r.signals ? r.signals.length : 0,
+               ecap: !!(r && r.timeseries && r.timeseries.signals && r.timeseries.signals.E_cap_kWh) };
+    })()`);
+    ok(flOffSig.page === 'signals' && flOffSig.runSystem === 'FL-001' &&
+      flOffSig.catCount === 18 && !flOffSig.ecap,
+      'E-20：FL off 轨对照——信号目录 18 列、E_cap_kWh 结构性缺席（off 域零变化守卫）',
+      JSON.stringify(flOffSig));
+    const flOnSigCreate = await cdp.evalExpr(`(function(){
+      FL.store.actions.updateDraft(function (d) { d.thermal_model = 'on'; d.capacity_model = 'on'; });
+      const res = FL.store.actions.createRun({ silent: true });
+      return { ok: !!(res && res.ok) };
+    })()`);
+    await wait(700);
+    await cdp.evalExpr(`(function(){
+      FL.store.actions.setPageState('signals', { category: 'soc' });
+      return true;
+    })()`);
+    await wait(500);
+    const flOnSig = await cdp.evalExpr(`(function(){
+      const s = FL.store.getState();
+      const r = s.activeRun;
+      const sig = r && r.timeseries && r.timeseries.signals ? r.timeseries.signals : {};
+      const len = function (id) { return sig[id] ? sig[id].length : 0; };
+      const items = Array.prototype.slice.call(document.querySelectorAll('.sig-item'));
+      const ecapItem = items.filter(function (i) { return (i.textContent || '').indexOf('可用容量') !== -1; }).length;
+      return { page: s.page, catCount: r && r.signals ? r.signals.length : 0,
+               ecap: len('E_cap_kWh'), ecapItem: ecapItem };
+    })()`);
+    ok(flOnSigCreate.ok && flOnSig.catCount === 19 && flOnSig.ecap === 601,
+      'E-20：FL on_cap signals 页——信号目录 19 列 + E_cap_kWh 601 点（onTrackOnly on_cap 轨补建列）',
+      JSON.stringify({ ok: flOnSigCreate.ok, catCount: flOnSig.catCount, ecap: flOnSig.ecap }));
+    ok(flOnSig.page === 'signals' && flOnSig.ecapItem > 0,
+      'E-20：signals 页 on_cap 渲染面（soc 类目「可用容量（温度折算）」信号行在场——run.signals 通用渲染零改动核实）',
+      JSON.stringify({ page: flOnSig.page, ecapItem: flOnSig.ecapItem }));
+
+    /* E-20④ arena 页 O-4 清扫后文案（V140 W5——「三系统」滞后口径 → 六系统口径，
+       ARENA_EXCLUDED 收缩六系统池下的滞后文案最小改写；纯文案面断言） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?page=arena' });
+    await wait(700);
+    const arenaO4 = await cdp.evalExpr(`(function(){
+      const sec = document.getElementById('page-arena');
+      const text = sec ? sec.textContent : '';
+      return { page: FL.store.getState().page,
+               hasSixReady: text.indexOf('六系统可用') !== -1,
+               hasSixHint: text.indexOf('六系统均有独立故障目录与盲观测通道') !== -1,
+               staleThree: text.indexOf('三系统可用') !== -1 || text.indexOf('三系统均有') !== -1 };
+    })()`);
+    ok(arenaO4.page === 'arena' && arenaO4.hasSixReady && arenaO4.hasSixHint && !arenaO4.staleThree,
+      'E-20：arena 页 O-4 清扫——引擎就绪行/实验系统提示行六系统口径（「六系统可用」「六系统均有独立故障目录与盲观测通道」在场、「三系统」滞后文案零命中）',
+      JSON.stringify(arenaO4));
 
     /* E-14 MG-001 深链系统页 + 四族注入面（v1.1.0 UI 接线路 CHG-20261110-01；
        island_event 零参数族 = MG-DRAFT-Q2 定案——无幅值输入，t_clear_s 重连时刻

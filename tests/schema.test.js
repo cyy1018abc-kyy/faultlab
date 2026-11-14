@@ -3,6 +3,9 @@
    §2e（FCECH-G2b-04 / CHG-20261113-01，V120 波 W4 追加节，既有断言零改动）：
    FC-001 electrochem_model 契约面——scenarioView 不投影（B-3(a)，config_hash 零变化）
    + validateScenarioConfig 显式键枚举守卫正反例（W3 schema.js :236-240 落地）。
+   §2f（FLCAP-G2b-04 / CHG-20261114-01，V140 波 W4 追加节，既有断言零改动）：
+   FL-001 capacity_model 契约面——scenarioView 不投影（B-3(a)，§2e 同构）
+   + validateScenarioConfig 显式键枚举守卫正反例（W3 schema.js :253-255 落地）。
    运行：node tests/schema.test.js；失败非零退出。 */
 'use strict';
 
@@ -240,6 +243,34 @@ code(contract.validateScenarioConfig(Object.assign({}, scFC, { electrochem_model
   '显式 electrochem_model 非字符串拒绝（类型面）');
 eq(contract.validateScenarioConfig(Object.assign({}, scFC, { electrochem_model: null })).length, 0,
   'electrochem_model=null 可缺省（inertia_model 守卫同形态——null 不触发枚举守卫）');
+
+/* ------------------------------------------------------------------ *
+ * 2f. FL-001 capacity_model 契约面（FLCAP-G2b-04 / CHG-20261114-01，
+ *      V140 波 W4 追加节，既有断言零改动；FL001_CAPACITY_G2B_SPEC_APPROVED
+ *      v1.0 §2 B-3(a) 定案——§2e electrochem 先例同构）：
+ *      scenarioView 不投影 capacity_model（thermal/electrochem 先例同构——config_hash
+ *      对轨值零敏感，FL on/off 两轨 config_hash 同值=显式登记已知局限，轨区分由
+ *      run_hash/序列内容承载）；validateScenarioConfig 枚举守卫仅对显式携带该键的
+ *      契约视图生效（外部构造/异版本导出包——electrochem_model 守卫同形态），
+ *      scenarioView 产出的既有投影该键恒 undefined ⇒ 全部既有输入零触发。
+ * ------------------------------------------------------------------ */
+const flCapBaseView = core.createConfig('FL-001', { fault: { family: 'none', faultId: null, t_start_s: 20, params: { magnitude: 0 } } });
+const scFLCap = contract.scenarioView(flCapBaseView);
+const scFLCapOn = contract.scenarioView(core.createConfig('FL-001', { thermal_model: 'on', capacity_model: 'on', fault: { family: 'none', faultId: null, t_start_s: 20, params: { magnitude: 0 } } }));
+eq(scFLCap.capacity_model, undefined, 'FL scenarioView 无 capacity_model 键（B-3(a)：不投影——config_hash 契约面哈希零变化）');
+eq(scFLCapOn.capacity_model, undefined, 'FL on_cap 轨 cfg scenarioView 同样不投影 capacity_model（轨值不入 config_hash——已知局限登记不静默）');
+eq(JSON.stringify(scFLCap), JSON.stringify(scFLCapOn), 'FL on/off cfg 场景视图逐字节同（config_hash 同值承载面——轨区分由 run_hash/序列内容）');
+eq(contract.validateScenarioConfig(scFLCap).length, 0, 'FL-001 Run 导出校验通过（既有投影无 capacity_model 键——守卫零触发）');
+eq(contract.validateScenarioConfig(Object.assign({}, scFLCap, { capacity_model: 'on' })).length, 0,
+  '显式 capacity_model=on 契约视图通过（合法枚举——外部构造视图守卫形态，electrochem_model 同构）');
+eq(contract.validateScenarioConfig(Object.assign({}, scFLCap, { capacity_model: 'off' })).length, 0,
+  '显式 capacity_model=off 契约视图通过（合法枚举两值另一支）');
+code(contract.validateScenarioConfig(Object.assign({}, scFLCap, { capacity_model: 'dual' })), 'CN-E02',
+  '显式 capacity_model 非法值（枚举外）拒绝（W3 schema.js :253-255 落地）');
+code(contract.validateScenarioConfig(Object.assign({}, scFLCap, { capacity_model: 42 })), 'CN-E02',
+  '显式 capacity_model 非字符串拒绝（类型面）');
+eq(contract.validateScenarioConfig(Object.assign({}, scFLCap, { capacity_model: null })).length, 0,
+  'capacity_model=null 可缺省（electrochem_model 守卫同形态——null 不触发枚举守卫）');
 
 /* ------------------------------------------------------------------ *
  * 3. TimeSeries §2.4（n 由参数派生，禁止硬编码 601；T-07 / SA-01）

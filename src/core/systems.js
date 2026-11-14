@@ -146,6 +146,13 @@
          on 轨（L1/fl001_v2）经显式选择到达；FLTH-IMP-Q3 定案：用户未提默认翻转，默认 off 维持。
          engine normalizeConfig/validate 按本键盖章与枚举守卫（engine.js thermal_model 分支）。 */
       thermal_model: 'off',
+      /* FL-001 容量/内阻二阶效应轨开关（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.1，裁定点二
+         定案 (a) 组合键，CHG-20261114-01 批准链；FLTH thermal_model / FCECH electrochem_model
+         additive 键先例同构）：capacity_model: off|on，默认 off——前置条件 thermal_model=on
+         才可 on，(off,on) 非法组合结构化拒绝（Q11 定案双落点：engine validate + scenario
+         declaresCapacity）。B-1(a) 定案：场景缺省轨解析只在 engine normalizeConfig 盖章层发生。
+         on 轨声明面挂 model.capacity 子对象（model_hash 九字段域外——B-2 定案）。 */
+      capacity_model: 'off',
       initial: { load_kW: 30, SOC_pct: 60 },
       noise: { enabled: false, seed: 12345, level: 0 }
     },
@@ -268,7 +275,18 @@
          盲包观测面不扩）。仅 thermal_model=on 轨填充数值，thermal_model=off 轨全程 null
          （makeSeries 按 SystemDef.signals 建列——GT 热信号在 swing/linear 遗留轨 null 先例）。 */
       sig({ id: 'T_bat_K', label: '电池温度（单节点集总）', shortLabel: 'T_bat', unit: 'K', category: 'thermal', sourceKind: 'MODEL_STATE', definition: '电池单节点集总温度（thermal_model=on 轨新动态状态，T_bat(0) = T_amb = 298.15 K 冷启动；thermal_model=off 轨无热力面，全程 null）。', formula: 'C_bat·dT_bat/dt = I_true²·R_int(T_bat) − h·(T_bat − T_amb), C_bat = 300 J/K, h = 10 W/K', precision: 2, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } }),
-      sig({ id: 'P_loss_kW', label: '热损耗功率', shortLabel: 'P_loss', unit: 'kW', category: 'thermal', sourceKind: 'DERIVED', definition: '热损耗功率（模型记账项，不是能量损失；thermal_model=on 轨填充当前状态值，thermal_model=off 轨全程 null）。', formula: 'P_loss = I_true²·R_int(T_bat), R_int(T_bat) = R0·(1 + α·(T_bat − 298.15)), R0 = 0.2 Ω, α = 0.01 1/K', precision: 3, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } })
+      sig({ id: 'P_loss_kW', label: '热损耗功率', shortLabel: 'P_loss', unit: 'kW', category: 'thermal', sourceKind: 'DERIVED', definition: '热损耗功率（模型记账项，不是能量损失；thermal_model=on 轨填充当前状态值，thermal_model=off 轨全程 null）。', formula: 'P_loss = I_true²·R_int(T_bat), R_int(T_bat) = R0·(1 + α·(T_bat − 298.15)), R0 = 0.2 Ω, α = 0.01 1/K', precision: 3, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } }),
+      /* FL-001 容量/内阻二阶效应轨新信号（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.2 B-3 列 +
+         §8 FLCAP-G2b-04，CHG-20261114-01 批准链；FC 三信号 onTrackOnly 先例同构——systems.js
+         T_st_K 行体例）：E_cap_kWh 单列（Q10 定案最小集，η_cap 由 E_cap 承载不出信号）。
+         sourceKind DERIVED → exposure public_demo 默认映射（B-3 定案——algebraic 折算面与
+         P_loss_kW DERIVED 同构）、全非盲显不设 blindVisible/不显式声明 exposure，盲包观测面
+         零扩展。onTrackOnly = 列仅 capacity_model=on 轨构建（engine.makeSeries 门控跳过 +
+         simulateFL001Capacity 补建——off 轨与 thermal on 无 capacity 轨 timeseries.signals
+         逐字节不变 ⇒ run_hash 零变化，§2 新信号列门控行）。单位字典零新增（kWh 既有——
+         UNITS energy 与 schema.js UNIT_DICT 实读核对）。signalCategories 归属 'soc' 类目
+         （B-3 定案——既有六类目零改动，纯键面归属）。 */
+      sig({ id: 'E_cap_kWh', label: '可用容量（温度折算）', shortLabel: 'E_cap', unit: 'kWh', category: 'soc', sourceKind: 'DERIVED', definition: '按电池温度折算的可用容量（记账面）：E_cap(T_bat) = η_cap(T_bat)·E_nom，E_nom = 40 kWh 铭牌容量不动（EQ-FLTH-11；capacity_model=on 轨填充当前状态代数值，off 轨与 thermal on 无 capacity 轨结构性缺席）。', formula: 'E_cap(T_bat) = η_cap(T_bat)·E_nom，η_cap(T) = max(η_floor, 1 − k_cap·max(0, T − T_cap0))，η_floor = 0.5, k_cap = 0.004 1/K, T_cap0 = 313.15 K', precision: 3, chart: { style: 'solid', colorToken: 'warm', axis: 'left' }, onTrackOnly: true })
     ],
     faults: [
       fault({
@@ -363,7 +381,41 @@
         { id: 'EQ-FLTH-7', latex_text: 'SOC_true = SOC0 − ∫P_bat,true dt/(40 kWh)×100%; SOC_est = SOC0 − ∫P_bat,meas dt/(40 kWh)×100%', note: 'SOC 定义不动（P_bat,true = 0.4·I_true 口径不变 ⇒ SOC/∫I 面与 L0 逐位同）' },
         { id: 'EQ-FLTH-8', latex_text: 'E_loss = ∫P_loss dt（子步梯形，Q4 定案）; E_source = E_load − E_bat + E_loss', note: '损耗能量账本（kW·s ÷3600 → kWh）；E 恒等式 E_source + E_bat ≡ E_load + E_loss（守恒面 (a) 后果）' },
         { id: 'EQ-FLTH-9', latex_text: 'E_source + E_bat − E_load − E_loss ≡ 0（检查式）; θ_ss = I²·R0/(h − I²·R0·α)（θ = T_bat − T_amb 渐近稳态温升，稳定性条件 h > I²·R0·α）', note: 'oracle 自检 FL-2/FL-7 与 checks thermal 分支判据式；θ_ss 闭式为包络角点声明依据（load0=45 角点与 48.2843 kW 稳定性边界）' }
-      ]
+      ],
+      /* FL-001 容量/内阻二阶效应轨声明面（B-2 定案 additive 子对象——FL001_CAPACITY_G2B_
+         SPEC_APPROVED v1.0 §2 模型哈希面行/§8 FLCAP-G2b-04，CHG-20261114-01 批准链；
+         FC001 model.electrochem 先例同构）：on_cap 轨全部声明面（A-flcap-* 五条、on 域
+         limitations 5 项——A-9 新增 ⑤、EQ-FLTH-10…12 equations、level_on/summary_on 变体）
+         挂本模型级 additive 字段，置于 model_hash 具名九字段哈希域之外（engine.js
+         modelManifest hashObject 具名九键输入清单零变化 ⇒ model_hash/run_hash/config_hash
+         既有输入全部零变化）；上方 assumptions/limitations/equations 五数组逐字节不动，
+         UI 按轨条件渲染（on 显示本子对象，off 显示上方原文——诚实性由变体渲染承载）。
+         文本 = 批准文本 §1.3/§1.6 冻结原文迁入（copy-guard 预检 §6.4 + 终检）。 */
+      capacity: {
+        assumptions: [
+          { id: 'A-flcap-cap', text: '【仅 capacity_model=on 适用】可用容量按温度折算：E_cap(T_bat) = η_cap(T_bat)·E_nom，η_cap(T) = max(η_floor, 1 − k_cap·max(0, T − T_cap0))（η_floor = 0.5 > 0 正性下限——η_cap ∈ (0,1] 全域构造保证、E_cap ≥ 20 kWh、SOC 积分良定义；T_cap0 = 313.15 K、k_cap = 0.004 1/K）；为教学尺度折算面（教学示意），容量慢漂移与循环老化未建模。' },
+          { id: 'A-flcap-params', text: '【仅 capacity_model=on 适用】β = 5×10⁻⁷ 1/K² 与 η_cap 折损形态参数（k_cap = 0.004 1/K、T_cap0 = 313.15 K、η_floor = 0.5）均为教学整定值（非实测参数）：按 60 s 演示窗内二阶效应可见、注册域单调与稳定性裕度整定（§3.3 域扫描证据），不对应任何真实电池包容量-温度特性或参数辨识；符号域 β ≥ 0、k_cap ≥ 0、η_floor > 0。' },
+          { id: 'A-flcap-soc', text: '【仅 capacity_model=on 适用】SOC 折算口径：SOC_true 以 E_cap(T_bat) 为分母（记账面）；P_bat,true = 0.4·I_true 口径不动，功率链零反馈；SOC_est 维持铭牌容量测量记账口径与 thermal_model=on 轨逐位同；healthy 局 T_bat < T_cap0 ⇒ E_cap ≡ 40 kWh 精确 ⇒ SOC_true/SOC_est/SOC_err 与 fl001_v2 healthy 逐位同；SOC_err 为测量链偏差 + 容量折算双因——容量因子非零仅现于高温段（模型已知结构项、非测量故障——不是能量损失）。' },
+          { id: 'A-flcap-stability', text: '【仅 capacity_model=on 适用】热平衡稳定性条件 h > I_true²·R0·(α + 2β·θ) 与稳态存在条件（判别式 ≥ 0）在注册参数域内成立（β 定案后角点复扫：I_max = 62.5 A 角点裕度 +1.0826 W/K、Δ = 3.564453、全域网格 min Δ > 0——§3.3）；手拼配置越域可破（无热保护，见局限）。' },
+          { id: 'A-flcap-l1', text: '【仅 capacity_model=on 适用】容量-内阻二阶效应模型为教学尺度单状态集总示意（L1 扩展），不是经过验证的设备控制器或电池容量模型。' }
+        ],
+        limitations: [
+          '【capacity_model=on 轨】容量慢漂移/循环老化未建模（教学示意折算面——ALINE §7 老化轴另立轨留位）。',
+          '【capacity_model=on 轨】β 二次项为教学参数（真实电池 R(T) 高温段形态未建模——FLTH §6.1 项 2 扩域）。',
+          '【capacity_model=on 轨】稳定性域边界移动（FLTH §3.4 登记的 load_kW > 48.2843 kW 越界边界在 capacity on 域失效——新界 load_kW > 46.4741 kW（I_b = 66.1854 A，β 定案重推：I_b = √(h/(R0(α+2√β)))、load0 界 = 0.4·I_b + 20，FLTH §3.4 推导形态同构），注册域全量复扫已随批准轮完成（§3.3 ④）、emit 复算维持硬条件）。',
+          '【capacity_model=on 轨】沿袭 thermal 轨全部局限（单节点集总/无热管理/环境常数/无热保护等）。',
+          '【capacity_model=on 轨】β>0 且判别式 < 0（或 h ≤ αI²R0）越域手拼段解为有限时间发散（Riccati a > 0——A-9 定案：批准轮域扫描 load0=150 kW 手拼 t≈7.8 s 窗内非有限、load0=48 kW 越界段窗内未发散而渐近发散；发散时窗与越域深度相关）。'
+        ],
+        equations: [
+          { id: 'EQ-FLTH-10', latex_text: 'R_int(T_bat) = R0·(1 + α·θ + β·θ²)，θ = T_bat − 298.15（K 制；T_bat 单位 K）；β = 5×10⁻⁷ 1/K²（批准轮定案，CHG-20261114-01）；符号域（A-5 定案）：β ≥ 0、α > 0（√β 实值、抛物线开口向上、小根稳定性全部以 β ≥ 0 为前提——FCAP-8 断言面）', note: '内阻温度面二次式（≡ EQ-FLTH-2 域内修订）：β>0 时 R_int 随温升加速增大（正温度反馈增强）；β = 0 时精确退化为现行线性式（退化为 fl001_v2 轨的结构自洽面）；R0/α 冻结值原样（0.2 Ω / 0.01 1/K）；β 教学参数非实测（A-flcap-params）【仅 capacity_model=on 适用】' },
+          { id: 'EQ-FLTH-11', latex_text: 'SOC_true(t) = SOC0 − 100·∫₀ᵗ [P_bat,true(t′)/3600] / E_cap(T_bat(t′)) dt′（/3600 位置（A-7 定案）：kW·s→kWh 换算因子作用于积分元内——换算 kWh 后再除 E_cap（kWh）分母）；SOC_est = SOC0 − ∫P_bat,meas dt/(40 kWh)×100% 原式逐字不动；E_cap(T_bat) = η_cap(T_bat)·E_nom，η_cap(T) = max(η_floor, 1 − k_cap·max(0, T − T_cap0))（A-1 定案机制，四常量 β/k_cap/T_cap0/η_floor §1.5 定案）。离散口径（冻结）：子步 E_cap 冻结于子步起点右值（分区结构同构——FLTH Q2 I 冻结先例）；实现形态 = 名义单除项（与 EQ-FLTH-7 原式同源同序：SOC0 − 100·(V·intI)/(E_nom·3600)，intI/intB 同源电气面 L0 序）+ 容量修正累积器（每子步 (V·∫I dt′/3600)·(1/E_cap(T_start) − 1/40)）——恒等改写 1/E_cap = 1/40 + (1/E_cap − 1/40)（修正项与 E_cap ≤ 40 同向、无相消）；T_bat < T_cap0 域内修正累积器恒精确 0.0（IEEE：max(0, T−T_cap0) ≡ 0 ⇒ η_cap ≡ 1.0 精确 ⇒ 1/E_cap − 1/40 ≡ 0.0）⇒ healthy 局 SOC_true/SOC_est/SOC_err 与 fl001_v2 逐位同（位级——扫描复核修正项 = 0.0、SOC_true(60) = 59.583333333333336 位级同，§3.2）。P_bat 符号域：放电段下降加快、充电段上升加快（|ΔSOC| 放大——η_cap ≤ 1 构造推论，方向声明 §1.4）', note: 'SOC_true 分母分域（≡ EQ-FLTH-7 capacity_model=on 域内修订——裁定点一定案：仅 on 域生效，off 与 thermal on 无 capacity 轨 EQ-FLTH-7 原式逐字不动，§6.2/§6.2.1）；SOC_est 维持 E_nom 测量记账口径（测量链零升级——与 FC Q5 定案同构）【仅 capacity_model=on 适用】' },
+          { id: 'EQ-FLTH-12', latex_text: '稳态：β·I_true²·R0·θ_ss² + (α·I_true²·R0 − h)·θ_ss + I_true²·R0 = 0（β>0 时二次代数方程，物理根 = 小根 θ₋）；数值稳定小根形态（冻结——Q3/A-3 定案）：θ₋ = 2·I_true²·R0 / [(h − α·I_true²·R0) + √Δ]（有理化式——Δ→0 无相消、β→0 无 0/0；naive 求根式 [(h−αI²R0) − √Δ]/(2βI²R0) 仅作展示不作求解式——β=0 时 0/0 未定义、小 β 段大数相消，扫描复核 β=1e-12 时相对差 2.25e-7，§3.3 ⑦）；局部稳定性条件：h > I_true²·R0·(α + 2β·θ)（轨内全程成立——θ(t) ≤ θ₋ 单调结构性推论，轨内最小裕度 = √Δ）；全轨失稳边界：h = I_true²·R0·(α + 2√β)（⟺ Δ = 0 双重根；注册域要求严格大于——扫描复核 62.5 A 角点裕度 +1.0826 W/K，§3.3 ②）；判别式 Δ = (h − α·I_true²·R0)² − 4β·(I_true²·R0)²：Δ < 0 ⟺ h < I_true²·R0·(α + 2√β)（h > αI²R0 侧精确成立——A-6 定案措辞；边界 h = I²R0(α+2√β) 为 Δ=0 双重根临界、非 Δ<0 等价点）；补记（h ≤ αI²R0 段）：Δ 可为正但两根皆负、同属无正实稳态域（复根段精确范围 I²R0(α−2√β) < h < I²R0(α+2√β)——dθ/dt > 0 全域、解有限时间发散，A-9/§1.6 ⑤）；β = 0 退化：θ₋ → I_true²·R0/(h − I_true²·R0·α)（EQ-FLTH-9 现行式精确还原——扫描复核 0.0 ulp 逐位同，§3.3 ⑦）；推导注：稳定根处 I_true²·R0·(α + 2β·θ₋) = h − √Δ < h 恒成立（√β 单位 1/K 自洽）', note: '稳态二次代数方程与稳定小根（≡ EQ-FLTH-9 域内重推）；闭式保留定案（Q3）——FLTH EQ-FLTH-9 闭式先例 + oracle 自检交叉面（FCAP-5）+ 教学可见（失稳边界 h = I²R0(α+2√β) 闭式直接进 limitations/域声明）；数值求解仅在闭式数值病态时兜底（登记不静默）【仅 capacity_model=on 适用】' }
+        ],
+        /* UI 变体（§1.6 冻结文案；FLTH levelFor/summaryFor 派生先例同构——FL001.levelFor） */
+        level_on: 'L1 · 单节点热-容量折算模型（数值仿真级）',
+        summary_on: '电池按温度折算可用容量、内阻随温升非线性增大（教学折算面）。',
+        notes: '教学尺度容量-内阻二阶效应示意（L1 扩展），非机组/电网动态验证。'
+      }
     },
     acceptance: {
       reference: 'MODEL_VALIDATION_SPEC §1.2/§3（解析金标准，未与实测校准）',
@@ -372,7 +424,14 @@
          以下 keyValues 为 off 轨（L0 / fl001_v1）专用冻结锚点——thermal_model=on 轨验收
          keyValues 由 fl001_v2 golden 承载（FLTH-G2b-03 emit），本键面不引用 off 轨锚点
          作 on 轨通过判据；acceptance 面按 cfg.thermal_model 分域为 FLTH-G2b-04 工作面
-         （分域派生落地另行登记，本波键面零变化）。 */
+         （分域派生落地另行登记，本波键面零变化）。
+         FLCAP-G2b-04 分域落地（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §4 项 10② 两门禁面，
+         CHG-20261114-01 批准链；FC001 acceptance 分域登记先例同构）：cfg→golden 三元分派表
+         = (thermal_model, capacity_model)：(off,·)→fl001_v1 / (on,off)→fl001_v2 /
+         (on,on)→fl001_v3 / (off,on)=非法组合拒绝（engine validate + scenario declaresCapacity
+         双落点——Q11 定案）。既有 off/(on,off) 域 keyValues 值零变化（上方冻结锚点原样——
+         on_cap 轨验收 keyValues 由 fl001_v3 golden 承载，本键面不引用 off 轨锚点作 on_cap 轨
+         通过判据，轨区分由 golden_id 承载）。 */
       keyValues: {
         E_bat_kWh: 0.1238889, E_gen_kWh: 0.3761111, E_load_kWh: 0.5,
         SOC_true_end_pct: 59.6902778, SOC_est_end_pct: 59.5791667, SOC_err_pp: -0.1111111,
@@ -388,13 +447,19 @@
      零变化），on 轨层级经 levelFor(cfg) / summaryFor(cfg) 派生——消费入口：
      ① engine/provenance 面（run 元数据按 cfg 派生，L3 接线）；
      ② UI 跨深度卡/系统详情（cfg 在手时调用，L7 接线；无 cfg 的静态卡继续读 level 字段）。
-     off（或缺省/未知 cfg）时两函数返回与 level/summary 字段相同的现值——off 域零变化。 */
+     off（或缺省/未知 cfg）时两函数返回与 level/summary 字段相同的现值——off 域零变化。
+     FLCAP-G2b-04 扩展（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.6 UI 变体，CHG-20261114-01
+     批准链；FC001.levelFor 先例同构——cfg 感知派生）：capacity_model=on 轨显示 level_on/
+     summary_on 变体（模型级 capacity 子对象批准冻结文本）——组合守卫保证 on_cap 蕴含
+     thermal_model=on，容量变体判定前置（双轨文案不叠加）。off/(on,off) 域返回值逐字不变。 */
   FL001.levelFor = function (cfg) {
+    if (cfg && cfg.capacity_model === 'on') return FL001.model.capacity.level_on;
     return (cfg && cfg.thermal_model === 'on')
       ? 'L1 · 单节点集总热模型（数值仿真级）'
       : FL001.level;
   };
   FL001.summaryFor = function (cfg) {
+    if (cfg && cfg.capacity_model === 'on') return FL001.summary + FL001.model.capacity.summary_on;
     return (cfg && cfg.thermal_model === 'on')
       ? FL001.summary + '电池按单节点集总热容升温，热损耗由发电机补偿（模型记账口径）。'
       : FL001.summary;
@@ -3161,6 +3226,12 @@
        off）同构盖章；未声明的系统不产生该字段。engine validate 侧枚举守卫同构
        （engine.js electrochem_model 分支）；cfg 值不进 scenarioView 投影/哈希（B-3(a)）。 */
     if (s.defaults.electrochem_model) cfg.electrochem_model = s.defaults.electrochem_model;
+    /* FL-001 容量/内阻二阶效应轨（FLCAP-G2b-04 / B-7 双盖章落点之二——FL001_CAPACITY_G2B_
+       SPEC_APPROVED v1.0 §1.1/§8，CHG-20261114-01 批准链；electrochem_model 盖章行同构）：
+       声明了 capacity_model 的系统（FL-001，默认 off）同构盖章；未声明的系统不产生该字段。
+       engine validate 侧枚举 + 组合守卫同构（engine.js capacity_model 分支——(off,on) 结构化
+       拒绝）；cfg 值不进 scenarioView 投影/哈希（B-3(a)）。 */
+    if (s.defaults.capacity_model) cfg.capacity_model = s.defaults.capacity_model;
     return cfg;
   }
 

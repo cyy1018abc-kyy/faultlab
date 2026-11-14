@@ -2,14 +2,20 @@
 """verify_golden.py — 一键校验：重跑独立 oracle → 按 golden 内置容差比对（MODEL_VALIDATION_SPEC §3.6）。
 
 用法：
-  python scripts/verify_golden.py                # 默认三 golden：fl001（v1 off 默认轨）+
+  python scripts/verify_golden.py                # 默认四 golden：fl001（v1 off 默认轨）+
                                                  #   fl001_l1（v2 thermal 轨）+ fc001_l1
-                                                 #   （v2 电化学轨）顺序验证，全部通过才
-                                                 #   exit 0（DEC-6 步①并入口径，FLTH §7.3
-                                                 #   「优先并入现有步」；B-5 定案尾追加
-                                                 #   fc001_l1——CHG-20261113-01 批准链）
+                                                 #   （v2 电化学轨）+ fl001_cap（v3 容量轨）
+                                                 #   顺序验证，全部通过才 exit 0（DEC-6
+                                                 #   步①并入口径，FLTH §7.3「优先并入现有
+                                                 #   步」；B-5 定案尾追加 fc001_l1——
+                                                 #   CHG-20261113-01；Q6 定案尾追加
+                                                 #   fl001_cap——CHG-20261114-01 批准链）
   python scripts/verify_golden.py fl001          # 仅 fl001（显式参数不扩面，仍只验 fl001_v1）
   python scripts/verify_golden.py fl001_l1       # FL-001 thermal 轨（FLTH-G2b-03 / CHG-20261107-01）
+  python scripts/verify_golden.py fl001_cap      # FL-001 容量/内阻二阶效应轨（FLCAP-G2b-03 /
+                                                 #   CHG-20261114-01 批准链；golden fl001_v3，
+                                                 #   tier T-B，T-B `_kWh` 分支 = A-4/B-1
+                                                 #   显式硬项）
   python scripts/verify_golden.py fc001          # FC-001（P1-06 / G2b-lite）
   python scripts/verify_golden.py fc001_l1       # FC-001 电化学轨（FCECH-G2b-03 / CHG-20261113-01
                                                  #   批准链；golden fc001_v2，tier T-B，
@@ -28,8 +34,9 @@
   V-01 golden 存在且可解析；V-02 sidecar SHA-256 一致；
   V-03 generated_by.oracle_source_sha256 == 当前 oracle 源码 SHA-256；
   V-03b approval 批准摘要一致（去除 generated_by/approval 后内容摘要）；
-  V-04 oracle 自检全过（fl001 SC-1…9 / fl001_l1 FL-1…8 / fc001 SC-1…10 / fc001_l1 FEC-1…8 /
-       gt001_l1 GL-1…8 / pv001 PS-1…7 / wt001 WS-1…8 / mg001 MS-1…8）；
+  V-04 oracle 自检全过（fl001 SC-1…9 / fl001_l1 FL-1…8 / fl001_cap FCAP-1…8 /
+       fc001 SC-1…10 / fc001_l1 FEC-1…8 / gt001_l1 GL-1…8 / pv001 PS-1…7 / wt001 WS-1…8 /
+       mg001 MS-1…8）；
   V-05 关键点（19.9/21.5/26.0/60.0 s 的 true/meas 对）——tier 分派：T-A rtol 1e-12
        （I_A 键，既有路径零改动）/ T-B 按 series_limit 序列容差键（GTL1-G2b-03 参数化）；
   V-06 标量（E/SOC）gate 容差（±1e-6 kWh / ±1e-5 pp）；
@@ -63,6 +70,9 @@ sys.path.insert(0, ORACLE_DIR)
 import fl001_oracle  # noqa: E402
 import fl001_l1_oracle  # noqa: E402  FL-001 L1 thermal 轨（FLTH-G2b-03 / CHG-20261107-01 批准链；
                         #   FL001_THERMAL_G2B_SPEC_APPROVED §4 项 7——注册行为显式工作面）
+import fl001_cap_oracle  # noqa: E402  FL-001 L1 capacity 轨（FLCAP-G2b-03 / CHG-20261114-01 批准链；
+                        #   FL001_CAPACITY_G2B_SPEC_APPROVED §4 项 8——注册行为显式工作面；
+                        #   T-B `_kWh` 分支 = A-4/B-1 显式硬项）
 import fc001_oracle  # noqa: E402
 import fc001_l1_oracle  # noqa: E402  FC-001 L1 电化学轨（FCECH-G2b-03 / CHG-20261113-01 批准链；
                         #   FC001_ELECTROCHEM_G2B_SPEC_APPROVED §4 项 8——注册行为显式工作面）
@@ -99,6 +109,35 @@ MODELS = {
             ("E_bat_true_kWh", "kWh"), ("E_bat_meas_kWh", "kWh"),
             ("E_gen_true_kWh", "kWh"), ("E_load_served_kWh", "kWh"),
             ("E_loss_kWh", "kWh"),
+            ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
+            ("I_true_19p9_A", "A"), ("I_meas_19p9_A", "A"),
+            ("I_true_20post_A", "A"), ("I_meas_20post_A", "A"),
+            ("I_true_21p5_A", "A"), ("I_true_26_A", "A"), ("I_true_60_A", "A"),
+            ("t_19p9_s", "s"),
+            ("P_bat_true_21p5_kW", "kW"), ("P_gen_true_21p5_kW", "kW"),
+            ("max_abs_r_true_kW", "kW"), ("max_abs_r_meas_kW", "kW"),
+            ("int_I_true_60s_As", "As"), ("T_bat_end_K", "K"),
+        ],
+    },
+    "fl001_cap": {
+        # FLCAP-G2b-03（CHG-20261114-01）：FL-001 容量/内阻二阶效应轨 golden fl001_v3
+        # （4 Run 全部 thermal_model=on + capacity_model=on；oracle=fl001_cap_oracle 出生
+        # 接入 oracle_base，FL001_CAPACITY_G2B_SPEC_APPROVED §4 项 8——「fl001 条目重指向」
+        # 不适用（FLTH §4 项 7 同构）：MODELS["fl001"]/["fl001_l1"] 继续验 fl001_v1/v2
+        # 零改动，容量轨走本条目）。i_true/i_meas 沿 fl001/fl001_l1 现行映射；event_tol
+        # 沿 fl001_l1 现行 I_A_atol；scalars 按 fl001_v3.json 实际键面全量注册（23 项 =
+        # fl001_v2 镜像 22 键 + E_cap_end_kWh 新键）；非 kWh 类在 V-06 走 SOC_pp 支
+        # （fl001_l1 T_bat_end_K 现行先例）；E_cap_kWh 序列经 T-B `_kWh` 分支路由
+        # E_kWh 容差（A-4/B-1 显式硬项——B-1 实测勘正：`endswith("_kW")`=False，
+        # 无 `_kWh` 分支时实落 f_Hz_atol 兜底键而本 gate 无该键 => KeyError）。
+        "oracle": fl001_cap_oracle,
+        "golden_file": "fl001_v3.json",
+        "i_true": "I_bat_true_A", "i_meas": "I_bat_meas_A",
+        "event_tol": "I_A_atol",  # 事件快照相位变量 = I_bat_meas_A（A 域；gate 含 I_A_atol）
+        "scalars": [
+            ("E_bat_true_kWh", "kWh"), ("E_bat_meas_kWh", "kWh"),
+            ("E_gen_true_kWh", "kWh"), ("E_load_served_kWh", "kWh"),
+            ("E_loss_kWh", "kWh"), ("E_cap_end_kWh", "kWh"),
             ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
             ("I_true_19p9_A", "A"), ("I_meas_19p9_A", "A"),
             ("I_true_20post_A", "A"), ("I_meas_20post_A", "A"),
@@ -203,7 +242,8 @@ MODELS = {
 # 三 golden 顺序验证（fl001 → fl001_l1 → fc001_l1，FL 先例形态）；步① label「verify_golden
 # fl001」自 V080 起滞后于 fl001_l1 并入（先例在案沿用不修——V120 DEC-5 同款维持登记），
 # FC golden 挂载位置 = 本序列尾。
-DEFAULT_MODELS = ["fl001", "fl001_l1", "fc001_l1"]
+# v1.4.0 四 golden 顺序验证，FLCAP-G2b-03/Q6，CHG-20261114-01 批准链
+DEFAULT_MODELS = ["fl001", "fl001_l1", "fc001_l1", "fl001_cap"]
 
 KEY_POINTS = [19.9, 21.5, 26.0, 60.0]
 
@@ -265,6 +305,16 @@ def series_limit(sid, arr, tol):
         # + 无 f_Hz_atol 键的 T-B gate 直接 KeyError 风险解除）。
         if sid.endswith("_V") and "V_stack_atol" in tol and "V_stack_rtol" in tol:
             return max(tol["V_stack_atol"], tol["V_stack_rtol"] * max(1.0, _amax(arr)))
+        # FLCAP-G2b-03（CHG-20261114-01）：T-B 分派 `_kWh` 分支新增（显式硬项 A-4/B-1，
+        # additive）。置于 `_V` 支后、f_Hz_atol 兜底前：前序 _A/_Hz/_rpm/_K/_kPa/
+        # r_true/r_meas/_kW/SOC/_pct/_V 匹配全部先于本支、不受影响；且仅当 gate 声明
+        # E_kWh 键时激活——gt001_v3 等既有 T-B gate 的 `_kWh` 后缀键（如有）照旧落
+        # f_Hz_atol 兜底，既有键路由行为逐字节不变（fc001_v2 `_V` 分支先例同构；
+        # fl001_v3 E_cap_kWh 不再落 f_Hz_atol 兜底——实测 `"E_cap_kWh".endswith("_kW")`
+        # = False（kWh 非 `_kW` 精确后缀），无本支时实落兜底键而 fl001_v3 gate 无
+        # f_Hz_atol 键 => 实害 KeyError（A-4/B-1 勘正：非量纲错配，是兜底键缺失））。
+        if sid.endswith("_kWh") and "E_kWh" in tol:
+            return tol["E_kWh"]
         return tol["f_Hz_atol"]
     if sid.endswith("_Hz"):
         return tol.get("f_Hz_atol", 1e-9)

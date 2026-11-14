@@ -36,6 +36,20 @@
      跨深度对比提示文案按 ALINE §6.4 固定句式（「模型深度导致的表达力差异」）。
      解析/运行/导出语义零变化（编辑器仅改 local.parsed.scenario 的显式键并重算哈希，
      executeScenario/exportScenarioEnvelope 幂等再归一化承接）。
+   - [登记·FL 容量轨 UI 线 CHG-20261114-01 批准链，V140_WAVE_DESIGN §2 W5 /
+     FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.6/§2]
+     FL capacity_model 事件卡编辑器（additive，electrochem B-1(a) 先例同构）：仅声明该轨的
+     系统（FL-001——核心侧 declaresCapacity 同判据，含组合前置 defaults.thermal_model）
+     事件卡渲染三态选择器（未钉轨 / 钉 off / 钉 on）——缺省态不写键（「默认 off（未钉轨）」
+     诚实文案；缺省轨由引擎 normalizeConfig 盖章层承载，场景键全链 absent ⇒ 既有 FL 场景
+     scenarioHash 零变化），仅显式 off/on 写入归一化事件并入内容哈希；事件卡/Run 行
+     capacity chip 为显式键展示面（缺省不显示，thermal/electrochem chip 先例同构）。
+     **组合守卫 UI 禁用态**（Q11 定案——双落点之二 UI 侧承载）：capacity_model=on 前置
+     thermal_model=on——场景热轨解析值（事件显式键优先，缺省解析系统默认轨，核心
+     scenario.js thermalResolved 同构）非 on 时「钉 on」禁用（disabled：点击无效果、键不入
+     哈希），提示文案与场景层结构化拒绝句式对齐（「capacity_model=on 需要前置
+     thermal_model=on——(off,on) 非法组合拒绝，capacity 轨以 thermal 轨为承载前提」）。
+     解析/运行/导出语义零变化（编辑器仅改 local.parsed.scenario 的显式键并重算哈希）。
    ========================================================================= */
 (function () {
   'use strict';
@@ -100,6 +114,37 @@
       const sys = FL.systems.get(systemId);
       return !!(sys && sys.defaults && sys.defaults.electrochem_model);
     } catch (e) { return false; }
+  }
+  /* FL-001 capacity_model 事件/Run 展示（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.6/§2，
+     CHG-20261114-01 批准链，V140 W5；FL thermal / FC electrochem chip 先例同构——上方两块）。
+     B-1(a)：事件卡 chip 仅显式键在场时渲染（缺省全链 absent——与哈希现实一致，缺省不显示）；
+     Run 行 chip 恒显（defaults 盖章后 FL Run 恒带 capacity_model 键，thermal 同款口径）。 */
+  const CAPACITY_LABEL = { on: '容量模型 on', off: '容量模型 off' };
+  function capacityChipOf(value) {
+    if (value !== 'on' && value !== 'off') return null;
+    return ui.chip(CAPACITY_LABEL[value], {
+      tone: value === 'on' ? 'warm' : 'neutral',
+      title: 'capacity_model = ' + value + '（FL-001 模型深度开关：off = 无容量轨，on = L1 容量/内阻二阶效应轨——前置 thermal_model=on）'
+    });
+  }
+  /* 声明该轨的系统守卫（systems.js defaults.capacity_model——W3 落地 FL-001；核心侧
+     declaresCapacity 同判据，含组合前置 defaults.thermal_model：capacity 轨以 thermal 轨
+     为承载前提的结构承载）。 */
+  function declaresCapacity(systemId) {
+    try {
+      const sys = FL.systems.get(systemId);
+      return !!(sys && sys.defaults && sys.defaults.capacity_model && sys.defaults.thermal_model);
+    } catch (e) { return false; }
+  }
+  /* 场景热轨解析值（核心 scenario.js 组合守卫 thermalResolved 同构——事件显式键优先，
+     缺省解析系统默认轨；capacity_model=on 前置判据的 UI 侧承载）。 */
+  function thermalResolvedOf(ev, systemId) {
+    if (ev && (ev.thermal_model === 'on' || ev.thermal_model === 'off')) return ev.thermal_model;
+    try {
+      const sys = FL.systems.get(systemId);
+      if (sys && sys.defaults && sys.defaults.thermal_model) return sys.defaults.thermal_model;
+    } catch (e) { /* ignore */ }
+    return null;
   }
   const MAX_ERROR_ROWS = 12;
 
@@ -471,6 +516,69 @@
   }
 
   /* ===================================================================
+     FL capacity_model 事件卡编辑器（V140 W5，登记见文件头；electrochem 先例同构
+     + 组合守卫禁用态）
+     =================================================================== */
+  /* 事件轨态：'absent'（缺省——键不存在，引擎盖章层按系统默认 off 承载）/ 'off' / 'on'。
+     显式 off/on 写入归一化事件并入 scenarioHash（B-1(a) 显式键条件式）；absent 删除键
+     ⇒ 哈希恢复既有形态（既有 FL 场景 scenarioHash 零变化）。 */
+  function capacityPinOf(ev) {
+    return (ev && (ev.capacity_model === 'on' || ev.capacity_model === 'off'))
+      ? ev.capacity_model : 'absent';
+  }
+  function setCapacityPin(eventKey, value) {
+    if (!parsedOk()) return;
+    const s = local.parsed.scenario;
+    let ev = null;
+    for (let i = 0; i < s.events.length; i++) {
+      if (s.events[i] && s.events[i].key === eventKey) { ev = s.events[i]; break; }
+    }
+    if (!ev) return;
+    if (value === 'absent') delete ev.capacity_model;
+    else if (value === 'off' || value === 'on') ev.capacity_model = value;
+    else return;
+    const SC = scenarioModule();
+    try { local.scenarioHash = SC ? SC.scenarioHash(s) : null; } catch (e) { local.scenarioHash = null; }
+    syncAll(api.getState(), 'scenario-cap-pin');
+  }
+  /* 单事件编辑器行（仅声明该轨的系统事件卡渲染——declaresCapacity 守卫，含组合前置）：
+     三态分段选择 + 诚实缺省文案。**组合守卫 UI 禁用态**（Q11 定案——双落点之二 UI 侧）：
+     场景热轨解析值非 on 时「钉 on」disabled（点击无效果、键不入哈希），提示文案与
+     场景层结构化拒绝句式对齐（core scenario.js (off,on) 拒绝原文句式）；实现轮迁入前
+     已按规格 §6.4 预检（0 命中）。 */
+  function buildCapacityEditor(ev, systemId) {
+    const current = capacityPinOf(ev);
+    const thermalResolved = thermalResolvedOf(ev, systemId);
+    const thermalOn = thermalResolved === 'on';
+    const onTitle = thermalOn
+      ? '显式写入 capacity_model = "on"（L1 容量/内阻二阶效应轨——前置 thermal_model=on 已满足）——写入归一化事件并入场景内容哈希'
+      : '前置未满足：capacity_model=on 需要前置 thermal_model=on（当前场景热轨解析为 ' +
+        String(thermalResolved) + '——(off,on) 非法组合拒绝，capacity 轨以 thermal 轨为承载前提）';
+    const seg = ui.segmented({
+      ariaLabel: '容量模型轨',
+      value: current,
+      options: [
+        { value: 'absent', label: '默认 off（未钉轨）', title: '缺省态：场景键 capacity_model 不存在（B-1a），引擎按系统默认轨 off 盖章，场景内容哈希与既有 FL 场景一致' },
+        { value: 'off', label: '钉 off', title: '显式写入 capacity_model = "off"（无容量轨）——写入归一化事件并入场景内容哈希' },
+        { value: 'on', label: '钉 on', title: onTitle, disabled: !thermalOn }
+      ],
+      onChange: (v) => setCapacityPin(ev.key, v)
+    });
+    seg.dataset.trackKey = ev.key;
+    const guardHint = thermalOn
+      ? '缺省态键不存在（B-1a）：仅显式选择才写入场景键并入内容哈希，缺省轨由引擎盖章层承载。' +
+        '前置已满足（thermal_model=on）——同故障跨深度对比承载「模型深度导致的表达力差异」。'
+      : '组合守卫（场景层拒绝句式对齐）：capacity_model=on 需要前置 thermal_model=on（当前场景热轨解析为 ' +
+        String(thermalResolved) + '——(off,on) 非法组合拒绝，capacity 轨以 thermal 轨为承载前提）；' +
+        '「钉 on」暂不可选，在场景 JSON 显式写入 thermal_model=on 后可选。缺省态键不存在（B-1a）。';
+    return h('div', { class: 'scn-cap-edit', dataset: { eventKey: ev.key }, 'data-testid': 'scenario-cap-editor' }, [
+      h('span', { class: 'scn-cap-key mono' }, 'capacity_model'),
+      seg,
+      h('span', { class: 'scn-cap-hint' + (thermalOn ? '' : ' is-guarded') }, guardHint)
+    ]);
+  }
+
+  /* ===================================================================
      教学路径草稿读取入口（最小改动，登记见文件头）
      =================================================================== */
   /* src/ui/pages/teaching.js 第⑤步「生成评测场景」把 scenarioSpec 写入 sessionStorage
@@ -715,6 +823,10 @@
        键不存在不显示，与场景哈希现实一致；编辑器见 buildElectrochemEditor） */
     const echChip = electrochemChipOf(ev.electrochem_model);
     if (echChip) chips.push(echChip);
+    /* FL-001 capacity_model 事件列（V140 W5；B-1(a)：仅显式键在场时渲染——缺省态
+       键不存在不显示，与场景哈希现实一致；编辑器见 buildCapacityEditor） */
+    const capChip = capacityChipOf(ev.capacity_model);
+    if (capChip) chips.push(capChip);
     const paramChips = Object.keys(ev.params || {}).map((k) => {
       const p = def && def.params ? def.params.filter((pp) => pp.key === k)[0] : null;
       const label = p && p.label ? p.label : k;
@@ -732,7 +844,10 @@
         h('div', { class: 'scn-event-chips' }, chips),
         paramChips.length ? h('div', { class: 'scn-params' }, paramChips) : null,
         /* FC electrochem_model 编辑器（V120 W5，B-1a 形态；仅声明该轨的系统——FC-001） */
-        declaresElectrochem(s.system) ? buildElectrochemEditor(ev) : null
+        declaresElectrochem(s.system) ? buildElectrochemEditor(ev) : null,
+        /* FL capacity_model 编辑器（V140 W5，B-1a 形态 + 组合守卫禁用态；仅声明该轨的
+           系统——FL-001，含组合前置 thermal_model 声明守卫） */
+        declaresCapacity(s.system) ? buildCapacityEditor(ev, s.system) : null
       ])
     ]);
   }
@@ -784,7 +899,11 @@
         thermalChipOf(run.config.thermal_model),
         /* FC-001 electrochem_model Run 列（V120 W5；defaults 盖章后 FC Run 恒带键——
            off 显示「电化学模型 off」、on 显示「电化学模型 on」，FL thermal 同款口径） */
-        electrochemChipOf(run.config.electrochem_model)
+        electrochemChipOf(run.config.electrochem_model),
+        /* FL-001 capacity_model Run 列（V140 W5；defaults 盖章后 FL Run 恒带键——
+           off 显示「容量模型 off」、on 显示「容量模型 on」，thermal/electrochem 同款口径；
+           旧版 Run 无键时 chip 为 null 不渲染） */
+        capacityChipOf(run.config.capacity_model)
       ]),
       h('div', { class: 'scn-run-metrics' }, metricNodes),
       h('span', { class: 'scn-run-hash mono', title: 'config_hash ' + (run.configHash || '') },

@@ -203,6 +203,15 @@
     if (system.defaults && system.defaults.electrochem_model && out.electrochem_model === undefined) {
       out.electrochem_model = system.defaults.electrochem_model;
     }
+    /* FL-001 容量/内阻二阶效应轨（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.1/§8 FLCAP-G2b-04
+       盖章双落点之一（B-7 定案）——FC electrochem_model 盖章行同构新行，CHG-20261114-01 批准链）：
+       声明了 capacity_model 的系统补默认轨（FL-001 默认 = off）。B-1(a) 定案：缺省轨解析只在
+       本盖章层发生（场景缺省轨不入 scenarioHash），cfg 值不进 scenarioView 投影/哈希
+       （schema.js 同 electrochem_model 先例——B-3(a)），off 路径仿真行为零变化。组合守卫
+       （capacity_model=on 前置 thermal_model=on）在 validateConfig 枚举守卫承载（Q11 落点一）。 */
+    if (system.defaults && system.defaults.capacity_model && out.capacity_model === undefined) {
+      out.capacity_model = system.defaults.capacity_model;
+    }
 
     var dInitial = deepClone(system.defaults.initial);
     out.initial = deepMerge(dInitial, isPlainObject(out.initial) ? out.initial : {});
@@ -328,6 +337,20 @@
     if (system.defaults && system.defaults.electrochem_model) {
       if (config.electrochem_model !== 'off' && config.electrochem_model !== 'on') {
         push('electrochem_model', '必须为 off / on（当前 ' + String(config.electrochem_model) + '）');
+      }
+    }
+
+    /* FL-001 容量/内阻二阶效应轨（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.1/§8 FLCAP-G2b-04
+       Q11 落点一（双落点之一——scenario declaresCapacity 为落点二），CHG-20261114-01 批准链；
+       electrochem_model 分支同构新行）：仅声明了 defaults.capacity_model 的系统——FL-001，
+       枚举 off|on，默认 off。组合守卫（三元封闭路由 §4 项 10②）：capacity_model=on 前置
+       thermal_model=on——(off,on) 非法组合结构化拒绝（不静默钳位，MG-IMP-Q1 reject 纪律）。 */
+    if (system.defaults && system.defaults.capacity_model) {
+      if (config.capacity_model !== 'off' && config.capacity_model !== 'on') {
+        push('capacity_model', '必须为 off / on（当前 ' + String(config.capacity_model) + '）');
+      } else if (config.capacity_model === 'on' && config.thermal_model !== 'on') {
+        push('capacity_model', 'capacity_model=on 需要前置 thermal_model=on（当前 thermal_model=' +
+          String(config.thermal_model) + '——(off,on) 非法组合拒绝，capacity 轨以 thermal 轨为承载前提）');
       }
     }
 
@@ -670,10 +693,17 @@
   }
 
   function simulateFL001(system, cfg, t) {
-    /* FL-001 thermal 轨分派（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0，CHG-20261107-01 批准；
-       R-8 守卫）：thermal_model = on 走 RK4 热力链 simulateFL001Thermal（§2.3 冻结更新序），
-       off 路径（plant 家族 + 内联 actuator 路径）逐字不动。 */
-    if (cfg.thermal_model === 'on') return simulateFL001Thermal(system, cfg, t);
+    /* FL-001 thermal/capacity 三分派（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.1/§8 FLCAP-G2b-04，
+       CHG-20261114-01 批准链；FLTH thermal early-return 分派先例同构，R-8 守卫）：
+       thermal_model=on + capacity_model=on → RK4 容量链 simulateFL001Capacity（EQ-FLTH-10…12
+       冻结更新序）；thermal_model=on + capacity off/缺省 → RK4 热力链 simulateFL001Thermal
+       （§2.3 冻结更新序——既有 (on,off) 轨逐字不动）；off 路径（plant 家族 + 内联 actuator
+       路径）逐字不动。组合守卫（(off,on) 拒绝）在 validateConfig/scenario 双落点承载——
+       本分派对非法组合不做静默兜底。 */
+    if (cfg.thermal_model === 'on') {
+      if (cfg.capacity_model === 'on') return simulateFL001Capacity(system, cfg, t);
+      return simulateFL001Thermal(system, cfg, t);
+    }
     if (fl001PlantCapable(cfg)) return simulateFL001Plant(system, cfg, t);
     var n = t.length - 1;
     var dt = cfg.dt_s;
@@ -890,6 +920,210 @@
         intB: intB,
         E_loss: eLoss   /* kW·s（EQ-FLTH-8 子步梯形损耗能量账本；E_loss 指标与 checks
                            EQ-FLTH-9 分支按 FLTH-G2b-04 工作面承载） */
+      }
+    };
+  }
+
+  /* ---------------- FL-001 L1 capacity 轨（容量/内阻二阶效应） ----------------
+     FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §1.3/§1.5/§4 项 3（方程/常量唯一权威文本，
+     CHG-20261114-01 批准链；FLCAP-G2b-04 引擎工作面）。FLTH 骨架同构（simulateFL001Thermal
+     逐字复刻其 L0 电气面/RK4 结构/梯形记账），仅三处批准修订（§1.3）：
+     - EQ-FLTH-10：R_int(T_bat) = R0·(1 + α·θ + β·θ²)，θ = T_bat − 298.15（β = 5×10⁻⁷ 1/K²
+       批准轮定案；符号域 β ≥ 0、α > 0——A-5）；β = 0 时精确退化为现行线性式；
+     - EQ-FLTH-4 RK4（RHS 内 I 冻结子步起点——Q2 口径；R_int 换用二次式后子步内为常系数
+       Riccati 方程 θ′ = a·θ² + b·θ + c（a = I²R0β/C_bat、b = (I²R0α − h)/C_bat、c = I²R0/C_bat，
+       I 冻结口径）——RK4 数值轨 T-B（oracle fl001_cap_oracle 同构同序，§4 项 3 定案；
+       子步 Riccati 闭式交叉 = oracle FCAP-7 自检面，引擎不承载）；
+     - EQ-FLTH-11：SOC_true 分母 E_cap(T_bat) = η_cap(T_bat)·E_nom（裁定点一定案：仅
+       capacity_model=on 域内生效——off 与 (on,off) 轨 EQ-FLTH-7 原式逐字不动）。离散口径
+       （冻结）：名义单除项（与 EQ-FLTH-7 原式同源同序——既有轨 SOC_true 表达式逐字同）
+       + 容量修正累积器（每子步 (V·∫I dt′/3600)·(1/E_cap(T_start) − 1/40)，E_cap 冻结于
+       子步起点右值 T_start——FLTH Q2 I 冻结先例同构）。T < T_cap0 域内修正累积器恒精确
+       0.0（IEEE：max(0, T−T_cap0) ≡ 0 ⇒ η_cap ≡ 1.0 精确 ⇒ 1/E_cap − 1/40 ≡ 0.0）
+       ⇒ healthy 局 SOC_true/SOC_est/SOC_err 与 fl001_v2 位级逐位同（A-2 机制）；
+     - EQ-FLTH-12：θ_ss 稳定小根有理化形态 θ₋ = 2·I²·R0/[(h − α·I²·R0) + √Δ]（Q3/A-3 定案，
+       锚点/自检消费面——不入序列/run_hash，oracle FCAP-2/FCAP-5 同式同序）。
+     数值口径：
+     - 电气面 L0 序逐字保留（EQ-FLTH-1）：none/sensor_drift 家族走 plants/fl001.js 适配器、
+       actuator_fault 走内联 foStep 路径——与 simulateFL001Thermal 同构；P_bat = 0.4·I 口径
+       不动、功率链零反馈（守恒面声明：反馈仅经 SOC 折算面进入——A5 §2.1 口径）；
+     - E_loss 子步梯形累计（EQ-FLTH-8）表达式与既有轨逐字同；E_source = E_load − E_bat + E_loss
+       （守恒面不动域——无第二缺口项、无补偿去向，裁定点一定案 §6.2.1）；
+     - record(601 点)：由 (I_true, T_bat, b) 重算全部代数量（当前状态值——非累计值）；事件
+       快照变量零扩展（E_cap 不入事件快照——§2 事件快照行；快照变量集随列在场机械增长、
+       golden 未钉的额外键不进比对——FC 先例体例）；
+     - E_cap_kWh 单新信号（Q10 定案最小集，η_cap 不出信号）：onTrackOnly 门控（makeSeries
+       跳过——off/(on,off) 轨 timeseries.signals 逐字节不变 ⇒ run_hash 零变化），on_cap 轨
+       由本函数补建列（simulateFC001Electrochem 补建先例同构）。 */
+  function simulateFL001Capacity(system, cfg, t) {
+    var n = t.length - 1;
+    var usePlant = fl001PlantCapable(cfg);
+    var plant = usePlant ? FL.core.plants.createFl001Plant(cfg) : null;
+    var V = 0.4;
+    /* FLTH §2.1 既有冻结常量原样（本轨不触碰 thermal 轨常量——fl001_v2 字节冻结零涉） */
+    var R0 = 0.2;         // 25 °C 参考内阻（Ω）
+    var ALPHA_R = 0.01;   // 内阻温度系数（1/K，正温度反馈；符号域 α > 0——A-5）
+    var C_BAT = 300;      // 电池单节点集总热容（J/K）
+    var H_COOL = 10;      // 牛顿冷却系数（W/K）
+    var T_AMB = 298.15;   // 环境温度（K），T_bat(0) = T_amb
+    /* capacity 轨四常量（批准轮定案 CHG-20261114-01，§1.5；教学整定值非实测——A-flcap-params） */
+    var BETA_R = 5e-7;    // EQ-FLTH-10 二次项系数（1/K²；符号域 β ≥ 0——A-5）
+    var K_CAP = 0.004;    // η_cap 折损率（1/K；符号域 k_cap ≥ 0——A-5）
+    var T_CAP0 = 313.15;  // 折损起始温度（= 40 °C；高于 healthy 轨最高温 309.953757 K——A-2 机制）
+    var ETA_FLOOR = 0.5;  // 正性下限（A-1 定案；η_floor > 0——A-5；E_cap ≥ 20 kWh 全域）
+
+    var family = cfg.fault.family;
+    var faulted = family !== 'none';
+    var tStart = faulted ? cfg.fault.t_start_s : null;
+    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
+    var monitor = cfg.feedback_mode === 'monitor';
+    var load0 = cfg.initial.load_kW;
+    var soc0 = cfg.initial.SOC_pct;
+    var I_ref = (load0 - 20) / V;
+    var isAct = family === 'actuator_fault';
+    var I_cap = isAct ? I_ref * magnitude / 100 : null;
+
+    /* EQ-FLTH-10/3：R_int(T) = R0·(1 + α·θ + β·θ²)（β·θ² 求值序 = 批准文本左结合序——
+       oracle p_loss_w 同序复刻）；P_loss = I²·R_int（W；kW 面 /1000） */
+    function pLossW(iA, tK) {
+      var theta = tK - T_AMB;
+      return iA * iA * R0 * (1 + ALPHA_R * theta + BETA_R * theta * theta);
+    }
+    function pLossKw(iA, tK) { return pLossW(iA, tK) / 1000; }
+    /* EQ-FLTH-11：η_cap(T) = max(η_floor, 1 − k_cap·max(0, T − T_cap0))（T < T_cap0 域内
+       max(0, 负) ≡ 0.0（IEEE 精确）⇒ η_cap ≡ 1.0 精确——A-2 机制）；E_cap = η_cap·E_nom */
+    function etaCap(tK) { return Math.max(ETA_FLOOR, 1 - K_CAP * Math.max(0, tK - T_CAP0)); }
+    function eCapKwh(tK) { return etaCap(tK) * CAP_KWH; }
+    /* EQ-FLTH-4 RK4 右端：dT/dt = (P_loss − h·θ)/C_bat（I 冻结于子步起点——Q2 定案） */
+    function rhsT(tK, iFroz) { return (pLossW(iFroz, tK) - H_COOL * (tK - T_AMB)) / C_BAT; }
+    /* EQ-FLTH-12 数值稳定小根形态（冻结——Q3/A-3 定案）：θ₋ = 2·I²·R0 / [(h − α·I²·R0) + √Δ]，
+       Δ = (h − α·I²·R0)² − 4β·(I²·R0)²（有理化式——Δ→0 无相消、β→0 无 0/0；naive 求根式
+       仅作展示不作求解式）。锚点/自检消费面（oracle theta_ss_small_root 同式同序），
+       不参与轨内积分。 */
+    function thetaSsSmallRoot(iA) {
+      var p = iA * iA * R0;
+      var q = H_COOL - ALPHA_R * p;
+      var delta = q * q - 4 * BETA_R * p * p;
+      return { theta_K: 2 * p / (q + Math.sqrt(delta)), delta_W2: delta };
+    }
+    /* 内联路径测量链（actuator 家族；none/sensor 家族走 plant.iMeasAt） */
+    function bAt(time) { return (family === 'sensor_drift' && tStart != null && time >= tStart - 1e-9) ? magnitude : 0; }
+
+    var series = makeSeries(system, n);
+    /* E_cap_kWh 为 on_cap 轨专属列（SystemDef.signals onTrackOnly——makeSeries 门控跳过），
+       on_cap 轨此处补建；off 轨与 thermal on 无 capacity 轨 timeseries.signals 保持既有键面
+       逐字节不变 ⇒ run_hash 零变化（simulateFC001Electrochem 补建先例同构）。 */
+    system.signals.forEach(function (sg) {
+      if (sg.onTrackOnly && !series[sg.id]) {
+        var arrCap = new Array(n + 1);
+        for (var i0 = 0; i0 <= n; i0++) arrCap[i0] = null;
+        series[sg.id] = arrCap;
+      }
+    });
+
+    var I_true = usePlant ? plant.I_ref : I_ref;
+    var T_bat = T_AMB;
+    var intI = 0;
+    var intB = 0;
+    var intDemand = 0;
+    var eLoss = 0;      // ∫P_loss dt（kW·s，子步梯形——EQ-FLTH-8）
+    var corrKwh = 0;    // 容量修正累积器（EQ-FLTH-11 离散口径；×100 → pp）
+
+    function record(k) {
+      var time = t[k];
+      var b = usePlant ? plant.bAt(time) : bAt(time);
+      var demand = load0;
+      var iTrue = I_true;
+      var iMeas = usePlant ? plant.iMeasAt(iTrue, time) : iTrue + b;
+      var pBat = V * iTrue;
+      var pBatMeas = V * iMeas;
+      var pLossKwNow = pLossKw(iTrue, T_bat);   /* 当前状态值（非累计值，§2.3 注记②同款） */
+      var pGen = demand - pBat + pLossKwNow;    /* EQ-FLTH-5（守恒面 (a)——不动域） */
+      series.I_bat_true_A[k] = iTrue;
+      series.I_bat_meas_A[k] = iMeas;
+      series.I_ref_A[k] = I_ref;
+      series.bias_A[k] = b;
+      series.I_bat_cap_A[k] = (isAct && time >= tStart - 1e-9) ? I_cap : null;
+      series.P_bat_true_kW[k] = pBat;
+      series.P_bat_meas_kW[k] = pBatMeas;
+      series.P_gen_true_kW[k] = pGen;
+      series.P_gen_meas_kW[k] = pGen;
+      series.P_load_demand_kW[k] = demand;
+      series.P_load_served_kW[k] = demand;
+      series.V_bus_V[k] = 400;
+      /* EQ-FLTH-11 离散口径：名义单除项（与 EQ-FLTH-7 原式同源同序——既有轨逐字同表达式）
+         − 100·corr。T < T_cap0 域内 corr ≡ 0.0（IEEE 精确）⇒ healthy 局 SOC 面与 fl001_v2
+         位级同（A-2 机制）；SOC_est 原式逐字不动（测量链零升级——§1.4）。 */
+      series.SOC_true_pct[k] = soc0 - (V * intI) / (CAP_KWH * 3600) * 100 - 100 * corrKwh;
+      series.SOC_est_pct[k] = soc0 - (V * intI + V * intB) / (CAP_KWH * 3600) * 100;
+      series.r_true_kW[k] = pGen + pBat - demand - pLossKwNow;     /* EQ-FLTH-6：定义恒等 ≡ 0 */
+      series.r_meas_kW[k] = pGen + pBatMeas - demand - pLossKwNow; /* EQ-FLTH-6：≡ 0.4·b（Q3） */
+      /* 两新热信号（复用既有列；数值面随 EQ-FLTH-10 修订式变化）+ E_cap 新列 */
+      series.T_bat_K[k] = T_bat;
+      series.P_loss_kW[k] = pLossKwNow;
+      series.E_cap_kWh[k] = eCapKwh(T_bat);
+    }
+
+    record(0);
+    for (var k = 1; k <= n; k++) {
+      for (var j = 0; j < SUB; j++) {
+        var time = (k - 1) * SUB * DT_INT + j * DT_INT;
+        var b = usePlant ? plant.bAt(time) : bAt(time);
+        intDemand += load0 * DT_INT;
+        intB += b * DT_INT;
+        /* ① 电气面（L0 序保留，EQ-FLTH-1）：I_start = 子步起点值（同时是②的冻结输入）
+           ——与 simulateFL001Thermal 逐字同构 */
+        var iStart = I_true;
+        var tBat0 = T_bat;
+        var step;
+        if (usePlant) {
+          step = plant.stepOf(iStart, time, DT_INT);
+        } else {
+          var controlTarget = I_ref - (monitor ? 0 : b);
+          var target = controlTarget;
+          if (isAct && time >= tStart - 1e-9) target = Math.min(controlTarget, I_cap);
+          step = foStep(iStart, target, isAct ? 0.4 : 1.5, DT_INT);
+        }
+        I_true = step.y;
+        intI += step.integral;
+        /* ①' 容量修正累积器（EQ-FLTH-11 离散口径；E_cap 冻结于子步起点右值 tBat0——
+           FLTH Q2 I 冻结先例同构）：corr += (V·∫I_sub dt′/3600)·(1/E_cap(T_start) − 1/40)。
+           恒等改写 1/E_cap = 1/40 + (1/E_cap − 1/40)（修正项与 E_cap ≤ 40 同向、无相消）；
+           T < T_cap0 域内该项恒精确 0.0（A-2 机制）。 */
+        corrKwh += (V * step.integral / 3600) * (1 / eCapKwh(tBat0) - 1 / CAP_KWH);
+        /* ② RK4（EQ-FLTH-4；RHS 内 I 冻结于子步起点 iStart——Q2 定案口径；R_int 按
+           EQ-FLTH-10 二次式——子步内常系数 Riccati 型，RK4 数值轨 T-B） */
+        var k1 = rhsT(tBat0, iStart);
+        var k2 = rhsT(tBat0 + DT_INT / 2 * k1, iStart);
+        var k3 = rhsT(tBat0 + DT_INT / 2 * k2, iStart);
+        var k4 = rhsT(tBat0 + DT_INT * k3, iStart);
+        T_bat = tBat0 + DT_INT / 6 * (k1 + 2 * k2 + 2 * k3 + k4);
+        /* ③ E_loss 子步梯形（EQ-FLTH-8，Q4 定案）：½·(P_loss(I,T)_起点 + P_loss(I,T)_终点)·h
+           ——表达式与既有轨逐字同 */
+        eLoss += 0.5 * (pLossKw(iStart, tBat0) + pLossKw(I_true, T_bat)) * DT_INT;
+      }
+      record(k);
+    }
+    var intPbat = V * intI;
+    var thetaSs = thetaSsSmallRoot(I_ref);
+    return {
+      series: series,
+      integrals: {
+        E_load: intDemand,
+        /* EQ-FLTH-8（守恒面 (a)）：E_source = E_load − E_bat + E_loss */
+        E_source: intDemand - intPbat + eLoss,
+        E_bat: intPbat,
+        E_bat_meas: intPbat + V * intB,
+        intI: intI,
+        intB: intB,
+        E_loss: eLoss,  /* kW·s（EQ-FLTH-8 子步梯形损耗能量账本） */
+        /* on_cap 轨锚点/自检消费面（不入序列/run_hash——registry runHashInput 不含
+           integrals；oracle integrals.soc_corr_pp 同源）：容量修正累积器（pp）与
+           EQ-FLTH-12 稳定小根 θ₋（I_ref 参考电流口径——healthy 锚点 θ₋(25 A) = 14.287172 K）、
+           判别式 Δ。W4 测试面/锚点比对消费（spec §3.2 锚点表）。 */
+        soc_corr_pp: 100 * corrKwh,
+        theta_ss_K: T_AMB + thetaSs.theta_K,
+        theta_ss_delta_W2: thetaSs.delta_W2
       }
     };
   }

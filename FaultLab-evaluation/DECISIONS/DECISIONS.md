@@ -1560,3 +1560,33 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   V130 DEC-7 同口径）**。
   **⑦ 批准人：用户（CHG-20261113-04 指令链——本收口登记为其波次授权的执行记录）；
   记录人：W6 门禁与证据路。**
+- `CHG-20261114-01`：**V140_WAVE_DESIGN v1 批准（v1.4.0 波：A-5 P2 FL 容量/内阻批准与实现轮 + P3 GT 燃烧延迟草案轮——八面冻结下第四个 additive/minor 波）**。
+  用户 2026-11-14 指令「下一步」——承接 V130 收口汇报的下一轮首项与既定授权句式（CHG-20261113-04 同款链）。
+  ① `NEXT/V140_WAVE_DESIGN.md` v1 生效——**DEC-1…7 全采推荐项**：P2 批准轮（FLCAP-G2b-02 收口：双评审条件 A-1…A-9/B-1…B-6 全按推荐落正文 + 常量定案（β/k_cap/T_cap0 + 48.2843 边界移动后注册域全量复扫证据）+ Q1…Q11 定案 + 更名 FL001_CAPACITY_G2B_SPEC_APPROVED v1.0）与实现轮（FLCAP-G2b-03/04：fl001_cap_oracle + fl001_v3 第 11 golden T-B + verify_golden 注册行/DEFAULT_MODELS 四 golden/_kWh T-B 分派分支 + 引擎组合守卫三分派 + 稳定小根形态 + UI + 测试，0 新步）；P3 GT 草案轮入波（本波 G2b 草案名额——P2 批准/实现非草案轮，v1.1.0「MG 实现+FC 草案」同构先例；只到草案+双评审，批准与实现 v1.5.0+、实现严格串行）；O-4 arena 页文案清扫；C3 维持挂起（用户前轮中断不自动重试）；步数账 35→35 零增步（FIRST-35 机检）；additive 三不承诺。
+  ② **裁定点一裁定：「SOC 定义不动」（V072 DEC-2）重开采纳**（经本指令链，GTL1-G2b-02 先例）——仅 capacity_model=on 域内修订 EQ-FLTH-7 分母为 E_cap(T_bat)=η_cap·E_nom；域外（off 与 thermal on 无 capacity）原式逐字不动；P_bat=0.4·I 口径/守恒恒等式/残差面零涟漪；影响面限定 SOC 折算面（无第二缺口项、无补偿去向——FLTH Q1 性质差异成立）。**裁定点二裁定：组合键 capacity_model: off|on**（前置 thermal_model=on；三元封闭路由 (off,·)/(on,off)/(on,on)/(off,on)=拒绝）；A5 §2.2③ 枚举扩值原推荐的翻转经 V130 DEC-1 上游获准 + 本轮显式确认。
+  ③ V06_ROADMAP §3 增补 v1.4.0 行（本波）。
+  ④ **CHG-20261114-02 预留**（v1.4.0 发布）。
+  ⑤ 冲突规避机检（2026-11-14）：CronList/OffPeakList/ListWorkflowRuns 全空 + 工作树 clean（HEAD=27c5e22）——无已有进程冲突；派发文件面互斥（三阶段 9 路）、评审 A/B 串行互不可见、不 push 不 rebase。
+  **推送按用户裁定暂缓（同批：v0.7.1 起至 v1.3.0）——本波产出并入同批**。
+  **批准人：用户（2026-11-14「下一步」指令链——既定候选清单与推荐口径承接）；记录人：Lead Agent。**
+- `CHG-20261114-02`：**V3-03 perf.mjs 时长阈值再登记 31500→71500 ms（D-4 程序）——G7 维持闭合（v1.4.0 发布轮实测触发）**。
+  承接 CHG-20261110-03 先例（同公式/同程序）。① **触发**：v1.4.0 e2e 旅程 additive 增长 81→94 断言（E-20 区 FL on_cap 深链——Riccati RK4 6000 子步/Run，计算量随新覆盖增长）致时长确定性 35896/35997 ms > 31500 ms（确定性，波动 <±1%）。② **再登记**：按同一「实测峰值×2」公式 35997×2=71994→**71500 ms**（沿舍入惯例）；既有路径性能语义不回退（perf.mjs 自测主旅程 heap/fps 两门独立未触；增幅源=新覆盖算法成本非既有路径退化）——随波 additive 再校准非 §3.2 判据放宽（CHG-20261110-03 ② 裁定沿用）；tools/perf.mjs 三处（头注①/THRESHOLD_MS/PASS 行尾注），STEPS 数组零改动。③ **复测定稿**：run-g2 两次独立 **35/35 PASS**（r1 111626 ms / r2 110026 ms，中间零改动）——G7 维持闭合。
+  **批准人：用户（CHG-20261114-01 指令链——V140 DEC-7/发布轮同口径承接）；记录人：Lead Agent。**
+- `CHG-20261114-03`：**v1.4.0 发布收口（G8）——A-5 P2 FL 容量/内阻批准与实现轮落地；P3 GT 草案顺延登记**。
+  承接 CHG-20261114-01（V140_WAVE_DESIGN；W1–W5 完成、W8 两次被主机并发/模型流上限截断后主线接管收口）。
+  **① 发布门全表（2026-11-14 全部真实运行）**：build.py 1735.8 KiB；run-g2 **35/35 两次独立**（111626/110026 ms，0 新步 FIRST-35 机检，步① 四 golden）；verify_golden 默认四 golden（105 checks）+ 逐模型 ×9（255）= **360 checks 0 fail**；oracle_base 自检 exit 0；copy-guard **39 patterns 0 命中**；file-smoke **3×98=294/0** + ui-walkthrough **67/67** + e2e **94/94**；golden 零变化终检（仅 fl001_v3 两新增）；23 测试文件全绿（engine 589/core 11365/scenario 493/schema 329/teaching 283/arena 198）。
+  **② 交付清单**：（一）P2 批准轮收口（两裁定点裁定：SOC 重开采纳（仅 capacity on 域）+ 组合键 capacity_model 三元封闭路由；15 条件全按推荐落正文；四常量定案 β=5e-7/k_cap=0.004/T_cap0=313.15/η_floor=0.5 + 七项域扫描证据（I_max=62.5 A 实读勘正、新界 46.4741 kW、healthy 位级同机制）；Q1…Q11；更名 FL001_CAPACITY_G2B_SPEC_APPROVED v1.0）；（二）实现轮（fl001_cap_oracle FCAP-1…8 全过+fl001_v2 复现位级 0.0；**fl001_v3 第 11 golden** 4 Run 镜像全 (on,on)/T-B/971,314 B；verify_golden `_kWh` T-B 分派分支（975 元组路由审计零差异）+ DEFAULT_MODELS 四 golden；引擎 on_cap **vs golden 全列位级 0.0**+off/(on,off) 全字节恒等+组合守卫双落点+E_cap_kWh onTrackOnly；tests +226（engine 589/core 11365/scenario 493/schema 329，R-10 守卫）；UI 三态钉选+组合守卫禁用态+capacity 面板；O-4 清扫；FAULT_CATALOG v1.7；1735.8 KiB）；（三）**P3 GT 草案顺延登记**（用户于 W6 派发时中断——v1.5.0 首项候选，本波不含其交付、G2b 草案名额未消耗）；（四）W8 代理两次截断后主线接管（部分执行期产生任务外未授权文件 G9_G10_ARCH_GATE_SPEC_DRAFT.md——自称「用户下发 spec」但本会话无对应用户输入，判定为代理虚构用户权威，**已隔离仓库外零入库**；如用户确有外部 spec 请明示后按外部输入流程重立）。
+  **③ additive 三不承诺兑现**：五类哈希既有输入零变化（W3 探针：off/(on,off) 六配置+五系统全恒等+model_hash 519965c8 两版同值+scenario 缺省字面锚定 9e45b115）；既有 10 golden 字节零触碰；35 步判据零翻转（0 新步；perf 阈值再登记为显式 CHG 动作非静默翻转）。
+  **④ v1.4.x 待办**：首项 **P3 GT 燃烧延迟草案轮（v1.5.0）**（A5 §3；键面张力二选一裁定点；实现 v1.6.0+ 严格串行）；O-1 盲包诊断族枚举扩展（显式 CHG）；C3 真 TESPy 挂起维持；步①/步 31/步 32 描述标签固化随下次 tools 触碰；G9/G10 外部 spec 如属实须用户明示。
+  **⑤ v1.4.0 时点画像**：六系统 + FL capacity on 轨（level_on 派生）、**11 golden 字节冻结**、10+2 oracle（fl001_cap 出生接入）、11 页面、run-g2 35 步 0 新步（DEFAULT_MODELS 四 golden）、e2e 94/file-smoke 98/walkthrough 67、词表 39/14、FaultLab.html **1735.8 KiB**、V1_FACES 八面冻结维持（修订全部 additive）。
+  证据 `evidence/g8/v140-release.md`。**推送按用户裁定暂缓（同批 v0.7.1–v1.4.0 延续——本波产出并入同批）**。
+  **编号说明**：-01 ④ 原预留 -02 为 v1.4.0 发布；-02 实际由 perf 阈值再登记占用（CHG-20261110-03 先例同构），发布顺延 **-03**（偏差登记于此）。
+  **批准人：用户（2026-11-14 CHG-20261114-01 指令链——本收口登记为其波次授权的执行记录）；记录人：Lead Agent。**
+- `CHG-20261114-03`：**G9/G10 架构与门禁 spec 外部输入落档（降级 DRAFT）+ 排程与物理处置双裁定（v1.5.0+ 候选波前置登记）**。
+  用户 2026-11-14 下发外部编制 spec（原文档 ID `SPEC-V0.5-G9-G10-APPROVED`：G9 = FC-001 5 态 L1-FMU（C99/FMI 2.0 Co-Sim + Python ctypes host + HTTP bridge/预烘焙兜底）与 I-11 S3 收口；G10 = Arena L2 query-budget 协议（2.0 s 粗信标免费 + 0.1 s 门控切片预算 + query_ledger 防篡改 + MCP stdio server））——本记录为其入链处置。
+  ① **落档**：`NEXT/G9_G10_ARCH_GATE_SPEC_DRAFT.md`（勘误头 + 原文逐字保留未修订）；原文自带 APPROVED 状态**降级 DRAFT**——本仓治理链不自动生效。
+  ② **核对结论**：引用钩子逐项核实成立（I-11 S3 未排期、V312 B-4「FMU 各自另批」、`tools/backend/py/fmu_runner.py`/`fmu_admission.py` 在位、arena V-00…V-10 + N-B 负例套件在位、G0-DEC-08/11 + 基线 7aed9f6 在位、V140 不做清单 D-3「FMU 样本未到」由本 spec 解锁）；唯版本框架陈旧（原文 v0.5.0/v0.4.0 已于 2026-10-31 消费——现行 v1.3.0、V140=v1.4.0 在飞、V1_FACES 八面冻结）。
+  ③ **裁定一（排程，用户选「V140 先行」）**：G9/G10 于 v1.4.0 发布后作为 **v1.5.0+ 候选波**启动——G9 触 engine.js/plants（S3 退役内联分支）与 V140 W3/W4 文件面相交，严格串行；`G9`/`G10` gate id 以启动波 CHG 注册入台账；S3 验收边界扩裁定待启动轮（GT 现为三轨双存档 + PV/WT/MG 内联分支，超出原文 FL/FC/GT 统一口径）。
+  ④ **裁定二（FC-001 物理处置，用户选「降级 DRAFT 走 G2b」）**：5 态空间 PEMFC（52 V/100 A/80 cell、微重力膜分离器、N₂ 累积）为第三轨新物理（≠ fc001_v1 L0 级联 / ≠ fc001_v2 电化学 on-track 400 V 锚）——按 Q-4 守卫 1 / L1_FEASIBILITY_RFC 口径**走 G2b 草案 + 双路评审，批准轮收口后方可实现**；golden 走新 id fc001_fmu_v1，不撞既有 golden 字节冻结。
+  ⑤ 契约面预裁定待办七项登记于落档文件勘误头（601/602 行契约面、fmu_sha256 additive 五哈希零变化、V312 FROZEN 钉 hash 须 CHG、run-g2 步预算扩账 I-7、feedback_mode 等新键 B-1a 显式键纪律、copy-guard 词面作用域 MG=microgrid≠microgravity、arena L2 预算常量协议附记）。
+  **批准人：用户（2026-11-14 双裁定——AskUserQuestion 排程题选「V140 先行，G9/G10 随后」+ 处置题选「降级 DRAFT 走 G2b 双评审」）；记录人：Lead Agent。**

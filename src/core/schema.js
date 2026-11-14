@@ -142,6 +142,11 @@
       /* A-1 惯性双轨 → L1 三轨（GTL1_G2B_SPEC_APPROVED v1.0 §2.4；GT-001 声明；
          其他系统 undefined → 不进入投影/哈希） */
       inertia_model: cfg.inertia_model,
+      /* B-3(a) 零投影（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §2 config_hash 投影行，
+         FLCAP-G2b-04，CHG-20261114-01 批准链；electrochem_model/thermal_model 现状均不入
+         ——本函数零新增键先例维持）：capacity_model 刻意不入投影 ⇒ FL capacity on/off 两轨
+         config_hash 同值（FL/FC 现状同款已知局限——轨区分由 run_hash/序列内容承载，
+         显式登记不静默，见 validateScenarioConfig capacity_model 守卫注）。 */
       noise: (cfg.noise && cfg.noise.enabled) ? { seed: cfg.noise.seed, level: cfg.noise.level } : null
     };
   }
@@ -236,6 +241,18 @@
     if (sc.electrochem_model !== undefined && sc.electrochem_model !== null &&
         sc.electrochem_model !== 'off' && sc.electrochem_model !== 'on') {
       bad('electrochem_model', 'electrochem_model 必须为 off / on', '检查配置');
+    }
+    /* FL-001 容量/内阻二阶效应轨（FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §2 config_hash
+       投影行 B-3(a) 定案，FLCAP-G2b-04，CHG-20261114-01 批准链；electrochem_model 守卫
+       同形态——scenarioView 现状即不投影 capacity_model，见上方零投影注）：scenarioView
+       不投影 capacity_model ⇒ FL capacity on/off 两轨 config_hash 同值（FL/FC 现状同款），
+       轨区分由 run_hash/序列内容承载——显式登记已知局限，不静默。本守卫仅对显式携带该键的
+       契约视图生效（外部构造/异版本导出包——inertia_model 守卫同形态），枚举 off|on；
+       scenarioView 产出的既有投影该键恒为 undefined ⇒ 全部既有输入零触发（改前/改后
+       config_hash 逐位对比探针承载）。 */
+    if (sc.capacity_model !== undefined && sc.capacity_model !== null &&
+        sc.capacity_model !== 'off' && sc.capacity_model !== 'on') {
+      bad('capacity_model', 'capacity_model 必须为 off / on', '检查配置');
     }
     /* R-8（CHG-20261105-01 清算项 2）：initial 键面按 system.bounds 派生——声明才要求
        （PV-001 bounds 无 SOC_pct，健康 PV Run 不再误报 CN-E02；FL/FC/GT bounds 均含 SOC_pct，
