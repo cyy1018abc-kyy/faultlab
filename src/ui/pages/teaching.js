@@ -1,8 +1,9 @@
 /* owner: teaching-ui | module: page-teaching | contract: FaultLab-evaluation/NEXT/V070_WAVE_DESIGN.md DEC-5（C-3 最小形态·UI 接线，CHG-20261104-10）
    =========================================================================
    教学路径引导页（页面键 teaching，导航 08）：
-   - 数据源：FL.core.teaching.getTeachingPaths()（src/core/teaching.js，7 条预设 × 固定 5 步：
+   - 数据源：FL.core.teaching.getTeachingPaths()（src/core/teaching.js，8 条预设 × 固定 5 步：
      FL/FC/GT/WT 主线 + GT/FL 跨深度扩展 + WT 阵风——v0.8.0 UI 接线路 CHG-20261107-01，
+     第 8 条 MG-001 平衡重整 = V130 DEC-3 CHG-20261113-04 additive，
      路径数据事实源在 src/core/teaching.js PATHS，本页只渲染）；
      DEC-5：注入→闭环观察→仅监测对照→因果→评测入口；本页零新执行语义（I-6）；
    - 路径选择：预设卡（pathId / title / system / goal / prerequisites）；

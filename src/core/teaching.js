@@ -1,8 +1,9 @@
 /* owner: core-teaching | module: teaching | contract: FaultLab-evaluation/NEXT/V06_ROADMAP.md 主线 C「C-3」行
    + FaultLab-evaluation/NEXT/V070_WAVE_DESIGN.md DEC-5（CHG-20261104-10 批准，按推荐执行） */
 /* 教学路径核心（C-3 最小形态，DEC-5）：
-   - 7 条预设教学路径（FL-001 / FC-001 / GT-001 / WT-001 主线 + GT/FL 跨深度扩展 ×2
-     + WT-001 阵风路径），每条固定 5 步：
+   - 8 条预设教学路径（FL-001 / FC-001 / GT-001 / WT-001 主线 + GT/FL 跨深度扩展 ×2
+     + WT-001 阵风路径 + MG-001 三段式平衡重整路径——V130 DEC-3 CHG-20261113-04
+     additive 第 8 条），每条固定 5 步：
      ① 传感器故障注入 → ② 闭环响应观察 → ③ 仅监测对照 → ④ 因果解释 → ⑤ 评测入口；
    - 每步 = { id, title, narrative（教学叙述卡文案）, view: { page, focus（焦点说明） },
               compare?（对照视角 { label, text }）, scenarioSpec?（第⑤步场景 JSON，schema v1） }；
@@ -275,7 +276,8 @@
   /* ================================================================== */
   /* getTeachingPaths / exportTeachingPath                              */
   /* ================================================================== */
-  /* 返回 7 条预设路径（4 系统主线 + GT/FL 跨深度扩展 + WT 阵风）的深克隆副本（外部改动不内渗；与 scenario.samples() 同口径） */
+  /* 返回 8 条预设路径（4 系统主线 + GT/FL 跨深度扩展 + WT ×2 + MG-001 平衡重整——
+     V130 DEC-3 CHG-20261113-04 additive 第 8 条）的深克隆副本（外部改动不内渗；与 scenario.samples() 同口径） */
   function getTeachingPaths() {
     return cloneTeachingPaths();
   }
@@ -301,8 +303,9 @@
   }
 
   /* ================================================================== */
-  /* 预设路径数据（7 条路径 = 4 系统主线 × 5 步 + GT/FL 跨深度扩展 + WT 阵风；     */
-  /* 事实源：systems.js + docs/FAULT_CATALOG.md + GTL1/FL001/WT001 G2B APPROVED 规格 */
+  /* 预设路径数据（8 条路径 = 4 系统主线 × 5 步 + GT/FL 跨深度扩展 + WT ×2          */
+  /* + MG-001 三段式平衡重整（V130 DEC-3 CHG-20261113-04）；                        */
+  /* 事实源：systems.js + docs/FAULT_CATALOG.md + GTL1/FL001/WT001/MG001 G2B APPROVED 规格 */
   /* 文案口径：合成演示定位（L0 行为级演示 / 合成示例数据 synthetic）、解释已知故障 */
   /* 的传播路径、不做检测/定位/诊断声明；禁词零命中（tests/teaching.test.js 自查）。 */
   /* ================================================================== */
@@ -660,7 +663,60 @@
     ]
   };
 
-  var PATHS = [FL_PATH, FC_PATH, GT_PATH, GT_CROSS_PATH, WT_BIAS_PATH, WT_GUST_PATH, FL_CROSS_PATH];
+  /* ---- MG-001：微电网多源聚合（island_event 主线三段式；V130 DEC-3 CHG-20261113-04——
+        ① 并网基线（load_step——P_grid 平衡）→ ② 脱离主馈线的功率平衡重整（island_event：
+        P_grid→0、P_bess 钳位 chase、P_shed）→ ③ 重连恢复（t_clear_s=35 锚定 mg001_v1
+        golden island_reconnect Run 冻结锚点，只读引用）。
+        I-5 句式「脱离主馈线的功率平衡重整」；禁词红线：39 模式零子串（§D 自查，
+        连批准否定串也不含）；B-1 口径红线词面零肯定性表述（词表见
+        MG001_G2B_SPEC_APPROVED §6.3 专项表——教学卡只走「脱离/重连、分断/恢复」
+        动词面）；事件族面零变化（MG 现有四族取 load_step + island_event）。 ---- */
+  var MG_SPEC = {
+    scenario_id: 'path-mg-001-eval',
+    version: 1,
+    label: 'MG-001 教学路径评测：并网基线负荷阶跃 + 主馈线分断/重连（闭环 / 仅监测）',
+    system: 'MG-001',
+    events: [
+      { key: 'ev-load-cl', label: '并网基线 负荷阶跃 闭环', family: 'load_step', params: { magnitude: 10 }, t_start_s: 20, feedback_mode: 'closed_loop' },
+      { key: 'ev-island-cl', label: '主馈线分断 闭环 35 s 重连', family: 'island_event', params: {}, t_start_s: 20, t_clear_s: 35, feedback_mode: 'closed_loop' },
+      { key: 'ev-island-mon', label: '主馈线分断 仅监测 35 s 重连', family: 'island_event', params: {}, t_start_s: 20, t_clear_s: 35, feedback_mode: 'monitor' }
+    ]
+  };
+
+  var MG_PATH = {
+    pathId: 'path-mg-001',
+    title: '微电网：主馈线分断与功率平衡重整',
+    system: 'MG-001',
+    goal: '看清主馈线分断（脱离主馈线的功率平衡重整）如何把母线的平衡者角色从理想馈线切换到储能：并网时馈线瞬时补差（负荷阶跃 +10 kW → P_grid 5→15 kW），脱离后储能从计划跟踪切换为平衡填补并受 ±8 kW 钳位（缺口卸载 P_shed = 2 kW），重连（t_clear = 35 s）后恢复馈线补差与计划跟踪。',
+    prerequisites: '建议先完成 path-fl-001 路径（储能电池能量面——MG 储能复用其 SOC 账本口径）与 path-wt-001-gust 路径（WT 子轨——MG 风电子轨复用其 L0b 物理，PV 子轨同理复用 PV-001 轨）；认识 MG-001 拓扑：PV/WT 子轨、储能与聚合负荷接入单母线，经主馈线分断开关接理想馈线（L0 多源聚合行为级演示，非机组/电网动态验证）。',
+    steps: [
+      stepInject(
+        'MG-001 微电网多源聚合是 L0 行为级演示模型：PV/WT 子轨与储能（电池能量面）复用既有系统轨，聚合层只有代数功率平衡（解析方程 + 合成示例数据 synthetic），页面结论只在本演示假设内成立。本路径走三段式：并网基线 → 脱离主馈线的功率平衡重整 → 重连恢复。第一步先看并网基线：在聚合负荷注入 +10 kW 阶跃（t = 20 s，运行前写进配置的已知聚合输入事件——MG 层负荷是聚合输入，与 FL-001 已删除的内部 load_step（O-13）无语义继承）。请在系统页拓扑里找到聚合负荷（load_step 注入点）与主馈线分断开关（island_event 注入点）——两个注入点就是本路径后两段的主角。',
+        '系统页 · 拓扑与组件卡：聚合负荷（load_step 注入点）与主馈线分断开关（island_event 注入点）；对照 PV/WT 子轨与储能（FL-001 电池面）组件卡。'
+      ),
+      stepClosedLoop(
+        '并网面功率平衡由理想馈线独家承担（EQ-MG-3：P_grid = P_load − P_pv − P_wt − P_bess，受电为正）：负荷 30→40 kW 后馈线瞬时补差 P_grid 5→15 kW（mg001_v1 golden load_step Run 冻结锚点），储能保持计划跟踪 P_bess = 5 kW 不动、SOC 账本沿计划斜率继续，负荷全服务维持 P_served = 40 kW。信号页把需求、补差与储能放进同一时间线：阶跃瞬间只有 P_grid 一条线跳变——馈线是并网面唯一的平衡者。',
+        '信号页 · 三线同看：P_load_demand_kW（30→40 kW）、P_grid_true_kW（5→15 kW 瞬时补差）、P_bess_kW（恒 5 kW 计划跟踪）；辅看 r_true_kW 恒 0。',
+        { label: '仅监测视角', text: '负荷阶跃是聚合物理输入，两模式同解：仅监测 Run 与闭环 Run 曲线重合——与 FL-001 传感器偏置「仅监测下物理面不动」的对照相反，这里没有可隔离的测量通道故障。' }
+      ),
+      stepMonitorCompare(
+        '第二、三段的主角是 island_event（零参数族——脱离/重连语义由 t_start_s 与 t_clear_s 承载，无幅值可调）。t = 20 s 分断，进入脱离主馈线的功率平衡重整（EQ-MG-4/5）：馈线功率恒为 0（P_grid ≡ 0），EMS 计划挂起、切换为平衡填补，chase = 负荷 − 光伏 − 风电 = 10 kW 超出功率域 [−8, +8] 上限被钳位，P_bess 5→8 kW；缺口 2 kW 由负荷卸载承担（P_shed = 2 kW），P_served 30→28 kW，island_state 0→1，默认脱离窗内盈余倾卸 P_dump 恒 0。t_clear = 35 s 重连（mg001_v1 golden island_reconnect Run 冻结锚点）：P_grid 0→5 kW、P_bess 8→5 kW 计划恢复、P_shed → 0、P_served 回 30 kW。对比页把闭环与仅监测两条分断 Run 并排：拓扑事件两模式逐位同解（EMS 按真实功率值填补，无测量链），曲线重合本身就是要核对的结论。',
+        '对比页 · island_event 闭环 vs 仅监测：P_grid_true_kW（≡0 → 5 kW）、P_bess_kW（5→8→5 kW 三段）、P_shed_kW（0→2→0）两条 Run 重合。',
+        { label: '两模式同解回看', text: '分断是拓扑事件（物理/拓扑面，两模式同生效）：EMS 平衡填补按真实功率值计算（无测量链），不存在「仅监测可隔离」的路径——与传感器偏置族的教学对照在此收口。' }
+      ),
+      stepCausal(
+        '因果页沿 mg-island-event 链（n1…n10）解释这段脱离主馈线的功率平衡重整：分断注入 → 馈线功率 → 0（EQ-MG-4）→ EMS 角色切换：计划挂起、平衡填补 chase = 10 kW（EQ-MG-5）→ 钳位 8 kW（功率域 [−8, +8] 为模型结构设定，A-mg-bess-structural-limit）→ 缺口卸载 P_shed = 2 kW → SOC 放电加速（账本通道）→ 恒等式重整后维持 r ≡ 0（EQ-MG-6：ΣP_source = P_served——重整教学点）→ 重连恢复 → 馈线 0→5、储能回计划 8→5、卸载 → 0。判读要点：恒等式跨相位同式——平衡者换了，恒等式没换；P_shed 是重整的缺口重整项，不是能量转移的结果。本页只解释运行前注入的已知拓扑事件，不做检测、定位或诊断。',
+        '因果页 · mg-island-event 因果链 n1…n10：脱离段 n2…n7（钳位/卸载/恒等式重整）+ 重连段 n8…n10；EQ-MG-6 恒等式节点（algebraic_identity）。'
+      ),
+      stepEval(
+        '评测入口：本路径预置 3 事件场景（并网基线负荷阶跃 +10 kW 闭环 / 主馈线分断闭环 @20 s 且 35 s 重连 / 主馈线分断仅监测同配置——island_event 为零参数族，无幅值可调，t_clear_s = 35 锚定 mg001_v1 golden island_reconnect Run）。执行后重点核对：负荷阶跃轨的馈线瞬时补差（5→15 kW）、分断轨的钳位与卸载（P_bess 8 kW、P_shed 2 kW、P_served 28 kW）与重连恢复计划值（P_grid 5 kW、P_bess 回 5 kW），并与第②③④步结论逐条对照。',
+        '场景页 · 导入第⑤步场景 JSON → 校验 → 按事件序执行 3 Run；结果行核对 family / 模式 / t_clear / 关键指标，「载入查看」回到曲线与因果页。',
+        MG_SPEC
+      )
+    ]
+  };
+
+  var PATHS = [FL_PATH, FC_PATH, GT_PATH, GT_CROSS_PATH, WT_BIAS_PATH, WT_GUST_PATH, FL_CROSS_PATH, MG_PATH];
 
   /* ================================================================== */
   /* 挂载                                                               */

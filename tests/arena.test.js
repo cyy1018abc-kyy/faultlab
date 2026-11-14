@@ -3,7 +3,8 @@
    Agent Arena 自测（Node 直接运行，无第三方依赖）：
      node tests/arena.test.js
    覆盖：确定性、盲观测隔离、默认 seed 下 fusion > sensor-limit、健康局误报、
-         导出包真值扫描、外部诊断 bundle round-trip、三系统可跑、Agent 接口。
+         导出包真值扫描、外部诊断 bundle round-trip、三系统可跑（§8）+
+         扩池系统（PV/WT/MG）盲包 smoke（§8b，V130 DEC-2）、Agent 接口。
    ========================================================================= */
 'use strict';
 
@@ -263,7 +264,7 @@ const badVersion = FL.arena.parseExternalBundle(JSON.stringify({
 ok(badVersion.ok === false, '协议版本不匹配被拒绝');
 
 /* -------------------------------------------------------- 8. 三系统可跑 */
-section('8. 三系统 Arena 兼容性');
+section('8. 既有池系统 Arena 兼容性（FC/GT；FL-001 由 §1–7 覆盖）');
 ['FC-001', 'GT-001'].forEach((systemId) => {
   let m = null;
   let err = null;
@@ -286,6 +287,59 @@ section('8. 三系统 Arena 兼容性');
     const nan = r.samples.some((row) => row.some((v) => v !== null && !isFinite(v)));
     ok(!nan, systemId + ' R' + r.index + ' 盲观测无 NaN/Inf');
   });
+});
+
+/* ------------------------- 8b. 扩池系统盲包 smoke（V130 DEC-2，ARENA_EXCLUDED 收缩） */
+section('8b. 扩池系统（PV/WT/MG）Arena 盲包 smoke（V130 DEC-2：核对表 × 程序化验证）');
+/* 冻结盲包通道集 = ARENA_EXPOSURE_VERIFICATION_ROUND.md v1 §1–§3 核对表 blind_observable
+   落点集（回归锚点：通道面变更须先改核对表并重新走验证轮）。 */
+const EXPANDED_POOL_BLIND = {
+  'PV-001': ['G_meas_W_m2', 'P_mpp_ref_kW', 'P_pv_meas_kW', 'P_pv_est_kW', 'd_pv_kW',
+    'P_grid_meas_kW', 'P_load_demand_kW', 'V_bus_V', 'r_meas_kW'],
+  'WT-001': ['v_meas_ms', 'beta_cmd_deg', 'P_wt_ref_kW', 'P_wt_meas_kW', 'P_wt_est_kW', 'd_wt_kW',
+    'P_grid_meas_kW', 'P_load_demand_kW', 'V_bus_V', 'r_meas_kW'],
+  'MG-001': ['P_sched_kW', 'P_bess_chase_kW', 'P_load_demand_kW', 'P_grid_meas_kW',
+    'V_bus_V', 'SOC_est_pct', 'SOC_err_pp', 'r_meas_kW']
+};
+ok(FL.systems.list().length === 6, 'systems.list() 返回 6 系统（扩池面）', String(FL.systems.list().length));
+['PV-001', 'WT-001', 'MG-001'].forEach((systemId) => {
+  let m = null;
+  let err = null;
+  try {
+    m = FL.arena.createMatch({ systemId: systemId, rounds: 3, seed: 20261113, noise: false, agentIds: [] });
+  } catch (e) { err = e; }
+  ok(!err, systemId + ' createMatch 不抛错（入池后）', err ? String(err.message) : '');
+  if (!m) return;
+  ok(m.rounds.length === 3 && m.rounds.every((r) => r.samples.length === 601), systemId + ' 3 轮 × 601 点');
+  ok(m.leaderboard.every((r) => isNum(r.avgScore)), systemId + ' 排行榜分数有效');
+  const expected = EXPANDED_POOL_BLIND[systemId].slice().sort();
+  ok(m.rounds.every((r) => JSON.stringify(r.observables.map((o) => o.id).sort()) === JSON.stringify(expected)),
+    systemId + ' 盲观测通道集 == 核对表 blind_observable 落点集', JSON.stringify(m.rounds[0].observables.map((o) => o.id)));
+  m.rounds.forEach((r) => {
+    ok(r.observables.every((o) => !FORBIDDEN_ID.test(o.id)), systemId + ' R' + r.index + ' 盲观测无禁词通道');
+    const nan = r.samples.some((row) => row.some((v) => v !== null && !isFinite(v)));
+    ok(!nan, systemId + ' R' + r.index + ' 盲观测无 NaN/Inf');
+  });
+  let rb = null;
+  let rbErr = null;
+  try { rb = FL.arena.exportRoundBundle(m, 1); } catch (e) { rbErr = e; }
+  ok(!rbErr && rb, systemId + ' exportRoundBundle（assertSealed）不抛错', rbErr ? String(rbErr.message) : '');
+  if (rb) {
+    const hits = [];
+    scanForbiddenKeys(rb, '$', hits);
+    ok(hits.length === 0, systemId + ' 导出包递归扫描无真值字段', hits.slice(0, 5).join(', '));
+    ok(JSON.stringify(rb.round.observables.map((o) => o.id).sort()) === JSON.stringify(expected),
+      systemId + ' 导出包通道集 == 核对表落点集');
+  }
+  /* v2 评测轨盲包 smoke（共享模块 V-01…V-06b 全量校验——ARENA_EXPOSURE_VERIFICATION_ROUND.md §5.2） */
+  let v2Err = null;
+  try {
+    const run = FL.core.simulate(m.rounds[0].run.config);
+    const obs = FL.arenaProtocol.blindObservables(run);
+    const bundle = FL.arenaProtocol.buildBundleV2({ systemId: systemId, rounds: [{ index: 1, observables: obs, samples: FL.arenaProtocol.buildSamples(run, obs) }] });
+    FL.arenaProtocol.validateBundleV2(bundle, { approvedTestsetIds: [bundle.testset_id] });
+  } catch (e) { v2Err = e; }
+  ok(!v2Err, systemId + ' v2 盲包 V-01…V-06b 全量校验通过', v2Err ? String(v2Err.message) : '');
 });
 
 /* ----------------------------------------------------- 9. Agent 接口细节 */

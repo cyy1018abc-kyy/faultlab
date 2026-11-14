@@ -21,8 +21,8 @@
  *   E-10 六系统卡：home 六系统卡 + WT-001 入卡（v0.8.0 UI 接线路，CHG-20261107-01）
  *        + MG-001 入卡与名称/level 徽章/I-5 描述（v1.1.0 UI 接线路，CHG-20261110-01）；
  *   E-11 WT-001 深链系统页 + demo Run 关键信号 601 点（P_wt / d_wt / n_rotor）；
- *   E-12 Arena 排除：系统选择器与页面文本不含 WT-001 / PV-001 / MG-001
- *        （ARENA_EXCLUDED 守卫——MG-001 增项为 V110 DEC-4，CHG-20261110-01）；
+ *   E-12 Arena 盲测池六系统：系统选择器含全部六系统（ARENA_EXCLUDED 收缩——V130 DEC-2
+ *        exposure 三值映射验证轮全过，CHG-20261113-05；历史排除链 PV/WT/MG 已解除）；
  *   E-13 scenario 页 METRIC_PICK 声明 WT-001 / MG-001 键 + FL thermal_model 展示面
  *        （同源取模块源的源级断言——内部常量无 DOM 直读面，fetch 本地不计外联）；
  *   E-14 MG-001 深链系统页 + 四族注入面（v1.1.0 UI 接线路，CHG-20261110-01）：
@@ -43,6 +43,11 @@
  *   E-18 FC signals 页 on 轨三新列（V120 W5）：off 对照（信号目录 21 列、T_st_K
  *        结构性缺席——off 域零变化守卫）→ on 轨（信号目录 24 列 + 三新列 601 点 +
  *        电堆温度信号行在场——通用渲染零改动核实）。
+ *   E-19 教学页 path-mg-001（V130 W4 DEC-3，CHG-20261113-04——teaching.js PATHS
+ *        additive 第 8 条的教学页渲染面镜像；沿 E-09 既有 page=teaching 导航形态）：
+ *        路径卡 8 条 + hero 计数徽章同步 + path-mg-001 卡在场 + 可展开 5 步
+ *        （步骤卡 id 序列 = DEC-5 模板）+ I-5 句式与 mg001_v1 锚点文案面
+ *        （钳位 8 kW / P_shed 2 kW / t_clear 35 s）——只读渲染面断言，零新执行语义。
  *
  * 退出码：0=全部通过；1=存在失败项。报告写 <--out 目录>/e2e-report.json。
  *
@@ -54,6 +59,10 @@
  * V120 FC 电化学轨波（V120_WAVE_DESIGN §2 W5，CHG-20261113-01 批准链）：
  *   断言 65→76（新增 E-16 三条 / E-17 五条 / E-18 三条，全 additive——轨翻转经
  *   既有草稿/运行语义，既有 E-01..E-15 旅程与判据零语义变化）；执行顺序与退出码不变。
+ *
+ * V130 MG 教学路径波（V130_WAVE_DESIGN §2 W4，DEC-3 CHG-20261113-04 批准链）：
+ *   断言 76→81（新增 E-19 教学页 path-mg-001 五条，全 additive——教学页渲染面只读
+ *   断言，既有 E-01..E-18 旅程与判据零语义变化，W3 E-12 区零接触）；执行顺序与退出码不变。
  *
  * V0.3.0 T3 双浏览器追溯增强（不改变旅程、40 条断言、执行顺序与退出码）：
  *   - --out 输出目录在 main() 启动即创建（原为截图/写报告时才创建）；
@@ -500,8 +509,9 @@ async function main() {
       'E-11：WT-001 demo Run 关键信号 601 点可见（P_wt / d_wt / n_rotor）',
       JSON.stringify({ hasRun: wtRun.hasRun, pwt: wtRun.pwt, dwt: wtRun.dwt, nrotor: wtRun.nrotor }));
 
-    /* E-12 Arena 排除 WT-001 / PV-001 / MG-001（ARENA_EXCLUDED 守卫——PV DEC-2 同款，
-       CHG-20261107-01；MG-001 增项 = V110 DEC-4，CHG-20261110-01） */
+    /* E-12 Arena 盲测池六系统（ARENA_EXCLUDED 收缩——V130 DEC-2 exposure 三值映射验证轮
+       全过，CHG-20261113-05，ARENA_EXPOSURE_VERIFICATION_ROUND.md v1；历史排除链保留：
+       PV CHG-20261104-10 / WT CHG-20261107-01 / MG V110 DEC-4 CHG-20261110-01） */
     await cdp.send('Page.navigate', { url: base + '/index.html?page=arena' });
     await wait(700);
     const arenaChk = await cdp.evalExpr(`(function(){
@@ -509,14 +519,13 @@ async function main() {
       const sysSeg = sec ? sec.querySelector('.seg[aria-label="选择实验系统"]') : null;
       const vals = sysSeg ? Array.prototype.map.call(sysSeg.querySelectorAll('.seg-item'),
         function (b) { return b.dataset.value; }) : [];
-      return { page: FL.store.getState().page, vals: vals, text: sec ? sec.textContent : '' };
+      return { page: FL.store.getState().page, vals: vals };
     })()`);
     eq(arenaChk.page, 'arena', 'E-12：arena 页打开');
-    ok(arenaChk.vals.indexOf('WT-001') === -1 && arenaChk.vals.indexOf('PV-001') === -1 &&
-      arenaChk.vals.indexOf('MG-001') === -1 && arenaChk.vals.indexOf('FL-001') !== -1,
-      'E-12：arena 系统选择器不含 WT-001 / PV-001 / MG-001（ARENA_EXCLUDED 守卫）', JSON.stringify(arenaChk.vals));
-    ok(arenaChk.text.indexOf('WT-001') === -1 && arenaChk.text.indexOf('MG-001') === -1,
-      'E-12：arena 页面文本不含 WT-001 / MG-001');
+    const ARENA_POOL_SIX = ['FL-001', 'FC-001', 'GT-001', 'PV-001', 'WT-001', 'MG-001'];
+    ok(ARENA_POOL_SIX.every(function (id) { return arenaChk.vals.indexOf(id) !== -1; }),
+      'E-12：arena 系统选择器含全部六系统（ARENA_EXCLUDED 收缩）', JSON.stringify(arenaChk.vals));
+    eq(arenaChk.vals.length, 6, 'E-12：arena 系统选择器恰 6 项');
 
     /* E-13 scenario 页 METRIC_PICK 含 WT-001 / MG-001 键 + FL thermal_model 展示面。
        METRIC_PICK / thermalChipOf 为页面模块内部量：经同源静态服务器取模块源核对
@@ -753,6 +762,52 @@ async function main() {
     ok(mgSig.envText.indexOf('不是参数域叉积包络') !== -1 && mgSig.envText.indexOf('全') === -1,
       'E-15：包络行措辞带 A-3 改标口径（单 Run 可达 ≠ 参数域叉积包络，不称全域）',
       mgSig.envText.slice(-120));
+
+    /* E-19 教学页 path-mg-001（V130 W4 DEC-3 CHG-20261113-04——teaching.js PATHS additive
+       第 8 条的教学页渲染面镜像；沿 E-09 既有 page=teaching 导航形态，只读渲染面断言：
+       路径卡在场 + 可展开 5 步 + I-5/锚点文案面——零新执行语义，不生成场景不建 Run） */
+    await cdp.send('Page.navigate', { url: base + '/index.html?page=teaching' });
+    await wait(900);
+    const teachCards = await cdp.evalExpr(`(function(){
+      const cards = Array.prototype.slice.call(document.querySelectorAll('[data-testid="teaching-path-card"]'));
+      const heroBadges = Array.prototype.slice.call(document.querySelectorAll('.tea-hero-tags .badge'))
+        .map(function (b) { return b.textContent || ''; });
+      return { page: FL.store.getState().page, count: cards.length,
+               ids: cards.map(function (c) { return c.getAttribute('data-path-id'); }),
+               heroCount: heroBadges.filter(function (t) { return t.indexOf('预设 ') === 0; })[0] || '' };
+    })()`);
+    eq(teachCards.page + '@' + teachCards.count, 'teaching@8',
+      'E-19：教学页路径卡 8 条（7 既有 + path-mg-001 additive 第 8 条，V130 DEC-3）');
+    eq(teachCards.heroCount, '预设 8 路径 × 5 步', 'E-19：hero 计数徽章随路径数据面同步（页面不写死条数）');
+    ok(teachCards.ids.indexOf('path-mg-001') !== -1,
+      'E-19：path-mg-001 路径卡在场（data-path-id）', JSON.stringify(teachCards.ids));
+    await cdp.evalExpr(`(function(){
+      const card = document.querySelector('[data-testid="teaching-path-card"][data-path-id="path-mg-001"]');
+      if (card) card.click();
+    })()`);
+    await wait(500);
+    const mgExpand = await cdp.evalExpr(`(function(){
+      const steps = Array.prototype.slice.call(document.querySelectorAll('[data-testid="teaching-steps"] .tea-step'));
+      const title = (document.querySelector('[data-testid="teaching-steps-title"]') || {}).textContent || '';
+      const allText = steps.map(function (s) { return s.textContent; }).join('\\n');
+      const evalText = steps.length > 4 ? steps[4].textContent : '';
+      return { page: FL.store.getState().page, title: title, stepCount: steps.length,
+               stepIds: steps.map(function (s) { return s.getAttribute('data-step-id'); }),
+               hasI5: allText.indexOf('脱离主馈线的功率平衡重整') !== -1,
+               hasClamp8: allText.indexOf('8 kW') !== -1,
+               hasShed2: allText.indexOf('P_shed = 2 kW') !== -1,
+               hasTclear35: allText.indexOf('t_clear = 35 s') !== -1,
+               evalHasAnchor: evalText.indexOf('评测入口') !== -1 && evalText.indexOf('t_clear_s = 35') !== -1 };
+    })()`);
+    ok(mgExpand.page === 'teaching' && mgExpand.title.indexOf('主馈线分断') !== -1 &&
+      mgExpand.stepCount === 5 &&
+      JSON.stringify(mgExpand.stepIds) === JSON.stringify(['inject', 'closed-loop', 'monitor-compare', 'causal', 'eval']),
+      'E-19：path-mg-001 可展开为 5 步（步骤卡 id 序列 = DEC-5 模板 + 路径标题在场）',
+      JSON.stringify({ page: mgExpand.page, title: mgExpand.title, stepCount: mgExpand.stepCount, stepIds: mgExpand.stepIds }));
+    ok(mgExpand.hasI5 && mgExpand.hasClamp8 && mgExpand.hasShed2 && mgExpand.hasTclear35 && mgExpand.evalHasAnchor,
+      'E-19：path-mg-001 文案面（I-5 句式「脱离主馈线的功率平衡重整」+ 钳位 8 kW / P_shed = 2 kW / t_clear = 35 s 锚点 + 第⑤步评测入口锚定值）',
+      JSON.stringify({ hasI5: mgExpand.hasI5, hasClamp8: mgExpand.hasClamp8,
+        hasShed2: mgExpand.hasShed2, hasTclear35: mgExpand.hasTclear35, evalHasAnchor: mgExpand.evalHasAnchor }));
 
     /* E-08 离线与控制台 */
     ok(externalRequests.length === 0, 'E-08：无外部网络请求（纯浏览器离线）',

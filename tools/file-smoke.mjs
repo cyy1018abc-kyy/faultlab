@@ -7,18 +7,23 @@
  *   file:// 会话恢复），v0.8.0 = 61 断言（按 e2e E-01..E-13 共 57 条 + WT 扩展镜像，
  *   ×3 轮独立 Chrome profile）。本文件把该体例**固化为正式工具**，每轮重建就此终止。
  *
- * 覆盖（80 断言/轮；v1.1.0 MG 六系统波 61→69，V110_WAVE_DESIGN §2 W7；
- *       V120 FC 电化学轨波 69→80，V120_WAVE_DESIGN §2 W5，CHG-20261113-01 批准链）：
- *   E-01..E-18 = tools/e2e.mjs 全部 76 条断言的 file:// 镜像（启动/demo Run/五视图
+ * 覆盖（85 断言/轮；v1.1.0 MG 六系统波 61→69，V110_WAVE_DESIGN §2 W7；
+ *       V120 FC 电化学轨波 69→80，V120_WAVE_DESIGN §2 W5，CHG-20261113-01 批准链；
+ *       V130 波 80→85——E-12 镜像同步 ARENA_EXCLUDED 收缩六系统池 + 新增 E-19 教学页
+ *       path-mg-001 五条，V130_WAVE_DESIGN §2 W3/W4，CHG-20261113-05 批准链）：
+ *   E-01..E-19 = tools/e2e.mjs 全部 81 条断言的 file:// 镜像（启动/demo Run/五视图
  *               深链跨页共享 Run/事件 pre-post 相位/单一时钟+回放不变/golden 关键值/
  *               因果证据链/EvidenceBundle 往返/深链残留面/六系统卡（MG-001 入卡）/
- *               WT 深链/Arena 排除（含 MG-001）/scenario 声明面（含 MG-001 键）/
+ *               WT 深链/Arena 盲测池六系统（ARENA_EXCLUDED 收缩——V130 W3）/scenario
+ *               声明面（含 MG-001 键）/
  *               MG-001 深链系统页四族注入面（island_event 零参数族 + t_clear_s
  *               缺省 35）/MG-001 signals 页 + A-3 单 Run 可达包络行/
  *               scenario 页 FC electrochem_model 编辑器（B-1a 缺省态不写键 + 钉 on
  *               写入键 + 回退恢复哈希）/FC on 轨 deep-link 系统页（on 轨 Run 数据面 +
  *               level_on 徽章 + summary_on 摘要 + on 轨模型声明面板）/FC signals 页
- *               on 轨三新列（off 对照 21 列缺席守卫 + on 轨 24 列 601 点）——
+ *               on 轨三新列（off 对照 21 列缺席守卫 + on 轨 24 列 601 点）/
+ *               E-19 教学页 path-mg-001 渲染面（路径卡 8 条 + hero 计数徽章 +
+ *               5 步展开 + I-5/锚点文案面——V130 W4 只读断言）——
  *               E-13 源级断言改为 Node 侧 fs 直读源文件，
  *               file:// 下页面内 fetch 受 CORS 限制不可用）；
  *   F-01..F-04 = file:// 专属 4 条：
@@ -489,7 +494,9 @@ async function runRound(roundIdx) {
       'E-11：WT-001 demo Run 关键信号 601 点可见（P_wt / d_wt / n_rotor）',
       JSON.stringify({ hasRun: wtRun.hasRun, pwt: wtRun.pwt, dwt: wtRun.dwt, nrotor: wtRun.nrotor }));
 
-    /* E-12 Arena 排除 WT-001 / PV-001 / MG-001（ARENA_EXCLUDED 守卫；MG-001 增项 = V110 DEC-4） */
+    /* E-12 Arena 盲测池六系统（ARENA_EXCLUDED 收缩——V130 DEC-2 exposure 三值映射验证轮
+       全过，CHG-20261113-05，ARENA_EXPOSURE_VERIFICATION_ROUND.md v1；历史排除链保留：
+       PV CHG-20261104-10 / WT CHG-20261107-01 / MG V110 DEC-4 CHG-20261110-01） */
     await cdp.send('Page.navigate', { url: fileUrl + '?page=arena' });
     await wait(700);
     const arenaChk = await cdp.evalExpr(`(function(){
@@ -497,14 +504,13 @@ async function runRound(roundIdx) {
       const sysSeg = sec ? sec.querySelector('.seg[aria-label="选择实验系统"]') : null;
       const vals = sysSeg ? Array.prototype.map.call(sysSeg.querySelectorAll('.seg-item'),
         function (b) { return b.dataset.value; }) : [];
-      return { page: FL.store.getState().page, vals: vals, text: sec ? sec.textContent : '' };
+      return { page: FL.store.getState().page, vals: vals };
     })()`);
     eq(arenaChk.page, 'arena', 'E-12：arena 页打开');
-    ok(arenaChk.vals.indexOf('WT-001') === -1 && arenaChk.vals.indexOf('PV-001') === -1 &&
-      arenaChk.vals.indexOf('MG-001') === -1 && arenaChk.vals.indexOf('FL-001') !== -1,
-      'E-12：arena 系统选择器不含 WT-001 / PV-001 / MG-001（ARENA_EXCLUDED 守卫）', JSON.stringify(arenaChk.vals));
-    ok(arenaChk.text.indexOf('WT-001') === -1 && arenaChk.text.indexOf('MG-001') === -1,
-      'E-12：arena 页面文本不含 WT-001 / MG-001');
+    const ARENA_POOL_SIX = ['FL-001', 'FC-001', 'GT-001', 'PV-001', 'WT-001', 'MG-001'];
+    ok(ARENA_POOL_SIX.every(function (id) { return arenaChk.vals.indexOf(id) !== -1; }),
+      'E-12：arena 系统选择器含全部六系统（ARENA_EXCLUDED 收缩）', JSON.stringify(arenaChk.vals));
+    eq(arenaChk.vals.length, 6, 'E-12：arena 系统选择器恰 6 项');
 
     /* E-13 scenario 页声明面（源级断言：Node 侧直读源文件，见 scenarioSourceChecks） */
     const scnChk = scenarioSourceChecks();
@@ -723,11 +729,58 @@ async function runRound(roundIdx) {
       'E-15：包络行措辞带 A-3 改标口径（单 Run 可达 ≠ 参数域叉积包络，不称全域）',
       mgSig.envText.slice(-120));
 
+    /* E-19 教学页 path-mg-001（V130 W4 DEC-3 CHG-20261113-04——teaching.js PATHS additive
+       第 8 条的教学页渲染面镜像；沿 E-09 既有 page=teaching 导航形态，只读渲染面断言：
+       路径卡在场 + 可展开 5 步 + I-5/锚点文案面——零新执行语义，不生成场景不建 Run） */
+    await cdp.send('Page.navigate', { url: fileUrl + '?page=teaching' });
+    await wait(900);
+    const teachCards = await cdp.evalExpr(`(function(){
+      const cards = Array.prototype.slice.call(document.querySelectorAll('[data-testid="teaching-path-card"]'));
+      const heroBadges = Array.prototype.slice.call(document.querySelectorAll('.tea-hero-tags .badge'))
+        .map(function (b) { return b.textContent || ''; });
+      return { page: FL.store.getState().page, count: cards.length,
+               ids: cards.map(function (c) { return c.getAttribute('data-path-id'); }),
+               heroCount: heroBadges.filter(function (t) { return t.indexOf('预设 ') === 0; })[0] || '' };
+    })()`);
+    eq(teachCards.page + '@' + teachCards.count, 'teaching@8',
+      'E-19：教学页路径卡 8 条（7 既有 + path-mg-001 additive 第 8 条，V130 DEC-3）');
+    eq(teachCards.heroCount, '预设 8 路径 × 5 步', 'E-19：hero 计数徽章随路径数据面同步（页面不写死条数）');
+    ok(teachCards.ids.indexOf('path-mg-001') !== -1,
+      'E-19：path-mg-001 路径卡在场（data-path-id）', JSON.stringify(teachCards.ids));
+    await cdp.evalExpr(`(function(){
+      const card = document.querySelector('[data-testid="teaching-path-card"][data-path-id="path-mg-001"]');
+      if (card) card.click();
+    })()`);
+    await wait(500);
+    const mgExpand = await cdp.evalExpr(`(function(){
+      const steps = Array.prototype.slice.call(document.querySelectorAll('[data-testid="teaching-steps"] .tea-step'));
+      const title = (document.querySelector('[data-testid="teaching-steps-title"]') || {}).textContent || '';
+      const allText = steps.map(function (s) { return s.textContent; }).join('\\n');
+      const evalText = steps.length > 4 ? steps[4].textContent : '';
+      return { page: FL.store.getState().page, title: title, stepCount: steps.length,
+               stepIds: steps.map(function (s) { return s.getAttribute('data-step-id'); }),
+               hasI5: allText.indexOf('脱离主馈线的功率平衡重整') !== -1,
+               hasClamp8: allText.indexOf('8 kW') !== -1,
+               hasShed2: allText.indexOf('P_shed = 2 kW') !== -1,
+               hasTclear35: allText.indexOf('t_clear = 35 s') !== -1,
+               evalHasAnchor: evalText.indexOf('评测入口') !== -1 && evalText.indexOf('t_clear_s = 35') !== -1 };
+    })()`);
+    ok(mgExpand.page === 'teaching' && mgExpand.title.indexOf('主馈线分断') !== -1 &&
+      mgExpand.stepCount === 5 &&
+      JSON.stringify(mgExpand.stepIds) === JSON.stringify(['inject', 'closed-loop', 'monitor-compare', 'causal', 'eval']),
+      'E-19：path-mg-001 可展开为 5 步（步骤卡 id 序列 = DEC-5 模板 + 路径标题在场）',
+      JSON.stringify({ page: mgExpand.page, title: mgExpand.title, stepCount: mgExpand.stepCount, stepIds: mgExpand.stepIds }));
+    ok(mgExpand.hasI5 && mgExpand.hasClamp8 && mgExpand.hasShed2 && mgExpand.hasTclear35 && mgExpand.evalHasAnchor,
+      'E-19：path-mg-001 文案面（I-5 句式「脱离主馈线的功率平衡重整」+ 钳位 8 kW / P_shed = 2 kW / t_clear = 35 s 锚点 + 第⑤步评测入口锚定值）',
+      JSON.stringify({ hasI5: mgExpand.hasI5, hasClamp8: mgExpand.hasClamp8,
+        hasShed2: mgExpand.hasShed2, hasTclear35: mgExpand.hasTclear35, evalHasAnchor: mgExpand.evalHasAnchor }));
+
     /* F-04 localStorage 会话恢复：无参重载（不 reset 不 demo）→ activeRun 自存储恢复
        （store.loadPersisted 契约：run_hash 校验通过才恢复，不伪造历史 Run）。
        对照相 = E-15 结束时的 activeRun（v1.1.0 起 E-14/E-15 在 F-04 之前创建 MG Run，
        故恢复对象为最后激活的 MG-001 Run——V120 起 E-17/E-18 亦在 E-14/E-15 之前创建
-       FC on/off Run，E-11 的 WT Run 面仍由 E-12 前的会话链覆盖）。 */
+       FC on/off Run，E-11 的 WT Run 面仍由 E-12 前的会话链覆盖；V130 起 E-19 教学
+       渲染面只读、不建 Run，恢复对象不变）。 */
     await cdp.send('Page.navigate', { url: fileUrl + '?page=system' });
     await wait(1400);
     const restored = await cdp.evalExpr(`(function(){
@@ -806,10 +859,10 @@ async function main() {
         userAgent: browserVersion.userAgent, jsVersion: browserVersion.jsVersion }
     : { product: null, revision: null, userAgent: null, jsVersion: null };
   const report = {
-    journey: 'file-smoke-80',
+    journey: 'file-smoke-85',
     target: { path: TARGET_REL, absolute: TARGET_ABS, bytes: targetBytes },
     protocol: 'file:',
-    assertions_per_round: 80,
+    assertions_per_round: 85,
     rounds: ROUNDS,
     ok: allOk,
     pass: totalPass,
@@ -828,7 +881,7 @@ async function main() {
   };
   fs.writeFileSync(path.join(OUT, 'file-smoke-report.json'), JSON.stringify(report, null, 2));
   console.log('\n================================================');
-  console.log('file:// 冒烟（' + TARGET_REL + '，' + ROUNDS + ' 轮 × 80 断言）：' +
+  console.log('file:// 冒烟（' + TARGET_REL + '，' + ROUNDS + ' 轮 × 85 断言）：' +
     (allOk ? '全部通过  ✓' : '存在失败  ✗') + '（累计 PASS ' + totalPass + ' / FAIL ' + totalFail + '）');
   console.log('浏览器：' + (browser.product || 'n/a') + '（revision ' + (browser.revision || 'n/a') + '）');
   console.log('追溯：commit=' + (COMMIT_SHA || 'n/a').slice(0, 12) + ' branch=' + (BRANCH || 'n/a') +

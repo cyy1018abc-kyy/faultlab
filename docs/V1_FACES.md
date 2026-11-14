@@ -110,7 +110,10 @@ model.electrochem 子对象）——additive 字段面承诺同等适用，`ALL`
 - 新系统实例与既有实例的数值内容演进（模型常量、参数域、方程文本——随 G2b 批准轮 +
   model_version 升版演进，先例：GT 1.1.0→1.2.0）；
 - model.assumptions/limitations/causalTemplates 文本（教学叙事面，随评审演进）；
-- UI level 标签字符串与 ARENA_EXCLUDED 名单（src/ui/pages/arena.js:99，PV/WT 不入评测）；
+- UI level 标签字符串与 ARENA_EXCLUDED 名单（src/ui/pages/arena.js:99，PV/WT 不入评测）
+  〔v1.3.0 快照同步（CHG-20261113-05）：ARENA_EXCLUDED 现值 **[]**——六系统全入评测池
+  （V130 DEC-2 exposure 三值映射验证轮，面⑤ 入池登记同源）；本行「PV/WT 不入评测」为
+  v1.0 时点快照，「UI 名单不入哈希承诺」语义不变〕；
 - 插件化/可注册化改造（D-5 评估推荐 v1.0 不做——V090_WAVE_DESIGN DEC-4；触发条件登记：
   外部 SystemDef 贡献出现时走 RFC）；
 - 逐系统的 scope 归属（归面⑥）与 golden 归属（归面②）。
@@ -259,12 +262,22 @@ tools/run-g2.mjs:107）。
 **不在承诺内**：
 - scenario_rules 代际内容（sr1 之外的生成规则代——规则代演进 = additive，新代不回改 sr1）；
 - deriveChangePoints 首发的放行门槛数值（QP-4：健康局假候选率须测量并公布后才放行——
-  ARENA §6.3/:249；该测量面已挂 run-g2 步 19）；
+  ARENA §6.3/:249；该测量面已挂 run-g2 步 19）〔**v1.3.0 放行注记（CHG-20261113-05，
+  V130 DEC-4）**：门槛已测量并公布——健康局假候选率实测随 run-g2 步 19 发布、断言门槛
+  ≤0.2 + 可测幅值故障局检出 ≥0.9（tests/arena-protocol-negative.test.js :278-284 实测
+  机制），**首发前置解除**；盲包生成侧按既有协议面使用、判据零扩张〕；
 - 组织方运营流程（EVAL_TRACK_GUIDE v2 §6 场次流程）与对外首场时点（运营项，随时、组织方
   侧动作——V06_ROADMAP §2 :70）；
 - 页面演示轨（六页 06 Arena，docs/AGENT_PROTOCOL.md P2 注记版继续有效；truthSealed 为 UI
   开关非安全边界——CONTRACT.md §11/G0-DEC-11）；
-- 评测轨对第五系统的覆盖扩张（ARENA_EXCLUDED 现状 PV/WT 不入评测——arena.js:99）。
+- 评测轨对第五系统的覆盖扩张（ARENA_EXCLUDED 现状 PV/WT 不入评测——arena.js:99）
+  〔**v1.3.0 入池登记（CHG-20261113-05，V130 DEC-2 显式 CHG 面）**：exposure 三值映射
+  验证轮全过（ARENA_EXPOSURE_VERIFICATION_ROUND.md v1——PV/WT/MG 逐信号核对表 × 盲包
+  程序化验证，57 信号三值落点核对、19 条显式声明偏差登记、v1/v2 双导出面泄漏扫描零
+  命中、通道集逐场景全等），**ARENA_EXCLUDED 收缩为 []**——PV-001（历史排除
+  CHG-20261104-10）/ WT-001（CHG-20261107-01）/ MG-001（V110 DEC-4 CHG-20261110-01）
+  三系统入池，评测轨覆盖扩张 additive（三系统 → 六系统全池；协议字段面零变化、附录 A
+  负例零触碰）；上行「PV/WT 不入评测」为 v1.0 时点快照〕。
 
 ---
 
@@ -555,8 +568,29 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
   面③ 冻结边界原文「新可选事件键……新键只影响使用它的输入」直接承载，B-1(a) 显式键
   条件式形态即对该边界的兑现，无需修订面③ 文本——已随 CHG-20261113-01 批准登记）。
 
+## 10. v1.3.0 additive 修订记录（2026-11-14，CHG-20261113-05）
+
+本节为 v1.3.0 发布轮对本文件的全部修订索引——**全部 additive（事实同步行 +
+「（v1.3.0，CHG-20261113-05）」标注），冻结条款语义零变化；§1 转正记录与 §3 breaking
+政策文本零触碰**：
+
+- **面⑤ QP-4 放行注记（V130 DEC-4）**：「deriveChangePoints 首发的放行门槛数值」行追加
+  放行注记——门槛已测量并公布：健康局假候选率实测值随 run-g2 步 19 发布、断言门槛 ≤0.2 +
+  可测幅值故障局检出 ≥0.9（tests/arena-protocol-negative.test.js :278-284 实测机制），
+  **首发前置解除**；盲包生成侧按既有协议面使用、判据零扩张；
+- **面⑤ 评测轨覆盖扩张入池登记（V130 DEC-2 显式 CHG 面）**：ARENA_EXCLUDED 收缩为 **[]**——
+  PV/WT/MG 三系统经 exposure 三值映射验证轮（ARENA_EXPOSURE_VERIFICATION_ROUND.md v1：
+  逐信号核对表 × 盲包程序化验证、57 信号三值落点、19 条显式声明偏差登记、泄漏扫描零命中、
+  通道集逐场景全等）入池；历史排除链批准注记保留（PV CHG-20261104-10 / WT
+  CHG-20261107-01 / MG V110 DEC-4 CHG-20261110-01）；协议字段面零变化、附录 A 负例零触碰；
+- **面① ARENA_EXCLUDED 快照引用同步（实读）**：「UI level 标签字符串与 ARENA_EXCLUDED
+  名单」行追加快照注——现值 []（六系统全入池）；「UI 名单不入哈希承诺」语义不变；
+- **面②/面③/面④/面⑥/面⑦/面⑧/§3/§1/§4 零触碰**：10 golden 不变（本波零新 golden）、
+  run-g2 35 步 0 新步维持、词表 39/14 维持（copy-guard 发布轮实跑 0 命中）。
+
 **文件结束**。V1_FACES v1（2026-11-08，T6 起草，CHG-20261108-01）→ v1.0.0 冻结转正
 （CHG-20261108-04，用户 v1.0.0 发布指令链）→ **v1.1.0 additive 修订**（CHG-20261110-02：
 六系统/9 golden/35 步/39 词——全部 additive，冻结语义零变化）→ **v1.2.0 additive 修订**
 （CHG-20261113-02：FC L1 电化学轨/10 golden/35 步 0 新步/39 词维持——全部 additive，
-冻结语义零变化）。
+冻结语义零变化）→ **v1.3.0 additive 修订**（CHG-20261113-05：面⑤ QP-4 放行 + 入池登记/
+面① ARENA_EXCLUDED 快照同步/本 §10 修订记录——全部 additive，冻结语义零变化）。

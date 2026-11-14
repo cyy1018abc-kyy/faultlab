@@ -2,8 +2,9 @@
    + FaultLab-evaluation/NEXT/V070_WAVE_DESIGN.md DEC-5（CHG-20261104-10）
    教学路径核心测试（C-3 最小形态）：
    A. 模块形态 + view.page 校验表与 src/ui/shell.js PAGES 键源码交叉核对；
-   B. 7 条预设路径（4 系统主线 + GT 跨深度扩展 + WT ×2 + FL thermal 跨深度，
-      v0.8.0 UI 接线路 CHG-20261107-01）全部过 validateTeachingPath +
+   B. 8 条预设路径（4 系统主线 + GT 跨深度扩展 + WT ×2 + FL thermal 跨深度，
+      v0.8.0 UI 接线路 CHG-20261107-01；+ MG-001 三段式平衡重整 path-mg-001，
+      V130 DEC-3 CHG-20261113-04）全部过 validateTeachingPath +
       元数据 / 5 步结构 / 导出原语断言；
    C. 校验器负例（8 类）+ 装载顺序守卫 + warning 面；
    D. narrative/文案禁词自检：读 tools/copy-guard.mjs BANNED 数组（39 模式）对路径内
@@ -61,13 +62,14 @@ eq(TC.SHELL_PAGE_KEYS.length, 9, '页面键数=9（home/system/signals/causal/co
  * B. 预设路径全部过 validateTeachingPath                               *
  * （计数断言随路径数据面机械适配：3→4 为 V072 清算项 7 先例；4→7 为
  *    v0.8.0 UI 接线路 CHG-20261107-01——WT-001 ×2 + FL thermal 跨深度 ×1；
- *    新路径的专项断言归 L9b 测试路。）                                     *
+ *    7→8 为 V130 DEC-3（CHG-20261113-04）——MG-001 三段式平衡重整 path-mg-001；
+ *    新路径的专项断言随本波落入 §B MG 块。）                               *
  * ------------------------------------------------------------------ */
 section('B. 预设路径校验 + 结构 + 导出原语');
 const paths = TC.getTeachingPaths();
-eq(paths.length, 7, 'getTeachingPaths 返回 7 条（4 系统主线 + GT 跨深度 + WT ×2 + FL thermal 跨深度，v0.8.0 CHG-20261107-01）');
-eq(new Set(paths.map((p) => p.pathId)).size, 7, 'pathId 唯一');
-['FL-001', 'FC-001', 'GT-001', 'WT-001'].forEach((sid) => {
+eq(paths.length, 8, 'getTeachingPaths 返回 8 条（4 系统主线 + GT 跨深度 + WT ×2 + FL thermal 跨深度 + MG-001 平衡重整，V130 DEC-3 CHG-20261113-04）');
+eq(new Set(paths.map((p) => p.pathId)).size, 8, 'pathId 唯一');
+['FL-001', 'FC-001', 'GT-001', 'WT-001', 'MG-001'].forEach((sid) => {
   ok(paths.some((p) => p.system === sid), '存在 ' + sid + ' 路径');
 });
 
@@ -127,6 +129,39 @@ const gtxText = JSON.stringify(gtxPath);
 eq(flPath.pathId, 'path-fl-001', '既有 FL 路径零改动');
 eq(TC.exportTeachingPath('path-gt-001').path.title, '燃气涡轮：转速偏置与双通道冗余', '既有 GT 路径零改动');
 
+/* MG 教学路径（V130 DEC-3 CHG-20261113-04）：三段式并网基线 → 脱离主馈线的功率平衡重整
+   → 重连恢复（路径数据面 additive 第 8 条，不扩不改既有 7 条）。
+   结构 + 第⑤步 3 事件（并网基线 load_step + island_event 闭环/仅监测成对，
+   t_clear_s=35 锚定 mg001_v1 golden island_reconnect Run）+ I-5/锚点文案面。 */
+const mgPath = paths.find((p) => p.pathId === 'path-mg-001');
+ok(!!mgPath, '存在 MG 教学路径 path-mg-001');
+eq(mgPath.system, 'MG-001', 'MG 路径绑定 MG-001');
+eq(mgPath.pathId, 'path-mg-001', 'MG 路径 pathId');
+eq(mgPath.steps.length, 5, 'MG 路径步数=5（DEC-5 契约不破坏）');
+eq(JSON.stringify(mgPath.steps.map((s) => s.id)), JSON.stringify(['inject', 'closed-loop', 'monitor-compare', 'causal', 'eval']), 'MG 路径步骤 id 序列=DEC-5 模板');
+eq(JSON.stringify(mgPath.steps.map((s) => s.view.page)), JSON.stringify(['system', 'signals', 'compare', 'causal', 'scenario']), 'MG 路径视图深链序列与模板同构');
+ok(mgPath.steps.every((s) => typeof s.narrative === 'string' && s.narrative.length > 40), 'MG 路径每步教学叙述卡非空');
+/* 第⑤步 3 事件：家族合法（MG 现有四族取 load_step + island_event）+ 零参数族 + t_clear_s=35 */
+const mgEvents = mgPath.steps[4].scenarioSpec.events;
+eq(mgEvents.length, 3, 'MG 第⑤步 3 事件（并网基线 + 分断/重连双模式成对）');
+eq(JSON.stringify(mgEvents.map((e) => e.family + ':' + e.feedback_mode)),
+  JSON.stringify(['load_step:closed_loop', 'island_event:closed_loop', 'island_event:monitor']),
+  'MG 3 事件族×模式序列（load_step 基线 + island_event 拓扑事件两模式）');
+const mgPr = SC.parseScenario(mgPath.steps[4].scenarioSpec);
+ok(mgPr.ok, 'MG 第⑤步 scenarioSpec 可过 parseScenario（schema v1 + t_clear_s 守卫扩展）', JSON.stringify(mgPr.errors));
+eq(mgEvents[1].t_clear_s, 35, 'MG island_event 闭环轨 t_clear_s=35（mg001_v1 island_reconnect 锚定值）');
+eq(mgEvents[2].t_clear_s, 35, 'MG island_event 仅监测轨 t_clear_s=35');
+eq(JSON.stringify(mgEvents[1].params), '{}', 'island_event 零参数族（params:{}——Q2 定案库内首例，无幅值语义）');
+eq(mgEvents[0].params.magnitude, 10, 'MG load_step 基线取目录锚点值 +10 kW');
+/* 文案锚点断言：I-5 句式在场 + EQ-MG 引用 + mg001_v1 冻结锚点数值
+   （钳位 8 / shed 2 / 补差 5→15 / 服务 28 / 重连恢复 8→5 与 5 kW） */
+const mgText = JSON.stringify(mgPath);
+[
+  '脱离主馈线的功率平衡重整', 'EQ-MG-3', 'EQ-MG-4', 'EQ-MG-5', 'EQ-MG-6',
+  '5→15 kW', 'P_grid ≡ 0', '钳位', '8 kW', 'P_shed = 2 kW', '28 kW',
+  't_clear = 35 s', '8→5', 'P_bess 回 5 kW'
+].forEach((needle) => ok(mgText.indexOf(needle) !== -1, 'MG 路径文案锚点在场：' + needle));
+
 /* 导出原语：确定性信封 + 内容哈希；未知 pathId 抛中文错误 */
 const exp1 = TC.exportTeachingPath('path-fl-001');
 eq(exp1.kind, 'faultlab-teaching-path', '导出 kind=faultlab-teaching-path');
@@ -138,6 +173,17 @@ ok(JSON.stringify(Object.keys(exp1.path.steps[4].scenarioSpec)) === JSON.stringi
 let threw = null;
 try { TC.exportTeachingPath('no-such-path'); } catch (e) { threw = e; }
 ok(threw && /未知教学路径/.test(threw.message) && /path-fl-001/.test(threw.message), '未知 pathId 抛中文错误并列出可用 id', threw && threw.message);
+
+/* MG 路径导出原语（V130 DEC-3）：确定性信封同构（kind/version/content_checksum） */
+const expMg = TC.exportTeachingPath('path-mg-001');
+eq(expMg.kind, 'faultlab-teaching-path', 'MG 导出 kind=faultlab-teaching-path');
+eq(expMg.version, 1, 'MG 导出 version=1');
+ok(expMg.path && expMg.path.pathId === 'path-mg-001' && Array.isArray(expMg.path.steps) && expMg.path.steps.length === 5,
+  'MG 导出携带路径本体（path-mg-001 × 5 步完整）');
+ok(typeof expMg.content_checksum === 'string' && expMg.content_checksum.length === 64, 'MG 导出内容校验和（SHA256 hex 64）');
+eq(expMg.content_checksum, TC.exportTeachingPath('path-mg-001').content_checksum, 'MG 导出确定性（两次导出同校验和）');
+ok(expMg.path.steps[4].scenarioSpec.events.length === 3 && expMg.path.steps[4].scenarioSpec.events[1].t_clear_s === 35,
+  'MG 导出本体与 PATHS 数据一致（3 事件 + t_clear_s=35）');
 
 /* getTeachingPaths 返回克隆：外部改动不内渗 */
 paths[0].title = 'MUTATED';
@@ -312,4 +358,4 @@ if (fail) {
   console.log('================================================');
   process.exit(1);
 }
-console.log('教学路径核心（C-3 DEC-5）测试全部通过：7 路径校验（含 GT/FL 跨深度扩展 + WT ×2）/ 负例 8 类 + 守卫 / 禁词 39 模式子串自检 / FL 3 Run 执行冒烟。');
+console.log('教学路径核心（C-3 DEC-5）测试全部通过：8 路径校验（含 GT/FL 跨深度扩展 + WT ×2 + MG-001 平衡重整，V130 DEC-3）/ 负例 8 类 + 守卫 / 禁词 39 模式子串自检 / FL 3 Run 执行冒烟。');

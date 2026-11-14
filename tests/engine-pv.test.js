@@ -1,5 +1,6 @@
 /* owner: core-engine | module: tests/engine-pv | contract: PV001_G2B_SPEC_APPROVED v1.0 §3/§4/§5
-   + V070_WAVE_DESIGN（CHG-20261104-10）/ R-4 守卫 + DEC-2 Arena 排除
+   + V070_WAVE_DESIGN（CHG-20261104-10）/ R-4 守卫 + Arena 盲测池守卫（v1.3.0 入池后
+     池形态镜像——原「DEC-2 Arena 排除」守卫随 V130 DEC-2 验证轮入池镜像更新，§6）
    PV-001 引擎 ↔ golden 一致性（oracle 只读生成，engine 只读比对，G0-DEC-16）。
    运行：node tests/engine-pv.test.js；失败非零退出。
    覆盖：
@@ -12,7 +13,8 @@
      4. GT 轨区分守卫（R-4）：PV 配置走 PV 轨（P_pv 信号面 + 分派元数据 + PV 锚点），
         三系统既有轨 sanity（FL/FC/GT 各自信号面在、PV 信号不在）；
      5. 健康局 P_pv ≡ 10 恒等（逐位；§3.3 健康局不变量 PS-6 面）；
-     6. DEC-2 Arena 显式排除守卫（源级）：arena.js systemList 过滤 PV-001 + 守卫注释。
+     6. Arena 盲测池守卫（源级）：ARENA_EXCLUDED 收缩 [] + 过滤结构在场 + 历史排除链
+        注释保留（V130 DEC-2 验证轮入池镜像更新——CHG-20261113-05）。
    PV Run quality：soc-bounds/energy-balance 按 system.bounds 派生（PV bounds 无 SOC_pct 声明
    → 不派发；CHG-20261105-01 清算项 1 解除 CHG-20261104-10 锁定态）；PV 专属 PHY 检查
    pv-energy-consistency（E_pv_true + E_grid = E_load，EQ-PV-5/EQ-PV-7；容差 pv001_v1
@@ -414,19 +416,23 @@ Object.keys(golden.runs).forEach((runKey) => {
 })();
 
 /* ================================================================== */
-/* 6. DEC-2 Arena 显式排除守卫（源级：systemList 过滤 PV-001 + 注释）    */
+/* 6. Arena 盲测池守卫（源级：systemList 过滤结构 + 排除链登记）——V130 DEC-2      */
+/*    exposure 三值映射验证轮入池（ARENA_EXCLUDED 收缩 []，CHG-20261113-05）后，     */
+/*    本节 3 条旧「DEC-2 显式排除」断言随之镜像更新（W6 镜像同步——W3 已同构更新      */
+/*    arena.test.js §8 与 e2e E-12，本文件为同轮漏项；判据数零变化，物理断言零触碰）。 */
 /* ================================================================== */
-(function arenaExclusion() {
+(function arenaPoolGuard() {
   const arenaPath = path.join(__dirname, '..', 'src', 'ui', 'pages', 'arena.js');
   const src = fs.readFileSync(arenaPath, 'utf8');
   const i0 = src.indexOf('function systemList');
   const i1 = src.indexOf('function systemTitle');
   ok(i0 !== -1 && i1 > i0, 'arena.js systemList 函数定位');
   const body = src.slice(i0, i1);
-  ok(body.indexOf('PV-001') !== -1, 'Arena systemList 过滤 PV-001（DEC-2 显式排除）');
-  ok(body.indexOf('CHG-20261104-10') !== -1, 'Arena 守卫注释登记 CHG-20261104-10');
-  ok(body.indexOf('DEC-2') !== -1 && body.indexOf('PV001_G2B_SPEC_APPROVED') !== -1,
-    'Arena 守卫注释登记 DEC-2 与规格 §5 依据');
+  ok(body.indexOf('ARENA_EXCLUDED = []') !== -1,
+    'Arena ARENA_EXCLUDED 已收缩为空（六系统入池——V130 DEC-2 验证轮，CHG-20261113-05）');
+  ok(src.indexOf('CHG-20261104-10') !== -1, 'Arena 历史排除链批准注释保留登记 CHG-20261104-10');
+  ok(body.indexOf('ARENA_EXCLUDED') !== -1 && src.indexOf('ARENA_EXPOSURE_VERIFICATION_ROUND') !== -1,
+    'Arena 守卫过滤结构在场 + 验证轮依据登记（ARENA_EXPOSURE_VERIFICATION_ROUND.md）');
 })();
 
 /* ---------- 汇总 ---------- */
@@ -436,4 +442,4 @@ if (fail) {
   failures.forEach((f) => console.log('  ✗ ' + f));
   process.exit(1);
 }
-console.log('PASS ' + pass + ' / FAIL 0 ✓（4 Run 全序列/scalars + A/B/C 锚点 + shading 逐位等价 + GT 分派守卫 + 健康局恒等 + DEC-2 Arena 守卫）');
+console.log('PASS ' + pass + ' / FAIL 0 ✓（4 Run 全序列/scalars + A/B/C 锚点 + shading 逐位等价 + GT 分派守卫 + 健康局恒等 + Arena 盲测池守卫）');
