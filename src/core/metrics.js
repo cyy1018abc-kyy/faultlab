@@ -425,7 +425,10 @@
          eta_cycle_end_pct 注册名；GTL1-G2b-04，CHG-20261104-12）。名称与 gt001_v3 golden
          scalars 注册表对齐（T2 冻结时逐名核对）。swing/linear 遗留轨无热力面 → 不产生
          这三项（遗留 Run 的 metrics 面零漂移）。 ---- */
-      if (cfg.inertia_model === 'thermo' && integrals) {
+      /* 深化轨扩展（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0，CHG-20261114-07 批准链）：
+         thermo_comb 轨与 thermo 共享同一组热力标量注册（E_fuel/eta_cycle/E_comb_net——
+         延迟口径下 intComb 由引擎 k1.dT3·C_3·dt 左矩形自然承载 EQ-GTL2-12）。 */
+      if ((cfg.inertia_model === 'thermo' || cfg.inertia_model === 'thermo_comb') && integrals) {
         mk('E_fuel_kWh', '燃料电能（输入）', isNum(integrals.E_fuel) ? integrals.E_fuel / 3600 : null, 'kWh', 7,
           null, {
             source_signal_ids: ['Q_fuel_kW'],

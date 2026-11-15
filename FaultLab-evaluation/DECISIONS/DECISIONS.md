@@ -1726,3 +1726,41 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   ③ **操作教训登记**：emit **不幂等**（approval/generated 时间戳入字节）——本路误做 emit 幂等检查覆写了已入库 gt001_v4 字节，已 git checkout 恢复提交时点冻结字节并复验 exit 0（净零变化）；以后对已入库 golden 一律禁止重 emit（§3.4 字节冻结纪律延伸至未发布新 golden 的入库后状态）。
   ④ **状态**：GTCMB-G2b-03（oracle 面）= **功能完整、验证全绿（待验收）**；GTCMB-G2b-04（引擎/系统/场景/UI/测试）与发布门 = **维持挂起**（用户对实现轮的既有拒绝态不变）；执行路径（主线直完 W3–W5 / 维持挂起 / 其他）待用户明示。
   **批准人：无（更正登记条目）；记录人：Lead Agent。**
+- `CHG-20261115-03`：**v1.6.0 发布收口（G7→G8）——A-5 P3 GT 燃烧延迟批准与实现轮落地（八面冻结下第六个 additive/minor 发布）**。
+  承接 CHG-20261114-07/08（批准轮收口）+ CHG-20261115-01/02（实现轮两次顺延后经用户「下一步」默认排序恢复——W2 中断代理产品验证收编 + W3–W5 主线直接执行）。
+  **① 发布门全表（2026-11-15 全部真实运行）**：
+  1. `python tools/build.py` exit 0 ×2——FaultLab.html **1754.4 KiB**（css=10 js=33，两次幂等）；
+  2. `node tools/run-g2.mjs` × 2 独立——**均 35/35 PASS，exit 0 × 2**（r2 109475 ms；core 28/28 +
+     extended 7/7）；**0 新步**（FIRST-35 机检；步① 五 golden fl001/fl001_l1/fc001_l1/fl001_cap/
+     gt001_comb；步 21 断言 451→566）；perf 步 12725/12568 ms ≪ 71500 ms（CHG-20261114-02 维持）；
+  3. `python -I scripts/verify_golden.py` 默认五 golden + 逐模型 ×10——**11 次调用全 exit 0**：
+     default = fl001 25 + fl001_l1 25 + fc001_l1 30 + fl001_cap 25 + gt001_comb 35 = **140**；
+     逐模型 255（fl001 25/fl001_l1 25/fc001 30/fc001_l1 30/fl001_cap 25/gt001 35/**gt001_comb 35**/
+     pv001 25/wt001 30/mg001 30）——合计 **430 checks / 0 fail**；
+  4. oracle_base 自检 exit 0；copy-guard **39 patterns 0 命中**（39/14 维持）；
+  5. file-smoke **3×98=294/0** + ui-walkthrough **67/67** + e2e **94/94**；
+  6. golden 零变化终检：既有 11 golden 字节零触碰 + gt001_v4 入库（2,373,000 B）；
+  7. 测试面 23 文件全绿（engine-gt **566**/core 11365/scenario 493/schema 329/engine 589 等）。
+  **② 交付清单**：（一）P3 批准轮（键形态=形态 a "thermo_comb" 四元映射；τ_comb=0.5 s 七项判据
+  域扫描；11 条件全按推荐；Q12 否决升位；Q1…Q13；APPROVED v1.0）；（二）实现轮（gt001_comb_oracle
+  GCMB-1…9 全过 + **gt001_v4 第 12 golden**（6 Run 镜像全部 thermo_comb/T-B 十键镜像/27 列同集
+  零新信号 Q10a/2,373,000 B）+ 引擎 thermo_comb 分支（vs golden gate 内一致 + **A-2 健康局/monitor
+  与 thermo 位级逐位同** + thermo/linear/swing 三轨全字节恒等探针）+ 三处守卫 additive + checks.js
+  comb 延迟口径分支（**规格 GTCMB-G2b-04 行漏 checks.js 项——实现轮补齐并登记**；worst 7.2536e-7
+  ×≥1378；分支置于 swing 裸兜底之前——兜底吞没教训登记）+ metrics 门扩值 + causal 挂载扩值 +
+  tests +115（verifyGoldenComb 专用比对器）+ UI levelFor/summaryFor/combustion 子对象 +
+  FAULT_CATALOG v1.8 + 1754.4 KiB）；（三）G9/G10 顺延 v1.7.0（CHG-20261114-06 双裁定承接）。
+  **③ additive 三不承诺兑现**：五类哈希既有输入零变化（三轨探针+五系统恒等+model_hash 零变化+
+  守卫 additive 探针）；既有 11 golden 字节零触碰；35 步判据零翻转（checks.js/metrics.js 均
+  additive——既有分支零变化）。
+  **④ v1.6.x 待办**：首项 **G9/G10 启动波（v1.7.0）**（CHG-20261114-06 双裁定解锁：G9 FC L1-FMU
+  G2b 草案轮 + I-11 S3 收口 + G10 Arena L2/MCP；七项契约面预裁定在落档文件勘误头）；C3 真 TESPy
+  挂起维持；步①/步 31/步 32 标签固化随下次 tools 触碰。
+  **⑤ v1.6.0 时点画像**：六系统 + GT 燃烧延迟深化轨（inertia_model 四值）、**12 golden 字节冻结**、
+  10+3 oracle、11 页面、run-g2 35 步 0 新步（DEFAULT_MODELS 五 golden）、e2e 94/file-smoke 98/
+  ui-walkthrough 67、词表 39/14、FaultLab.html **1754.4 KiB**、V1_FACES 八面冻结维持（修订全部
+  additive——面① GT 画像/面② 12 golden/本 §13 修订记录，冻结条款语义零变化）。
+  证据 `evidence/g8/v160-release.md`。**编号说明**：-14-08 原预留 v1.6.0 发布，实际由批准轮收口
+  （CHG-20261114-08）占用；发布顺延 **CHG-20261115-03**（偏差登记于此）。
+  **推送按用户裁定暂缓（同批 v0.7.1–v1.6.0 延续——本波产出并入同批）**。
+  **批准人：用户（CHG-20261114-07 指令链——本收口登记为其波次授权的执行记录）；记录人：Lead Agent。**

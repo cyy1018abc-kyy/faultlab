@@ -149,7 +149,9 @@ UI 变体（规格 §1.6 冻结文案，CHG-20261113-01 批准链）：on 轨层
 「L1 · 电堆极化与单节点热（数值仿真级）」、定位句「教学尺度电化学-热集总示意（L1-lite），
 非机组/电网动态验证」。
 
-## 3. GT-001 燃气涡轮（L0b swing / linear + L1 thermo 三轨，scope=extension_preview）
+## 3. GT-001 燃气涡轮（L0b swing / linear + L1 thermo + L1 燃烧延迟深化轨 thermo_comb 四轨，scope=extension_preview）
+
+**combustion 深化轨注记（GTCMB-G2b-03/04，2026-11-14 落地；`GT001_COMBUSTION_G2B_SPEC_APPROVED.md` v1.0，CHG-20261114-07 批准链）**：GT-001 增 `inertia_model` 枚举第 4 值 **"thermo_comb"**（键形态 = 形态 a 枚举扩值——GTL1 §2.4 三值枚举先例延续；**非新故障族，族面零变化声明**——上表三族定义/参数域/授权状态零改动）。深化轨 = 燃烧延迟二阶状态 τ_comb=0.5 s（y=[f,T3,x_comb] 2→3 维 ODE，一阶燃料-能量传递滞后；**延迟不改变稳态值、只改变暂态路径**——三点稳态不变性核验在案）；golden 增 **gt001_v4**（6 Run 镜像全部 thermo_comb——schema v2、method gt001_comb_rk4_dt0.01、gate tier T-B 十键镜像、supersedes=gt001_v3、model_version 1.2.0 维持（Q12 否决升位——model_hash 九字段承载面）、oracle `tools/oracle/gt001_comb_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261114-07 批准链首签）；EQ-GTL2-1…12 登记（EQ-GTL1 同名域外原样）；verify_golden `gt001_comb` 注册行 + 默认运行扩为五 golden；**零新信号**（27 列同集——Q10a，教学面经 T4_out_K × P_gen_cmd_kW 相位差承载，滞后 +5 采样可辨识）；thermo/linear/swing 三既有轨与 gt001_v1/v2/v3 逐位不变；checks.js 增 comb 延迟口径分支（EQ-GTL2-12——规格 GTCMB-G2b-04 行漏项实现轮复算补齐登记，CHG-20261114-09）；UI 变体 level_on=「L1 · 燃烧动态延迟模型（数值仿真级）」（levelFor/summaryFor cfg 感知派生）。
 
 | fault id | 家族 | 类型 | 作用位置 | 幅值参数 | 默认时刻 | 授权状态 | golden | 因果模板 |
 |---|---|---|---|---|---|---|---|---|
@@ -354,7 +356,11 @@ UI 单 Run 可达包络行（signals 页）为当前单 Run 引擎逐点计算�
 
 ---
 
-**文件结束**。FAULT_CATALOG v1.7（2026-11-14：§1 FL-001 增 capacity 轨注记行
+**文件结束**。FAULT_CATALOG v1.8（2026-11-14：§3 GT-001 增 combustion 深化轨注记行
+（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0，GTCMB-G2b-03/04，CHG-20261114-07 批准链，
+系统 scope 维持 extension_preview、族面零变化——物理深度轨非新故障族；inertia_model 枚举
+3→4 值 + gt001_v4 四代链 + checks.js comb 延迟口径分支登记）+ §5 勘误表登记；
+v1.7 = 2026-11-14 §1 FL-001 增 capacity 轨注记行
 （FL001_CAPACITY_G2B_SPEC_APPROVED v1.0，FLCAP-G2b-03/04，CHG-20261114-01 批准链，
 系统 scope 维持 approved_p0、族面零变化——物理深度轨非新故障族；三元封闭路由
 (off,·)/(on,off)/(on,on)/(off,on)=拒绝 + EQ-FLTH-10…12 域内修订登记）+ §5 勘误表登记；

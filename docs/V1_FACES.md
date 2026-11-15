@@ -82,7 +82,7 @@ EQ-FCEC-1..7 + level_on :665 / summary_on :666〕）；MG001 现 :1453；`ALL` �
 |---|---|---|---|---|---|
 | FL-001 | `fl001` / `1.1.0`（:301-302） | L0（:126）+ thermal on 轨 + capacity on 轨（level_on 派生，v1.4.0） | 19〔18+1 onTrackOnly〕（v1.4.0，CHG-20261114-02） | sensor_drift / actuator_fault（:269/:281） | EQ-1..6 + EQ-A/B + EQ-FLTH-1..9 + EQ-FLTH-10..12（capacity on 轨，v1.4.0） |
 | FC-001 | `fc.pem.l0` / `1.1.0`（:579-580；现行 :603-604——model_version 维持仅登记，Q1 定案 B） | L0（:407；现行 :413）+ **L1 电化学 on 轨**（electrochem_model off|on 默认 off；level_on「L1 · 电堆极化与单节点热（数值仿真级）」:665 经 levelFor/summaryFor 派生——既有静态消费入口零变化）（v1.2.0，CHG-20261113-02） | **24**〔v1.1.0 时点 21 + 3 新信号 T_st_K/V_stack_V/P_loss_stack_kW——onTrackOnly on 轨专属列、off 轨结构性缺席〕 | sensor_drift / load_step / actuator_fault（:548/:558/:568；现行 :570 起——族面零变化） | EQ-1..6 + **EQ-FCEC-1..7（on 轨，model.electrochem 子对象承载；off 轨 EQ 面零变化）**（v1.2.0，CHG-20261113-02） |
-| GT-001 | `gt.sync.l0` / `1.2.0`（:830/:833） | L1 thermo（:631），swing/linear 遗留轨 | 27 | sensor_drift / load_step / actuator_fault（:799/:809/:819） | EQ-1..6 + EQ-GTL1-1..12（:875-893） |
+| GT-001 | `gt.sync.l0` / `1.2.0`（:830/:833） | L1 thermo（:631）+ 燃烧延迟深化轨 thermo_comb（level_on 派生，v1.6.0）+ swing/linear 遗留轨 | 27 | sensor_drift / load_step / actuator_fault（:799/:809/:819） | EQ-1..6 + EQ-GTL1-1..12（:875-893）+ EQ-GTL2-1..12（thermo_comb 轨，v1.6.0） |
 | PV-001 | `pv.pv.l0` / `1.0.0`（:1066-1067） | L0（:919） | 17 | sensor_drift / shading_step（:1044/:1055） | EQ-PV-1..7（:1090 起） |
 | WT-001 | `wt.aero.l0b` / `1.0.0`（:1314-1315） | L0b（:1136） | 22 | sensor_drift / actuator_fault / gust_step（:1283/:1293/:1303） | EQ-WT-1..9（:1342 起） |
 | MG-001 | `MG-001` / `1.0.0`（:1576-1577） | 聚合层 L0 · 多源聚合行为级演示（:1380） | 19 | load_step / shading_link / gust_link / island_event（:1531/:1541/:1551/:1565——island_event 零参数族 params:[] 库内首例） | EQ-MG-1..9（:1603-1611，全代数零新 ODE）（v1.1.0，CHG-20261110-02） |
@@ -125,7 +125,7 @@ model.electrochem 子对象）——additive 字段面承诺同等适用，`ALL`
 **事实源**：ORACLE_INTERFACE_D2 §3（:117-184，字段面 §3.1、tier 制度 §3.2 引 ALINE §3 :75-92、
 approval §3.3、backend 留位 §3.4、正交性 §3.5）；data/golden/ 既有 8 golden + 8 sidecar
 （本 ask 列目录实证；v1.1.0 增 mg001_v1 → **现存 9 golden + 9 sidecar**，CHG-20261110-02；
-v1.2.0 增 fc001_v2 → 10 golden，CHG-20261113-02；v1.4.0 增 fl001_v3 → **现存 11 golden + 11 sidecar**，CHG-20261114-02）；
+v1.2.0 增 fc001_v2 → 10 golden，CHG-20261113-02；v1.4.0 增 fl001_v3 → 11 golden，CHG-20261114-02；v1.6.0 增 gt001_v4 → **现存 12 golden + 12 sidecar**，CHG-20261115-03）；
 逐文件 tier/schema 实测（本 ask 用 python 逐文件读取）：
 
 | golden | schema 版本 | gate.tier | Run 数 | 状态 |
@@ -153,7 +153,7 @@ v1.2.0 增 fc001_v2 → 10 golden，CHG-20261113-02；v1.4.0 增 fl001_v3 → **
   （scripts/verify_golden.py:178/:224/:337 T-B 分支）；
 - V-03 语义（generated_by.oracle_source_sha256 = oracle 源文件自身字节 SHA-256）、V-03b
   approval 摘要算法（剥离 generated_by/approval 后 canonical JSON 的 SHA-256）；
-- **既有 11 golden 文件字节冻结（v1.2.0 计数快照同步：v1.1.0 时点 9 + fc001_v2，CHG-20261113-02；v1.4.0 计数快照同步：v1.3.0 时点 10 + fl001_v3，CHG-20261114-02——
+- **既有 12 golden 文件字节冻结（v1.2.0 计数快照同步：v1.1.0 时点 9 + fc001_v2，CHG-20261113-02；v1.4.0 计数快照同步：v1.3.0 时点 10 + fl001_v3，CHG-20261114-02；v1.6.0 计数快照同步：v1.5.0 时点 11 + gt001_v4，CHG-20261115-03——
   字节冻结承诺语义零变化，仅计数事实面更新）**（V-02 sidecar 绑定实际字节）——该承诺强于 semver：
   任何重出（含保 id）都是 G2b/CHG 事件，旧文件字节永不就地改写（先例口径：Q3 冻结归档债）；
 - 新 golden（新 id）默认 schema v2；verify_golden MODELS 注册行语义（重指向须 CHG；
@@ -639,4 +639,19 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
 面① ARENA_EXCLUDED 快照同步/本 §10 修订记录——全部 additive，冻结语义零变化）→ **v1.4.0 additive 修订**
 （CHG-20261114-02/03：FL capacity on 轨/11 golden/35 步 0 新步/39 词维持/阈值 71500 ms 再登记——全部 additive，
 冻结语义零变化）→ **v1.5.0 additive 修订**（CHG-20261114-05：面⑤ 诊断族覆盖注记 4→9 值/
-11 golden 不变/35 步 0 新步/39 词维持——全部 additive，冻结语义零变化）。
+11 golden 不变/35 步 0 新步/39 词维持——全部 additive，冻结语义零变化）→ **v1.6.0 additive 修订**
+（CHG-20261115-03：GT 燃烧延迟深化轨 thermo_comb/12 golden/35 步 0 新步/39 词维持——全部 additive，
+冻结语义零变化）。
+
+## 13. v1.6.0 additive 修订记录（2026-11-15，CHG-20261115-03）
+
+- **面① GT-001 画像行**：thermo_comb 深化轨注记 + EQ-GTL2-1..12（capacity/electrochem 子对象
+  先例同构——声明面挂 model_hash 九字段域外 combustion 子对象，既有五数组逐字节不动）；
+  **零新信号**（Q10a——27 列同集）；inertia_model 枚举 3→4 值（三处字面守卫 additive）；
+- **面② golden 表 + gt001_v4 行**（6 Run 镜像全部 thermo_comb/T-B 十键镜像/schema v2/approval
+  CHG-20261114-07/supersedes=gt001_v3/model_version 1.2.0 维持——Q12 定案）+ 计数快照 11→
+  **12 golden**（字节冻结承诺语义零变化）；
+- **面⑦ 快照注**：35 步维持 0 新步 + DEFAULT_MODELS 五 golden + 35/35 两次独立（r2 109475 ms）；
+- **面⑧ 39/14 维持注**：v1.6.0 零增词（copy-guard 发布轮实跑 0 命中）；
+- checks.js comb 分支 + metrics.js 门扩值：**additive**（既有 thermo/linear/swing 分支零变化——
+  规格工作面漏项实现轮补齐登记，CHG-20261115-03 §1.2）；§1/§3/其余面零触碰。

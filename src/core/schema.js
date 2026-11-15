@@ -229,8 +229,9 @@
     /* A-1 惯性双轨 → L1 三轨（GTL1_G2B_SPEC_APPROVED v1.0 §2.4 Q2 定案，CHG-20261104-12）：
        可缺省（GT-001 之外的系统/旧导出包无此字段），出现时必须合法 */
     if (sc.inertia_model !== undefined && sc.inertia_model !== null &&
-        sc.inertia_model !== 'swing' && sc.inertia_model !== 'linear' && sc.inertia_model !== 'thermo') {
-      bad('inertia_model', 'inertia_model 必须为 swing / linear / thermo', '检查配置');
+        sc.inertia_model !== 'swing' && sc.inertia_model !== 'linear' && sc.inertia_model !== 'thermo' &&
+        sc.inertia_model !== 'thermo_comb') {
+      bad('inertia_model', 'inertia_model 必须为 swing / linear / thermo / thermo_comb', '检查配置');
     }
     /* FC-001 电化学轨（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2 B-3 定案采 (a)，CHG-20261113-01；
        thermal_model 先例同构——scenarioView 现状即不投影 thermal_model/electrochem_model）：

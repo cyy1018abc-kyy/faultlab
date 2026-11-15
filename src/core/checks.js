@@ -258,10 +258,12 @@
     }
 
     /* ---- GT 专属 PHY（G2b v1.1 §3/§5；CHG-20261030-06 批准口径；A-1 双轨分派 CHG-20261102-01；
-         L1 thermo 分派 GTL1-G2b-04 / CHG-20261104-12）---- */
+         L1 thermo 分派 GTL1-G2b-04 / CHG-20261104-12；燃烧延迟深化轨分派 GTCMB-G2b-04 /
+         CHG-20261114-09——规格 GTCMB-G2b-04 行漏 checks.js 项，实现轮复算补齐并登记）---- */
     if (system.id === 'GT-001') {
       var inertiaGt = (cfg && cfg.inertia_model === 'linear') ? 'linear'
-        : (cfg && cfg.inertia_model === 'thermo') ? 'thermo' : 'swing';
+        : (cfg && cfg.inertia_model === 'thermo') ? 'thermo'
+        : (cfg && cfg.inertia_model === 'thermo_comb') ? 'thermo_comb' : 'swing';
       var fArrGt = series.f_true_Hz;
       var fEndGt = fArrGt && fArrGt.length ? fArrGt[fArrGt.length - 1] : null;
       if (fEndGt !== null && inertiaGt === 'thermo') {
@@ -307,6 +309,31 @@
           eResid,
           'ΔE_kin − ∫P_rotor − K_J·Δf²/(2f₀) = ' + (eResid === null ? '不可用' : eResid.toExponential(2)) +
             ' kW·s（代数恒等回归：验证离散自洽与线性化截断项量级，不是物理验证）'
+        ));
+      } else if (fEndGt !== null && inertiaGt === 'thermo_comb') {
+        /* combustion 深化轨（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0 §1.3 EQ-GTL2-12 延迟口径
+           检查式，CHG-20261114-07 批准；规格 GTCMB-G2b-04 行漏 checks.js 项——实现轮复算
+           补齐并登记，CHG-20261114-09）：燃烧室离散能量恒等（延迟口径）
+           C_3·(T3_end − T3_0) ≡ ∫(η_b·Q_f,d − ṁ_g·cp_g·(T3−T2))dt（右侧引擎子步左矩形经
+           E_comb_net_kWh 承载——intComb 的 k1.dT3 已含 x_comb 延迟量；RK4 离散自洽回归，
+           不是物理验证）。容差按引擎七场景复算上界登记（GTCMB-G2b-04 主线复算 2026-11-15，
+           worst 7.2536e-7 kWh @ actuator_clear；安全系数 ≥1378）。
+           【位置纪律】本分支必须在 swing 裸兜底（fEndGt!==null 无 inertia 条件）之前——
+           thermo_comb 否则被兜底吞掉（首插教训复算在案，CHG-20261115-02 同源登记）。 */
+        var t3ArrCb = series.T3_out_K;
+        var t3FirstCb = t3ArrCb && isNum(t3ArrCb[0]) ? t3ArrCb[0] : null;
+        var t3LastCb = t3ArrCb && t3ArrCb.length ? t3ArrCb[t3ArrCb.length - 1] : null;
+        var eCombCb = metricValue(metrics, 'E_comb_net_kWh');
+        var residCb = (t3FirstCb !== null && t3LastCb !== null && eCombCb !== null)
+          ? Math.abs(0.335983796442745 * (t3LastCb - t3FirstCb) / 3600 - eCombCb) : null;
+        var okCb = residCb !== null && residCb <= 1e-3;
+        quality.push(check(
+          'gt-energy-consistency', '燃烧室能量恒等闭合（comb 延迟口径，EQ-GTL2-12 检查式）',
+          okCb ? 'pass' : 'fail', 'numeric',
+          residCb,
+          '|C_3·ΔT3 − ∫(η_b·Q_f,d − ṁ_g·cp_g·(T3−T2))dt| = ' +
+            (residCb === null ? '不可用' : residCb.toExponential(2)) +
+            ' kWh（≤1e-3，七场景复算 worst 7.2536e-7 ×≥1378；左矩形一阶离散残差回归，非物理验证）'
         ));
       } else if (fEndGt !== null) {
         /* swing 轨（A-1，ALINE §4.3）：能量闭合 |ΔE_kin − ∫P_rotor(子步左矩形)| ≤ tol。

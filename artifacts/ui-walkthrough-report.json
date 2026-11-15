@@ -42,21 +42,21 @@
     "base": "http://127.0.0.1:4323",
     "node": "v26.5.1",
     "browser": {
-      "product": "Chrome/157.0.8103.40",
-      "revision": "@6f75a8afa26ce5537c82b4887f152dfdc7183e05",
+      "product": "Chrome/157.0.8103.52",
+      "revision": "@0985600c06a688b9c669e74afde7dacd5aaed047",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
       "jsVersion": "15.7.112.23"
     }
   },
   "code": {
-    "commit_sha": "229a15d6b874bf3143cf95db57d63e417982cb83",
+    "commit_sha": "c508a1a0bad67efd4fe0b81dd49b93a643046717",
     "branch": "main",
     "worktree_dirty": true
   },
   "execution": {
     "command": "node tools/ui-walkthrough.mjs",
-    "started_at": "2026-11-14T23:10:00.389Z",
-    "generated_at": "2026-11-14T23:10:37.081Z",
-    "duration_ms": 36692
+    "started_at": "2026-11-15T10:59:09.097Z",
+    "generated_at": "2026-11-15T10:59:45.251Z",
+    "duration_ms": 36154
   }
 }

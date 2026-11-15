@@ -1040,6 +1040,11 @@
         { id: 'EQ-GTL1-12', latex_text: 'C_3·(T3(t)−T3(0)) ≡ ∫₀ᵗ(η_b·Q_f − ṁ_g·cp_g·(T3−T2))dt（检查式，RK4 离散自洽）; E_fuel = ∫Q_f dt; η_cycle = E_gen/E_fuel', note: '能量恒等检查与新指标（设计点 η_cycle = 24.57%；gt-energy-consistency thermo 分支承载）' }
       ]
     },
+    /* 深化轨验收锚点路由（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0 §4 项 10 B-4 定案，
+       CHG-20261114-07 批准链）：inertia_model='thermo_comb' 深化轨的验收锚点由 gt001_v4
+       golden 承载（t=60 采样锚点随暂态路径变化、由 v4 emit 重冻结——§3.3 两口径表）；
+       本 keyValues 为稳态锚点面（延迟环节不改变稳态值——§3.3 三点不变性核验），跨轨有效、
+       零变化；GT-001 无 approved_p0 面（scope.js 无 GT 分支），「P0 路由」措辞不适用。 */
     acceptance: {
       reference: '契约 §5.3',
       exactness: 'GT-001 为验收范围（非逐位）；守恒含转子项 ≤1e-3 kW',
@@ -2221,6 +2226,47 @@
       limitations: ['不含燃料电池热管理、水管理与气体传输动态。', '卡涩建模为理想电流上限，不含阀门机械动态。', 'L0 演示模型：结论只在上述假设下成立。'],
       alternatives: [{ title: '若控制器能感知阀位', text: '控制器会降低电堆参考电流并重新分配功率，阀指令-阀位偏差将消失；本模型未建模该自适应逻辑。' }]
     }
+  };
+
+  /* GT-001 燃烧延迟深化轨声明面（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0 §1.5 定案冻结，
+     CHG-20261114-07 批准链；实现 = GTCMB-G2b-04，CHG-20261114-09）：
+     - capacity/electrochem 子对象先例同构——声明面挂 model_hash 具名九字段域外
+       （engine.js modelManifest hashObject 清单：model_id/model_version/assumptions/
+       limitations/equations/units/claims/unit_system/equation_ids——既有五数组逐字节不动，
+       model_hash 零变化探针随验收提交）；
+     - 零新信号（Q10 定案）：深化轨不出新列，教学面经既有 T4_out_K × P_gen_cmd_kW 相位差
+       承载；defaults.inertia_model 维持 'thermo' 不翻转（R-8 沿袭——深化轨经场景显式钉轨）；
+     - model_version 维持 '1.2.0'（Q12 定案否决升位——model_hash 九字段承载面）。 */
+  GT001.model.combustion = {
+    assumptions: [
+      '【仅 combustion 深化轨适用（inertia_model=thermo_comb）】燃烧/能量转换延迟为一阶滞后环节（τ_comb·dQ_f,d/dt + Q_f,d = Q_f，延迟状态 x_comb）：τ_comb = 0.5 s 为教学整定值（非实测参数），与 τ_3 = 2.0 s / τ_g = 2.0 s 有意取异值（0.5 s，4 倍差——同量级对照设计，同值将不可区分第二动态时间尺度）；方程集见批准规格 EQ-GTL2-3。',
+      '【仅 combustion 深化轨适用】延迟环节不改变稳态值、只改变暂态路径（d/dt = 0 ⇒ Q_f,d ≡ Q_f）：设计点与注册域稳态解与 thermo 轨逐点同（批准轮三点不变性核验在案——规格 §3.3）；暂态路径（滞后-超调形态）为深化轨独有教学面。',
+      '【仅 combustion 深化轨适用】燃烧延迟模型为教学尺度降阶环节示意（L1 深化轨），不是经过验证的设备控制器或机组燃烧系统模型。'
+    ],
+    limitations: [
+      '点火延迟/熄火边界/贫富油极限与燃烧室金属-燃气热容分离维持未建模（GTL1 §6.1 项 4 剩余面——本轨只取一阶延迟最小集）。',
+      'τ_comb = 0.5 s 与 τ_3/τ_g = 2.0 s 的形态区分依赖有意异值整定（同值域内第二时间尺度不可辨识——教学可辨识性声明，A5 §3.4 ②；|Δf| ≤ 1 Hz 有效性域在深化轨的角点裕度收窄至 3.60e-4 Hz——§3.3，登记）。',
+      '沿袭 thermo 轨全部局限（GTL1 §6.1 十项）。'
+    ],
+    equations: ['EQ-GTL2-1..12（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0 §1.3 冻结集——全集自含，Q4 定案；EQ-GTL1-1..8 域外原样对应关系显式登记）'],
+    level_on: 'L1 · 燃烧动态延迟模型（数值仿真级）',
+    summary_on: '燃料功率经一阶延迟环节进入燃烧室，EGT 呈滞后-超调第二时间尺度（教学观察面）。',
+    notes: '教学尺度燃烧-热降阶链示意（L1 深化轨），非机组/电网动态验证。'
+  };
+
+  /* GT-001 深化轨层级/摘要派生（FL001.levelFor/summaryFor 先例同构——cfg 感知派生；
+     GT 静态 level 为「thermo 默认轨」口径：swing/linear/thermo 三轨返回值逐字不变，
+     thermo_comb 深化轨显示 level_on/summary_on 变体（模型级 combustion 子对象批准
+     冻结文本）。消费入口：engine/provenance 面 + UI cfg 在手时调用。 */
+  GT001.levelFor = function (cfg) {
+    return (cfg && cfg.inertia_model === 'thermo_comb')
+      ? GT001.model.combustion.level_on
+      : GT001.level;
+  };
+  GT001.summaryFor = function (cfg) {
+    return (cfg && cfg.inertia_model === 'thermo_comb')
+      ? GT001.summary + GT001.model.combustion.summary_on
+      : GT001.summary;
   };
 
   GT001.causalTemplates = {

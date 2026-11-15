@@ -594,8 +594,172 @@ function gtSig(run, id) { return run.timeseries.signals[id]; }
   ok(THERMAL8.every((id) => blindIds.indexOf(id) === -1), '盲面守卫：GT blind 投影不含八热力信号（盲包观测面不扩）');
 })();
 
+/* ---------- (h) v4 燃烧延迟深化轨（thermo_comb，GTCMB-G2b-03/04，CHG-20261114-07/09） ---------- */
+/* GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0（τ_comb=0.5s，键形态=形态 a 枚举扩值，Q12 维持
+   1.2.0）：四元 golden 映射 linear→v1/swing→v2/thermo→v3/thermo_comb→v4。比对器沿
+   verifyGoldenThermo 体例（t 列 = run.timeseries.t / seriesLimitTB / metrics .value 包装 /
+   SCALAR_TO_METRIC）——v4 适配：零新信号 27 列同集（Q10a）、无 gt-energy-consistency 分派
+   （checks.js 零改动——能量恒等由 GCMB-2/EQ-GTL2-12 oracle 侧承载，登记）、
+   conservation-meas 行为断言。 */
+function verifyGoldenComb(goldenFile, tag) {
+  const golden = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'golden', goldenFile), 'utf8'));
+  const tol = golden.tolerances.gate;
+  const n = golden.sampling.n;
+  const trackRuns = {};
+
+  /* 元数据面（Q12 定案：model_version 维持 1.2.0 不升位——model_hash 九字段承载面） */
+  eq(golden.golden_id, 'gt001_v4', tag + '：golden_id=gt001_v4');
+  eq(golden.model_version, '1.2.0', tag + '：model_version=1.2.0（Q12 定案维持不升位）');
+  eq(golden.inertia_model, 'thermo_comb', tag + '：inertia_model=thermo_comb（顶层面）');
+  eq(tol.tier, 'T-B', tag + '：gate tier=T-B（Q9）');
+  ok(String(golden.supersedes || '').indexOf('gt001_v3') !== -1, tag + '：supersedes=gt001_v3（四代链 v4→v3→v2→v1）');
+  eq(golden.runs.healthy.inertia_model, 'thermo_comb', tag + '：run 项 inertia_model=thermo_comb');
+
+  Object.keys(golden.runs).forEach((runKey) => {
+    const g = golden.runs[runKey];
+    const cfg = FL.core.createConfig('GT-001', Object.assign(
+      JSON.parse(JSON.stringify(RUNS_CFG[runKey])), { inertia_model: 'thermo_comb' },
+      g.fault && g.fault.family ? { fault: g.fault } : {}));
+    eq(cfg.inertia_model, 'thermo_comb', tag + ' ' + runKey + '：cfg.inertia_model 生效');
+    const run = FL.registry.createRun({ config: cfg, runId: 'GT-GOLDEN-' + tag + '-' + runKey });
+    trackRuns[runKey] = run;
+
+    /* 序列逐点（27 列同集零新信号；t 列 = run.timeseries.t——verifyGoldenThermo 同款） */
+    const missing = [];
+    const nullPhase = [];
+    let badCount = 0;
+    let worst = 0;
+    let worstSid = '';
+    Object.keys(g.series).forEach((sid) => {
+      const mine = sid === 't' ? run.timeseries.t : run.timeseries.signals[sid];
+      if (!mine || mine.length !== n) { missing.push(sid); return; }
+      const lim = seriesLimitTB(tol, sid, g.series[sid]);
+      for (let i = 0; i < n; i++) {
+        const gv = g.series[sid][i];
+        const mv = mine[i];
+        if (gv === null && mv === null) continue;
+        if (gv === null || mv === null) { nullPhase.push(sid + '[' + i + ']'); continue; }
+        const d = Math.abs(gv - mv);
+        if (d > lim) {
+          badCount++;
+          const rel = gv !== 0 ? d / Math.abs(gv) : d;
+          if (rel > worst) { worst = rel; worstSid = sid + '[' + i + ']'; }
+        }
+      }
+    });
+    eq(missing.length, 0, tag + ' ' + runKey + '：golden 序列在引擎中齐备（含 t 列，27 列同集——Q10a）', missing.join(','));
+    eq(nullPhase.length, 0, tag + ' ' + runKey + '：事件域信号无单侧 null（相位一致）', nullPhase.slice(0, 3).join(','));
+    eq(badCount, 0, tag + ' ' + runKey + '：序列逐点 ≤ T-B gate 容差',
+      badCount > 0 ? badCount + ' 点超差（最差相对 ' + worst.toExponential(2) + ' @ ' + worstSid + '）' : '');
+
+    /* 指标子集（T-B——13 键镜像） */
+    const mBad = [];
+    Object.keys(g.metrics).forEach((mid) => {
+      const gm = g.metrics[mid];
+      const mm = run.metrics.find((m) => m.metric_id === mid);
+      if (!mm) { mBad.push(mid + ' 缺失'); return; }
+      if (gm.value === null || mm.value === null) {
+        if ((gm.value === null) !== (mm.value === null)) mBad.push(mid + ' null 位形不一致');
+        return;
+      }
+      if (!metricWithinTB(tol, mid, gm.unit, mm.value, gm.value)) mBad.push(mid + ' ' + mm.value + ' vs ' + gm.value);
+    });
+    eq(mBad.length, 0, tag + ' ' + runKey + '：指标子集一致（T-B，' + Object.keys(g.metrics).length + ' 项）', mBad.join(' | '));
+
+    /* scalars（verify_golden V-06 同口径：SCALAR_TO_METRIC 映射 + E/SOC 容差） */
+    const scBad = [];
+    Object.keys(g.scalars).forEach((sk) => {
+      const mid = SCALAR_TO_METRIC[sk];
+      if (!mid) { scBad.push(sk + ' 无引擎指标映射'); return; }
+      const mm = run.metrics.find((m) => m.metric_id === mid);
+      if (!mm || mm.value === null) { scBad.push(sk + '（' + mid + '）缺失'); return; }
+      const lim = Math.max(sk.indexOf('_kWh') !== -1 ? tol.E_kWh : tol.SOC_pp, 1e-12 * Math.abs(g.scalars[sk]));
+      if (Math.abs(mm.value - g.scalars[sk]) > lim) scBad.push(sk + ' ' + mm.value + ' vs ' + g.scalars[sk]);
+    });
+    eq(scBad.length, 0, tag + ' ' + runKey + '：scalars 对引擎指标一致（' + Object.keys(g.scalars).length + ' 项）', scBad.join(' | '));
+
+    /* 事件 pre/post（故障局） */
+    if ((g.events || []).length) {
+      const ge = g.events[0], fe = run.events[0];
+      eq(fe.trigger_s, ge.trigger_s, tag + ' ' + runKey + '：事件时刻');
+      eq(fe.event_type, ge.event_type, tag + ' ' + runKey + '：event_type');
+      const gp = ge.snapshots[0];
+      const fp = run.snapshots.find((x) => x.snapshot_id === fe.preSnapshotId);
+      const gq = ge.snapshots[1];
+      const fq = run.snapshots.find((x) => x.snapshot_id === fe.postSnapshotId);
+      ok(!!fp && !!fq, tag + ' ' + runKey + '：引擎快照经 preSnapshotId/postSnapshotId 引用可达');
+      eq(fp.t_s, gp.t_s, tag + ' ' + runKey + '：pre t_s=事件时刻');
+      const dPre = Math.abs(fp.variables.n_meas_rpm - gp.variables.n_meas_rpm);
+      if (g.events.length > 1) {
+        const ge2 = g.events[1], fe2 = run.events[1];
+        eq(fe2.event_type, ge2.event_type, tag + ' ' + runKey + '：EV-002 event_type');
+        eq(fe2.trigger_s, ge2.trigger_s, tag + ' ' + runKey + '：EV-002 t_clear=35 s');
+      }
+      ok(dPre <= tol.n_rpm_atol, tag + ' ' + runKey + '：pre n_meas 相位值 ±n_rpm_atol', dPre);
+    } else {
+      eq(run.events.length, 0, tag + ' ' + runKey + '：健康局无事件');
+    }
+
+    /* scope + PHY 面（comb 轨）+ 哈希 */
+    eq(run.manifest.scope, 'extension_preview', tag + ' ' + runKey + '：GT Run scope=extension_preview');
+    /* gt-energy-consistency 分派语义（checks.js 零改动）：comb 轨落 swing 分支闭合
+       （∫P_rotor = K_J·Δf 左矩形离散恒等与燃料模型无关——轨无关成立、pass）；
+       延迟口径检查式（EQ-GTL2-12）由 oracle 侧 GCMB-2 承载（规格登记）。 */
+    const combEnergy = run.quality.find((q) => q.check_id === 'gt-energy-consistency');
+    ok(!!combEnergy && combEnergy.status === 'pass' && combEnergy.label.indexOf('comb') !== -1,
+      tag + ' ' + runKey + '：gt-energy-consistency pass（comb 轨落 swing 分支离散闭合——轨无关恒等）',
+      combEnergy && combEnergy.label);
+    ok(run.quality.some((q) => q.check_id === 'gt-bat-envelope' && q.status === 'pass'),
+      tag + ' ' + runKey + '：gt-bat-envelope pass（±25 kW 包络——非 inertia 键控）');
+    ok(run.quality.some((q) => q.check_id === 'conservation-meas' &&
+      (runKey === 'closed_loop_fault' || runKey === 'monitor_only' ? q.status === 'warn' : q.status === 'pass')),
+      tag + ' ' + runKey + '：频率通道冗余一致性检查（健康 pass / 故障 warn）');
+    eq(FL.registry.verifyRunHash(run), true, tag + ' ' + runKey + '：run_hash 可重算');
+
+    /* 清除局（comb 锚点：§3.3 过冲 0.3311 / 回差 36.6 s——深化轨暂态教学面） */
+    if (runKey === 'actuator_clear') {
+      eq(run.events.length, 2, tag + ' ' + runKey + '：EV-001 + EV-002（清除）');
+      eq(run.timeseries.signals.P_gen_cap_kW[351], null, tag + ' ' + runKey + '：t=35.1 起钳位释放（P_gen_cap=null）');
+      const fArrC = run.timeseries.signals.f_true_Hz.slice(350);
+      const over = Math.max.apply(null, fArrC) - 50;
+      close(over, 0.3311, 0.01, tag + ' ' + runKey + '：清除过冲 +0.3311 Hz（§3.3 域扫描冻结——深化轨滞后-超调形态）');
+    }
+  });
+  return trackRuns;
+}
+const combRuns = verifyGoldenComb('gt001_v4.json', 'v4-comb');
+(function () {
+  /* A-2 健康局/monitor 位级恒等（x_comb(0)=k_f·u(0) 稳态初始化 ⇒ dx_comb/dt≡0——同实现逐位） */
+  const IDKEYS = ['f_true_Hz', 'T3_out_K', 'T4_out_K', 'P_gen_true_kW', 'SOC_true_pct', 'Q_fuel_kW'];
+  for (const sid of IDKEYS) {
+    const a = gtSig(combRuns.healthy, sid);
+    const b = gtSig(thermoRuns.healthy, sid);
+    let same = Array.isArray(a) && Array.isArray(b) && a.length === b.length;
+    if (same) for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) { same = false; break; }
+    ok(same, 'A-2 健康局位级恒等（comb vs thermo，同实现逐位）：' + sid);
+  }
+  ok(JSON.stringify(gtSig(combRuns.monitor_only, 'T3_out_K')) ===
+     JSON.stringify(gtSig(thermoRuns.monitor_only, 'T3_out_K')),
+    'A-2 monitor 位级恒等：T3_out_K 全序列');
+  /* A-1 两口径：故障 Run t=60 采样随暂态路径变化（渐近稳态不变——深化轨独有暂态） */
+  ok(gtSig(combRuns.load_step, 'T4_out_K')[600] !== gtSig(thermoRuns.load_step, 'T4_out_K')[600],
+    'A-1 两口径：load_step t=60 采样随暂态路径变化（深化轨独有暂态）');
+  ok(gtSig(combRuns.actuator_clear, 'P_gen_true_kW')[600] !== gtSig(thermoRuns.actuator_clear, 'P_gen_true_kW')[600],
+    'A-1 两口径：actuator_clear t=60 采样值变化');
+  /* A-3② 可辨识性：T4 暂态相位滞后（τ_comb=0.5s 教学面——t=50 采样对照） */
+  ok(gtSig(combRuns.load_step, 'T4_out_K')[500] !== gtSig(thermoRuns.load_step, 'T4_out_K')[500],
+    'A-3② 可辨识性：T4 暂态相位滞后（τ_comb=0.5s 教学面）');
+  /* 盲面守卫：深化轨零新信号——blind 投影不含热力八信号（Q10a） */
+  const THERMAL8C = ['T3_out_K', 'T2_out_K', 'p2_out_kPa', 'T4_out_K', 'Q_fuel_kW', 'P_comp_kW', 'P_turb_kW', 'eta_cycle_pct'];
+  const blindIds4 = FL.contract.project(combRuns.healthy, 'blind').signals.map((s) => s.id);
+  ok(THERMAL8C.every((id) => blindIds4.indexOf(id) === -1), '盲面守卫：comb 轨 blind 投影不含热力信号（Q10a 零新信号）');
+  /* 三既有轨恒等回归：扩值后 swing 轨 run_hash 可重算（§3.1 项 3——run-g2 全量佐证） */
+  const reSw = FL.registry.createRun({ config: FL.core.createConfig('GT-001', { inertia_model: 'swing', fault: { family: 'sensor_drift', params: { magnitude: 0.3 } }, feedback_mode: 'closed_loop' }), runId: 'GT-COMB-REG-SW' });
+  eq(FL.registry.verifyRunHash(reSw), true, '扩值回归：swing 轨 run_hash 可重算（既有轨零扰动）');
+})();
+
 /* ---------- 汇总 ---------- */
-console.log('\n== GT-001 引擎 ↔ golden 一致性（三轨：v1-linear + v2-swing + v3-thermo T-B） ==');
+console.log('\n== GT-001 引擎 ↔ golden 一致性（四轨：v1-linear + v2-swing + v3-thermo T-B + v4-comb T-B） ==');
 if (fail) {
   console.log('FAIL ' + fail + ' / PASS ' + pass);
   failures.forEach((f) => console.log('  ✗ ' + f));

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   FaultLab — Virtual Energy Lab V0.1 (single-file offline build)
-  built: 2026-11-14 17:02:47
+  built: 2026-11-15 00:53:42
   css files inlined: 10, js files inlined: 33
   Source of truth: index.html + src/ + css/. Rebuild with: python tools/build.py
   Data note: analytic / behaviour-level (L0) demo model — not Simulink, not measured field data.
@@ -5940,8 +5940,9 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     /* A-1 惯性双轨 → L1 三轨（GTL1_G2B_SPEC_APPROVED v1.0 §2.4 Q2 定案，CHG-20261104-12）：
        可缺省（GT-001 之外的系统/旧导出包无此字段），出现时必须合法 */
     if (sc.inertia_model !== undefined && sc.inertia_model !== null &&
-        sc.inertia_model !== 'swing' && sc.inertia_model !== 'linear' && sc.inertia_model !== 'thermo') {
-      bad('inertia_model', 'inertia_model 必须为 swing / linear / thermo', '检查配置');
+        sc.inertia_model !== 'swing' && sc.inertia_model !== 'linear' && sc.inertia_model !== 'thermo' &&
+        sc.inertia_model !== 'thermo_comb') {
+      bad('inertia_model', 'inertia_model 必须为 swing / linear / thermo / thermo_comb', '检查配置');
     }
     /* FC-001 电化学轨（FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2 B-3 定案采 (a)，CHG-20261113-01；
        thermal_model 先例同构——scenarioView 现状即不投影 thermal_model/electrochem_model）：
@@ -7782,6 +7783,11 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         { id: 'EQ-GTL1-12', latex_text: 'C_3·(T3(t)−T3(0)) ≡ ∫₀ᵗ(η_b·Q_f − ṁ_g·cp_g·(T3−T2))dt（检查式，RK4 离散自洽）; E_fuel = ∫Q_f dt; η_cycle = E_gen/E_fuel', note: '能量恒等检查与新指标（设计点 η_cycle = 24.57%；gt-energy-consistency thermo 分支承载）' }
       ]
     },
+    /* 深化轨验收锚点路由（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0 §4 项 10 B-4 定案，
+       CHG-20261114-07 批准链）：inertia_model='thermo_comb' 深化轨的验收锚点由 gt001_v4
+       golden 承载（t=60 采样锚点随暂态路径变化、由 v4 emit 重冻结——§3.3 两口径表）；
+       本 keyValues 为稳态锚点面（延迟环节不改变稳态值——§3.3 三点不变性核验），跨轨有效、
+       零变化；GT-001 无 approved_p0 面（scope.js 无 GT 分支），「P0 路由」措辞不适用。 */
     acceptance: {
       reference: '契约 §5.3',
       exactness: 'GT-001 为验收范围（非逐位）；守恒含转子项 ≤1e-3 kW',
@@ -8963,6 +8969,47 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       limitations: ['不含燃料电池热管理、水管理与气体传输动态。', '卡涩建模为理想电流上限，不含阀门机械动态。', 'L0 演示模型：结论只在上述假设下成立。'],
       alternatives: [{ title: '若控制器能感知阀位', text: '控制器会降低电堆参考电流并重新分配功率，阀指令-阀位偏差将消失；本模型未建模该自适应逻辑。' }]
     }
+  };
+
+  /* GT-001 燃烧延迟深化轨声明面（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0 §1.5 定案冻结，
+     CHG-20261114-07 批准链；实现 = GTCMB-G2b-04，CHG-20261114-09）：
+     - capacity/electrochem 子对象先例同构——声明面挂 model_hash 具名九字段域外
+       （engine.js modelManifest hashObject 清单：model_id/model_version/assumptions/
+       limitations/equations/units/claims/unit_system/equation_ids——既有五数组逐字节不动，
+       model_hash 零变化探针随验收提交）；
+     - 零新信号（Q10 定案）：深化轨不出新列，教学面经既有 T4_out_K × P_gen_cmd_kW 相位差
+       承载；defaults.inertia_model 维持 'thermo' 不翻转（R-8 沿袭——深化轨经场景显式钉轨）；
+     - model_version 维持 '1.2.0'（Q12 定案否决升位——model_hash 九字段承载面）。 */
+  GT001.model.combustion = {
+    assumptions: [
+      '【仅 combustion 深化轨适用（inertia_model=thermo_comb）】燃烧/能量转换延迟为一阶滞后环节（τ_comb·dQ_f,d/dt + Q_f,d = Q_f，延迟状态 x_comb）：τ_comb = 0.5 s 为教学整定值（非实测参数），与 τ_3 = 2.0 s / τ_g = 2.0 s 有意取异值（0.5 s，4 倍差——同量级对照设计，同值将不可区分第二动态时间尺度）；方程集见批准规格 EQ-GTL2-3。',
+      '【仅 combustion 深化轨适用】延迟环节不改变稳态值、只改变暂态路径（d/dt = 0 ⇒ Q_f,d ≡ Q_f）：设计点与注册域稳态解与 thermo 轨逐点同（批准轮三点不变性核验在案——规格 §3.3）；暂态路径（滞后-超调形态）为深化轨独有教学面。',
+      '【仅 combustion 深化轨适用】燃烧延迟模型为教学尺度降阶环节示意（L1 深化轨），不是经过验证的设备控制器或机组燃烧系统模型。'
+    ],
+    limitations: [
+      '点火延迟/熄火边界/贫富油极限与燃烧室金属-燃气热容分离维持未建模（GTL1 §6.1 项 4 剩余面——本轨只取一阶延迟最小集）。',
+      'τ_comb = 0.5 s 与 τ_3/τ_g = 2.0 s 的形态区分依赖有意异值整定（同值域内第二时间尺度不可辨识——教学可辨识性声明，A5 §3.4 ②；|Δf| ≤ 1 Hz 有效性域在深化轨的角点裕度收窄至 3.60e-4 Hz——§3.3，登记）。',
+      '沿袭 thermo 轨全部局限（GTL1 §6.1 十项）。'
+    ],
+    equations: ['EQ-GTL2-1..12（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0 §1.3 冻结集——全集自含，Q4 定案；EQ-GTL1-1..8 域外原样对应关系显式登记）'],
+    level_on: 'L1 · 燃烧动态延迟模型（数值仿真级）',
+    summary_on: '燃料功率经一阶延迟环节进入燃烧室，EGT 呈滞后-超调第二时间尺度（教学观察面）。',
+    notes: '教学尺度燃烧-热降阶链示意（L1 深化轨），非机组/电网动态验证。'
+  };
+
+  /* GT-001 深化轨层级/摘要派生（FL001.levelFor/summaryFor 先例同构——cfg 感知派生；
+     GT 静态 level 为「thermo 默认轨」口径：swing/linear/thermo 三轨返回值逐字不变，
+     thermo_comb 深化轨显示 level_on/summary_on 变体（模型级 combustion 子对象批准
+     冻结文本）。消费入口：engine/provenance 面 + UI cfg 在手时调用。 */
+  GT001.levelFor = function (cfg) {
+    return (cfg && cfg.inertia_model === 'thermo_comb')
+      ? GT001.model.combustion.level_on
+      : GT001.level;
+  };
+  GT001.summaryFor = function (cfg) {
+    return (cfg && cfg.inertia_model === 'thermo_comb')
+      ? GT001.summary + GT001.model.combustion.summary_on
+      : GT001.summary;
   };
 
   GT001.causalTemplates = {
@@ -10506,8 +10553,8 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     /* 惯性三轨（A-1 双轨 → L1 thermo 扩展，GTL1_G2B_SPEC_APPROVED v1.0 §2.4 Q2 定案；
        仅声明了 defaults.inertia_model 的系统） */
     if (system.defaults && system.defaults.inertia_model) {
-      if (config.inertia_model !== 'swing' && config.inertia_model !== 'linear' && config.inertia_model !== 'thermo') {
-        push('inertia_model', '必须为 swing / linear / thermo（当前 ' + String(config.inertia_model) + '）');
+      if (config.inertia_model !== 'swing' && config.inertia_model !== 'linear' && config.inertia_model !== 'thermo' && config.inertia_model !== 'thermo_comb') {
+        push('inertia_model', '必须为 swing / linear / thermo / thermo_comb（当前 ' + String(config.inertia_model) + '）');
       }
     }
 
@@ -11706,6 +11753,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     /* L1 thermo 轨分派（GTL1_G2B_SPEC_APPROVED v1.0 §2/§2.3，CHG-20261104-12 批准；R-8 守卫）：
        GT 分支内部显式三分派——thermo 走 RK4 热力链（simulateGT001Thermo），
        swing/linear 落入下方 L0b 更新序（既有物理面与 linear/swing 双轨更新序逐字不动）。 */
+    if (cfg.inertia_model === 'thermo_comb') return simulateGT001Combustion(system, cfg, t);
     if (cfg.inertia_model === 'thermo') return simulateGT001Thermo(system, cfg, t);
     var n = t.length - 1;
     var dt = cfg.dt_s;
@@ -12004,6 +12052,195 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
         intResidual: intResidual,
         E_fuel: intEfuel,     // kW·s（EQ-GTL1-12；metrics.js → E_fuel_kWh）
         intComb: intComb      // kW·s（EQ-GTL1-12 检查式；metrics.js → E_comb_net_kWh）
+      }
+    };
+  }
+
+  /* ---------------- GT-001 L1 燃烧延迟深化轨（thermo_comb） ---------------- */
+  /* GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0 §1.3（EQ-GTL2-1..12 冻结文本 + τ_comb = 0.5 s
+     定案，CHG-20261114-07 批准）；实现 = GTCMB-G2b-04（CHG-20261114-09）。数值口径：
+     - 物理状态 y = [f, T3, x_comb] 三维经典 RK4（h = DT_INT = 0.01，6000 子步/60 s，T-B 数值轨）；
+       x_comb 为燃烧/能量转换延迟状态（kW，一阶燃料-能量传递滞后，不出信号——Q10 定案零新信号，
+       教学面经 T4_out_K × P_gen_cmd_kW 相位差承载）；x_comb(0) = k_f·u(0)（Q11 定案）；
+     - EQ-GTL2-3：Q_f = k_f·u_eff 指令面口径维持（Q13 (ii)——Q_fuel_kW 列/E_fuel 同源）；
+       τ_comb·dQ_f,d/dt + Q_f,d = Q_f；ṁ_f,d = Q_f,d/LHV；ṁ_g = ṁ_a + ṁ_f,d（延迟同源，Q13 (i)）；
+     - EQ-GTL2-4：C_3·dT3/dt = η_b·Q_f,d − ṁ_g·cp_g·(T3 − T2)（η_b·Q_f 项改经 Q_f,d 进入）；
+     - EQ-GTL2-1/2/5/6/7/8/9/10 原样（≡ EQ-GTL1 同名）；EQ-GTL2-12 检查式（延迟口径）为
+       oracle 侧 GCMB-2 核对面，引擎侧 intComb 经 k1.dT3·C_3·dt 左矩形自然承载延迟口径；
+     - 结构硬条件（§3.1）：thermo/linear/swing 三既有轨与 gt001_v1/v2/v3 逐位同——本函数仅在
+       inertia_model='thermo_comb' 时进入（三分派显式，simulateGT001 :1521 区）；健康局/monitor
+       dx_comb/dt ≡ 0（x_comb(0) = k_f·u(0) 稳态初始化，Q11）⇒ (f,T3) 轨与 thermo 轨位级同
+       （A-2 同实现逐位恒等口径）；跨实现（oracle↔引擎）T-B gate 容差面；
+     - 事件面/输出网格/能量累计口径与 simulateGT001Thermo 逐字同构（E_gen 梯形含 x_comb 终点
+       代数链、E_fuel 左矩形指令面 q_f·h——与 gt001_v3 记账口径连续）。 */
+  function simulateGT001Combustion(system, cfg, t) {
+    var n = t.length - 1;
+    var KJ = 5.0;             // 转子等效惯量（kW·s/Hz，L0b 冻结值）
+    var K_bat = 24;           // 电池一次调频下垂（kW/Hz，L0b 冻结值）
+    var P_bat_ref = 5;        // 电池基准功率（kW，L0b 冻结值）
+    var Ki = 2.0;             // 调速器积分增益（kW/(Hz·s)，L0b 冻结值）
+    var F0 = 50;              // 额定频率（Hz，L0b 冻结值）
+    var T1 = 288.15;          // ISO 参考大气温度（K）
+    var P1 = 101.325;         // ISO 参考大气压力（kPa）
+    var CP_A = 1.005;         // 空气定压比热（kJ/(kg·K)）
+    var A_C = 2 / 7;          // a_c = (γ_a−1)/γ_a，γ_a = 1.4（定比热豁免，§2.2）
+    var CP_G = 1.148;         // 燃气定压比热（kJ/(kg·K)）
+    var A_T = 1 / 4;          // a_t = (γ_g−1)/γ_g，γ_g = 4/3
+    var PI_C0 = 8.0;          // 设计压比（f=f₀）
+    var EPS_C = 0.82;         // 压气机 isen 效率（拟稳态常数）
+    var EPS_T = 0.86;         // 透平 isen 效率（拟稳态常数）
+    var BETA_B = 0.04;        // 燃烧室压损系数（p3 = (1−β_b)·p2）
+    var LHV = 50000;          // 燃料低位热值（kJ/kg）
+    var ETA_B = 0.99;         // 燃烧效率
+    var ETA_M = 0.95;         // 机械+发电机集总效率
+    var T3D = 1173.0;         // 设计燃烧室出口温度（K）——T3(0)
+    var K_F = 4.070531454334211;      // 燃料增益（EQ-GTL1-11 设计点导出，kW_eq/单位指令）
+    var MDOT_A = 0.144299140389011;   // 压气机空气流量（kg/s，常数——流量-转速耦合未建模）
+    var C_3 = 0.335983796442745;      // 燃烧室集总热容（kJ/K，C_3 = τ_3·ṁ_g0·cp_g）
+    var TAU_COMB = 0.5;               // τ_comb 定案（§1.3/§3.3，CHG-20261114-07 批准链）
+    var family = cfg.fault.family;
+    var faulted = family !== 'none';
+    var tStart = faulted ? cfg.fault.t_start_s : null;
+    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
+    var monitor = cfg.feedback_mode === 'monitor';
+    var load0 = cfg.initial.load_kW;
+    var soc0 = cfg.initial.SOC_pct;
+    var isSensor = family === 'sensor_drift';
+    var isLoad = family === 'load_step';
+    var isAct = family === 'actuator_fault';
+    var u_cap = isAct ? 40 * magnitude / 100 : null;
+    var tClear = (isAct && cfg.fault && cfg.fault.t_clear_s != null) ? cfg.fault.t_clear_s : null;
+
+    function bAt(time) { return (isSensor && tStart != null && time >= tStart - 1e-9) ? magnitude : 0; }
+    function demandAt(time) { return (isLoad && tStart != null && time >= tStart - 1e-9) ? load0 + magnitude : load0; }
+
+    var series = makeSeries(system, n);
+    var f = 50;
+    var T3 = T3D;
+    var xComb = K_F * 25;     // x_comb(0) = k_f·u(0)（Q11 定案——设计点稳态燃料功率 101.7633 kW）
+    var u = 25;               // 调速器燃料指令（等效功率指令域，钳位 [0,40]，u(0) = 25）
+    var intPbat = 0;
+    var intPgen = 0;
+    var intDemand = 0;
+    var intResidual = 0;
+    var intEfuel = 0;         // ∫Q_f dt（kW·s，子步左矩形指令面——EQ-GTL2-12/E_fuel）
+    var intComb = 0;          // ∫(η_b·Q_f,d − ṁ_g·cp_g·(T3−T2)) dt（kW·s，左矩形延迟口径——EQ-GTL2-12）
+
+    /* 效率链代数输出（EQ-GTL2-1..6；xComb 为延迟状态值——ṁ_g 延迟同源，Q13 (i)） */
+    function chain(fv, t3v, xv, uEff) {
+      var piC = PI_C0 * (fv / F0) * (fv / F0);
+      var p2 = piC * P1;
+      var t2 = T1 * (1 + (Math.pow(piC, A_C) - 1) / EPS_C);
+      var qF = K_F * uEff;
+      var mFd = xv / LHV;
+      var mG = MDOT_A + mFd;
+      var p3 = (1 - BETA_B) * p2;
+      var piT = p3 / P1;
+      var t4 = t3v * (1 - EPS_T * (1 - Math.pow(piT, -A_T)));
+      var pComp = MDOT_A * CP_A * (t2 - T1);
+      var pTurb = mG * CP_G * (t3v - t4);
+      var pGen = ETA_M * (pTurb - pComp);
+      return { piC: piC, p2: p2, t2: t2, qF: qF, mG: mG, t4: t4, pComp: pComp, pTurb: pTurb, pGen: pGen };
+    }
+
+    /* RK4 右端（EQ-GTL2-7/4/3；p_bat 用阶段值 fv——RK4 一致性，§2.3 注记②；q_f 冻结子步起点） */
+    function rhsOf(fv, t3v, xv, uEff, demand) {
+      var ch = chain(fv, t3v, xv, uEff);
+      var pBat = P_bat_ref - K_bat * (fv - 50);
+      var pRotor = ch.pGen + pBat - demand;
+      return {
+        df: (pRotor / KJ) * (F0 / fv),
+        dT3: (ETA_B * xv - ch.mG * CP_G * (t3v - ch.t2)) / C_3,
+        dx: (ch.qF - xv) / TAU_COMB,
+        pGen: ch.pGen, pBat: pBat, pRotor: pRotor, qF: ch.qF
+      };
+    }
+
+    function record(k) {
+      var time = t[k];
+      var b = bAt(time);
+      var demand = demandAt(time);
+      var capped = isAct && tStart != null && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9);
+      var uEff = capped ? Math.min(u, u_cap) : u;
+      var ch = chain(f, T3, xComb, uEff);
+      var pBat = P_bat_ref - K_bat * (f - 50);
+      var pRotor = ch.pGen + pBat - demand;
+      series.f_true_Hz[k] = f;
+      series.f_meas_Hz[k] = f;
+      series.n_meas_rpm[k] = 60 * (f + b);
+      series.P_gen_true_kW[k] = ch.pGen;
+      series.P_gen_meas_kW[k] = ch.pGen;
+      series.P_gen_cmd_kW[k] = u;
+      series.P_bat_true_kW[k] = pBat;
+      series.P_bat_meas_kW[k] = pBat;
+      series.P_load_demand_kW[k] = demand;
+      series.P_load_served_kW[k] = demand;
+      series.P_rotor_kW[k] = pRotor;
+      series.V_bus_V[k] = 400;
+      series.SOC_true_pct[k] = soc0 - intPbat / (CAP_KWH * 3600) * 100;
+      series.SOC_est_pct[k] = soc0 - intPbat / (CAP_KWH * 3600) * 100;
+      series.r_true_kW[k] = ch.pGen + pBat - demand - pRotor;
+      series.f_channel_diff_Hz[k] = series.n_meas_rpm[k] / 60 - series.f_meas_Hz[k];
+      series.valve_cmd_pct[k] = clamp(u / 40 * 100, 0, 100);
+      series.valve_meas_pct[k] = capped ? magnitude : series.valve_cmd_pct[k];
+      series.P_gen_cap_kW[k] = capped ? u_cap : null;
+      /* 热力八信号 + Q_fuel/eta_cycle（延迟口径——Q_fuel 列 = q_f 指令面，Q13 (ii)） */
+      series.T3_out_K[k] = T3;
+      series.T2_out_K[k] = ch.t2;
+      series.p2_out_kPa[k] = ch.p2;
+      series.T4_out_K[k] = ch.t4;
+      series.Q_fuel_kW[k] = ch.qF;
+      series.P_comp_kW[k] = ch.pComp;
+      series.P_turb_kW[k] = ch.pTurb;
+      series.eta_cycle_pct[k] = ch.qF > 0 ? ch.pGen / ch.qF * 100 : null;
+    }
+
+    record(0);
+    for (var k = 1; k <= n; k++) {
+      for (var j = 0; j < SUB; j++) {
+        var time = (k - 1) * SUB * DT_INT + j * DT_INT;
+        var b = bAt(time);
+        var demand = demandAt(time);
+        /* ① 指令更新（L0b 序保留，EQ-GTL2-9）+ 指令域钳位（EQ-GTL2-10） */
+        var fGov = (monitor && isSensor) ? f : f + b;
+        var uNext = clamp(u + Ki * (50 - fGov) * DT_INT, 0, 40);
+        var cappedSub = isAct && tStart != null && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9);
+        var uEff = cappedSub ? Math.min(uNext, u_cap) : uNext;
+        /* ② RK4（物理状态 y = [f, T3, x_comb]；demand/b/u_eff/q_f 冻结于子步起点右值） */
+        var k1 = rhsOf(f, T3, xComb, uEff, demand);
+        var k2 = rhsOf(f + DT_INT / 2 * k1.df, T3 + DT_INT / 2 * k1.dT3, xComb + DT_INT / 2 * k1.dx, uEff, demand);
+        var k3 = rhsOf(f + DT_INT / 2 * k2.df, T3 + DT_INT / 2 * k2.dT3, xComb + DT_INT / 2 * k2.dx, uEff, demand);
+        var k4 = rhsOf(f + DT_INT * k3.df, T3 + DT_INT * k3.dT3, xComb + DT_INT * k3.dx, uEff, demand);
+        var fNew = f + DT_INT / 6 * (k1.df + 2 * k2.df + 2 * k3.df + k4.df);
+        var t3New = T3 + DT_INT / 6 * (k1.dT3 + 2 * k2.dT3 + 2 * k3.dT3 + k4.dT3);
+        var xNew = xComb + DT_INT / 6 * (k1.dx + 2 * k2.dx + 2 * k3.dx + k4.dx);
+        /* ③ 子步末提交：u = u_next；能量累计（口径与 oracle 冻结序同构——E_gen 梯形含
+           x_comb 终点代数链；E_fuel 左矩形指令面） */
+        var pGenEnd = chain(fNew, t3New, xNew, uEff).pGen;
+        var pbatEnd = P_bat_ref - K_bat * (fNew - 50);
+        intPgen += 0.5 * (k1.pGen + pGenEnd) * DT_INT;
+        intPbat += 0.5 * (k1.pBat + pbatEnd) * DT_INT;
+        intDemand += demand * DT_INT;
+        intResidual += k1.pRotor * DT_INT;
+        intEfuel += k1.qF * DT_INT;
+        intComb += k1.dT3 * C_3 * DT_INT;   // 延迟口径左矩形（k1.dT3·C_3 = η_b·x_comb − ṁ_g·cp_g·(T3−T2)）
+        u = uNext;
+        f = fNew;
+        T3 = t3New;
+        xComb = xNew;
+      }
+      record(k);
+    }
+    return {
+      series: series,
+      integrals: {
+        E_load: intDemand,
+        E_source: intPgen,
+        E_bat: intPbat,
+        E_rotor: KJ * (f - 50),
+        intResidual: intResidual,
+        E_fuel: intEfuel,     // kW·s（EQ-GTL2-12 指令面；metrics.js → E_fuel_kWh）
+        intComb: intComb      // kW·s（EQ-GTL2-12 延迟口径；metrics.js → E_comb_net_kWh）
       }
     };
   }
@@ -13075,7 +13312,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
        （causal.thermoTrackCard 附加字段，经同一构建机制产出，字段面与主链同构）；
        run_hash 不含 causal（registry.js runHashInput），golden 字节冻结不受影响。 */
     var thermoTpl = system.causalTemplates ? system.causalTemplates.thermo_track : null;
-    if (thermoTpl && cfg.inertia_model === 'thermo' && thermoTpl !== tpl) {
+    /* 深化轨扩展（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0 §6.4，CHG-20261114-07 批准链）：
+       thermo_comb 轨与 thermo 共享同一热力链叙事面（延迟环节不改变稳态、热力卡教学面同构）
+       ——挂载条件 additive 扩值，卡构建机制零变化。 */
+    if (thermoTpl && (cfg.inertia_model === 'thermo' || cfg.inertia_model === 'thermo_comb') && thermoTpl !== tpl) {
       card.thermoTrackCard = buildCardFromTemplate(ctx, cfg, family, thermoTpl, facts);
     }
     return card;
@@ -14037,7 +14277,10 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
          eta_cycle_end_pct 注册名；GTL1-G2b-04，CHG-20261104-12）。名称与 gt001_v3 golden
          scalars 注册表对齐（T2 冻结时逐名核对）。swing/linear 遗留轨无热力面 → 不产生
          这三项（遗留 Run 的 metrics 面零漂移）。 ---- */
-      if (cfg.inertia_model === 'thermo' && integrals) {
+      /* 深化轨扩展（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0，CHG-20261114-07 批准链）：
+         thermo_comb 轨与 thermo 共享同一组热力标量注册（E_fuel/eta_cycle/E_comb_net——
+         延迟口径下 intComb 由引擎 k1.dT3·C_3·dt 左矩形自然承载 EQ-GTL2-12）。 */
+      if ((cfg.inertia_model === 'thermo' || cfg.inertia_model === 'thermo_comb') && integrals) {
         mk('E_fuel_kWh', '燃料电能（输入）', isNum(integrals.E_fuel) ? integrals.E_fuel / 3600 : null, 'kWh', 7,
           null, {
             source_signal_ids: ['Q_fuel_kW'],
@@ -14423,10 +14666,12 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
     }
 
     /* ---- GT 专属 PHY（G2b v1.1 §3/§5；CHG-20261030-06 批准口径；A-1 双轨分派 CHG-20261102-01；
-         L1 thermo 分派 GTL1-G2b-04 / CHG-20261104-12）---- */
+         L1 thermo 分派 GTL1-G2b-04 / CHG-20261104-12；燃烧延迟深化轨分派 GTCMB-G2b-04 /
+         CHG-20261114-09——规格 GTCMB-G2b-04 行漏 checks.js 项，实现轮复算补齐并登记）---- */
     if (system.id === 'GT-001') {
       var inertiaGt = (cfg && cfg.inertia_model === 'linear') ? 'linear'
-        : (cfg && cfg.inertia_model === 'thermo') ? 'thermo' : 'swing';
+        : (cfg && cfg.inertia_model === 'thermo') ? 'thermo'
+        : (cfg && cfg.inertia_model === 'thermo_comb') ? 'thermo_comb' : 'swing';
       var fArrGt = series.f_true_Hz;
       var fEndGt = fArrGt && fArrGt.length ? fArrGt[fArrGt.length - 1] : null;
       if (fEndGt !== null && inertiaGt === 'thermo') {
@@ -14472,6 +14717,31 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
           eResid,
           'ΔE_kin − ∫P_rotor − K_J·Δf²/(2f₀) = ' + (eResid === null ? '不可用' : eResid.toExponential(2)) +
             ' kW·s（代数恒等回归：验证离散自洽与线性化截断项量级，不是物理验证）'
+        ));
+      } else if (fEndGt !== null && inertiaGt === 'thermo_comb') {
+        /* combustion 深化轨（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0 §1.3 EQ-GTL2-12 延迟口径
+           检查式，CHG-20261114-07 批准；规格 GTCMB-G2b-04 行漏 checks.js 项——实现轮复算
+           补齐并登记，CHG-20261114-09）：燃烧室离散能量恒等（延迟口径）
+           C_3·(T3_end − T3_0) ≡ ∫(η_b·Q_f,d − ṁ_g·cp_g·(T3−T2))dt（右侧引擎子步左矩形经
+           E_comb_net_kWh 承载——intComb 的 k1.dT3 已含 x_comb 延迟量；RK4 离散自洽回归，
+           不是物理验证）。容差按引擎七场景复算上界登记（GTCMB-G2b-04 主线复算 2026-11-15，
+           worst 7.2536e-7 kWh @ actuator_clear；安全系数 ≥1378）。
+           【位置纪律】本分支必须在 swing 裸兜底（fEndGt!==null 无 inertia 条件）之前——
+           thermo_comb 否则被兜底吞掉（首插教训复算在案，CHG-20261115-02 同源登记）。 */
+        var t3ArrCb = series.T3_out_K;
+        var t3FirstCb = t3ArrCb && isNum(t3ArrCb[0]) ? t3ArrCb[0] : null;
+        var t3LastCb = t3ArrCb && t3ArrCb.length ? t3ArrCb[t3ArrCb.length - 1] : null;
+        var eCombCb = metricValue(metrics, 'E_comb_net_kWh');
+        var residCb = (t3FirstCb !== null && t3LastCb !== null && eCombCb !== null)
+          ? Math.abs(0.335983796442745 * (t3LastCb - t3FirstCb) / 3600 - eCombCb) : null;
+        var okCb = residCb !== null && residCb <= 1e-3;
+        quality.push(check(
+          'gt-energy-consistency', '燃烧室能量恒等闭合（comb 延迟口径，EQ-GTL2-12 检查式）',
+          okCb ? 'pass' : 'fail', 'numeric',
+          residCb,
+          '|C_3·ΔT3 − ∫(η_b·Q_f,d − ṁ_g·cp_g·(T3−T2))dt| = ' +
+            (residCb === null ? '不可用' : residCb.toExponential(2)) +
+            ' kWh（≤1e-3，七场景复算 worst 7.2536e-7 ×≥1378；左矩形一阶离散残差回归，非物理验证）'
         ));
       } else if (fEndGt !== null) {
         /* swing 轨（A-1，ALINE §4.3）：能量闭合 |ΔE_kin − ∫P_rotor(子步左矩形)| ≤ tol。
@@ -15053,7 +15323,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
   /* 事件级模型深度轨（B-2 定案，CHG-20261104-12 ③）：枚举三值；缺省解析为系统默认轨
      （defaults.inertia_model，GT-001 = thermo，Q4 定案）；scenarioHash 含解析后的轨。
      跨深度对比场景（A 线教学 payoff）经该键显式钉轨。 */
-  var INERTIA_MODELS = ['swing', 'linear', 'thermo'];
+  var INERTIA_MODELS = ['swing', 'linear', 'thermo', 'thermo_comb'];
   /* 事件级热模型轨（FLTH-G2b-04 / CHG-20261107-01）：枚举两值；缺省解析为系统默认轨
      （defaults.thermal_model，FL-001 = off，FLTH-IMP-Q3 定案维持）；scenarioHash 含
      解析后的轨（既有 FL 场景哈希变化属预期失效面，见 hashProjection 注）。 */
@@ -15399,7 +15669,7 @@ select.input { font-family: var(--font-body); font-size: 12.5px; padding-right: 
       if (!declaresInertia) {
         errors.push({ field: at + '.inertia_model', message: '系统 ' + (system ? system.id : '?') + ' 未声明模型深度轨（inertia_model 仅适用于声明该轨的系统）' });
       } else if (INERTIA_MODELS.indexOf(ev.inertia_model) === -1) {
-        errors.push({ field: at + '.inertia_model', message: '必须为 swing / linear / thermo（收到 ' + String(ev.inertia_model) + '）' });
+        errors.push({ field: at + '.inertia_model', message: '必须为 swing / linear / thermo / thermo_comb（收到 ' + String(ev.inertia_model) + '）' });
       } else {
         inertia = ev.inertia_model;
       }

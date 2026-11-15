@@ -53,7 +53,7 @@
   /* 事件级模型深度轨（B-2 定案，CHG-20261104-12 ③）：枚举三值；缺省解析为系统默认轨
      （defaults.inertia_model，GT-001 = thermo，Q4 定案）；scenarioHash 含解析后的轨。
      跨深度对比场景（A 线教学 payoff）经该键显式钉轨。 */
-  var INERTIA_MODELS = ['swing', 'linear', 'thermo'];
+  var INERTIA_MODELS = ['swing', 'linear', 'thermo', 'thermo_comb'];
   /* 事件级热模型轨（FLTH-G2b-04 / CHG-20261107-01）：枚举两值；缺省解析为系统默认轨
      （defaults.thermal_model，FL-001 = off，FLTH-IMP-Q3 定案维持）；scenarioHash 含
      解析后的轨（既有 FL 场景哈希变化属预期失效面，见 hashProjection 注）。 */
@@ -399,7 +399,7 @@
       if (!declaresInertia) {
         errors.push({ field: at + '.inertia_model', message: '系统 ' + (system ? system.id : '?') + ' 未声明模型深度轨（inertia_model 仅适用于声明该轨的系统）' });
       } else if (INERTIA_MODELS.indexOf(ev.inertia_model) === -1) {
-        errors.push({ field: at + '.inertia_model', message: '必须为 swing / linear / thermo（收到 ' + String(ev.inertia_model) + '）' });
+        errors.push({ field: at + '.inertia_model', message: '必须为 swing / linear / thermo / thermo_comb（收到 ' + String(ev.inertia_model) + '）' });
       } else {
         inertia = ev.inertia_model;
       }
