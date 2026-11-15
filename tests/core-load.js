@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CORE_DIR = path.join(__dirname, '..', 'src', 'core');
-const CORE_FILES = ['hash.js', 'rng.js', 'schema.js', 'scope.js', 'systems.js', 'plants/fl001.js', 'plants/fc001.js', 'engine.js', 'metrics.js', 'checks.js', 'registry.js', 'scenario.js', 'teaching.js', 'bundle.js', 'arena-protocol.js'];
+const CORE_FILES = ['hash.js', 'rng.js', 'schema.js', 'scope.js', 'systems.js', 'plants/fl001.js', 'plants/fc001.js', 'plants/gt001.js', 'engine.js', 'metrics.js', 'checks.js', 'registry.js', 'scenario.js', 'teaching.js', 'bundle.js', 'arena-protocol.js'];
 
 function bootstrap() {
   globalThis.window = globalThis;
