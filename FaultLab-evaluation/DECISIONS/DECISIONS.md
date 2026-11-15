@@ -1773,3 +1773,13 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   ⑤ 冲突规避机检（2026-11-15）：CronList/OffPeakList/ListWorkflowRuns 全空 + 工作树 clean（HEAD=3d8eb18）；派发文件面互斥、评审 A/B 串行互不可见、不 push 不 rebase；代理中断降级路径维持。
   **推送按用户裁定暂缓（同批：v0.7.1 起至 v1.6.0）——本波产出并入同批**。
   **批准人：用户（2026-11-15「下一步」指令链——既定候选清单与推荐口径承接）；记录人：Lead Agent。**
+
+- `CHG-20261115-05`：**V170 波收口（G9/G10 启动波——G9 草案+评审 A+B 主线复核+S3 扩裁定+G10 顺延；零代码面变更不切版本）**。承接 CHG-20261115-04。交付：FC001_FMU_G2B_SPEC_DRAFT v0.1（477 行）+ 评审 A:PASS_WITH_CONDITIONS(7)/B 主线复核 + S3 扩裁定（FL/FC/GT；PV/WT/MG out-of-scope）+ G10 顺延 v1.8.0。零代码面变更——不切版本发布。遗漏补登（2026-11-15 收口轮发现 -05/-06 未入 DECISIONS——提交 71056ae 信息含但文件漏，偏差登记）。
+  **批准人：用户（CHG-20261115-04 指令链）；记录人：Lead Agent。**
+- `CHG-20261114-06-A`：**G9/G10 外部输入落档补登**（原 CHG-20261114-06 已在 DECISIONS——本条为 G9 草案评审 A 结论 1 P1 Run-4 声明被自身方程证伪的原文内部不一致登记补充——详见 FC001_FMU_G2B_SPEC_DRAFT §10.1 评审 A 行）。零新增裁定。
+  **记录人：W2a 评审 A。**
+- `CHG-20261115-07`：**V180_WAVE_DESIGN v1 批准（v1.8.0 波：S3 track wiring + G9 Python oracle 先行；G9 C99 阻塞登记；G10 顺延 v1.9.0——八面冻结下第八个 additive/minor 波）**。
+  用户 2026-11-15 指令「下一步」。**DEC-1…5 全采推荐项**：S3 track wiring（thermo/comb 轨消费 plants/gt001.js——位级验收）；G9 Python oracle fc001_fmu_oracle.py 主线编写（C99 不参与 golden——parity v1.9.0）；**G9 C99 阻塞登记**（gcc/cc/cl 均不可用 2026-11-15 实测——编译/parity/FMU 打包顺延）；G10 顺延 v1.9.0（基础设施自包含 + R-G10-02 外部 Agent 会话待备）；步数账 35→35 零增步；additive 三不承诺。
+  ② V06_ROADMAP §3 增补 v1.8.0 行。③ **CHG-20261115-08 预留**（v1.8.0 发布）。④ 冲突规避机检通过。
+  **推送按用户裁定暂缓（同批：v0.7.1 起至 v1.7.0）——本波产出并入同批**。
+  **批准人：用户（2026-11-15「下一步」指令链）；记录人：Lead Agent。**
