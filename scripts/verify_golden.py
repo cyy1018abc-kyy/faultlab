@@ -2,14 +2,17 @@
 """verify_golden.py — 一键校验：重跑独立 oracle → 按 golden 内置容差比对（MODEL_VALIDATION_SPEC §3.6）。
 
 用法：
-  python scripts/verify_golden.py                # 默认四 golden：fl001（v1 off 默认轨）+
+  python scripts/verify_golden.py                # 默认五 golden：fl001（v1 off 默认轨）+
                                                  #   fl001_l1（v2 thermal 轨）+ fc001_l1
-                                                 #   （v2 电化学轨）+ fl001_cap（v3 容量轨）
+                                                 #   （v2 电化学轨）+ fl001_cap（v3 容量轨）+
+                                                 #   gt001_comb（v4 燃烧延迟深化轨）
                                                  #   顺序验证，全部通过才 exit 0（DEC-6
                                                  #   步①并入口径，FLTH §7.3「优先并入现有
                                                  #   步」；B-5 定案尾追加 fc001_l1——
                                                  #   CHG-20261113-01；Q6 定案尾追加
-                                                 #   fl001_cap——CHG-20261114-01 批准链）
+                                                 #   fl001_cap——CHG-20261114-01 批准链；
+                                                 #   Q7 定案尾追加 gt001_comb——
+                                                 #   CHG-20261114-07 批准链）
   python scripts/verify_golden.py fl001          # 仅 fl001（显式参数不扩面，仍只验 fl001_v1）
   python scripts/verify_golden.py fl001_l1       # FL-001 thermal 轨（FLTH-G2b-03 / CHG-20261107-01）
   python scripts/verify_golden.py fl001_cap      # FL-001 容量/内阻二阶效应轨（FLCAP-G2b-03 /
@@ -22,6 +25,10 @@
                                                  #   T-B `_V` 分支 = B-4 定案显式硬项）
   python scripts/verify_golden.py gt001          # GT-001（V3-31 / G2b v1.1；GTL1-G2b-03 起
                                                  #  重指向 gt001_v3 L1 thermo 轨，tier T-B）
+  python scripts/verify_golden.py gt001_comb     # GT-001 燃烧延迟深化轨 thermo_comb（GTCMB-G2b-03 /
+                                                 #   CHG-20261114-07 批准链；golden gt001_v4，
+                                                 #   tier T-B，Q10 零新信号——27 列同集，
+                                                 #   T-B 分派路由全既有支零缺口）
   python scripts/verify_golden.py pv001          # PV-001（PV-G2b-03 / v0.7，CHG-20261104-10 批准链）
   python scripts/verify_golden.py wt001          # WT-001（WT-G2b-03 / v0.8，CHG-20261107-01 批准链）
   python scripts/verify_golden.py mg001          # MG-001（MG-G2b-03 / V110 W4，CHG-20261110-01 批准链）
@@ -35,8 +42,8 @@
   V-03 generated_by.oracle_source_sha256 == 当前 oracle 源码 SHA-256；
   V-03b approval 批准摘要一致（去除 generated_by/approval 后内容摘要）；
   V-04 oracle 自检全过（fl001 SC-1…9 / fl001_l1 FL-1…8 / fl001_cap FCAP-1…8 /
-       fc001 SC-1…10 / fc001_l1 FEC-1…8 / gt001_l1 GL-1…8 / pv001 PS-1…7 / wt001 WS-1…8 /
-       mg001 MS-1…8）；
+       fc001 SC-1…10 / fc001_l1 FEC-1…8 / gt001_l1 GL-1…8 / gt001_comb GCMB-1…9 /
+       pv001 PS-1…7 / wt001 WS-1…8 / mg001 MS-1…8）；
   V-05 关键点（19.9/21.5/26.0/60.0 s 的 true/meas 对）——tier 分派：T-A rtol 1e-12
        （I_A 键，既有路径零改动）/ T-B 按 series_limit 序列容差键（GTL1-G2b-03 参数化）；
   V-06 标量（E/SOC）gate 容差（±1e-6 kWh / ±1e-5 pp）；
@@ -79,6 +86,9 @@ import fc001_l1_oracle  # noqa: E402  FC-001 L1 电化学轨（FCECH-G2b-03 / CH
 import gt001_oracle  # noqa: E402  （swing/linear 冻结归档轨：verify_golden 注册面已重指向
                      #   gt001_l1_oracle；本 import 维持 oracle_base 契约探针与历史可比性）
 import gt001_l1_oracle  # noqa: E402  GT-001 L1 thermo 轨（GTL1-G2b-03 / CHG-20261104-12 批准链）
+import gt001_comb_oracle  # noqa: E402  GT-001 L1 燃烧延迟深化轨 thermo_comb（GTCMB-G2b-03 /
+                         #   CHG-20261114-07 批准链；GT001_COMBUSTION_G2B_SPEC_APPROVED
+                         #   §4 项 8 Q7 定案——注册行为显式工作面）
 import pv001_oracle  # noqa: E402  PV-001（PV-G2b-03 / CHG-20261104-10 批准链；PV001_G2B_SPEC_APPROVED §4 项 7）
 import wt001_oracle  # noqa: E402  WT-001（WT-G2b-03 / CHG-20261107-01 批准链；WT001_G2B_SPEC_APPROVED §4 项 7）
 import mg001_oracle  # noqa: E402  MG-001（MG-G2b-03 / V110 W4；CHG-20261110-01 批准链；
@@ -196,6 +206,25 @@ MODELS = {
             ("eta_cycle_end_pct", "%"),
         ],
     },
+    "gt001_comb": {
+        # GTCMB-G2b-03（CHG-20261114-07 批准链）：GT-001 L1 燃烧延迟深化轨 golden gt001_v4
+        # （6 Run 全部 inertia_model=thermo_comb，tier T-B；oracle=gt001_comb_oracle 出生
+        # 接入 oracle_base，GT001_COMBUSTION_G2B_SPEC_APPROVED §4 项 8 Q7 定案——新条目
+        # 形态，「gt001 条目重指向」不适用：MODELS["gt001"] 重指向块继续验 gt001_v3
+        # 零改动，深化轨走本条目）。i_true/i_meas/event_tol 沿 gt001 现行映射；
+        # scalars 按 gt001_v4.json 键面镜像 gt001 现行 9 键（Q10 零新信号——27 列同集，
+        # T-B 分派路由全既有支零缺口，FC `_V`/FL `_kWh` 先例同构审计随轮登记）。
+        "oracle": gt001_comb_oracle,
+        "golden_file": "gt001_v4.json",
+        "i_true": "f_true_Hz", "i_meas": "n_meas_rpm",
+        "event_tol": "n_rpm_atol",  # 事件快照相位变量 = n_meas_rpm（T-B gate 键面，gt001 同）
+        "scalars": [
+            ("E_source_kWh", "kWh"), ("E_bat_kWh", "kWh"), ("E_load_kWh", "kWh"),
+            ("E_rotor_kWh", "kWh"), ("E_fuel_kWh", "kWh"),
+            ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
+            ("eta_cycle_end_pct", "%"),
+        ],
+    },
     "pv001": {
         "oracle": pv001_oracle,
         "event_tol": "P_kW_atol",  # PV gate 无 I_A_atol：事件快照相位值按 P_kW_atol 判
@@ -243,7 +272,10 @@ MODELS = {
 # fl001」自 V080 起滞后于 fl001_l1 并入（先例在案沿用不修——V120 DEC-5 同款维持登记），
 # FC golden 挂载位置 = 本序列尾。
 # v1.4.0 四 golden 顺序验证，FLCAP-G2b-03/Q6，CHG-20261114-01 批准链
-DEFAULT_MODELS = ["fl001", "fl001_l1", "fc001_l1", "fl001_cap"]
+# v1.6.0 五 golden 顺序验证，GTCMB-G2b-03/Q7，CHG-20261114-07 批准链（尾追加 gt001_comb
+# ——GT-001 燃烧延迟深化轨 golden gt001_v4；步① 无参调用五 golden 顺序验证，
+# FL/FC 先例形态；步① label 滞后说明沿 V120 DEC-5/V140 先例维持登记不修）
+DEFAULT_MODELS = ["fl001", "fl001_l1", "fc001_l1", "fl001_cap", "gt001_comb"]
 
 KEY_POINTS = [19.9, 21.5, 26.0, 60.0]
 
