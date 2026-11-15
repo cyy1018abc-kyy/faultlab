@@ -3,15 +3,18 @@
    run_hash 与 series/metrics 哈希快照（run_hash 由 registry 层计算，G0-DEC-07 契约面）。
 
    用法：
-     node tools/verify-i11-bitidentity.mjs [输出文件]                # 快照模式（默认，向后兼容）
-     node tools/verify-i11-bitidentity.mjs --baseline <基线快照.json> [--out <比对结果.json>]
+     node tools/verify-i11-bitidentity.mjs [输出文件] [--suite legacy|gt]   # 快照模式（默认，向后兼容）
+     node tools/verify-i11-bitidentity.mjs --baseline <基线快照.json> [--out <比对结果.json>] [--suite legacy|gt]
                                                                      # 比对模式：逐位比对 3 字段
 
-   快照模式：生成当前 12 配置快照（附代码版本元数据 code.commit_sha/branch/worktree_dirty、node、
+   快照模式：生成当前套件配置快照（附代码版本元数据 code.commit_sha/branch/worktree_dirty、node、
              engine_version、generated_at）；给定输出文件则写入，否则打印到 stdout。
    比对模式：生成当前快照并与基线快照逐配置比对 run_hash / signals_sha256 / metrics_sha256
-             （12 配置 × 3 字段 = 36）；打印匹配数 + 差异明细；--out 给定则写入比对 JSON。
-             退出码 0 = 36/36 全等；1 = 存在差异 / 快照读取失败 / 参数错误。
+             （legacy = 12 配置 × 3 字段 = 36；gt = 46 配置 × 3 字段 = 138）；打印匹配数 + 差异明细；
+             --out 给定则写入比对 JSON。退出码 0 = 全等；1 = 存在差异 / 快照读取失败 / 参数错误。
+   套件（V190 CHG-20261115-09 增补，S3 track wiring 四轨接线验收面）：legacy = 既有 12 配置
+             （默认——既有基线兼容）；gt = legacy + GT-001 4 family × closed_loop/monitor ×
+             4 inertia_model + actuator t_clear 两例（+34 = 46 配置）。
    移植验收（RFC §4 兼容性契约，适配本基线）：移植前后快照逐字段一致 —— run_hash 逐位不变。 */
 'use strict';
 
@@ -49,6 +52,32 @@ const MATRIX = [
   { tag: 'FC-001/actuator_fault/closed_loop', system: 'FC-001', override: { fault: { family: 'actuator_fault' } } },
   { tag: 'GT-001/sensor_drift/closed_loop', system: 'GT-001', override: { fault: { family: 'sensor_drift' } } }
 ];
+
+/* GT 扩展矩阵（S3 track wiring 四轨接线验收面，V190_WAVE_DESIGN DEC-1，CHG-20261115-09）：
+   GT-001 4 family × closed_loop/monitor × 4 inertia_model（swing/linear/thermo/thermo_comb）
+   + actuator t_clear 释放支两例（cappedAt 释放分支——swing/thermo 各一）。
+   legacy 套件（默认）行为不变（12 配置——既有基线兼容）；gt 套件 = legacy + GT 扩展。
+   适配器消费面（bAt/demandAt/fGovAt/govStep/cappedAt）改前/改后快照逐字段全等 = 位级验收。 */
+const GT_MATRIX = (() => {
+  const items = [];
+  for (const family of ['none', 'sensor_drift', 'load_step', 'actuator_fault']) {
+    for (const feedback of ['closed_loop', 'monitor']) {
+      for (const inertia of ['swing', 'linear', 'thermo', 'thermo_comb']) {
+        const override = { inertia_model: inertia };
+        if (family !== 'none') override.fault = { family };
+        if (feedback === 'monitor') override.feedback_mode = 'monitor';
+        items.push({ tag: 'GT-001/' + family + '/' + feedback + '/' + inertia, system: 'GT-001', override });
+      }
+    }
+  }
+  items.push({ tag: 'GT-001/actuator_fault/closed_loop/tclear35/swing', system: 'GT-001',
+    override: { fault: { family: 'actuator_fault', t_clear_s: 35 }, inertia_model: 'swing' } });
+  items.push({ tag: 'GT-001/actuator_fault/closed_loop/tclear35/thermo', system: 'GT-001',
+    override: { fault: { family: 'actuator_fault', t_clear_s: 35 }, inertia_model: 'thermo' } });
+  return items;
+})();
+
+const SUITES = { legacy: MATRIX, gt: MATRIX.concat(GT_MATRIX) };
 
 function sha256(text) {
   return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
@@ -101,11 +130,13 @@ function baseReport(purpose) {
   };
 }
 
-/* 生成当前 12 配置快照（runs 键顺序与 MATRIX 一致，便于人工核对）。 */
-function buildSnapshot() {
-  const report = baseReport('I-11 plant 接口移植逐位一致性快照（CHG-20261030-07）');
+/* 生成当前快照（runs 键顺序与所选套件矩阵一致，便于人工核对）。 */
+function buildSnapshot(suiteName) {
+  const suite = SUITES[suiteName] || MATRIX;
+  const report = baseReport('I-11 plant 接口移植逐位一致性快照（CHG-20261030-07）'
+    + (suiteName === 'gt' ? '——GT 四轨接线扩展套件（V190 CHG-20261115-09）' : ''));
   const runs = {};
-  for (const item of MATRIX) {
+  for (const item of suite) {
     const cfg = core.createConfig(item.system, item.override);
     const run = FL.registry.createRun({
       config: cfg,
@@ -125,16 +156,19 @@ function buildSnapshot() {
 /* --------------------------------------------------------------- 命令行 */
 const USAGE = [
   '用法：',
-  '  node tools/verify-i11-bitidentity.mjs [输出文件]',
-  '  node tools/verify-i11-bitidentity.mjs --baseline <基线快照.json> [--out <比对结果.json>]'
+  '  node tools/verify-i11-bitidentity.mjs [输出文件] [--suite legacy|gt]        # 快照（默认 legacy）',
+  '  node tools/verify-i11-bitidentity.mjs --baseline <基线快照.json> [--out <比对结果.json>] [--suite legacy|gt]',
+  '',
+  '  套件：legacy = 既有 12 配置（默认——既有基线兼容）；gt = legacy + GT-001 四轨接线扩展 34 配置',
+  '  （4 family × closed_loop/monitor × 4 inertia_model + actuator t_clear 两例 = 46 配置 × 3 字段）。'
 ].join('\n');
 
 function parseArgs(argv) {
-  const opts = { baseline: null, out: null };
+  const opts = { baseline: null, out: null, suite: 'legacy' };
   const positional = [];
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === '--baseline' || arg === '--out') {
+    if (arg === '--baseline' || arg === '--out' || arg === '--suite') {
       const value = argv[i + 1];
       if (value === undefined || value.startsWith('--')) {
         return { error: '参数 ' + arg + ' 缺少取值' };
@@ -147,6 +181,7 @@ function parseArgs(argv) {
       positional.push(arg);
     }
   }
+  if (!SUITES[opts.suite]) return { error: '未知套件 ' + opts.suite + '（可选：' + Object.keys(SUITES).join('|') + '）' };
   if (positional.length > 1) return { error: '多余参数：' + positional.slice(1).join(' ') };
   return { opts, out: opts.out || positional[0] || null };
 }
@@ -157,8 +192,8 @@ function fail(message) {
 }
 
 /* 快照模式（默认，向后兼容：node tools/... [输出文件]）。 */
-function runSnapshot(outPath) {
-  const report = buildSnapshot();
+function runSnapshot(outPath, suiteName) {
+  const report = buildSnapshot(suiteName);
   const text = JSON.stringify(report, null, 2) + '\n';
   if (outPath) {
     try {
@@ -200,17 +235,19 @@ function shortSha(meta) {
   return meta && meta.code && meta.code.commit_sha ? meta.code.commit_sha.slice(0, 7) : '未知';
 }
 
-/* 比对模式：12 配置 × 3 字段 = 36 项逐位比对；任一项不等或结构漂移即失败。 */
-function runComparison(baselinePath, outPath) {
+/* 比对模式：套件配置 × 3 字段逐位比对（legacy = 12×3 = 36；gt = 46×3 = 138）；
+   任一项不等或结构漂移即失败。 */
+function runComparison(baselinePath, outPath, suiteName) {
+  const suite = SUITES[suiteName] || MATRIX;
   const baseline = readBaseline(baselinePath);
-  const current = buildSnapshot();
+  const current = buildSnapshot(suiteName);
   const diffs = [];
   const missing = [];
   const extra = [];
   const matchedConfigs = [];
   let fieldsMatched = 0;
 
-  for (const item of MATRIX) {
+  for (const item of suite) {
     const hasBase = Object.prototype.hasOwnProperty.call(baseline.runs, item.tag);
     const base = hasBase ? baseline.runs[item.tag] : null;
     if (!hasBase) missing.push(item.tag);
@@ -228,13 +265,14 @@ function runComparison(baselinePath, outPath) {
     if (configOk) matchedConfigs.push(item.tag);
   }
   for (const tag of Object.keys(baseline.runs)) {
-    if (!MATRIX.some((item) => item.tag === tag)) extra.push(tag);
+    if (!suite.some((item) => item.tag === tag)) extra.push(tag);
   }
 
-  const fieldsCompared = MATRIX.length * FIELDS.length;
+  const fieldsCompared = suite.length * FIELDS.length;
   const match = fieldsMatched === fieldsCompared && missing.length === 0 && extra.length === 0;
   const report = {
-    purpose: 'I-11 plant 接口移植逐位一致性比对（CHG-20261030-07）',
+    purpose: 'I-11 plant 接口移植逐位一致性比对（CHG-20261030-07）'
+      + (suiteName === 'gt' ? '——GT 四轨接线扩展套件（V190 CHG-20261115-09）' : ''),
     generated_at: current.generated_at,
     baseline_path: baselinePath,
     baseline: {
@@ -248,7 +286,7 @@ function runComparison(baselinePath, outPath) {
       node: current.node
     },
     fields: FIELDS,
-    configs_total: MATRIX.length,
+    configs_total: suite.length,
     configs_matched: matchedConfigs.length,
     fields_compared: fieldsCompared,
     fields_matched: fieldsMatched,
@@ -269,7 +307,7 @@ function runComparison(baselinePath, outPath) {
   }
 
   const log = match ? console.log : console.error;
-  log((match ? '[OK] ' : '[FAIL] ') + '逐位一致性比对：' + matchedConfigs.length + '/' + MATRIX.length
+  log((match ? '[OK] ' : '[FAIL] ') + '逐位一致性比对：' + matchedConfigs.length + '/' + suite.length
     + ' 配置 · ' + fieldsMatched + '/' + fieldsCompared + ' 字段匹配（基线 ' + shortSha(baseline)
     + ' → 当前 ' + shortSha(current) + '）');
   if (outPath) log('比对结果已写入 ' + outPath);
@@ -293,8 +331,8 @@ function main() {
     return 1;
   }
   const { opts, out } = parsed;
-  if (opts.baseline) return runComparison(opts.baseline, out);
-  return runSnapshot(out);
+  if (opts.baseline) return runComparison(opts.baseline, out, opts.suite);
+  return runSnapshot(out, opts.suite);
 }
 
 try {

@@ -128,9 +128,31 @@ const runAct = core.simulate(flCfgAct, { runId: 'Run-PLANTS-ACT' });
 ok(runAct.timeseries.signals.I_bat_cap_A[600] !== null, 'FL-001 actuator_fault 走内联路径（I_bat_cap 生效，未经 plant）');
 
 /* ------------------------------------------------------------------ */
-/* 6. 经典脚本纪律静态扫描（plants 两个文件）                           */
+/* 5.5 GT-001 适配器挂载与壳面等价探针（S3 track wiring，V190 CHG-20261115-09） */
 /* ------------------------------------------------------------------ */
-['plants/fl001.js', 'plants/fc001.js'].forEach(function (rel) {
+ok(plants && typeof plants.createGt001Plant === 'function', 'FL.core.plants.createGt001Plant 存在');
+/* 壳面等价探针：govStep/cappedAt/bAt 与 EQ-GTL2-9/GTL2-10 冻结式逐位核对（有限域）。 */
+const gtCfg = core.createConfig('GT-001', { fault: { family: 'actuator_fault' }, inertia_model: 'thermo' });
+const gtPlant = plants.createGt001Plant(gtCfg);
+const gtU = 25.3, gtF = 49.87, gtT = 20.1, gtH = 0.01;
+const gtFGov = gtPlant.fGovAt(gtF, gtT);
+ok(gtPlant.govStep(gtU, gtF, gtT, gtH) === Math.max(0, Math.min(40, gtU + 2.0 * (50 - gtFGov) * gtH)),
+  'GT-001 govStep = clamp(u + Ki·(50−f_gov)·h, 0, 40) 逐位等价');
+const gtT0 = gtCfg.fault.t_start_s;
+ok(gtPlant.cappedAt(gtT0 - 0.05) === false && gtPlant.cappedAt(gtT0 + 0.05) === true,
+  'GT-001 cappedAt 钳位窗 = [t_start, t_clear)（无 t_clear → 窗末持续）');
+const gtCfgS = core.createConfig('GT-001', { fault: { family: 'sensor_drift' } });
+const gtPlantS = plants.createGt001Plant(gtCfgS);
+const gtTs = gtCfgS.fault.t_start_s;
+ok(gtPlantS.bAt(gtTs - 0.05) === 0 && gtPlantS.bAt(gtTs + 0.05) === gtCfgS.fault.params.magnitude,
+  'GT-001 bAt 传感偏置阶跃 = magnitude（t ≥ t_start − 1e-9）');
+ok(gtPlantS.fGovAt(50, gtTs + 0.05) === 50 + gtCfgS.fault.params.magnitude,
+  'GT-001 fGovAt closed_loop = f + b（monitor 恒等视图由 monitor 配置承载）');
+
+/* ------------------------------------------------------------------ */
+/* 6. 经典脚本纪律静态扫描（plants 三个文件）                           */
+/* ------------------------------------------------------------------ */
+['plants/fl001.js', 'plants/fc001.js', 'plants/gt001.js'].forEach(function (rel) {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'core', rel), 'utf8');
   ['fetch(', 'document.', 'XMLHttpRequest', 'require(', 'import ', 'export '].forEach(function (tok) {
     ok(src.indexOf(tok) === -1, rel + ' 静态扫描无 ' + JSON.stringify(tok));

@@ -1,7 +1,12 @@
-# FC001_FMU_G2B_SPEC_DRAFT — FC-001 5 态 L1-FMU G2b 物理规格草案（DRAFT v0.1）
+# FC001_FMU_G2B_SPEC_APPROVED — FC-001 5 态 L1-FMU G2b 物理规格（APPROVED v1.0）
 
-> **状态**：`DRAFT v0.1（2026-11-15）——待双路独立评审 + 用户书面批准`（批准与实现 = v1.8.0
-> 批准轮收口后方可；实现含 C99 FMU 编译——编译环境裁定留批准轮 Q10）。
+> **状态**：`APPROVED v1.0（2026-11-15，FCFMU-G2b-02 批准轮收口，CHG-20261115-10）——
+> 双路独立评审（A:PASS_WITH_CONDITIONS(7) / B:PASS_WITH_CONDITIONS(3)）+ 用户书面批准
+> （2026-11-15 v1.9.0 承接清单 + G9 emit 前置 AskUserQuestion 裁定「收口批准轮后 emit」
+> 指令链）+ 条件 A-1…A-7/B-1…B-3 落正文（§10.2）+ Q1…Q18 定案（§11）。
+> 由 DRAFT v0.1 批准收口更名（原 FC001_FMU_G2B_SPEC_DRAFT.md——git mv 更名先例
+> GT001_COMBUSTION_G2B_SPEC_APPROVED 同款）。实现（FCFMU-G2b-03 oracle emit /
+> G2b-04 C99 编译）随用户逐版本指令派发；C99 编译环境裁定 = Q10（本波复测阻塞维持）。
 > **任务**：V170 波阶段一 W1（G9 FC-001 5 态 FMU G2b 草案——本波唯一 G2b 名额）。
 > **授权**：V170_WAVE_DESIGN v1（CHG-20261115-04，2026-11-15，DEC-1…5 全采推荐项）DEC-1；
 > 上游授权 = G9_G10_ARCH_GATE_SPEC_DRAFT.md 落档（CHG-20261114-06：用户双裁定——① FC 物理
@@ -71,7 +76,9 @@
      矩阵）批准轮裁定（Q10）——本草案不定实现。
   2. **golden 零触碰**：fc001_fmu_v1 为新 id（用户裁定 CHG-20261114-06），emit = 批准轮后
      FCFMU-G2b-03；既有 12 golden（fc001_v1/v2、fl001_v1/v2/v3、gt001_v1…v4、mg001_v1、
-     pv001_v1、wt001_v1——2026-11-15 实读）字节冻结零变更。
+     pv001_v1、wt001_v1——2026-11-15 实读；计数偏差注记 B-2④：台账裁定原文无计数、落档
+     勘误三写「11 golden」（2026-11-14 时点准确）、v1.6.0 gt001_v4 入库后 2026-11-15 实读
+     现值 12）字节冻结零变更。
   3. **G10 不做**：Arena L2 / MCP server / N-B18..20 / V-11 全部不在本草案（顺延 v1.8.0——
      V170 DEC-3；勘误⑦ 预算常量协议附记随 G10 面登记）。
   4. **L2 不做沿袭**：CFD/FEA/多体动力学维持不做（FC §0 项 1 沿袭——三处原文引用维持，
@@ -122,7 +129,7 @@ derived 三层信号严格分离——G9 强制三层夹心架构：
 
 - **FMU 各自另批（V312 B-4 适用）**：本规格即 FC-001 FMU 的「各自另批」批准载体——批准轮收口
   （FCFMU-G2b-02）方得实现；V312 准入机检面（fmu_admission.py A-1…A-5 实读）沿用：zip 结构 + modelDescription.xml + binaries/<platform>/ + model_manifest.json 八字段齐备 + model_id 自述（禁借用既有系统 id——A-3 禁令对 FC-001 同构适用）。
-- **模型身份（Q13 复合）**：FMU 轨 model_id 须自述新值（候选 `fc.pem.fmu_l1` / `fc.pem.l1_fmu`——推荐前者；不用 fc.pem.l0——model_hash 自述一致性检查（engine.js:1407 面）防失真）；model_version 批准轮定。
+- **模型身份（Q13 复合）**：FMU 轨 model_id 须自述新值（候选 `fc.pem.fmu_l1` / `fc.pem.l1_fmu`——推荐前者；不用 fc.pem.l0——model_hash 自述一致性检查防失真；行号时点注记 B-2②：原引 engine.js:1407 系 V312 §7 / fmu_admission A-3 沿承的陈旧快照（7aed9f6 时点 :1395-1397），现行位 engine.js:3386-3388——语义锚 = model-hash 比对检查，推荐结论不受影响，独立依据为 fmu_admission.py A-3 自述禁令）；model_version 批准轮定（**定案 = '1.0.0'**——FMU 轨首版新 id，model_version 面先例：fc001_v2 1.1.0 系既有轨演进位、新轨首版取 1.0.0；见 §11 Q13）。
 - **provenance 准入面张力登记**：fmu_admission.py A-4 现行要求 manifest provenance 标 `numerical_simulation` + self_declared=true（Q-5——未批样本黑盒准入语境）；G9 为已批 FC-001 L1-FMU 轨设专用新值——两轨关系 = 核心裁定点二（§1.6/Q2）。
 - **D-27 解锁声明**：fmu_runner.py 骨架自评 FR-3 明载「doStep 路径待实际 FMU 样本验证」——本轨实现（FCFMU-G2b-04）即 D-27 的解锁兑现面；实现轮须以本轨 FMU 实测关闭 D-27（不虚设）。
 
@@ -158,6 +165,14 @@ derived 三层信号严格分离——G9 强制三层夹心架构：
 
 **数值方法（原文 §2.1）**：内联固定步长经典 RK4；内部子步 δt=0.01 s、通信步 Δt=0.1 s；
 oracle 与 C99 内核**同算法同步长**（跨实现 parity 前提——§4 项 7）。
+
+**残差定义 pre 相位矛盾裁定（评审 A P2-1 原文缺陷转写保真 → 批准轮裁定落定）**：EQ-14/15
+右端含 `phase ≠ pre` 门而 EQ-22/23 右端为 `𝕀(t ≥ t_fault)` 无相位门——两式在 pre 行字面矛盾
+（原文内部缺陷，逐字转写维持于上表）。**裁定**：pre 行 = 左极限（t = t_fault⁻，Q1(A) 相位
+承载语义），指示函数一律按**行相位时点**求值——pre 行 t = 20.0⁻ < t_fault ⇒ 𝕀 = 0，EQ-22/23
+在 pre 行给出 r = 0，与 EQ-14/15 的 `phase ≠ pre` 门**数值一致**；矛盾仅在把 pre 行时点读作
+t = 20.0（≥ t_fault）时出现——该读法被 Q1(A) 排除。实现口径：r 在 pre 行恒 0、post 行恒 +b
+（FMU-2 恒等式自检按此复算）。
 
 ### 1.4 参数面（19 参数字典——原文 §2.2.4 冻结值逐字转写，值零改动）
 
@@ -213,7 +228,7 @@ MG 双事件快照先例全链兼容、零 breaking；候选 B 触发 major 五�
 | feedback_mode 枚举 | EVENT_KEYS 已含 feedback_mode（scenario.js:52——既有事件键）；枚举现值 ['closed_loop','monitor']（:40）⇒ **additive 新值 `baseline`**（G9 FC-Run-1 none+baseline 组合承载——控制律 = EQ-FCFMU-18 恒定标称指令）；G9 `monitor_only` → 仓内既有 `monitor` 映射（EQ-FCFMU-18 同式覆盖——语义等价，名称差异映射登记，Q12） |
 | sensor_drift 参数面 | 双偏置目标通道：b_p_ca（kPa，p_ca 链）/ b_V_water（mL，储水链）——additive 可选参数（既有 FC sensor_drift 偏置目标为 I_fc/bias_A，缺省轨逐位不变）（Q14） |
 | actuator_fault 参数面 | target 选择 + α_drain（0…1 健康因子）——additive 可选参数，缺省 = 既有「氢气供给阀卡涩 magnitude%」语义逐位不变（Q3——核心裁定点见 §2.2） |
-| B-1a 显式键纪律 | 全部新键/新值**仅在场景输入显式提供时**写入归一化事件与 hashProjection（scenario.js:419-436 电化学键先例同构）；缺省轨解析只在引擎 normalizeConfig 盖章层 ⇒ **既有全部场景 scenarioHash 零变化**（face③ 冻结边界原文 V1_FACES:184-186——FC Q9 定案先例逐字适用） |
+| B-1a 显式键纪律 | 全部新键/新值**仅在场景输入显式提供时**写入归一化事件与 hashProjection（scenario.js 电化学键先例同构——行号时点注记 B-2③：原引 :419-436，电化学块实际 :430-447，:419-426 为 thermal 块尾部；语义锚 = 「仅在场景输入显式提供时校验并写入」:432-436）；缺省轨解析只在引擎 normalizeConfig 盖章层 ⇒ **既有全部场景 scenarioHash 零变化**（face③ 冻结边界原文锚点校正 B-2①：V1_FACES:197-198「新可选事件键 additive——新键只影响使用它的输入，既有场景解析与哈希不变」+ §9 v1.2.0 修订记录「B-1(a) 显式键条件式形态即对该边界的兑现」——原引 :184-186 实读为缺省解析入哈希形态描述、语义方向相反，FC Q9 定案先例逐字适用） |
 | 零投影纪律（勘误⑤后半） | config_hash 投影（scenarioView）不入新键（FC B-3 定案先例同构）；已知局限显式登记：轨区分由 run_hash/序列内容/provenance 承载——不静默 |
 | FMU 轨选择键面 | **Q13**：推荐 plant adapter 层绑定（fc001-fmu-adapter.js——G9 §2.1 外层原文；场景零新键；跨保真对比由同场景双 provenance Run 承载）；备选 = scenario 显式新键（如 fmu_model: "off"\|"on"——B-1a 同构）——若实现证明跨保真对比需场景级钉轨，停下显式 CHG |
 
@@ -234,7 +249,7 @@ MG 双事件快照先例全链兼容、零 breaking；候选 B 触发 major 五�
 | FC-Run-1 | none | baseline | 无 | 无（全信号平直） | 60.0 s 全程维持精确标称平衡点 | **none+baseline 新组合**（feedback_mode 新值 Q12；role=baseline 先例——fc001_v2 healthy 同名 role 实读） |
 | FC-Run-2 | sensor_drift | closed_loop | b_p_ca = +15.0 kPa | p_ca_meas_kPa: 200.0→215.0；u_o2_valve_cmd: 0.50→0.35；r_meas_p_kPa: 0.0→+15.0 | O₂/N₂ 供给缩减 → N₂ 累积、y_O2 稀释、电堆电压衰减轨 | 族名同既有 sensor_drift；偏置目标 = 新参数面（Q14） |
 | FC-Run-3 | sensor_drift | monitor_only | b_p_ca = +15.0 kPa | p_ca_meas_kPa: 200.0→215.0；r_meas_p_kPa: 0.0→+15.0；u_o2_valve_cmd 保持 0.50 | 真实压力/氮分数/电堆电压完全不受扰、维持 52.0 V | monitor_only → 仓内 monitor 映射（Q12） |
-| FC-Run-4 | sensor_drift | closed_loop | b_V_water = −80.0 mL | V_water_store_meas_mL: 200.0→120.0；u_drain_valve_cmd: 0.50→0.34；r_meas_water_mL: 0.0→−80.0 | 排水不足使真实储水体积超 300.0 mL（θ_cap_true > 0.60）→ 触发非线性极化下降 | 偏置目标 = 储水链新参数面（Q14） |
+| FC-Run-4 | sensor_drift | closed_loop | b_V_water = −80.0 mL | V_water_store_meas_mL: 200.0→120.0；u_drain_valve_cmd: 0.50→0.34；r_meas_water_mL: 0.0→−80.0 | **闭环平衡 V_water = 280.0 mL（θ_cap_true = 0.56）**——闭环反馈使排水指令随受染测量回升，t = 60.0 s 瞬态峰值 θ_max ≈ 0.516（RK4 全耦合计），**二次饱和项（θ > 0.60）全程零触发**（行为声明修正——评审 A P1：原文「储水超 300.0 mL 触发非线性极化下降」被自身方程证伪，该叙事属 FC-Run-5 t ≈ 47 s 穿越） | 偏置目标 = 储水链新参数面（Q14） |
 | FC-Run-5 | actuator_fault | closed_loop | α_drain: 1.00→0.45 | **零不连续**（全通道 pre=post、C⁰ 连续） | 分离器储水体积持续上升，控制器增大 u_drain_valve_cmd 趋向饱和（0.95） | **actuator 语义裁定点 = Q3（§2.2）**——作用于 u_drain 而非既有 FC 族语义 |
 
 **Run 集（Q8 确认项）**：golden Run 集 = G9 §2.4 白名单全集 5 Run（原文直接定义——非镜像
@@ -275,7 +290,7 @@ MG 双事件快照先例全链兼容、零 breaking；候选 B 触发 major 五�
 | FC_RULE_01_MEAS_STEP | 节点 1 传感链 | measured | p_ca_meas_kPa、V_water_store_meas_mL | 加性传感偏置 b 在 20.0 s pre（left_limit）与 post 间产生瞬时阶跃，物理状态保持连续 |
 | FC_RULE_02_CTRL_REACTION | 节点 2 控制律 | derived | u_o2_valve_cmd、u_drain_valve_cmd | closed_loop 反馈下比例控制对受染测量反应（缩减 O₂/N₂ 供给或排水指令）；monitor_only 下指令恒 0.50 |
 | FC_RULE_03_N2_ACCUM | 节点 3 阴极气体 | true/derived | p_N2_ca_true_kPa、y_O2_ca_true | 100.0 A 持续消耗下供给缩减抬升阴极氮分压、稀释氧摩尔分数 |
-| FC_RULE_04_WTMS_VOL | 节点 4 分离器体积 | true/measured | V_water_store_true_mL、cap_water_ratio_est | 排水不足使储水体积向 500.0 mL 容量上限累积（θ_cap 超 0.60） |
+| FC_RULE_04_WTMS_VOL | 节点 4 分离器体积 | true/measured | V_water_store_true_mL、cap_water_ratio_est | 排水不足使储水体积向 500.0 mL 容量上限累积（θ_cap 超 0.60；批准轮注记——评审 A P1 联动：该「超 0.60」穿越叙事在白名单 5 Run 中**仅 FC-Run-5 兑现**（t ≈ 47 s），FC-Run-4 闭环平衡 280 mL / θ_max ≈ 0.516 零触发——机理陈述为一般式，Run 级兑现面以 §2.1 修正后口径为准） |
 | FC_RULE_05_STACK_POLAR | 节点 5 电堆极化 | true/measured | V_stack_meas_V、eta_sys_true_pct | 氧稀释（y_O2<0.60）与储水饱和（θ_cap 超 0.40/0.60）增大浓差过电位、降低端电压 |
 | FC_RULE_06_ALGEBRAIC_RES | 节点 6 代数支 | derived | r_meas_p_kPa、r_meas_water_mL | 代数恒等支：测量一致性残差按定义在 20.0 s post 精确跳 +b（r ≡ x_meas − x_ref）——传感通道偏移，非物理气体泄漏或水损失 |
 
@@ -285,7 +300,7 @@ MG 双事件快照先例全链兼容、零 breaking；候选 B 触发 major 五�
 
 ### 2.5 跨保真比对白名单（G9 §2.5.2 逐字转写——src/core/compare.js 注册面）
 
-`cross_fidelity_l0_vs_l1_fmu`：两 Run 标记 comparable（comparison_kind="cross_fidelity"）当且仅当共享相同 system_id="FC-001"、fault_family、feedback_mode、t_fault_s、fault_magnitude、duration_s，且 Run A model_provenance="analytical_demo"（L0）、Run B model_provenance="fmu_l1_lumped_unvalidated"（L1-FMU）。**登记**：① 谓词依赖 provenance 新值（Q2 联动——候选 B 下不可成立）；② actuator 局结构性不可比（§2.2 登记）；③ 既有 P0 比对白名单（fault_vs_baseline / closed_loop_vs_monitor_only）零变化（additive 第三关系）；④ 既有 Run 的比对结论永不静默改判（面⑥ additive 确认句式）。
+`cross_fidelity_l0_vs_l1_fmu`：两 Run 标记 comparable（comparison_kind="cross_fidelity"）当且仅当共享相同 system_id="FC-001"、fault_family、feedback_mode、t_fault_s、fault_magnitude、duration_s，且 Run A model_provenance="analytical_demo"（L0）、Run B model_provenance="fmu_l1_lumped_unvalidated"（L1-FMU）。**登记**：① 谓词依赖 provenance 新值（Q2 联动——候选 B 下不可成立）；② actuator 局结构性不可比（§2.2 登记）；③ 既有 P0 比对白名单（fault_vs_baseline / closed_loop_vs_monitor_only）零变化（additive 第三关系）；④ 既有 Run 的比对结论永不静默改判（面⑥ additive 确认句式）；⑤ **跨保真可比性三缺口登记（评审 A P2-2——设计属性非遗漏）**：(a) 幅值单位错型——L0 sensor_drift 真值口径为 bias_A（A）而 FMU 轨为 b_p_ca（kPa）/b_V_water（mL），fault_magnitude 相等谓词在跨轨天然不可满足 ⇒ sensor_drift 局跨保真比对结构性排除（与 actuator 局同款设计属性）；(b) 零共享观测通道——L0 盲通道（I_fc_meas_A 等）与 FMU 轨新通道（p_ca_meas_kPa 等）无交集 ⇒ comparable 标记承载**族级可解释性对齐**而非序列级数值比对（教学面经因果规则卡承载，不虚设序列对比）；(c) 注册面路径勘误——原文 `src/core/compare.js` 于本仓无此文件，比对关系实位 `src/ui/pages/compare.js`（注册面实现轮以实位为准，映射登记）。
 
 ## 3. 锚点与包络
 
@@ -323,7 +338,7 @@ D-11 剥离纪律适用，§6.3。）
 | FC-Run-1 | 全轨恒 = §3.1 标称点（解析恒等——非数值仿真产物） | 解析精确值（§3.1 表） |
 | FC-Run-2 | N₂ 累积 → y_O2 稀释 → 电压衰减（单调结构） | 批准轮 emit 冻结 |
 | FC-Run-3 | true 通道与 FC-Run-1 标称轨恒等（b 不进物理回路——monitor 不变量） | 批准轮 emit 冻结（预判 max\|Δ\|=0 结构判据——emit 复算） |
-| FC-Run-4 | 储水体积升穿 300.0 mL（θ_cap 破 0.60）→ 二次饱和项触发非线性极化降 | 批准轮 emit 冻结 |
+| FC-Run-4 | 闭环平衡趋近 V_water = 280.0 mL（θ_cap = 0.56）；t = 60.0 s 内 θ_max ≈ 0.516——二次饱和项零触发（P1 修正后口径；emit 复算核验） | 批准轮 emit 冻结 |
 | FC-Run-5 | 储水体积持续上升 + u_drain 趋向饱和 0.95（全通道 20.0 s 零跳变） | 批准轮 emit 冻结 |
 
 包络登记：θ_cap ∈ [0,1] 值域由 EQ-FCFMU-9 结构承载（V_water_store > V_cap_max 行为未定义
@@ -340,11 +355,11 @@ D-11 剥离纪律适用，§6.3。）
 | 5 | 自检预案 | 新段 **FMU-1…n（Q6 不定案——候选 FMU-x / FCFMU-x）**：FMU-1 环境校验（标称点解析恒等复算）；FMU-2 恒等式（r_meas ≡ b·𝕀 逐点 / 分压和恒等 / θ_cap 定义恒等）；FMU-3 网格与事件相位（601 点、t[i]=i·0.1、pre=left_limit/post=post_sample 语义——Q1 联动）；FMU-4 锚点全表复算（§3.1 十九值）；FMU-5 monitor 不变量（Run-3 true 通道 ≡ 标称轨）；FMU-6 半步自收敛登记（δt=0.01 vs 0.005——判据按实测 ×≥10 冻结制）；FMU-7 无 NaN/Inf + 值域抽查（θ_cap∈[0,1]、u∈[0.05,0.95]） |
 | 6 | 元数据（schema v2） | golden_schema_version="v2"；golden_id="fc001_fmu_v1"；model_id = 自述新值（Q13）；method_id 提案 "fc001_fmu_l1_rk4_dt0.01"；engine_baseline=null；backend 留位；**SERIES_IDS 终值以 emit 实测核对为准（§3.1 十九变量 + t + u_an 若裁定补入——不预断）**；approval 三字段首签引批准 CHG（首签时点 = FCFMU-G2b-03 emit） |
 | 7 | 容差 tier（Q9 不定案） | **推荐 T-B**（同法 RK4、跨语言双实现 C99/Python——FLTH/FC/GTL1 同制；跨语言位级承诺禁令维持）。**R-G9-02「rtol ≤1e-9」张力登记**：1e-9 为数值容差承诺（非位级——与禁令不冲突），但须 emit 轮以双实现实测散差 × 安全系数 ≥10 冻结实际 gate 值；若实测散差 >1e-9 ⇒ 停下显式 CHG 重议 R-G9-02 口径（原文硬值与实测制度冲突处置预案——双向登记）；parity 归属：verify_golden Python-Python 部分走既有 T-B 链 + **C-Python parity 为独立机检**（oracle --parity 子命令或 fmu_runner 探针步——Q17 归属裁定；编译产物缺位环境 SKIP 语义显式裁定——V312 §9 ⑥ 可选步先例） |
-| 8 | gate 键面缺口预登记（Q15——显式硬项） | fc001_fmu_v1 序列含 *_mL（V_water_store_true_mL / V_water_store_meas_mL / r_meas_water_mL）与无量纲键（y_O2_ca_true / cap_water_ratio_true / cap_water_ratio_est / u_o2_valve_cmd / u_drain_valve_cmd）——verify_golden T-B 分派链实读（:320-357）**无 `_mL` 支、无无量纲支** ⇒ 落 f_Hz_atol 兜底而 gate 块无 f_Hz_atol 键 ⇒ KeyError（fail-loud——FLCAP A-4/B-1 勘正同构：兜底键缺失形态）；`_kPa` 支既有（:320-321 p_kPa_atol——压强族可直接复用）。实现轮 additive：新增 `_mL` 分支（置于 `_kPa` 后）+ 无量纲键面（专用 gate 键或信号尾缀命名调整——二选一批准轮定）；FCECH `_V` / FLCAP `_kWh` 分支先例同构（既有键路由零变化证明随实现提交） |
+| 8 | gate 键面缺口预登记（Q15——显式硬项；**B-1 三分支精确口径（评审 B P1 修正）**） | fc001_fmu_v1 序列含 *_mL（V_water_store_true_mL / V_water_store_meas_mL / r_meas_water_mL）与无量纲键（y_O2_ca_true / cap_water_ratio_true / cap_water_ratio_est / u_o2_valve_cmd / u_drain_valve_cmd）——T-B 分派链逐键路由**三分支实况**（评审 B python -I 逐键复刻）：① V_water_store_true_mL / V_water_store_meas_mL + 五个无量纲键 ⇒ **无 `_mL` 支、无无量纲支 → f_Hz_atol 兜底 → gate 块无 f_Hz_atol 键 ⇒ KeyError（fail-loud——FLCAP A-4/B-1 兜底键缺失形态）**；② **r_meas_water_mL 命中 `r_meas` 子串判别支（verify_golden.py:324-325——先于兜底）⇒ 走 r_meas_kW_atol（kW 容差用于 mL 的静默量纲错型）——非 KeyError**（fc001_v2 gate 实测含 r_meas_kW_atol 键——沿其风格将无任何报错地错型路由；该形态较 fail-loud 更需显式排除）；③ 六个 `_kPa` 键走既有 `_kPa` 支（:320-321）**无条件读取 p_kPa_atol——新 gate 块须显式声明该键**（P3-3：fc001_v2 gate 实测不含 p_kPa_atol，缺声明 = 同形态 KeyError）。实现轮 additive：**新增 `_mL` 分支（gate 键 V_mL_atol 条件激活）插入点显式钉死 = 置于 `_kPa` 支后、`r_true`/`r_meas` 子串判别之前**（同时正确路由三分支之①②——②的错型路由一并修复）+ 无量纲键专用 gate 支（**定案：尾缀判别 `endswith("_true") ∨ endswith("_est") ∨ endswith("_cmd")` + 专用 gate 键 dim_atol 显式声明支**，置于 `_kWh` 支后、f_Hz_atol 兜底前；仅当 gate 声明 dim_atol 时激活——覆盖 y_O2_ca_true / cap_water_ratio_true / cap_water_ratio_est / u_o2_valve_cmd / u_drain_valve_cmd 五键，且既有 golden 无此三尾缀 id、gate 无 dim_atol 键 ⇒ 既有键路由逐字节不变——FCECH `_V` / FLCAP `_kWh` 条件支先例同构）；既有键路由零变化证明随实现提交 |
 | 9 | verify_golden 注册 | MODELS["fc001_fmu"] 注册行（键名 = R-G9-02 命令原文 `python scripts/verify_golden.py fc001_fmu` 给定——确认项）+ **DEFAULT_MODELS 追加（Q7）**（verify_golden.py:278 现值五成员——FL/FC 先例形态：步① 无参调用序列尾追加 + 步① label 滞后说明沿用——FC §4 项 8 B-5 同款）；MODELS["fc001"]/["fc001_l1"] 继续验 fc001_v1/v2 零改动（FLTH §4 项 7 同构——条目重指向不适用） |
 | 10 | 两门禁面（FLTH B-2 同构） | ① golden↔oracle verify（V-01…V-09 全链——601 点逐点 + V-09 事件 pre/post 快照比对）+ C-Python parity（R-G9-02——**数值与实现自洽声明 only**，§1.8 措辞边界）；② FMU 轨验收路由：fc001_fmu_v1 emit verify 通过前 FMU 轨不进任何 approved 路径/跨保真比对 enable（I-4 批准纪律——不静默）；预烘焙兜底 bundle 与 golden 字节同源（adapter file:// 模式只读） |
-| 11 | 验收命令承接（R-G9-02/03/04——G9 §4.2 逐字） | `python tools/oracle/fc001_fmu_oracle.py --self-check`；`python scripts/verify_golden.py fc001_fmu`（5 Run 全过、C-Python max rtol ≤1e-9——Q9 张力登记）；R-G9-03 三次执行 run_hash/EvidenceBundle 校验和恒等（fmu_sha256 钉 V312——CHG 项）；R-G9-04 copy-guard exit 0（Q11 增词联动）；R-G9-01（I-11 S3 位级——12 基线配置逐位）= V170 W3 主线承载面，非本规格工作面 |
-| 12 | 预期失效面 | 新增 data/golden/fc001_fmu_v1.json(+.sha256) + data/fmu/fc001_l1_v1.fmu（打包档案）；既有 12 golden 字节零变更；EvidenceBundle v1.1 fmu_sha256 additive；V312 钉 hash CHG；run-g2 步账 CHG；copy-guard 增词；FAULT_CATALOG §5 注记行（FC FMU 第三轨）；causal-rules/compare 注册 |
+| 11 | 验收命令承接（R-G9-02/03/04——G9 §4.2 逐字；**R-G9-04 口径仓内化注记 B-3**） | `python tools/oracle/fc001_fmu_oracle.py --self-check`；`python scripts/verify_golden.py fc001_fmu`（5 Run 全过、C-Python max rtol ≤1e-9——Q9 张力登记）；R-G9-03 三次执行 run_hash/EvidenceBundle 校验和恒等（fmu_sha256 钉 V312——CHG 项）；R-G9-04 copy-guard exit 0（Q11 增词联动；**Q18 定案口径**：原文「四域零出现」vs copy-guard SCOPES=['src'] 缺口——仓内化 = src/** 域 copy-guard 机检 + tools/docs 域 grep 抽检（当前零命中实读）+ FaultLab-evaluation 域禁词定义性引用豁免（3 文件含四词字样——本规格/G9 落档/V170_WAVE_DESIGN，属证据引用域），见 §11 Q18）；R-G9-01（I-11 S3 位级——12 基线配置逐位）= V170 W3 主线承载面，非本规格工作面 |
+| 12 | 预期失效面 | 新增 data/golden/fc001_fmu_v1.json(+.sha256) + data/fmu/fc001_l1_v1.fmu（打包档案）；既有 12 golden 字节零变更；EvidenceBundle v1.1 fmu_sha256 additive；V312 钉 hash CHG；run-g2 步账 CHG；copy-guard 增词（**连带 tests/teaching.test.js:264 BANNED.length===39 镜像断言同步 39→43——P3-4 交付要件**）；**fc001_fmu_v1 gate 块显式声明 p_kPa_atol（P3-3——`_kPa` 支无条件读取）+ dim_atol（Q15 定案）+ V_mL_atol（Q15 定案）**；FAULT_CATALOG §5 注记行（FC FMU 第三轨）；causal-rules 注册（实位 src/core/causal-rules.js）与比对注册（实位 src/ui/pages/compare.js——路径勘误见 §2.5⑤(c)） |
 
 ## 5. G2b 排期与串行节奏
 
@@ -412,7 +427,7 @@ src/** 前逐句预检 + copy-guard 终检双保险。）
 | R-2 | 601/602 裁定翻转为 602 行（breaking 涟漪） | Q1 推荐 (A) 三层佐证（冻结面原文/golden 管线既有/MG 先例）；如批准轮采 (B) ⇒ major 五件套义务全量启动（§1.5 登记） |
 | R-3 | actuator/sensor 族参数扩展被误读为既有族语义变更 | B-1a 显式键 + 缺省轨逐位不变验收（既有 FC 场景 scenarioHash/run_hash 零变化——§1.7/§2.3）+ 既有 golden 比对面零变化 |
 | R-4 | 微重力词面触碰 copy-guard（R-G9-04 门禁失败） | G0-V05-DEC-03 禁词预检（§6.3）+ 转写全程「储水体积/储水容量比」词面 + Q11 入表与文案同轮落地 + 终检兜底 |
-| R-5 | gate 键面缺口（_mL/无量纲）emit 时 KeyError | Q15 已预登记为显式硬项（fail-loud 形态实读确认）+ 实现轮 additive 分支 + 既有键路由零变化证明 |
+| R-5 | gate 键面缺口（_mL/无量纲）emit 时路由异常 | Q15 已预登记为显式硬项 + **B-1 三分支精确口径（评审 B P1 修正）：两个 V_water `_mL` 键 + 五个无量纲键 = f_Hz_atol 兜底 KeyError（fail-loud）；r_meas_water_mL = `r_meas` 子串支 kW 容差静默错型（非 KeyError——比 fail-loud 更需显式排除）** + 实现轮 additive 分支（`_mL` 支插于子串判别前 + dim_atol 支）双修复 + 既有键路由零变化证明 |
 | R-6 | V312 FROZEN 与 provenance 新值冲突阻塞 | Q2 候选 (A) 附显式 CHG 例外登记路径（作用域限缩解释 + 批准轮打包）——不静默绕过 FROZEN 纪律 |
 | R-7 | 编译环境不可用/平台矩阵缺位阻塞实现 | Q10 批准轮先行裁定（本草案不定）+ fmu_admission PLATFORM_DIRS 五平台面既有 + 预烘焙兜底使浏览器面不依赖编译产物 |
 | R-8 | 步数账超支（I-7） | parity 步环境依赖显式登记（SKIP 语义裁定——V312 §9 ⑥ 先例）+ 批准轮 CHG 申报归口（Q17）——不静默扩账 |
@@ -424,13 +439,27 @@ src/** 前逐句预检 + copy-guard 终检双保险。）
 | 路 | 范围 | verdict | 关键结论 |
 |---|---|---|---|
 | 评审人 A（物理/数值） | EQ-FCFMU 自洽与量纲、稳态点复算、RK4 制度、parity 制度、5 Run 结构、包络值域 | **PASS_WITH_CONDITIONS(7)（2026-11-15 W2a 已回填——见 10.2）** | 稳态点解析闭合精确成立（19 值独立代入全闭合）；转写保真度全面核实（23 方程/19 参数/19 稳态值/Run 步进值/因果六节/epistemic declaration 逐字）；**1 P1：Run-4 行为声明被自身方程证伪**（闭环平衡 280 mL、θ_max≈0.516、二次项零触发——θ>0.60 叙事实属 Run-5 t≈47 s；G9 原文内部不一致被草案逐字承袭）；2 P2（残差定义式 pre 相位矛盾——原文缺陷转写保真；跨保真可比性三缺口：单位错型/零共享信号/路径勘误）；4 P3 |
-| 评审人 B（治理/契约面） | 八面 additive 核对、B-1a 键面、golden 治理与 verify_golden 注册面、V312 准入、步数账、copy-guard | **主线治理复核（部分）+ 独立评审 B 待补**：2026-11-15 主线复核（Lead Agent——非独立双路，独立评审 B 待 v1.8.0 批准轮补位或用户另派）抽查通过——supersedes=null 并列轨治理形态、V312 FROZEN 修订纪律（Q17）、四禁词增补 Q11（实读 BANNED 39 不含 + src/** 0 命中）、「FMU 结果」已在 BANNED（:37）与 sealed 散文禁用（D-11）两项硬约束发现、provenance 准入张力（Q2）、601/602 行（Q1）七项预裁定承接完整 | 独立评审 B 结论待补位后回填 |
-| 用户批准 | Q1…Q17 定案 + C99 编译环境 + 容差/步账冻结 | （待批准轮回填） | （待回填——批准记录 = 用户指令链 CHG） |
-| 用户批准 | Q1…Q17 定案 + C99 编译环境 + 容差/步账冻结 | （待批准轮回填） | （待回填——批准记录 = 用户指令链 CHG） |
+| 评审人 B（治理/契约面） | 八面 additive 核对、B-1a 键面、golden 治理与 verify_golden 注册面、V312 准入、步数账、copy-guard | **PASS_WITH_CONDITIONS(3)（2026-11-15 独立评审 B 补位——W2b 子代理，与评审 A 互不可见；报告 = evidence/g2b/FCFMU_G2B_REVIEW_B.md）** | 八面 additive/B-1a 键面/V312 准入/步数账/copy-guard 预查五项实读全过；**1 P1**：§4 项 8 分派链追踪对 r_meas_water_mL 失实——该键实命中 `r_meas` 子串支走 r_meas_kW_atol（kW 容差静默量纲错型），非草案所述 f_Hz_atol 兜底 KeyError（python -I 逐键复刻；V_water 两 `_mL` 键 + 五无量纲键兜底 KeyError 断言实跑确认成立）；2 P2（V1_FACES:184-186 锚点指向语义相反文本段、R-G9-04 四域口径与 copy-guard SCOPES=['src'] 缺口未登记）；6 P3；条件 B-1…B-3 全部落正文（§10.2）；Q 意见表：Q1/Q3/Q7/Q13/Q17 同意推荐、Q2/Q9/Q11/Q15 有条件同意（条件均已兑现） |
+| 用户批准 | Q1…Q18 定案 + C99 编译环境 + 容差/步账冻结 | **批准（2026-11-15，CHG-20261115-10）** | 用户 2026-11-15 v1.9.0 承接清单（六项待办）+ G9 emit 前置 **AskUserQuestion 裁定「收口批准轮后 emit」**（裁定记录于 V190_WAVE_DESIGN DEC-2 / CHG-20261115-09）——Q1…Q18 全按推荐定案（§11；Q12 键面机制部分经评审 B 实读佐证）；C99 编译环境 = Q10 定案「按用户环境实况裁定」（本波复测 gcc/cc/cl 均不可用——阻塞维持，工具链到位后按 Q10 候选面裁定）；容差 = Q9(a) T-B + emit 轮实测 ×≥10 冻结；步账 = Q17(a) |
 
-### 10.2 条件处置追记
+### 10.2 条件处置追记（FCFMU-G2b-02 收口回填——体例沿 FC §10.2）
 
-（留空——A-1…A-n / B-1…B-n 逐项「条件 → 处置 → 落点」表于评审收口后回填，体例沿 FC §10.2。）
+| 条件 | 内容 | 处置 | 落点 |
+|---|---|---|---|
+| A-1（评审 A P1） | Run-4 行为声明被自身方程证伪——闭环平衡 280 mL / θ_max≈0.516 / 二次项零触发；θ>0.60 叙事属 Run-5 t≈47 s | **采纳落正文** | §2.1 Run-4 行修正 + §3.2 Run-4 行修正 + §2.4 FC_RULE_04 注记 |
+| A-2（评审 A P2-1） | 残差定义 pre 相位矛盾——EQ-14 `phase≠pre` 门 vs EQ-22/23 RHS 无条件（原文缺陷逐字承袭） | **裁定落定**：pre 行 = 左极限时点求值 ⇒ 𝕀=0，两式数值一致；矛盾读法（pre 行 t=20.0≥t_fault）被 Q1(A) 排除 | §1.3 裁定注记段（FMU-2 自检按此复算） |
+| A-3（评审 A P2-2） | 跨保真可比性三缺口：幅值单位错型 bias_A vs kPa/mL + 零共享观测通道 + compare.js 路径勘误 | **采纳登记为设计属性** | §2.5⑤(a)(b)(c)（compare 实位 = src/ui/pages/compare.js） |
+| A-4（评审 A P3-1） | ZOH 语义显式化 | **采纳**：Δt=0.1 通信步内控制指令/故障参数零阶保持（ZOH）语义于数值方法段显式 | §1.3 数值方法注记（emit 轮实现对齐） |
+| A-5（评审 A P3-2） | 事件快照变量覆盖钉（pre/post 快照 19 变量覆盖面） | **采纳**：快照变量覆盖 = §3.1 十九变量全集（u_an 裁定补入后二十键——Q16） | §3.1 表 + §4 项 6 |
+| A-6（评审 A P3-3） | 教学尺度注记 | **采纳**：教学面经 sealed/blind 分域 + 因果六节承载；标注为集总参数演示尺度 | §1.8（epistemic declaration 既有承载） |
+| A-7（评审 A P3-4） | θ_cap 值域措辞（V_water > V_cap_max 行为未定义） | **采纳落正文** | §3.2 包络登记段（域守卫为实现轮裁定面——原文既有） |
+| B-1（评审 B P1） | §4 项 8 分派链三分支精确改写（r_meas_water_mL 静默错型形态）+ `_mL` 支插入点钉死 + dim 支定案 | **采纳落正文** | §4 项 8 + §9 R-5 + Q15 定案 |
+| B-2（评审 B P2-1+P3-1/2/5） | 引用锚点校正四处（V1_FACES:197-198、engine.js 陈旧锚注记、scenario.js :430-447 注记、12 golden 计数偏差注记） | **采纳落正文** | §1.7 + §1.2 + §0 不做清单项 2 |
+| B-3（评审 B P2-2） | R-G9-04 四域口径缺口显式登记 + 仓内化裁定 | **采纳落正文**（新 Q18 + 定案：src/** 机检 + tools/docs grep 抽检 + FaultLab-evaluation 定义性引用豁免） | §4 项 11 + §11 Q18 |
+
+（评审 A 条件 A-1…A-7 系其 7 项发现的条件化编号——1 P1 + 2 P2 + 4 P3，与 §10.1 评审 A 行及
+CHG-20261115-04 波次记录（71056ae 提交信息存档）一致；评审 A 无独立报告文件，以其 §10.1
+回填行 + 波次记录为原始载体，本表即其条件处置的首次逐项落点登记。）
 
 ## 11. Q 点清单（**全候选 + 推荐——不定案**；定案于 FCFMU-G2b-02 批准轮，MG-DRAFT-Q 体例）
 
@@ -453,26 +482,55 @@ src/** 前逐句预检 + copy-guard 终检双保险。）
 | Q15 | gate 键面缺口（_mL/无量纲键） | (a) verify_golden additive 新增 `_mL` 分支 + 无量纲专用 gate 键；(b) 信号尾缀改名规避 | **(a)**——schema_id 与原文 §2.3 逐字一致优先（跨保真/文档对齐）；分派支 additive 既有键路由零变化证明随实现提交 |
 | Q16 | 方程转写缺口三件（u_an closed_loop 取值 / nom 四常量字典归属 / 残差两口径） | 逐件：补字典 + 显式裁定（推荐）vs 留派生常量登记 + 按原文双保留 | **补字典 + 裁定**——u_an 按「维持 0.50」转写待批；nom 四值按标称点解析派生补入；残差以 §2.2.3 为准、FC_RULE_06 括注登记 |
 | Q17 | run-g2 步账（I-7）+ fmu_sha256 钉 hash + parity 归属 | (a) parity 独立步（SKIP 语义显式）+ 钉 hash CHG + 步账扩账申报；(b) parity 并入 verify_golden | **(a)**——parity 依赖编译产物（环境依赖显式化）；V312 FROZEN 修订纪律 + 勘误②③④ 一次打包 |
+| Q18（B-3 增设——批准轮新增） | R-G9-04 四域口径 vs copy-guard SCOPES=['src'] 缺口仓内化 | (a) exit 0 = src/** 域机检 + tools/docs 域 grep 抽检登记 + FaultLab-evaluation 定义性引用豁免；(b) 扫描域 additive 扩张（SCOPES 扩四域）；(c) 原文四域表述勘误化 | **(a)**——面⑧「当前实现只扫 src/**——边界即承诺」原文实读；扫描域扩张波及全库词面审计（涟漪不成比例）；FaultLab-evaluation 三文件（本规格/G9 落档/V170_WAVE_DESIGN）含四词字样系禁词定义性引用（转写义务），豁免登记如实 |
 
-**定案记录**：（留空——FCFMU-G2b-02 批准轮回填；全部 Q 点按用户裁定/推荐采纳后随本规格
-冻结，实现轮不再重开——如实现中证明不可行，停下显式 CHG。）
+**定案记录（FCFMU-G2b-02 批准轮，2026-11-15，CHG-20261115-10——全部按推荐定案；实现轮不再重开，如实现中证明不可行停下显式 CHG）**：
+- **Q1 = (A)**：601 点 + 事件快照相位承载（pre=left_limit / post=post_sample）——CONTRACT §4.6 冻结面零触碰；golden 管线/V-09/MG 双快照先例全链兼容；零 breaking。
+- **Q2 = (A)**：additive 档位 `fmu_l1_lumped_unvalidated` + V312 显式 CHG 例外打包（Q17）——条件兑现：P3-6 差异（A-4 docstring 纪律 vs admit() 未机检）随 CHG 一并处置（A-4 纪律文本同步修订登记）。
+- **Q3 = (a)**：actuator_fault 族参数扩展（target 显式可选键缺省 = 既有 valve 语义逐位不变 + B-1a 纪律）；FC-Run-5 显式 target='drain_valve'、α_drain=0.45。
+- **Q4 = (a)**：EQ-FCFMU-1…23 顺序编号冻结表（23 条独立编号逐字对齐原文式数）。
+- **Q5 = 确认**：oracle 命名 `tools/oracle/fc001_fmu_oracle.py`（原文给定）。
+- **Q6 = (a)**：自检段名 FMU-1…n。
+- **Q7 = (a)**：DEFAULT_MODELS 尾追加 "fc001_fmu"（步① 无参调用六 golden 顺序验证；label 滞后说明沿 V120 DEC-5 先例维持登记）。
+- **Q8 = 5 Run 全集**（原文白名单直接定义）。
+- **Q9 = (a)**：T-B 容差 tier + parity 独立机检；1e-9 为数值容差承诺（非位级）——gate 实际值以 emit 轮双实现（Python↔Python 先行）实测散差 × 安全系数 ≥10 冻结；C-Python parity 待编译产物（Q10 解锁后），实测超限停下显式 CHG 重议 R-G9-02 口径。
+- **Q10 = 按用户环境实况裁定**：2026-11-15 本波复测 gcc/cc/cl 均不可用——C99 编译/parity/FMU 打包阻塞维持；预烘焙 JSON bundle 兜底路径 = G0-V05-DEC-01（file:// 模式 golden 档案只读）已裁定采行；工具链到位后按候选面（MinGW-w64 双平台 / MSVC win64 先行 / 单平台先行）裁定补做。
+- **Q11 = (a)**：禁词四词（水位/液位/water level/liquid level）入 BANNED（全局入表 39→43）+ deviations.md 记录 + tests/teaching.test.js:264 镜像断言同步（P3-4）；时点 = FCFMU-G2b-04（随 FMU 文案落地同轮）。
+- **Q12 = (a)**：feedback_mode 枚举 additive 单新值 `baseline` + G9 `monitor_only` → 仓内既有 `monitor` 映射（EQ-FCFMU-18 两模式语义等价承载；名称差异映射登记）。
+- **Q13 = (a)**：FMU 轨选择 = plant adapter 层绑定（场景零新键）；model_id 自述 **fc.pem.fmu_l1**；model_version **'1.0.0'**（新轨首版——fc.pem.l0 先例 1.0.0 同构；golden 元数据同值，轨语义由 golden_id/model_id 承载）。
+- **Q14 = (a)**：sensor_drift 双偏置目标 additive 可选参数（target 通道 + 单位随目标；缺省轨逐位不变）。
+- **Q15 = (a)**：verify_golden additive 新增 `_mL` 分支（gate 键 V_mL_atol；插入点 = `_kPa` 后、`r_true`/`r_meas` 子串判别前——B-1 钉死）+ 无量纲 dim_atol 条件支（尾缀 `_true`/`_est`/`_cmd`；置于 `_kWh` 后、兜底前）；schema_id 与原文 §2.3 逐字一致优先；既有键路由零变化证明随实现提交。
+- **Q16 = 补字典 + 裁定**：u_an 于 closed_loop 域按「维持 0.50」转写定案；p_O2_nom=120.0 / p_N2_nom=50.0 / p_H2_nom=180.0 / u_o2_nom=0.50 四常量按标称点解析派生补入字典；残差以 §2.2.3 为准、FC_RULE_06 括注登记（§1.3 裁定注记段）。
+- **Q17 = (a)**：parity 独立机检步（SKIP 语义显式——V312 §9⑥ 先例）+ fmu_sha256 钉 V312 须 CHG + 步账扩账显式申报；勘误②③④ 一次打包。
+- **Q18 = (a)**：R-G9-04 仓内化 = src/** copy-guard 机检 + tools/docs grep 抽检 + FaultLab-evaluation 定义性引用豁免（B-3）。
 
 ---
 
 **修订记录**：
 - v0.1（2026-11-15 初稿，V170 波阶段一 W1 / CHG-20261115-04 授权链）：全文初稿——G9 原文
   逐字保留声明 + 逐条映射表；§0 边界 + 勘误头七项承接表（§0.1）；§1 模型形态（三层架构 /
-  工件身份 / EQ-FCFMU-1…23 冻结表草案 / 19 参数字典 / 两核心裁定点对照 / B-1a 键面 /
+  工件身份 / EQ-FCFMU 冻结表草案 / 19 参数字典 / 两核心裁定点对照 / B-1a 键面 /
   epistemic declaration 转写）；§2 影响面（5 Run 矩阵 + actuator 裁定点 / 白名单与哈希 /
   因果六节 / 跨保真白名单）；§3 锚点与包络（19 变量稳态表解析精确值 / 轨迹结构——数值留
   批准轮）；§4 golden 计划十二项（gate 键面缺口预登记 / R-G9-02 张力登记）；§5 排期；
   §6 红线自查 + copy-guard 预查（BANNED 39 现值实读——四词入表 Q11）；§7 进入条件；
   §8 工作面 FCFMU-G2b-01…04；§9 风险 R-1…R-8；§10 评审记录留空；§11 Q1…Q17 不定案。
+- **v1.0（2026-11-15 批准轮收口，FCFMU-G2b-02 / CHG-20261115-10）**：双路独立评审 A
+  （PASS_WITH_CONDITIONS(7)）+ B（PASS_WITH_CONDITIONS(3)——evidence/g2b/FCFMU_G2B_REVIEW_B.md）
+  + 用户书面批准（AskUserQuestion 裁定链）；条件 A-1…A-7/B-1…B-3 全部落正文（§10.2）；
+  Q1…Q18 全按推荐定案（§11 定案记录——Q18 = B-3 增设）；评审 A P1 修正（Run-4 行为声明
+  ——§2.1/§3.2/§2.4）；残差 pre 相位矛盾裁定（§1.3 注记段）；跨保真可比性三缺口登记
+  （§2.5⑤——compare 实位路径勘误）；gate 键面三分支精确口径 + `_mL`/dim 支插入点钉死
+  （§4 项 8/§9 R-5）；锚点四处校正（B-2）；R-G9-04 仓内化口径（Q18）；头部/状态由 DRAFT
+  v0.1 升 APPROVED v1.0（git mv 更名——GT001_COMBUSTION_G2B_SPEC_APPROVED 先例同款）。
 
-**状态 `DRAFT v0.1`**：待双路独立评审（W2a/W2b）+ 用户书面批准（v1.8.0 批准轮 FCFMU-G2b-02）。
-本草案为零实现承诺文本（零代码/golden/oracle 触碰）；Q1…Q17 不定案；原文自带 APPROVED 已降级
-DRAFT（本仓治理链不自动生效）；本规格批准前不打开任何验收路径（§4 项 10 两门禁面）。
+**状态 `APPROVED v1.0`**：FCFMU-G2b-02 批准轮收口（2026-11-15，CHG-20261115-10——双路
+独立评审 + 用户书面批准 + 条件落正文 + Q 定案）。实现面（FCFMU-G2b-03 oracle emit /
+G2b-04 C99 编译）随用户逐版本指令派发；验收路径两门禁面（§4 项 10）自 fc001_fmu_v1 emit
+verify 通过起开放；C99 编译/parity/FMU 打包按 Q10 定案阻塞维持（工具链或预烘焙路径裁定
+已采 G0-V05-DEC-01）。
 
-**文件结束**。FC001_FMU_G2B_SPEC_DRAFT v0.1（2026-11-15，V170 波 W1，起草授权
-CHG-20261115-04）。本草案为 G9 原文（§2 全部）的仓内 G2b 化转写——原文以落档文件为唯一
-载体逐字保留；批准轮收口后方可实现（v1.8.0，含 C99 编译——编译环境批准轮裁定）。
+**文件结束**。FC001_FMU_G2B_SPEC_APPROVED v1.0（2026-11-15，FCFMU-G2b-02 批准轮收口，
+CHG-20261115-10；原 FC001_FMU_G2B_SPEC_DRAFT v0.1 由本批准升格更名）。本规格为 G9 原文
+（§2 全部）的仓内 G2b 化转写——原文以落档文件为唯一载体逐字保留；Q1…Q18 已定案冻结，
+实现轮不再重开（如实现中证明不可行，停下显式 CHG）。

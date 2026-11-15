@@ -394,6 +394,141 @@ const BASE = makeBase();
     + '）。该实测值随本测试发布（协议 §6.3/QP-4）。');
 })();
 
+/* =========================================================
+ * G10 Arena L2 增补（V190 CHG-20261115-09/-10；编号重基线——G10 原文 N-B18..N-B20
+ * 与 V150 O-1 已占用的 N-B18/N-B19 撞号 ⇒ 仓内 N-B20..N-B23；原文 N-B13+ 词面
+ * → N-B23 提交侧 + copy-guard src/** 面。tools/arena-l2-core.mjs 共享核心单源。）
+ * ========================================================= */
+(() => {
+  const L2 = require('../tools/arena-l2-core.mjs');
+  const { createHash } = require('crypto');
+  const reseal = (sub) => {
+    const body = clone(sub);
+    delete body.submission_sha256;
+    body.submission_sha256 = createHash('sha256').update(JSON.stringify(body), 'utf8').digest('hex');
+    return body;
+  };
+
+  /* L2 夹具：FL-001 sensor_drift 单 episode（t_fault=20） */
+  const seed = 31415;
+  const config = FL.systems.defaultConfig('FL-001');
+  config.feedback_mode = 'closed_loop';
+  config.initial = clone(config.initial || {});
+  config.noise = { enabled: false, seed: seed >>> 0, level: 0 };
+  const faultDef = FL.systems.fault('FL-001', 'sensor_drift');
+  const magnitude = AP.magnitudeFromRoll(0.5, faultDef);
+  config.fault = { family: 'sensor_drift', faultId: faultDef.id, t_start_s: 20, params: { magnitude } };
+  const run = core.simulate(config);
+  const obs = AP.blindObservables(run);
+  const episode = L2.buildL2Episode(1, run, obs);
+  const sc = { config, healthy: false, family: 'sensor_drift', faultDef, faultId: faultDef.id,
+    magnitude, unit: faultDef.params && faultDef.params[0] ? faultDef.params[0].unit : '',
+    tStart: 20, feedbackMode: 'closed_loop',
+    expectedComponent: (FL.systems.get('FL-001').faultAnchors || {}).sensor_drift || 'none' };
+  const truth = AP.deriveTruth(sc, run);
+  truth.rule_id_onset = 'n1';
+  truth.rule_id_propagation = 'n3';
+  const pack = { schema: L2.L2_SCHEMA, bundle_kind: 'arena_blind_l2', arena_version: '2.0',
+    systemId: 'FL-001', testset_id: AP.newTestsetId('FL-001', 1), match_id: AP.newMatchId(),
+    episodes: [episode],
+    query_budget: { b_max_points: 180, b_min_points: 45, cost_rule: 'k_variables_x_m_rows' } };
+  const reveal = { schema: 'faultlab.arena.reveal.v1', testset_id: pack.testset_id,
+    match_id: pack.match_id, mapping: [{ round: 1, truth }] };
+  const obsIds = obs.map((o) => o.id);
+
+  eq(L2.validateL2Pack(pack).ok, true, 'L2-fix: 盲包结构 + closed-white + 预算常量钉通过');
+  ok(episode.high_res_store.rows.length === 602
+    && episode.high_res_store.boundary_rows.length === 2
+    && episode.coarse_beacon.rows.length === 31,
+    'L2-fix: 602 行（601 网格 + pre 边界行）+ 边界行成对 + 31 行 2.0 s 粗网格');
+  const b0 = episode.high_res_store.boundary_rows[0];
+  const b1 = episode.high_res_store.boundary_rows[1];
+  ok(b0.phase === 'pre' && b0.derivation === 'left_limit' && b1.phase === 'post'
+    && b1.derivation === 'post_sample',
+    'L2-fix: 边界行 pre=left_limit / post=post_sample（G10 §3.1②）');
+
+  /* 正常会话：边界行永不跳过 + 代价公式 + 预算硬帽（原文 N-B19 → 仓内 N-B21 面） */
+  const session = L2.createL2Session(pack);
+  const trig = 20.0;
+  const s1 = session.sliceTelemetry(episode.episode_id, obsIds.slice(0, 4), trig - 0.4, trig + 0.4, 5);
+  ok(s1.boundary.length === 2, 'L2: 边界行永不跳过（stride=5 仍返回 2 边界行）');
+  eq(s1.cost_points, 4 * s1.rows.length, 'L2: cost_points = K×M');
+  let e19 = null;
+  try {
+    const s3 = L2.createL2Session(pack);
+    while (true) s3.sliceTelemetry(episode.episode_id, obsIds.slice(0, 4), 0, 0.1, 1000000);
+  } catch (e) { e19 = e; }
+  ok(e19 && e19.code === 'L2-E19', 'N-B21 预算硬帽拒收（B_max=180，L2-E19）');
+
+  /* 正例：真实账本 + 接地锚点 → V-11a/b + S_diag=50 */
+  const s2 = session.sliceTelemetry(episode.episode_id, obsIds.slice(0, 2), trig + 1, trig + 11, 10);
+  const sub = session.exportSubmission({ agent: { name: 'neg-suite-l2' }, episodes: [{
+    episode_id: episode.episode_id,
+    diagnosis: { faultDetected: true, faultType: 'sensor_drift', component: truth.component,
+      magnitude: { value: truth.magnitude.value, unit: truth.magnitude.unit },
+      detectTime_s: truth.t_fault, confidence: 1, explanation: 'onset 阶跃与传播斜率对齐盲观测。' },
+    evidence_anchors: [
+      { kind: 'onset', variable: obsIds[0], t_start: trig - 0.4, t_end: trig + 0.4,
+        rule_id: 'n1', backed_by_query_seq: 1, note: 'onset 窗' },
+      { kind: 'propagation', variable: obsIds[1], t_start: trig + 1, t_end: trig + 11,
+        rule_id: 'n3', backed_by_query_seq: 2, note: '传播窗' },
+    ] }] });
+  const report = L2.scoreL2Submission({ pack, submission: sub, reveal });
+  eq(report.episodes[0].s_diag, 50, 'L2 正例：S_diag=50（家族/幅值/时刻全对）');
+  ok(report.episodes[0].v11a && report.episodes[0].v11b && report.episodes[0].s_anchor === 30,
+    'V-11a/b 锚点接地 +30（onset ≤2.0s 含边界行 + propagation ≥5.0s）');
+  ok(report.avg_score > 90, 'L2 正例高分（S_eff 账本效率加权）');
+  const report2 = L2.scoreL2Submission({ pack, submission: sub, reveal });
+  eq(report.score_hash, report2.score_hash, 'L2: score_hash 确定性');
+
+  /* N-B20（原文 N-B18）无据锚点：时窗重叠 <80% 拒收 */
+  const bad20 = clone(sub);
+  bad20.episodes[0].evidence_anchors[0].t_start = 10;
+  bad20.episodes[0].evidence_anchors[0].t_end = 12;
+  expectCode(() => L2.scoreL2Submission({ pack, submission: reseal(bad20), reveal }),
+    'L2-E20', 'N-B20 无据锚点拒收（时窗重叠 <80%）');
+  /* N-B21a（原文 N-B19）代价公式违约：cost_points ≠ K×M */
+  const bad21a = clone(sub);
+  bad21a.query_ledger[0].cost_points = 1;
+  expectCode(() => L2.scoreL2Submission({ pack, submission: reseal(bad21a), reveal }),
+    'L2-E21', 'N-B21a cost_points ≠ K×M 拒收');
+  /* N-B21b 累计超支：单条可承受的真实切片（2 通道 × 61 行 = 122 点）伪造双条
+     → 累计 244 > 180。条目逐条自洽（重放哈希一致、K×M 相等）但累计超帽——
+     正是 N-B21b 面的攻击形态（单条真实、双条超支）。 */
+  const probeSession = L2.createL2Session(pack);
+  probeSession.sliceTelemetry(episode.episode_id, obsIds.slice(0, 2), 0, 6.0, 1);
+  const bigEntry = probeSession.ledger()[0];
+  const bad21b = clone(sub);
+  bad21b.query_ledger = [Object.assign({}, bigEntry, { seq: 1 }),
+    Object.assign({}, bigEntry, { seq: 2 })];
+  bad21b.episodes[0].evidence_anchors = [
+    { kind: 'onset', variable: obsIds[0], t_start: trig - 0.4, t_end: trig + 0.4,
+      rule_id: 'n1', backed_by_query_seq: 1, note: 'onset 窗' },
+  ];
+  expectCode(() => L2.scoreL2Submission({ pack, submission: reseal(bad21b), reveal }),
+    'L2-E21', 'N-B21b 累计预算超支拒收（244 > 180）');
+  /* N-B22（原文 N-B20）账本重放哈希不符：伪造 slice_sha256 */
+  const bad22 = clone(sub);
+  bad22.query_ledger[0].slice_sha256 = '0'.repeat(64);
+  expectCode(() => L2.scoreL2Submission({ pack, submission: reseal(bad22), reveal }),
+    'L2-E22', 'N-B22 账本重放哈希不符拒收');
+  /* N-B23 观测词面禁词（原文 N-B13+ L2 提交侧；词面 = 水位/液位/water level/
+     liquid level/验证通过/硬件已验证） */
+  const bad23 = clone(sub);
+  bad23.episodes[0].diagnosis.explanation = '检测到水位上升信号。';
+  expectCode(() => L2.scoreL2Submission({ pack, submission: reseal(bad23), reveal }),
+    'L2-E23', 'N-B23a 观测词面禁词命中（水位）');
+  const bad23b = clone(sub);
+  bad23b.episodes[0].evidence_anchors[0].note = 'result 验证通过';
+  expectCode(() => L2.scoreL2Submission({ pack, submission: reseal(bad23b), reveal }),
+    'L2-E23', 'N-B23b 观测词面禁词命中（验证通过）');
+  /* 封章篡改（不经 reseal 的裸篡改 → L2-E22） */
+  const badSeal = clone(sub);
+  badSeal.episodes[0].diagnosis.confidence = 0.5;
+  expectCode(() => L2.scoreL2Submission({ pack, submission: badSeal, reveal }),
+    'L2-E22', 'L2 封章篡改拒收（submission_sha256 不符）');
+})();
+
 /* ========================================================= */
 console.log('\n== 盲评测协议 v2 负例矩阵 + MVP smoke ==');
 if (fail) {
@@ -401,4 +536,4 @@ if (fail) {
   failures.forEach((f) => console.log('  ✗ ' + f));
   process.exit(1);
 }
-console.log('PASS ' + pass + ' / FAIL 0 ✓（N-B1…N-B17 冻结负例 + N-B18/N-B19 增补 + MVP smoke + O-1 新族可达 smoke + QP-4 假候选率实测）');
+console.log('PASS ' + pass + ' / FAIL 0 ✓（N-B1…N-B17 冻结负例 + N-B18/N-B19 增补 + MVP smoke + O-1 新族可达 smoke + QP-4 假候选率实测 + G10 L2 N-B20…N-B23）');

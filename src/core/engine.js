@@ -1520,35 +1520,25 @@
        swing/linear 落入下方 L0b 更新序（既有物理面与 linear/swing 双轨更新序逐字不动）。 */
     if (cfg.inertia_model === 'thermo_comb') return simulateGT001Combustion(system, cfg, t);
     if (cfg.inertia_model === 'thermo') return simulateGT001Thermo(system, cfg, t);
+    /* I-11 S3 track wiring 四轨接线（V190_WAVE_DESIGN DEC-1，CHG-20261115-09；fl001/fc001
+       消费先例同构）：传感偏置/负荷需求/调速器频率视图/调速器积分步/执行器钳位五壳面消费
+       plants/gt001.js（createGt001Plant——v1.7.0 适配器交付物，四值 inertia 全覆盖）；
+       发电机一阶滞后 foStep 与物理常数面（KJ/tau_g 等）留 engine——适配器头注既有边界。
+       数值纪律：plant 壳函数与原内联闭包逐字等价（v1.7.0 烟测 + 本波 GT 扩展位级矩阵双证）。 */
+    var plant = FL.core.plants.createGt001Plant(cfg);
     var n = t.length - 1;
     var dt = cfg.dt_s;
     var KJ = 5.0;
     var K_bat = 24;
     var P_bat_ref = 5;
-    var Ki = 2.0;
     var tau_g = 2.0;
     /* A-1 惯性双轨（ALINE_MODEL_DEPTH_DESIGN §4 / CHG-20261102-01；D-1 定案双轨）：
        swing（默认）= 完整摇摆方程 df/dt = (P_rotor/K_J)·(f₀/f)，由二次型动能
        E_kin(f) = (K_J·f₀/2)·(f/f₀)² 能量守恒导出，f=f₀ 处精确退化为线性式；
        linear = f≈f₀ 线性化（遗留轨，gt001_v1 golden 逐位口径）。 */
     var inertia = cfg.inertia_model === 'linear' ? 'linear' : 'swing';
-    var family = cfg.fault.family;
-    var faulted = family !== 'none';
-    var tStart = faulted ? cfg.fault.t_start_s : null;
-    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
-    var monitor = cfg.feedback_mode === 'monitor';
-    var load0 = cfg.initial.load_kW;
     var soc0 = cfg.initial.SOC_pct;
-    var isSensor = family === 'sensor_drift';
-    var isLoad = family === 'load_step';
-    var isAct = family === 'actuator_fault';
-    var P_gen_cap = isAct ? 40 * magnitude / 100 : null;
-    /* G2b v1.1 §9 扩展轮：t_clear 后钳位释放（P_gen 回到指令跟随；指令已 wound-up，
-       清除瞬态如实呈现——过冲见 A-gt-antiwindup-clamp 与局限声明） */
-    var tClear = (isAct && cfg.fault && cfg.fault.t_clear_s != null) ? cfg.fault.t_clear_s : null;
-
-    function bAt(time) { return (isSensor && tStart != null && time >= tStart - 1e-9) ? magnitude : 0; }
-    function demandAt(time) { return (isLoad && tStart != null && time >= tStart - 1e-9) ? load0 + magnitude : load0; }
+    var P_gen_cap = plant.isAct ? 40 * plant.magnitude / 100 : null;
 
     var series = makeSeries(system, n);
     var f = 50;
@@ -1561,8 +1551,8 @@
 
     function record(k) {
       var time = t[k];
-      var b = bAt(time);
-      var demand = demandAt(time);
+      var b = plant.bAt(time);
+      var demand = plant.demandAt(time);
       var pBat = P_bat_ref - K_bat * (f - 50);
       var pRotor = P_gen + pBat - demand;
       series.f_true_Hz[k] = f;
@@ -1582,8 +1572,8 @@
       series.r_true_kW[k] = P_gen + pBat - demand - pRotor;
       series.f_channel_diff_Hz[k] = series.n_meas_rpm[k] / 60 - series.f_meas_Hz[k];
       series.valve_cmd_pct[k] = clamp(P_gen_cmd / 40 * 100, 0, 100);
-      var capped = isAct && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9);
-      series.valve_meas_pct[k] = capped ? magnitude : series.valve_cmd_pct[k];
+      var capped = plant.cappedAt(time);
+      series.valve_meas_pct[k] = capped ? plant.magnitude : series.valve_cmd_pct[k];
       series.P_gen_cap_kW[k] = capped ? P_gen_cap : null;
     }
 
@@ -1591,17 +1581,16 @@
     for (var k = 1; k <= n; k++) {
       for (var j = 0; j < SUB; j++) {
         var time = (k - 1) * SUB * DT_INT + j * DT_INT;
-        var b = bAt(time);
-        var demand = demandAt(time);
+        var demand = plant.demandAt(time);
         var pBat = P_bat_ref - K_bat * (f - 50);
         var residual = P_gen + pBat - demand;
 
-        var fGov = (monitor && isSensor) ? f : f + b;
-        var cmdNext = clamp(P_gen_cmd + Ki * (50 - fGov) * DT_INT, 0, 40);
+        /* 调速器积分步（EQ-GTL2-9 原样）消费 plant.govStep（fGov 视图 + clamp 积分由适配器承载） */
+        var cmdNext = plant.govStep(P_gen_cmd, f, time, DT_INT);
         var genStep = foStep(P_gen, cmdNext, tau_g, DT_INT);
         var genBefore = P_gen;
         P_gen = genStep.y;
-        if (isAct && tStart != null && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9)) P_gen = Math.min(P_gen, P_gen_cap);
+        if (plant.cappedAt(time)) P_gen = Math.min(P_gen, P_gen_cap);
 
         /* 惯性双轨（A-1）：swing 因子用更新前 f；linear 分支逐位保留 gt001_v1 口径。
            oracle 对应实现：tools/oracle/gt001_oracle.py simulate_run（更新序冻结）。 */
@@ -1659,7 +1648,6 @@
     var KJ = 5.0;             // 转子等效惯量（kW·s/Hz，L0b 冻结值）
     var K_bat = 24;           // 电池一次调频下垂（kW/Hz，L0b 冻结值）
     var P_bat_ref = 5;        // 电池基准功率（kW，L0b 冻结值）
-    var Ki = 2.0;             // 调速器积分增益（kW/(Hz·s)，L0b 冻结值）
     var F0 = 50;              // 额定频率（Hz，L0b 冻结值）
     var T1 = 288.15;          // ISO 参考大气温度（K）
     var P1 = 101.325;         // ISO 参考大气压力（kPa）
@@ -1678,21 +1666,13 @@
     var K_F = 4.070531454334211;      // 燃料增益（EQ-GTL1-11 设计点导出，kW_eq/单位指令）
     var MDOT_A = 0.144299140389011;   // 压气机空气流量（kg/s，常数——流量-转速耦合未建模）
     var C_3 = 0.335983796442745;      // 燃烧室集总热容（kJ/K，C_3 = τ_3·ṁ_g0·cp_g）
-    var family = cfg.fault.family;
-    var faulted = family !== 'none';
-    var tStart = faulted ? cfg.fault.t_start_s : null;
-    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
-    var monitor = cfg.feedback_mode === 'monitor';
-    var load0 = cfg.initial.load_kW;
+    /* I-11 S3 track wiring 四轨接线（V190_WAVE_DESIGN DEC-1，CHG-20261115-09）：五壳面
+       （bAt/demandAt/fGovAt/govStep/cappedAt）消费 plants/gt001.js——与内联闭包逐字等价
+       （v1.7.0 烟测 + 本波 GT 扩展位级矩阵双证）；RK4 热力链（chain/rhsOf）与物理常数面留
+       engine。u_cap 指令域钳位（EQ-GTL1-10）留 engine（子步 uEff 语义）。 */
+    var plant = FL.core.plants.createGt001Plant(cfg);
     var soc0 = cfg.initial.SOC_pct;
-    var isSensor = family === 'sensor_drift';
-    var isLoad = family === 'load_step';
-    var isAct = family === 'actuator_fault';
-    var u_cap = isAct ? 40 * magnitude / 100 : null;
-    var tClear = (isAct && cfg.fault && cfg.fault.t_clear_s != null) ? cfg.fault.t_clear_s : null;
-
-    function bAt(time) { return (isSensor && tStart != null && time >= tStart - 1e-9) ? magnitude : 0; }
-    function demandAt(time) { return (isLoad && tStart != null && time >= tStart - 1e-9) ? load0 + magnitude : load0; }
+    var u_cap = plant.isAct ? 40 * plant.magnitude / 100 : null;
 
     var series = makeSeries(system, n);
     var f = 50;
@@ -1736,9 +1716,9 @@
 
     function record(k) {
       var time = t[k];
-      var b = bAt(time);
-      var demand = demandAt(time);
-      var capped = isAct && tStart != null && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9);
+      var b = plant.bAt(time);
+      var demand = plant.demandAt(time);
+      var capped = plant.cappedAt(time);
       var uEff = capped ? Math.min(u, u_cap) : u;
       var ch = chain(f, T3, uEff);
       var pBat = P_bat_ref - K_bat * (f - 50);
@@ -1760,7 +1740,7 @@
       series.r_true_kW[k] = ch.pGen + pBat - demand - pRotor;
       series.f_channel_diff_Hz[k] = series.n_meas_rpm[k] / 60 - series.f_meas_Hz[k];
       series.valve_cmd_pct[k] = clamp(u / 40 * 100, 0, 100);
-      series.valve_meas_pct[k] = capped ? magnitude : series.valve_cmd_pct[k];
+      series.valve_meas_pct[k] = capped ? plant.magnitude : series.valve_cmd_pct[k];
       series.P_gen_cap_kW[k] = capped ? u_cap : null;
       /* L1 八新热力信号（§1.2 表；eta_cycle = P_gen/Q_f 瞬时功率折算比——§1.2 备注/§3.1 口径） */
       series.T3_out_K[k] = T3;
@@ -1777,12 +1757,11 @@
     for (var k = 1; k <= n; k++) {
       for (var j = 0; j < SUB; j++) {
         var time = (k - 1) * SUB * DT_INT + j * DT_INT;
-        var b = bAt(time);
-        var demand = demandAt(time);
-        /* ① 指令更新（L0b 序保留，EQ-GTL1-9；u 为燃料指令域）+ 指令域钳位（EQ-GTL1-10） */
-        var fGov = (monitor && isSensor) ? f : f + b;
-        var uNext = clamp(u + Ki * (50 - fGov) * DT_INT, 0, 40);
-        var cappedSub = isAct && tStart != null && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9);
+        var demand = plant.demandAt(time);
+        /* ① 指令更新（L0b 序保留，EQ-GTL1-9；u 为燃料指令域）+ 指令域钳位（EQ-GTL1-10）
+           ——调速器积分步消费 plant.govStep（fGov 视图 + clamp 积分由适配器承载） */
+        var uNext = plant.govStep(u, f, time, DT_INT);
+        var cappedSub = plant.cappedAt(time);
         var uEff = cappedSub ? Math.min(uNext, u_cap) : uNext;
         /* ② RK4（物理状态 y = [f, T3]；demand/b/u_eff 冻结于子步起点右值） */
         var k1 = rhsOf(f, T3, uEff, demand);
@@ -1843,7 +1822,6 @@
     var KJ = 5.0;             // 转子等效惯量（kW·s/Hz，L0b 冻结值）
     var K_bat = 24;           // 电池一次调频下垂（kW/Hz，L0b 冻结值）
     var P_bat_ref = 5;        // 电池基准功率（kW，L0b 冻结值）
-    var Ki = 2.0;             // 调速器积分增益（kW/(Hz·s)，L0b 冻结值）
     var F0 = 50;              // 额定频率（Hz，L0b 冻结值）
     var T1 = 288.15;          // ISO 参考大气温度（K）
     var P1 = 101.325;         // ISO 参考大气压力（kPa）
@@ -1863,21 +1841,12 @@
     var MDOT_A = 0.144299140389011;   // 压气机空气流量（kg/s，常数——流量-转速耦合未建模）
     var C_3 = 0.335983796442745;      // 燃烧室集总热容（kJ/K，C_3 = τ_3·ṁ_g0·cp_g）
     var TAU_COMB = 0.5;               // τ_comb 定案（§1.3/§3.3，CHG-20261114-07 批准链）
-    var family = cfg.fault.family;
-    var faulted = family !== 'none';
-    var tStart = faulted ? cfg.fault.t_start_s : null;
-    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
-    var monitor = cfg.feedback_mode === 'monitor';
-    var load0 = cfg.initial.load_kW;
+    /* I-11 S3 track wiring 四轨接线（V190_WAVE_DESIGN DEC-1，CHG-20261115-09）：五壳面
+       （bAt/demandAt/fGovAt/govStep/cappedAt）消费 plants/gt001.js——与内联闭包逐字等价；
+       三维 RK4（chain/rhsOf 含 x_comb）与物理常数面留 engine。 */
+    var plant = FL.core.plants.createGt001Plant(cfg);
     var soc0 = cfg.initial.SOC_pct;
-    var isSensor = family === 'sensor_drift';
-    var isLoad = family === 'load_step';
-    var isAct = family === 'actuator_fault';
-    var u_cap = isAct ? 40 * magnitude / 100 : null;
-    var tClear = (isAct && cfg.fault && cfg.fault.t_clear_s != null) ? cfg.fault.t_clear_s : null;
-
-    function bAt(time) { return (isSensor && tStart != null && time >= tStart - 1e-9) ? magnitude : 0; }
-    function demandAt(time) { return (isLoad && tStart != null && time >= tStart - 1e-9) ? load0 + magnitude : load0; }
+    var u_cap = plant.isAct ? 40 * plant.magnitude / 100 : null;
 
     var series = makeSeries(system, n);
     var f = 50;
@@ -1923,9 +1892,9 @@
 
     function record(k) {
       var time = t[k];
-      var b = bAt(time);
-      var demand = demandAt(time);
-      var capped = isAct && tStart != null && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9);
+      var b = plant.bAt(time);
+      var demand = plant.demandAt(time);
+      var capped = plant.cappedAt(time);
       var uEff = capped ? Math.min(u, u_cap) : u;
       var ch = chain(f, T3, xComb, uEff);
       var pBat = P_bat_ref - K_bat * (f - 50);
@@ -1947,7 +1916,7 @@
       series.r_true_kW[k] = ch.pGen + pBat - demand - pRotor;
       series.f_channel_diff_Hz[k] = series.n_meas_rpm[k] / 60 - series.f_meas_Hz[k];
       series.valve_cmd_pct[k] = clamp(u / 40 * 100, 0, 100);
-      series.valve_meas_pct[k] = capped ? magnitude : series.valve_cmd_pct[k];
+      series.valve_meas_pct[k] = capped ? plant.magnitude : series.valve_cmd_pct[k];
       series.P_gen_cap_kW[k] = capped ? u_cap : null;
       /* 热力八信号 + Q_fuel/eta_cycle（延迟口径——Q_fuel 列 = q_f 指令面，Q13 (ii)） */
       series.T3_out_K[k] = T3;
@@ -1964,12 +1933,11 @@
     for (var k = 1; k <= n; k++) {
       for (var j = 0; j < SUB; j++) {
         var time = (k - 1) * SUB * DT_INT + j * DT_INT;
-        var b = bAt(time);
-        var demand = demandAt(time);
-        /* ① 指令更新（L0b 序保留，EQ-GTL2-9）+ 指令域钳位（EQ-GTL2-10） */
-        var fGov = (monitor && isSensor) ? f : f + b;
-        var uNext = clamp(u + Ki * (50 - fGov) * DT_INT, 0, 40);
-        var cappedSub = isAct && tStart != null && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9);
+        var demand = plant.demandAt(time);
+        /* ① 指令更新（L0b 序保留，EQ-GTL2-9）+ 指令域钳位（EQ-GTL2-10）
+           ——调速器积分步消费 plant.govStep（fGov 视图 + clamp 积分由适配器承载） */
+        var uNext = plant.govStep(u, f, time, DT_INT);
+        var cappedSub = plant.cappedAt(time);
         var uEff = cappedSub ? Math.min(uNext, u_cap) : uNext;
         /* ② RK4（物理状态 y = [f, T3, x_comb]；demand/b/u_eff/q_f 冻结于子步起点右值） */
         var k1 = rhsOf(f, T3, xComb, uEff, demand);

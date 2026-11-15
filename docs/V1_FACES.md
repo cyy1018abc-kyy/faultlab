@@ -655,3 +655,49 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
 - **面⑧ 39/14 维持注**：v1.6.0 零增词（copy-guard 发布轮实跑 0 命中）；
 - checks.js comb 分支 + metrics.js 门扩值：**additive**（既有 thermo/linear/swing 分支零变化——
   规格工作面漏项实现轮补齐登记，CHG-20261115-03 §1.2）；§1/§3/其余面零触碰。
+
+## 14. v1.7.0 additive 修订记录（2026-11-15，CHG-20261115-04/05——回填于 CHG-20261115-08 收口轮）
+
+- **面① plants 注册面**：`src/core/plants/gt001.js` 适配器交付（createGt001Plant cfg 工厂——
+  bAt/demandAt/fGovAt/govStep/cappedAt/tClearAt 六函数接口，fl001/fc001 先例同构；index.html
+  + tests/core-load.js CORE_FILES 注册）——**additive 零消费面**（S3 track wiring 顺延 v1.9.0，
+  位级验收随 V190 GT 扩展矩阵兑现）；
+- **面② golden 12 维持**（零新 golden——v1.7.0 为治理+适配器波，无 golden 重出）；
+- **面③/④/⑤/⑥/⑦ 零触碰**（纯治理与适配器交付波——G9 草案 FC001_FMU_G2B_SPEC_DRAFT v0.1
+  属 FaultLab-evaluation 治理面，非八面承诺物）；
+- 登记说明：本节系 V190 收口轮补记（v1.7.0 发布提交 0828de8 时点未增补 V1_FACES——
+  CHG-20261115-08 ② 三缺口登记的兑现面之一）。
+
+## 15. v1.8.0 发布记录（2026-11-15，CHG-20261115-07/08——回填于 CHG-20261115-08 收口轮）
+
+- **发布形态**：治理面三文件提交 fa05562（DECISIONS/V06_ROADMAP/V180_WAVE_DESIGN，+92/−1）——
+  **零代码面变更**；V180 波主项（S3 wiring + G9 oracle）因上下文诚实收口顺延 v1.9.0；
+- **面①-⑧ 全零变化**（纯登记波）；门禁：run-g2 35/35 + copy-guard 39/0 + 测试面 23 文件
+  （上一会话实跑，提交信息存档）+ **fa05562 分离工作树复跑（本波 CHG-20261115-08 ② 补建——
+  run-g2 全过 + 10 注册行 verify_golden 全 OK + 默认五 golden OK，worktree dirty=false）**；
+- 登记说明：本节为发布登记后补（偏差：发布提交先行、登记后补——CHG-20261115-08 ② 如实登记）。
+
+## 16. v1.9.0 additive 修订记录（2026-11-15，CHG-20261115-11）
+
+- **面① S3 四轨消费面**：engine.js GT 三函数（swing/linear/thermo/thermo_comb）壳面
+  （bAt/demandAt/fGovAt/govStep/cappedAt）消费 plants/gt001.js——**纯组织方式重构零行为变化**
+  （位级验收 = verify-i11-bitidentity GT 扩展套件 46 配置 × 3 字段改前/改后 138/138 全等 +
+  run-g2 全绿双跑；foStep 与物理常数面留 engine——适配器头注既有边界）；arena.test.js
+  CORE_FILES 注册缺口补（v1.7.0 遗留——GT 仿真经 createGt001Plant 消费面暴露后修复）+
+  plants.test.js GT 适配器守卫五断言 additive；
+- **面② golden 表 + fc001_fmu_v1 行**（5 Run 白名单全集——schema v2、method
+  fc001_fmu_l1_rk4_dt0.01、gate tier T-B + V_mL_atol/dim_atol 新键面（Q15 定案）、
+  supersedes=null 并列第三轨、model_id=fc.pem.fmu_l1/model_version 1.0.0（Q13）、
+  model_provenance=fmu_l1_lumped_unvalidated（Q2(A) additive 档位）、oracle
+  fc001_fmu_oracle.py 出生即 oracle_base 接入（FMU-1…7 自检）、approval=CHG-20261115-10
+  批准链首签）+ 计数快照 12→**13 golden**（既有 12 字节冻结零触碰实证）；
+- **面⑤ provenance 档位**：fmu_l1_lumped_unvalidated 新值 additive（两既有枚举语义零变化；
+  V312「不新增档位」按黑盒准入轨作用域限缩解释——显式 CHG 例外随实现轮打包 Q17）；
+- **面⑦ 快照注**：35 步维持 0 新步 + DEFAULT_MODELS 五→六 golden（fc001_fmu 尾追加——Q7
+  定案）+ 35/35 两次独立（109787/111396 ms）+ verify_golden MODELS 10→11 注册行全绿；
+- **面⑧ 39/14 维持注**：v1.9.0 零增词（Q11 四词入表 = FCFMU-G2b-04 随 FMU 文案落地同轮）；
+- **Arena L2 工具面（非八面承诺物）**：tools/arena-l2-core.mjs + arena-mcp-server.mjs
+  （G10 §3 逐字承接——双层遥测/B_max=180/query_ledger/N-B20..23/V-11；编号重基线：原文
+  N-B18..20 → 仓内 N-B20..22——V150 N-B18/19 冻结维持，面⑤ 增补纪律）——tools/** 评测
+  基础设施，src/** 产品面零触碰（FaultLab.html 面仅 engine wiring 重构差量）；
+- §1/§3/面③/面④/面⑥ 零触碰。

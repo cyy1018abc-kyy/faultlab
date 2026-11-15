@@ -1,0 +1,36 @@
+{
+  "purpose": "I-11 plant 接口移植逐位一致性比对（CHG-20261030-07）——GT 四轨接线扩展套件（V190 CHG-20261115-09）",
+  "generated_at": "2026-11-15T20:56:29.720Z",
+  "baseline_path": "FaultLab-evaluation/NEXT/evidence/g8/i11-bitidentity/gt-v190-pre-wiring.json",
+  "baseline": {
+    "code": {
+      "commit_sha": "fa05562a0840c6226f7c56d2f69cfd940f2bd367",
+      "branch": "main",
+      "worktree_dirty": true
+    },
+    "engine_version": "0.1.0",
+    "node": "v26.5.1"
+  },
+  "current": {
+    "code": {
+      "commit_sha": "fa05562a0840c6226f7c56d2f69cfd940f2bd367",
+      "branch": "main",
+      "worktree_dirty": true
+    },
+    "engine_version": "0.1.0",
+    "node": "v26.5.1"
+  },
+  "fields": [
+    "run_hash",
+    "signals_sha256",
+    "metrics_sha256"
+  ],
+  "configs_total": 46,
+  "configs_matched": 46,
+  "fields_compared": 138,
+  "fields_matched": 138,
+  "missing_in_baseline": [],
+  "extra_in_baseline": [],
+  "match": true,
+  "diffs": []
+}

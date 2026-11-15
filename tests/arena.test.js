@@ -28,6 +28,7 @@ const CORE_FILES = [
   'src/core/systems.js',
   'src/core/plants/fl001.js',
   'src/core/plants/fc001.js',
+  'src/core/plants/gt001.js',
   'src/core/engine.js',
   'src/core/metrics.js',
   'src/core/checks.js',

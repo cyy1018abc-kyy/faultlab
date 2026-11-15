@@ -15,15 +15,91 @@
       "jsVersion": "15.7.112.23"
     }
   },
-  "generated_at": "2026-11-15T11:00:20.995Z",
+  "generated_at": "2026-11-15T21:34:25.474Z",
   "code": {
-    "commit_sha": "c508a1a0bad67efd4fe0b81dd49b93a643046717",
+    "commit_sha": "fa05562a0840c6226f7c56d2f69cfd940f2bd367",
     "branch": "main",
     "worktree_dirty": true
   },
   "execution": {
-    "started_at": "2026-11-15T10:59:45.511Z",
-    "generated_at": "2026-11-15T11:00:20.995Z",
-    "duration_ms": 35484
+    "started_at": "2026-11-15T21:33:50.122Z",
+    "generated_at": "2026-11-15T21:34:25.474Z",
+    "duration_ms": 35352
+  },
+  "perf": {
+    "baseline": {
+      "registered_at": "2026-11-05",
+      "change_id": "CHG-20261104-10（V070_WAVE_DESIGN DEC-7：实测基线×安全系数定阈值）",
+      "program": "node tools/perf.mjs——CDP 驱动 headless Chrome 重走主旅程：demo 启动 → 五视图深链 → signals 播放曲线渲染窗（rAF 计数 3.2s）→ 五页签 SPA 切换窗（rAF 计数 ≥3s）；fps=两窗 rAF 计数均值",
+      "heap_source": "performance.memory.usedJSHeapSize 取峰值（250ms 轮询+窗内帧级采样；Chrome/156 headless 页面会话无 CDP Memory.getMetrics，2026-11-05 实测确认）",
+      "measurement_rounds": {
+        "baseline": [
+          {
+            "round": 1,
+            "heapMB": 17.52,
+            "fps": 59.9
+          },
+          {
+            "round": 2,
+            "heapMB": 19.81,
+            "fps": 59.9
+          },
+          {
+            "round": 3,
+            "heapMB": 19.06,
+            "fps": 59.9
+          }
+        ],
+        "retest": [
+          {
+            "round": 4,
+            "heapMB": 19.98,
+            "fps": 60.1
+          },
+          {
+            "round": 5,
+            "heapMB": 19.88,
+            "fps": 59.8
+          }
+        ]
+      },
+      "heap": {
+        "unit": "MB",
+        "baseline_peak_mb": 19.81,
+        "safety_factor": 1.5,
+        "floor_mb": 120,
+        "threshold_mb": 120,
+        "gate": "peak <= threshold_mb"
+      },
+      "fps": {
+        "unit": "fps",
+        "baseline_mean": 59.9,
+        "safety_factor": 0.7,
+        "floor_fps": 30,
+        "threshold_fps": 41.93,
+        "window_min_s": 3,
+        "gate": "mean >= threshold_fps"
+      },
+      "last_run": {
+        "at": "2026-11-15T21:34:37.760Z",
+        "mode": "gate",
+        "chrome": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+        "heap_mb": 19.33,
+        "heap_available": true,
+        "fps_mean": 60,
+        "fps_curve_window": 59.9,
+        "fps_tab_window": 60.1,
+        "window_curve_ms": 3206,
+        "window_tabs_ms": 3109,
+        "duration_ms": 12066,
+        "notes": [],
+        "heap_within": true,
+        "fps_within": true,
+        "gated": {
+          "heap": true,
+          "fps": true
+        }
+      }
+    }
   }
 }

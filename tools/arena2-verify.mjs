@@ -7,12 +7,18 @@
    校验链：V-00 结构上限 → V-01 schema/版本 → V-02 键名禁词（并集）→ V-03 语义禁项（LEAK-1/2）
            → V-04a 网格 → V-04b 数值 → V-05 观测白名单 → V-06 互斥 → V-06b closed-world
            → V-07 提交+绑定 → V-08 轮次匹配 → V-09 评分 → V-10 score_hash 落章。
+   L2 模式（G10——盲包 schema = faultlab.arena.l2.blindpack.v1 自动分派；--bundle 即 L2 盲包）：
+           N-B20 无据锚点 → N-B21 预算/代价公式 → N-B22 账本重放哈希 → N-B23 观测词面
+           → V-11a/b 锚点接地 → S_diag+S_anchor+S_eff → score_hash 落章（编号重基线映射：
+           原文 N-B18..20 → 仓内 N-B20..22——V150 N-B18/19 冻结维持）。
+           --session <dir>：目录批校验（blind_pack.json + reveal.json + submission-*.json）。
    信任模型：Verifier 唯一同时持有盲包、提交与真值映射（reveal）；与被评 Agent 无共享代码路径。
-   退出码：0 = 通过并落章；1 = 拒收（AE-* 错误）。 */
+   退出码：0 = 通过并落章；1 = 拒收（AE-* 或 L2-E-* 错误）。 */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { scoreL2Submission, verifySealedSubmission, L2_SCHEMA } from './arena-l2-core.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const require2 = createRequire(import.meta.url);
@@ -31,10 +37,7 @@ function need(name) {
   }
   return v;
 }
-const bundlePath = path.resolve(ROOT, need('bundle'));
-const subPath = path.resolve(ROOT, need('submission'));
-const revealPath = path.resolve(ROOT, need('reveal'));
-const outPath = opt('out', path.join(path.dirname(bundlePath), 'score-report.json'));
+const sessionDir = opt('session', null);
 
 /* 加载核心 + arena（评分复用 FL.arena.scoreDiagnosis——单源，禁止双实现漂移） */
 const FL = bootstrap();
@@ -53,10 +56,82 @@ function readJson(p) {
   }
 }
 
+/* ---------- L2 目录批校验（--session；G10 R-G10-02 会话归档复验面） ---------- */
+function runL2Session(dirAbs) {
+  const packPath = path.join(dirAbs, 'blind_pack.json');
+  const revealPath2 = path.join(dirAbs, 'reveal.json');
+  if (!fs.existsSync(packPath) || !fs.existsSync(revealPath2)) {
+    console.error('[FAIL] 目录缺 blind_pack.json / reveal.json：' + dirAbs);
+    process.exit(1);
+  }
+  const pack = readJson(packPath).data;
+  if (pack.schema !== L2_SCHEMA) {
+    console.error('[FAIL] blind_pack.json schema 非 L2：' + pack.schema);
+    process.exit(1);
+  }
+  const reveal = readJson(revealPath2).data;
+  const subs = fs.readdirSync(dirAbs).filter((f) => /^submission-.*\.json$/.test(f)).sort();
+  let fail = 0;
+  const summaries = [];
+  for (const f of subs) {
+    const sub = readJson(path.join(dirAbs, f)).data;
+    try {
+      verifySealedSubmission(sub);
+      const report = scoreL2Submission({ pack, submission: sub, reveal });
+      const outF = path.join(dirAbs, f.replace('submission-', 'l2-score-report-'));
+      fs.writeFileSync(outF, JSON.stringify(report, null, 2) + '\n');
+      summaries.push({ agent: sub.agent && sub.agent.name, file: path.basename(outF),
+        avg: report.avg_score, hash: report.score_hash.slice(0, 12) + '…',
+        budget: report.budget_used_points });
+    } catch (e) {
+      fail += 1;
+      summaries.push({ agent: sub.agent && sub.agent.name, file: path.basename(f),
+        rejected: String(e.code || '') + ' ' + e.message });
+    }
+  }
+  console.log('[OK] L2 会话批校验：' + (subs.length - fail) + '/' + subs.length + ' 提交通过落章');
+  summaries.forEach((s) => {
+    console.log('     ' + (s.agent || '?') + ' → ' + (s.avg !== undefined
+      ? s.avg + ' 分（账本 ' + s.budget + '/' + 180 + ' · ' + s.hash + '）→ ' + s.file
+      : '拒收 ' + s.rejected));
+  });
+  console.log('     R-G10-02 外部 Agent 会话归档复验就绪（evidence/g10/ 归档后可重放 score_hash）');
+  return fail === 0 ? 0 : 1;
+}
+
+if (sessionDir) {
+  process.exit(runL2Session(path.resolve(ROOT, sessionDir)));
+}
+
+const bundlePath = path.resolve(ROOT, need('bundle'));
+const subPath = path.resolve(ROOT, need('submission'));
+const revealPath = path.resolve(ROOT, need('reveal'));
+const outPath = opt('out', path.join(path.dirname(bundlePath), 'score-report.json'));
+
 try {
   const bundleFile = readJson(bundlePath);
   const subFile = readJson(subPath);
   const revealFile = readJson(revealPath);
+
+  /* L2 自动分派：盲包 schema = faultlab.arena.l2.blindpack.v1 → N-B20..23 + V-11 链 */
+  if (bundleFile.data && bundleFile.data.schema === L2_SCHEMA) {
+    const report = scoreL2Submission({ pack: bundleFile.data, submission: subFile.data,
+      reveal: revealFile.data });
+    fs.writeFileSync(path.resolve(ROOT, outPath), JSON.stringify(report, null, 2) + '\n');
+    console.log('[OK] L2 盲包校验通过（closed-world/网格/边界行）· 账本重放一致（N-B21/N-B22）'
+      + ' · 锚点接地有效（N-B20/V-11）');
+    console.log('     testset ' + report.testset_id + ' · match ' + report.match_id);
+    report.episodes.forEach((r) => {
+      console.log('     episode ' + r.index + '：' + r.score + ' 分（S_diag ' + r.s_diag
+        + ' · S_anchor ' + r.s_anchor + ' · S_eff ' + r.s_eff
+        + (r.v11a ? ' · V-11a' : '') + (r.v11b ? ' · V-11b' : '') + '）');
+    });
+    console.log('     场均 ' + report.avg_score + ' 分 · 账本 ' + report.budget_used_points
+      + '/' + report.budget_max_points + ' 点 · score_hash ' + report.score_hash.slice(0, 16) + '…');
+    console.log('     成绩单 → ' + path.relative(ROOT, path.resolve(ROOT, outPath)));
+    console.log('     ' + report.notice);
+    process.exit(0);
+  }
 
   const report = AP.scoreV2({
     bundle: bundleFile.data,

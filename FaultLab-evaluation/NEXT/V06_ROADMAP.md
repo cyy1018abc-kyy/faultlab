@@ -95,7 +95,8 @@ run-g2 25 步（tier 分层候选）。
 | **v1.5.0** | A-5 P3 GT 燃烧延迟 G2b 草案轮（键面张力二选一裁定点，批准 v1.6.0+）+ O-1 盲包诊断族枚举扩展（入池六系统全活跃族）→ additive minor | A-5(P3 草案)/面⑤(O-1) | G2b（P3 草案+双评审）→ G7（步数 35，0 增步）→ G8 |
 | **v1.6.0** | A-5 P3 GT 燃烧延迟批准与实现（键形态=形态 a 枚举扩值 thermo_comb、gt001_v4 T-B、Q12 维持 1.2.0 仅登记）→ additive minor；G9/G10 顺延 v1.7.0 | A-5(P3 实现) | G2b（P3 批准轮）→ G7（步数 35，0 增步）→ G8 |
 | **v1.7.0** | G9/G10 启动波：I-11 S3 收口实现（GT-001 plants 适配器 + 位级验收；范围扩裁定 FL/FC/GT）+ G9 FC-001 FMU G2b 草案轮（批准 v1.8.0）+ G10 顺延 v1.8.0 登记 → additive minor | I-11(S3)/G9(草案) | S3 位级验收 → G2b（G9 草案+双评审）→ G7（步数 35，0 增步）→ G8 |
-| **v1.8.0**（本波） | S3 track wiring（thermo/comb 消费 plants/gt001.js）+ G9 Python oracle fc001_fmu_oracle.py 先行 + G9 C99 阻塞登记 + G10 顺延 v1.9.0 → additive minor | I-11(S3 wiring)/G9(oracle) | S3 位级验收 → G7（步数 35，0 增步）→ G8 |
+| **v1.8.0** | S3 track wiring（thermo/comb 消费 plants/gt001.js）+ G9 Python oracle fc001_fmu_oracle.py 先行 + G9 C99 阻塞登记 + G10 顺延 v1.9.0 → additive minor | I-11(S3 wiring)/G9(oracle) | S3 位级验收 → G7（步数 35，0 增步）→ G8 |
+| **v1.9.0**（本波） | S3 track wiring 四轨消费（位级验收 GT 扩展矩阵）+ G9 批准轮收口（FCFMU-G2b-02：Q 定案 + 评审 B + P1 修正 + APPROVED v1.0）→ oracle emit（fc001_fmu_v1）+ G10 Arena L2 基础设施（arena-mcp-server + N-B18..20 + V-11）+ C99 阻塞维持 + 收口面补齐 → additive minor | I-11(S3 四轨)/G9(批准+oracle)/G10(基础设施) | S3 位级验收 → G2b（G9 批准轮）→ G7（步数 35，0 增步）→ G8 |
 
 ## 4. 决策点（已按用户指令全采推荐项）
 

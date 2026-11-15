@@ -32,6 +32,9 @@
   python scripts/verify_golden.py pv001          # PV-001（PV-G2b-03 / v0.7，CHG-20261104-10 批准链）
   python scripts/verify_golden.py wt001          # WT-001（WT-G2b-03 / v0.8，CHG-20261107-01 批准链）
   python scripts/verify_golden.py mg001          # MG-001（MG-G2b-03 / V110 W4，CHG-20261110-01 批准链）
+  python scripts/verify_golden.py fc001_fmu      # FC-001 5 态 L1-FMU 第三轨（FCFMU-G2b-03 /
+                                                 #   CHG-20261115-10 批准链；golden fc001_fmu_v1，
+                                                 #   tier T-B，`_mL`/dim 分支 = Q15 定案显式硬项）
   python scripts/verify_golden.py --json out.json
 
 退出码：0=全部通过；1=数值/容差不通过（或 golden/oracle 缺失损坏）；2=oracle 内部自检失败。
@@ -43,7 +46,7 @@
   V-03b approval 批准摘要一致（去除 generated_by/approval 后内容摘要）；
   V-04 oracle 自检全过（fl001 SC-1…9 / fl001_l1 FL-1…8 / fl001_cap FCAP-1…8 /
        fc001 SC-1…10 / fc001_l1 FEC-1…8 / gt001_l1 GL-1…8 / gt001_comb GCMB-1…9 /
-       pv001 PS-1…7 / wt001 WS-1…8 / mg001 MS-1…8）；
+       pv001 PS-1…7 / wt001 WS-1…8 / mg001 MS-1…8 / fc001_fmu FMU-1…7）；
   V-05 关键点（19.9/21.5/26.0/60.0 s 的 true/meas 对）——tier 分派：T-A rtol 1e-12
        （I_A 键，既有路径零改动）/ T-B 按 series_limit 序列容差键（GTL1-G2b-03 参数化）；
   V-06 标量（E/SOC）gate 容差（±1e-6 kWh / ±1e-5 pp）；
@@ -94,6 +97,10 @@ import wt001_oracle  # noqa: E402  WT-001（WT-G2b-03 / CHG-20261107-01 批准�
 import mg001_oracle  # noqa: E402  MG-001（MG-G2b-03 / V110 W4；CHG-20261110-01 批准链；
                      #   MG001_G2B_SPEC_APPROVED §4 项 7——注册行追加不改参数化逻辑，
                      #   T-A 路径零改动）
+import fc001_fmu_oracle  # noqa: E402  FC-001 5 态 L1-FMU 第三轨（FCFMU-G2b-03 /
+                         #   CHG-20261115-10 批准链；FC001_FMU_G2B_SPEC_APPROVED v1.0
+                         #   §4 项 9——注册行为显式工作面；tier T-B；`_mL`/dim 分支 =
+                         #   Q15 定案显式硬项）
 
 MODELS = {
     "fl001": {
@@ -189,6 +196,29 @@ MODELS = {
             ("T_st_end_K", "K"), ("V_stack_end_V", "V"), ("P_loss_stack_end_kW", "kW"),
         ],
     },
+    "fc001_fmu": {
+        # FCFMU-G2b-03（CHG-20261115-10 批准链）：FC-001 5 态 L1-FMU 第三轨 golden
+        # fc001_fmu_v1（5 Run 白名单全集，tier T-B；oracle=fc001_fmu_oracle 出生接入
+        # oracle_base，FC001_FMU_G2B_SPEC_APPROVED v1.0 §4 项 9——新条目形态，
+        # 「fc001 条目重指向」不适用（FLTH §4 项 7 同构）：MODELS["fc001"]/["fc001_l1"]
+        # 继续验 fc001_v1/v2 零改动，FMU 轨走本条目）。i_true/i_meas = p_ca 真值/
+        # 受染测量对（kPa 域，V-05 关键点 19.9/21.5/26.0/60.0 s）；event_tol =
+        # p_kPa_atol（事件快照相位变量 p_ca_meas_kPa——kPa 域，gate 声明该键）；
+        # scalars 按 fc001_fmu_v1.json 键面注册（6 项；非 kWh 类走 SOC_pp 支——
+        # fl001_l1 T_bat_end_K 现行先例）；序列含三个 `_mL` 键与五个无量纲键——
+        # T-B `_mL` 分支（V_mL_atol，插入点 = `_kPa` 后、r_true/r_meas 子串判别前
+        # ——APPROVED §4 项 8/B-1 钉死）+ dim 支（dim_atol，`_kWh` 后）= Q15 定案
+        # 显式硬项；r_meas_water_mL 的 kW 容差静默错型形态由 `_mL` 支前置修复
+        # （评审 B P1——emit 轮既有键路由零变化证明：既有 golden 无 `_mL`/三尾缀 id）。
+        "oracle": fc001_fmu_oracle,
+        "golden_file": "fc001_fmu_v1.json",
+        "i_true": "p_ca_true_kPa", "i_meas": "p_ca_meas_kPa",
+        "event_tol": "p_kPa_atol",  # 事件快照相位变量 = p_ca_meas_kPa（kPa 域；gate 含 p_kPa_atol）
+        "scalars": [
+            ("E_gross_kWh", "kWh"), ("E_aux_kWh", "kWh"), ("E_net_kWh", "kWh"),
+            ("theta_cap_end", "pp"), ("y_O2_end", "pp"), ("V_water_end_mL", "pp"),
+        ],
+    },
     "gt001": {
         # GTL1-G2b-03（CHG-20261104-12）：gt001 校验重指向 L1 thermo 轨 golden gt001_v3
         # （库内首个 T-B golden；oracle=gt001_l1_oracle 出生接入 oracle_base，规格 §4 项 7）。
@@ -275,7 +305,10 @@ MODELS = {
 # v1.6.0 五 golden 顺序验证，GTCMB-G2b-03/Q7，CHG-20261114-07 批准链（尾追加 gt001_comb
 # ——GT-001 燃烧延迟深化轨 golden gt001_v4；步① 无参调用五 golden 顺序验证，
 # FL/FC 先例形态；步① label 滞后说明沿 V120 DEC-5/V140 先例维持登记不修）
-DEFAULT_MODELS = ["fl001", "fl001_l1", "fc001_l1", "fl001_cap", "gt001_comb"]
+# v1.9.0 六 golden 顺序验证，FCFMU-G2b-03/Q7，CHG-20261115-10 批准链（尾追加 fc001_fmu
+# ——FC-001 5 态 L1-FMU 第三轨 golden fc001_fmu_v1；步① 无参调用六 golden 顺序验证，
+# FL/FC/GT 先例形态；步① label 滞后说明沿先例维持登记不修）
+DEFAULT_MODELS = ["fl001", "fl001_l1", "fc001_l1", "fl001_cap", "gt001_comb", "fc001_fmu"]
 
 KEY_POINTS = [19.9, 21.5, 26.0, 60.0]
 
@@ -319,6 +352,17 @@ def series_limit(sid, arr, tol):
             return tol["T_K_atol"]
         if sid.endswith("_kPa"):
             return tol["p_kPa_atol"]
+        # FCFMU-G2b-03（CHG-20261115-10 批准链）：T-B 分派 `_mL` 分支新增（Q15 定案
+        # 显式硬项，additive）。插入点显式钉死（APPROVED v1.0 §4 项 8/B-1）= 置于
+        # `_kPa` 支后、`r_true`/`r_meas` 子串判别之前——同时正确路由三个 `_mL` 键
+        # （V_water_store_true_mL / V_water_store_meas_mL / r_meas_water_mL）：
+        # 无本支时前两键落 f_Hz_atol 兜底（gate 无该键 => KeyError）而
+        # r_meas_water_mL 命中 r_meas 子串支走 kW 容差（静默量纲错型——评审 B P1）；
+        # 本支同时修复两形态。仅当 gate 声明 V_mL_atol 键时激活——既有 golden 无
+        # `_mL` 后缀 id ⇒ 既有键路由行为逐字节不变（fc001_v2 `_V`/fl001_v3 `_kWh`
+        # 条件支先例同构）。
+        if sid.endswith("_mL") and "V_mL_atol" in tol:
+            return tol["V_mL_atol"]
         if "r_true" in sid:
             return tol["r_true_kW"]
         if "r_meas" in sid:
@@ -347,6 +391,17 @@ def series_limit(sid, arr, tol):
         # f_Hz_atol 键 => 实害 KeyError（A-4/B-1 勘正：非量纲错配，是兜底键缺失））。
         if sid.endswith("_kWh") and "E_kWh" in tol:
             return tol["E_kWh"]
+        # FCFMU-G2b-03（CHG-20261115-10 批准链）：T-B 分派无量纲 dim 支新增（Q15 定案
+        # 显式硬项，additive）。置于 `_kWh` 支后、f_Hz_atol 兜底前：尾缀判别
+        # `_true`/`_est`/`_cmd` 覆盖 fc001_fmu_v1 五个无量纲键（y_O2_ca_true /
+        # cap_water_ratio_true / cap_water_ratio_est / u_o2_valve_cmd /
+        # u_drain_valve_cmd）——无本支时落 f_Hz_atol 兜底而 gate 无该键 => KeyError。
+        # 仅当 gate 声明 dim_atol 键时激活——既有 golden 无此三尾缀 id（r_true_kW 落
+        # r_true 子串支、SOC_est_pct/P_bat_est_kW 落 `_pct`/`_kW` 支均先于本支）⇒
+        # 既有键路由行为逐字节不变（`_V`/`_kWh` 条件支先例同构）。
+        if (sid.endswith("_true") or sid.endswith("_est") or sid.endswith("_cmd")) \
+                and "dim_atol" in tol:
+            return tol["dim_atol"]
         return tol["f_Hz_atol"]
     if sid.endswith("_Hz"):
         return tol.get("f_Hz_atol", 1e-9)
