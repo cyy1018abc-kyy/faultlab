@@ -1702,3 +1702,18 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   V150 DEC-4 同口径）**。
   **⑦ 批准人：用户（CHG-20261114-04 指令链——本收口登记为其波次授权的执行记录）；
   记录人：W4 门禁与证据路。**
+- `CHG-20261114-07`：**V160_WAVE_DESIGN v1 批准（v1.6.0 波：A-5 P3 GT 燃烧延迟批准与实现轮——八面冻结下第六个 additive/minor 波）**。
+  用户 2026-11-14 指令「下一步」（默认排程承接：V150 收口汇报明示「『下一步』默认按登记顺序走 P3 批准轮、G9/G10 顺延 v1.7.0」）。
+  ① `NEXT/V160_WAVE_DESIGN.md` v1 生效——**DEC-1…5 全采推荐项（一处推荐否决）**：P3 批准轮（GTCMB-G2b-02 收口：条件 A-1…A-6/B-1…B-5 全按推荐落正文 + τ_comb 常量定案（七项判据域扫描证据）+ Q1…Q13 定案 + 更名 GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0）与实现轮（GTCMB-G2b-03/04：gt001_comb_oracle + gt001_v4 第 12 golden T-B + verify_golden 注册行/DEFAULT_MODELS 五 golden/零新 gate 分支预期 + 引擎 thermo_comb 枚举分支三维 RK4 + 三处字面守卫 additive + UI + 测试，0 新步）；**键形态裁定=形态 a 枚举扩值**（新值 "thermo_comb"；GTL1 §2.4 三值枚举先例 + B-2 修正后 config_hash 轨区分面强化；被排除形态维持排除）；G9/G10 顺延 v1.7.0（CHG-20261114-06 双裁定承接——启动波待用户下轮指令）；C3 挂起维持；步数账 35→35 零增步（FIRST-35 机检）；additive 三不承诺。
+  ② **Q12 否决草案推荐**：model_version 维持 **'1.2.0' 仅登记**（否决 1.3.0 升位）——model_version 在 model_hash 九字段内（engine.js:559-569 实读），SystemDef 升位即既有 GT 输入 run_hash 变化 = V1_FACES §3.2 breaking；golden v4 元数据同值、语义由 golden_id 承载（FC Q1=B/FL 同构；偏离理由随批准 CHG 登记）。
+  ③ V06_ROADMAP §3 增补 v1.6.0 行（本波）。
+  ④ **CHG-20261114-08 预留**（v1.6.0 发布）。
+  ⑤ 冲突规避机检（2026-11-14）：CronList/OffPeakList/ListWorkflowRuns 全空 + 工作树 clean（HEAD=206f227）——无已有进程冲突；派发文件面互斥、不 push 不 rebase；代理中断降级路径维持。
+  **推送按用户裁定暂缓（同批：v0.7.1 起至 v1.5.0）——本波产出并入同批**。
+  **批准人：用户（2026-11-14「下一步」指令链——默认排程与推荐口径承接）；记录人：Lead Agent。**
+- `CHG-20261114-08`：**GTCMB-G2b-02 批准轮收口——GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0（P3 GT 燃烧延迟批准落地）；实现轮顺延登记**。
+  承接 CHG-20261114-07（V160_WAVE_DESIGN）。**① 批准轮收口**：条件 A-1…A-6/B-1…B-5 全按推荐落正文（A-1 P1 = t=60 采样 vs 渐近稳态两口径逐锚点登记——15 行口径表入 §3.3）；**键形态裁定 = 形态 a 枚举扩值 "thermo_comb"**（四元 golden 映射 linear→v1/swing→v2/thermo→v3/thermo_comb→v4；被排除形态维持）；**τ_comb = 0.5 s 定案**（七项判据域扫描：|Δf| 全窗 0.999640 < 1.0——边界敏感性登记 §1.3/§9 R-12；GL-6 gap 界重推 5e-4 Hz；RK4 裕度 57.8×；三点稳态不变性 9 位全同；可辨识 +5 采样；包络 T3 [735.3,1524.9]/T4 [486.7,1001.2]）；**Q12 否决草案推荐**（1.3.0 升位→维持 '1.2.0' 仅登记——model_hash 九字段承载面，偏离理由登记）；Q1…Q13 其余全采推荐；§10.1 用户批准行闭合；git mv 更名 APPROVED v1.0（473→712 行）。
+  **② 实现轮顺延（诚实登记）**：GTCMB-G2b-03/04（gt001_comb_oracle + gt001_v4 + 引擎 thermo_comb 分支 + 三处守卫 additive + 测试/UI）——**用户于 W2 派发时中断（2026-11-14）**，登记为 v1.7.0 候选（与 G9/G10 启动波并列，排序待用户下轮指令）；v1.6.0 不切版本发布（本波零代码面变更——规格批准属治理事件非 semver 事件；V160 路线图行维持计划态，实际交付以本 CHG 为准）。
+  **③ sanity 门禁**：`node tools/run-g2.mjs` **35/35 PASS**（111086 ms——批准轮纯文档变更零代码扰动佐证）。
+  证据：`NEXT/GT001_COMBUSTION_G2B_SPEC_APPROVED.md` v1.0（§10/§11 收口自载）。**推送按用户裁定暂缓（同批延续）**。
+  **批准人：用户（CHG-20261114-07 指令链）；记录人：Lead Agent。**
