@@ -1,0 +1,57 @@
+{
+  "schema": "faultlab.arena.l2.score.v1",
+  "bundle_kind": "arena_blind_l2",
+  "testset_id": "arena2-FL001-4-dae596a1",
+  "match_id": "9316b6a5-ec69-4b1b-acc1-581119a53a02",
+  "episodes": [
+    {
+      "index": 1,
+      "episode_id": "dcc27a4b-e927-407a-88d7-344a7745623e",
+      "s_diag": 50,
+      "s_anchor": 30,
+      "s_eff": 2.2222222222222223,
+      "score": 82.2222,
+      "v11a": true,
+      "v11b": true,
+      "budget_used_points": 165
+    },
+    {
+      "index": 2,
+      "episode_id": "449e7f2c-2936-4281-883a-1188f0d575cf",
+      "s_diag": 50,
+      "s_anchor": 30,
+      "s_eff": 2.2222222222222223,
+      "score": 82.2222,
+      "v11a": true,
+      "v11b": true,
+      "budget_used_points": 165
+    },
+    {
+      "index": 3,
+      "episode_id": "ff657d2b-d513-479c-b8fa-f7e3e0037d82",
+      "s_diag": 50,
+      "s_anchor": 30,
+      "s_eff": 2.2222222222222223,
+      "score": 82.2222,
+      "v11a": true,
+      "v11b": true,
+      "budget_used_points": 165
+    },
+    {
+      "index": 4,
+      "episode_id": "6d84e38b-ed26-4fb9-b835-3b09d2a39a6b",
+      "s_diag": 50,
+      "s_anchor": 30,
+      "s_eff": 2.2222222222222223,
+      "score": 82.2222,
+      "v11a": false,
+      "v11b": false,
+      "budget_used_points": 165
+    }
+  ],
+  "avg_score": 82.2222,
+  "budget_used_points": 165,
+  "budget_max_points": 180,
+  "score_hash": "59b0922915a525207dcd4d34b16c20f4ce5d5bd590e143f1d0d3b6a5890bc5f8",
+  "notice": "合成故障评测游戏（L2 主动探查协议），非真实诊断性能"
+}

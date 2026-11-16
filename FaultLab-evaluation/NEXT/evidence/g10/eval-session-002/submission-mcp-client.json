@@ -1,0 +1,288 @@
+{
+  "protocol": "l2",
+  "agent": {
+    "name": "eval-session-002-mcp-client"
+  },
+  "testset_id": "arena2-FL001-4-dae596a1",
+  "match_id": "9316b6a5-ec69-4b1b-acc1-581119a53a02",
+  "episodes": [
+    {
+      "episode_id": "dcc27a4b-e927-407a-88d7-344a7745623e",
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "sensor_drift",
+        "component": "sensor",
+        "magnitude": {
+          "value": 16,
+          "unit": "A"
+        },
+        "detectTime_s": 21.1,
+        "confidence": 0.9,
+        "explanation": "盲观测 I_bat_meas_A 在 t=21.1 s 出现 16.000 A 阶跃，测量一致性残差同步阶跃（传感链偏置面）；触发后演化窗确认持续偏离。"
+      },
+      "evidence_anchors": [
+        {
+          "kind": "onset",
+          "variable": "I_bat_meas_A",
+          "t_start": 20.700000000000003,
+          "t_end": 21.5,
+          "rule_id": "n1",
+          "backed_by_query_seq": 2,
+          "note": "onset 阶跃窗（含边界行）"
+        },
+        {
+          "kind": "propagation",
+          "variable": "I_bat_meas_A",
+          "t_start": 22.1,
+          "t_end": 32.1,
+          "rule_id": "n3",
+          "backed_by_query_seq": 3,
+          "note": "触发后演化窗"
+        }
+      ]
+    },
+    {
+      "episode_id": "449e7f2c-2936-4281-883a-1188f0d575cf",
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "sensor_drift",
+        "component": "sensor",
+        "magnitude": {
+          "value": 29,
+          "unit": "A"
+        },
+        "detectTime_s": 45.8,
+        "confidence": 0.9,
+        "explanation": "盲观测 I_bat_meas_A 在 t=45.8 s 出现 29.000 A 阶跃，测量一致性残差同步阶跃（传感链偏置面）；触发后演化窗确认持续偏离。"
+      },
+      "evidence_anchors": [
+        {
+          "kind": "onset",
+          "variable": "I_bat_meas_A",
+          "t_start": 45.4,
+          "t_end": 46.199999999999996,
+          "rule_id": "n1",
+          "backed_by_query_seq": 5,
+          "note": "onset 阶跃窗（含边界行）"
+        },
+        {
+          "kind": "propagation",
+          "variable": "I_bat_meas_A",
+          "t_start": 46.8,
+          "t_end": 56.8,
+          "rule_id": "n3",
+          "backed_by_query_seq": 6,
+          "note": "触发后演化窗"
+        }
+      ]
+    },
+    {
+      "episode_id": "ff657d2b-d513-479c-b8fa-f7e3e0037d82",
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "sensor_drift",
+        "component": "sensor",
+        "magnitude": {
+          "value": 4,
+          "unit": "A"
+        },
+        "detectTime_s": 34.8,
+        "confidence": 0.9,
+        "explanation": "盲观测 I_bat_meas_A 在 t=34.8 s 出现 4.000 A 阶跃，测量一致性残差同步阶跃（传感链偏置面）；触发后演化窗确认持续偏离。"
+      },
+      "evidence_anchors": [
+        {
+          "kind": "onset",
+          "variable": "I_bat_meas_A",
+          "t_start": 34.4,
+          "t_end": 35.199999999999996,
+          "rule_id": "n1",
+          "backed_by_query_seq": 8,
+          "note": "onset 阶跃窗（含边界行）"
+        },
+        {
+          "kind": "propagation",
+          "variable": "I_bat_meas_A",
+          "t_start": 35.8,
+          "t_end": 45.8,
+          "rule_id": "n3",
+          "backed_by_query_seq": 9,
+          "note": "触发后演化窗"
+        }
+      ]
+    },
+    {
+      "episode_id": "6d84e38b-ed26-4fb9-b835-3b09d2a39a6b",
+      "diagnosis": {
+        "faultDetected": false,
+        "faultType": "none",
+        "component": "none",
+        "magnitude": null,
+        "detectTime_s": null,
+        "confidence": 0.05,
+        "explanation": "全部盲观测通道粗信标无显著阶跃，测量一致性残差平稳，判健康局。"
+      },
+      "evidence_anchors": [
+        {
+          "kind": "steady_state",
+          "variable": "I_bat_meas_A",
+          "t_start": 10,
+          "t_end": 20,
+          "rule_id": "n1",
+          "backed_by_query_seq": 10,
+          "note": "稳态残差平稳（盲观测窗）"
+        }
+      ]
+    }
+  ],
+  "query_ledger": [
+    {
+      "seq": 1,
+      "episode_id": "dcc27a4b-e927-407a-88d7-344a7745623e",
+      "variables": [
+        "I_bat_meas_A"
+      ],
+      "t_start": 20,
+      "t_end": 22,
+      "stride": 4,
+      "returned_rows": 8,
+      "cost_points": 8,
+      "slice_sha256": "53feebd12ebd5147f717ad6cefe3180cf9ce95d0fe1a33615cc02466a79fb8b1",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 2,
+      "episode_id": "dcc27a4b-e927-407a-88d7-344a7745623e",
+      "variables": [
+        "I_bat_meas_A",
+        "r_meas_kW"
+      ],
+      "t_start": 20.700000000000003,
+      "t_end": 21.5,
+      "stride": 1,
+      "returned_rows": 10,
+      "cost_points": 20,
+      "slice_sha256": "035a176a0aba556b199b7837cc61ec49e619298979803f7168b793bc75d2d210",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 3,
+      "episode_id": "dcc27a4b-e927-407a-88d7-344a7745623e",
+      "variables": [
+        "I_bat_meas_A",
+        "r_meas_kW"
+      ],
+      "t_start": 22.1,
+      "t_end": 32.1,
+      "stride": 10,
+      "returned_rows": 10,
+      "cost_points": 20,
+      "slice_sha256": "f13ef610359c426dc73a19ac2f2ade876dc7ecee4f15629705720c1b410e8c25",
+      "includes_pre_post": false
+    },
+    {
+      "seq": 4,
+      "episode_id": "449e7f2c-2936-4281-883a-1188f0d575cf",
+      "variables": [
+        "I_bat_meas_A"
+      ],
+      "t_start": 44,
+      "t_end": 46,
+      "stride": 4,
+      "returned_rows": 8,
+      "cost_points": 8,
+      "slice_sha256": "79bd2fa8cccc34246357541f30afa473098ccb4e84fc98ab6c3495de2de7eff5",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 5,
+      "episode_id": "449e7f2c-2936-4281-883a-1188f0d575cf",
+      "variables": [
+        "I_bat_meas_A",
+        "r_meas_kW"
+      ],
+      "t_start": 45.4,
+      "t_end": 46.199999999999996,
+      "stride": 1,
+      "returned_rows": 10,
+      "cost_points": 20,
+      "slice_sha256": "08c75134f8cfd30d19d6f5146bef0ad50ca9467358549cb843a2b5725a068cab",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 6,
+      "episode_id": "449e7f2c-2936-4281-883a-1188f0d575cf",
+      "variables": [
+        "I_bat_meas_A",
+        "r_meas_kW"
+      ],
+      "t_start": 46.8,
+      "t_end": 56.8,
+      "stride": 10,
+      "returned_rows": 10,
+      "cost_points": 20,
+      "slice_sha256": "24c0439952d7cdeb245d9230f1aff4af88560a28946dc6be3efda7bcd9dba7e1",
+      "includes_pre_post": false
+    },
+    {
+      "seq": 7,
+      "episode_id": "ff657d2b-d513-479c-b8fa-f7e3e0037d82",
+      "variables": [
+        "I_bat_meas_A"
+      ],
+      "t_start": 34,
+      "t_end": 36,
+      "stride": 4,
+      "returned_rows": 7,
+      "cost_points": 7,
+      "slice_sha256": "f93e559c1c97f52f3af77129b5aff3d449447df690a2e1713dfe05c865a291e3",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 8,
+      "episode_id": "ff657d2b-d513-479c-b8fa-f7e3e0037d82",
+      "variables": [
+        "I_bat_meas_A",
+        "r_meas_kW"
+      ],
+      "t_start": 34.4,
+      "t_end": 35.199999999999996,
+      "stride": 1,
+      "returned_rows": 10,
+      "cost_points": 20,
+      "slice_sha256": "0fcfceb357960663a943aa16c0ea93dabf16ba691b268356b1e7b77857057565",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 9,
+      "episode_id": "ff657d2b-d513-479c-b8fa-f7e3e0037d82",
+      "variables": [
+        "I_bat_meas_A",
+        "r_meas_kW"
+      ],
+      "t_start": 35.8,
+      "t_end": 45.8,
+      "stride": 10,
+      "returned_rows": 10,
+      "cost_points": 20,
+      "slice_sha256": "32aa6baaf62770a5dd64d7f9f005acf292ff6d2a9ddc82d63df4fcbe52151972",
+      "includes_pre_post": false
+    },
+    {
+      "seq": 10,
+      "episode_id": "6d84e38b-ed26-4fb9-b835-3b09d2a39a6b",
+      "variables": [
+        "I_bat_meas_A",
+        "I_ref_A"
+      ],
+      "t_start": 10,
+      "t_end": 20,
+      "stride": 10,
+      "returned_rows": 11,
+      "cost_points": 22,
+      "slice_sha256": "5d54de77626b8211a27bf70e45de586c2925aea00d3246ab6b23c19eeed6c07a",
+      "includes_pre_post": false
+    }
+  ],
+  "submission_sha256": "6b7dafa6c94ccba12aa89b05ae492a748c2cc075004a61c4f48f3c3559c037c0"
+}

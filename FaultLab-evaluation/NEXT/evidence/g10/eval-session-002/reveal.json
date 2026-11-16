@@ -1,0 +1,102 @@
+{
+  "schema": "faultlab.arena.reveal.v1",
+  "testset_id": "arena2-FL001-4-dae596a1",
+  "match_id": "9316b6a5-ec69-4b1b-acc1-581119a53a02",
+  "set_seed": 20261116,
+  "mapping": [
+    {
+      "match_id": "9316b6a5-ec69-4b1b-acc1-581119a53a02",
+      "round": 1,
+      "truth": {
+        "faultFamily": "sensor_drift",
+        "faultFamilyLabel": "传感器漂移",
+        "faultId": "I_bat_sensor_bias",
+        "component": "sensor",
+        "componentLabel": "电流传感器",
+        "magnitude": {
+          "value": 16,
+          "unit": "A"
+        },
+        "t_fault": 21.1,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "closed_loop",
+        "active_s": 38.9,
+        "detectedAt": null,
+        "rule_id_onset": "n1",
+        "rule_id_propagation": "n3"
+      }
+    },
+    {
+      "match_id": "9316b6a5-ec69-4b1b-acc1-581119a53a02",
+      "round": 2,
+      "truth": {
+        "faultFamily": "sensor_drift",
+        "faultFamilyLabel": "传感器漂移",
+        "faultId": "I_bat_sensor_bias",
+        "component": "sensor",
+        "componentLabel": "电流传感器",
+        "magnitude": {
+          "value": 29,
+          "unit": "A"
+        },
+        "t_fault": 45.8,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "monitor",
+        "active_s": 14.2,
+        "detectedAt": null,
+        "rule_id_onset": "n1",
+        "rule_id_propagation": "n3"
+      }
+    },
+    {
+      "match_id": "9316b6a5-ec69-4b1b-acc1-581119a53a02",
+      "round": 3,
+      "truth": {
+        "faultFamily": "sensor_drift",
+        "faultFamilyLabel": "传感器漂移",
+        "faultId": "I_bat_sensor_bias",
+        "component": "sensor",
+        "componentLabel": "电流传感器",
+        "magnitude": {
+          "value": 4,
+          "unit": "A"
+        },
+        "t_fault": 34.8,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "closed_loop",
+        "active_s": 25.2,
+        "detectedAt": null,
+        "rule_id_onset": "n1",
+        "rule_id_propagation": "n3"
+      }
+    },
+    {
+      "match_id": "9316b6a5-ec69-4b1b-acc1-581119a53a02",
+      "round": 4,
+      "truth": {
+        "faultFamily": "none",
+        "faultFamilyLabel": "健康局",
+        "faultId": null,
+        "component": "none",
+        "componentLabel": "无",
+        "magnitude": null,
+        "t_fault": null,
+        "healthy": true,
+        "none": true,
+        "feedbackMode": "healthy",
+        "active_s": 0,
+        "detectedAt": null,
+        "rule_id_onset": null,
+        "rule_id_propagation": null
+      }
+    }
+  ],
+  "scenario_rules": "sr1",
+  "scoring_rules_spec": "v2",
+  "engine_version": "0.1.0",
+  "model_version": "1.1.0",
+  "generated_at": "2026-11-16T20:08:04.076Z"
+}
