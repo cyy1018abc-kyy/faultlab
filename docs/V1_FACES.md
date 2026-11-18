@@ -722,3 +722,12 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
 - **面③/④ 零触碰**（场景键面零新增——Q13(a) adapter 层绑定；run_hash 既有清单零变化）；
 - EvidenceBundle v1.1 fmu_sha256 additive 条件字段（勘误②——五哈希零变化证明
   bundle.test.js 三断言）。
+
+## 18. v1.10.1 additive 修订记录（2026-11-18，CHG-20261118-06）
+
+- **面① bridge 面**：bridge.py `/capability` + `/simulate-fc001-fmu` 两端点 additive
+  （既有端点/安全边界零触碰）+ adapter `bridgeRun`（fetch 注入式）——三层夹心外层
+  HTTP 面端到端接通（桥服务 C Run ≡ golden 21 列逐位——R-G9-02 HTTP 面复证）；
+- **面② golden 13 维持**（零触碰）；**面③ 零触碰**（场景键面零新增）；**面⑦ 36 步维持**
+  （E2E 断言并入 backend-bridge 既有步）；**面⑧ 43 维持**（零增词）；
+- **面⑤/⑥ 零变化**（V312 §10 钉 hash / compare 谓词均为 v1.10.0 面——本波零触碰）。

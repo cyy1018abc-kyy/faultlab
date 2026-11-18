@@ -1844,3 +1844,10 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   用户 2026-11-18 指令「推送/继续」——推送兑现（CHG-20261118-04）+ 待办继续。**DEC-1…3 全采推荐项**：① bridge.py additive 两端点（GET /capability FMU 能力面 + POST /simulate-fc001-fmu run_fc001_shell 委托——64 位解释器内进程导入；32 位/产物缺位 ⇒ ready=false + 503 结构化不静默；既有端点/安全边界零触碰）+ adapter additive bridgeRun（fetch 注入式）；② E2E 断言并入 tests/backend-bridge.test.js（64 位解释器起桥实调——**桥服务 C Run 序列与 fc001_fmu_v1 golden 全等断言**——R-G9-02 parity 0.0 的 HTTP 面复证；无 64 位环境 skip）——run-g2 步账 36 维持；③ additive 三不承诺。版本 v1.10.1（patch——全 additive 零 breaking）。
   ② 冲突规避机检：工作树 clean（HEAD=42e2409）。
   **批准人：用户（2026-11-18「推送/继续」指令链）；记录人：Lead Agent（V1110 承接会话）。**
+- `CHG-20261118-06`：**v1.10.1 发布收口（G7→G8）——bridge→fmu_runner HTTP 端到端接线深化（additive patch）**。
+  承接 CHG-20261118-05（V1111 波）。**① 发布门全表（2026-11-18 全部真实运行）**：1. build.py exit 0 ×2 幂等（FaultLab.html **1768.0 KiB**）；2. run-g2 ×2 独立全过（113079 / 113385 ms——36 步维持）；3. **FC 桥 E2E 26/26**（backend-bridge.test.js additive 断言段——① /capability 能力面 200 + 无令牌 403 安全边界同构；② /simulate-fc001-fmu 委托实调 200；③ **桥服务 C Run 序列 ≡ fc001_fmu_v1 golden 21 列逐位全等——R-G9-02 parity 0.0 的 HTTP 面复证**；④ adapter probeBridge/bridgeRun 注入式实跑 + V312 钉 hash 回传）；4. copy-guard 43 patterns 0 命中；5. verify_golden fc001_fmu exit 0（V-03 一致——oracle/adapter 双冻结面零触碰）。
+  **② 交付清单**：bridge.py 两端点 additive（/capability FMU 能力面 ready=false 结构化 + /simulate-fc001-fmu 委托——64 位解释器内进程导入，V1111 DEC-1 无子进程回退；既有端点/安全边界零触碰）+ adapter bridgeRun（fetch 注入式 + X-Bridge-Token 对齐 + capability 嵌套契约对齐——两处契约面偏差实调发现即修）+ E2E 断言段（64 位解释器起第二桥实例——--port 0 + discovery 隔离；无 64 位环境 skip §9⑥）。
+  **③ additive 三不承诺兑现**：五类哈希既有输入零变化；既有 13 golden 字节零触碰；36 步判据零翻转（backend-bridge 步既有 23 断言零改动全绿）。
+  **④ v1.10.x 残留待办**：平台矩阵后补（linux64/.dylib——重钉须 CHG）；第三方 L2 Agent 会话（eval-session-003+）；C3 真 TESPy 挂起维持。
+  证据 `evidence/g8/v1111-release.md`。**推送按届时用户指令**（CHG-20261116-03 口径——本波 commit 后随批次推送）。
+  **批准人：用户（CHG-20261118-05 指令链——本收口登记为其波次授权的执行记录）；记录人：Lead Agent（V1110 承接会话）。**

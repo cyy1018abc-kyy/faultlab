@@ -97,7 +97,8 @@ run-g2 25 步（tier 分层候选）。
 | **v1.7.0** | G9/G10 启动波：I-11 S3 收口实现（GT-001 plants 适配器 + 位级验收；范围扩裁定 FL/FC/GT）+ G9 FC-001 FMU G2b 草案轮（批准 v1.8.0）+ G10 顺延 v1.8.0 登记 → additive minor | I-11(S3)/G9(草案) | S3 位级验收 → G2b（G9 草案+双评审）→ G7（步数 35，0 增步）→ G8 |
 | **v1.8.0** | S3 track wiring（thermo/comb 消费 plants/gt001.js）+ G9 Python oracle fc001_fmu_oracle.py 先行 + G9 C99 阻塞登记 + G10 顺延 v1.9.0 → additive minor | I-11(S3 wiring)/G9(oracle) | S3 位级验收 → G7（步数 35，0 增步）→ G8 |
 | **v1.9.0** | S3 track wiring 四轨消费（位级验收 GT 扩展矩阵）+ G9 批准轮收口（FCFMU-G2b-02：Q 定案 + 评审 B + P1 修正 + APPROVED v1.0）→ oracle emit（fc001_fmu_v1）+ G10 Arena L2 基础设施（arena-mcp-server + N-B18..20 + V-11）+ C99 阻塞维持 + 收口面补齐 → additive minor | I-11(S3 四轨)/G9(批准+oracle)/G10(基础设施) | S3 位级验收 → G2b（G9 批准轮）→ G7（步数 35，0 增步）→ G8 |
-| **v1.10.0**（本波） | FCFMU-G2b-04 完整执行：C99 内核 + 工具链供给（用户态 WinLibs + 官方 sha256）+ parity（R-G9-02 散差 0.0）+ adapter/causal-rules/compare 谓词 + copy-guard 39→43 + V312 钉 hash + run-g2 35→36 → additive minor | G9(G2b-04 实现) | R-G9-02/03/04 → G7（步数 36，+1 显式申报）→ G8 |
+| **v1.10.0** | FCFMU-G2b-04 完整执行：C99 内核 + 工具链供给（用户态 WinLibs + 官方 sha256）+ parity（R-G9-02 散差 0.0）+ adapter/causal-rules/compare 谓词 + copy-guard 39→43 + V312 钉 hash + run-g2 35→36 → additive minor | G9(G2b-04 实现) | R-G9-02/03/04 → G7（步数 36，+1 显式申报）→ G8 |
+| **v1.10.1**（本波） | bridge→fmu_runner HTTP 端到端（/capability + /simulate-fc001-fmu + adapter bridgeRun + 桥服务 C Run ≡ golden 全等 E2E）→ additive patch | G9(桥面深化) | G7（步数 36 维持）→ G8 |
 
 ## 4. 决策点（已按用户指令全采推荐项）
 

@@ -54,13 +54,14 @@
         return Promise.resolve(false);
       }
       var url = bridgeOpts.url + '/capability';
-      return fetchImpl(url, { headers: bridgeOpts.token ? { 'Authorization': 'Bearer ' + bridgeOpts.token } : {} })
+      return fetchImpl(url, { headers: bridgeOpts.token ? { 'X-Bridge-Token': bridgeOpts.token } : {} })
         .then(function (r) {
           if (!r.ok) throw new Error('bridge capability HTTP ' + r.status);
           return r.json();
         })
         .then(function (cap) {
-          if (!cap || cap.model_id !== 'fc.pem.fmu_l1') throw new Error('bridge capability model_id 不符');
+          var c = cap && (cap.capability || cap);   /* 契约面：{ok, capability:{...}}（兼容平铺） */
+          if (!c || c.model_id !== 'fc.pem.fmu_l1') throw new Error('bridge capability model_id 不符');
           mode = 'bridge';
           lastError = null;
           return true;
@@ -97,6 +98,28 @@
           metrics: r.metrics,
           events: r.events
         };
+      },
+      /* bridge 模式 Run 获取（POST /simulate-fc001-fmu——桥侧 run_fc001_shell 委托；
+         fetchImpl 注入——core 零网络 API 直调纪律）。probeBridge 成功后方可调用。 */
+      bridgeRun: function (fetchImpl, runKey) {
+        if (mode !== 'bridge') {
+          return Promise.reject(new Error('adapter 非 bridge 模式（probeBridge 先行）'));
+        }
+        if (typeof fetchImpl !== 'function') {
+          return Promise.reject(new Error('调用方未注入 fetchImpl'));
+        }
+        return fetchImpl(bridgeOpts.url + '/simulate-fc001-fmu', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' },
+            bridgeOpts.token ? { 'X-Bridge-Token': bridgeOpts.token } : {}),
+          body: JSON.stringify({ runKey: runKey || null })
+        }).then(function (r) {
+          if (!r.ok) throw new Error('bridge simulate-fc001-fmu HTTP ' + r.status);
+          return r.json();
+        }).then(function (out) {
+          if (!out.ok) throw new Error(out.error || 'bridge FC 面失败');
+          return out.result;
+        });
       },
       meta: function () {
         if (mode !== 'prebaked' || !golden) return null;

@@ -15,6 +15,10 @@
   GET  /capabilities → 适配器清单
   POST /simulate     body {"backendId": "py-analytic-fl001|py-rk4-fl001", "config": {...}}
                      → produce 输出（与适配器 CLI 同 schema）
+  GET  /capability   → FC-001 L1-FMU 能力面（FCFMU-G2b-04 / CHG-20261118-05——
+                       model_id/fmu_sha256/ready；ready=false = 32 位解释器或产物缺位）
+  POST /simulate-fc001-fmu → run_fc001_shell 委托（5 Run C 内核序列 + run_hash；
+                       64 位解释器内进程导入——32 位环境 503 结构化不静默）
 仅标准库。
 """
 import argparse
@@ -54,6 +58,57 @@ def produce(backend_id, cfg):
     t, signals, integrals, metrics = mod.solve(cfg)
     return {"backend": mod.BACKEND, "systemId": "FL-001", "config": cfg,
             "t": t, "signals": signals, "integrals": integrals, "metrics": metrics}
+
+
+# ---------------------------------------------------------------------------
+# FC-001 L1-FMU 面（FCFMU-G2b-04 / CHG-20261118-05——V1111 DEC-1：64 位解释器内进程
+# 导入，无子进程回退；32 位环境 ready=false + 503 结构化——显式不静默）
+# ---------------------------------------------------------------------------
+_FC_STATE = {"checked": False, "ready": False, "reason": None, "fmu_sha256": None}
+
+
+def _fc_checked():
+    if _FC_STATE["checked"]:
+        return _FC_STATE
+    _FC_STATE["checked"] = True
+    fmu_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))))), "data", "fmu", "fc001_l1_v1.fmu")
+    if not os.path.exists(fmu_path):
+        _FC_STATE["reason"] = "编译产物缺位：data/fmu/fc001_l1_v1.fmu 不存在"
+        return _FC_STATE
+    try:
+        import fmu_runner
+        r = fmu_runner.run_fc001_shell(fmu_path)
+        if not r.get("ok"):
+            _FC_STATE["reason"] = "壳执行失败：" + json.dumps(r.get("admission", {}), ensure_ascii=False)
+            return _FC_STATE
+        _FC_STATE["ready"] = True
+        _FC_STATE["fmu_sha256"] = r["fmu_sha256"]
+        _FC_STATE["runs"] = r["runs"]
+    except Exception as e:  # noqa: BLE001
+        _FC_STATE["reason"] = "FMU 加载失败（32 位解释器或 ctypes 面）：" + str(e)
+    return _FC_STATE
+
+
+def fc_capability_payload():
+    st = _fc_checked()
+    return {"model_id": "fc.pem.fmu_l1", "fmu_sha256": st.get("fmu_sha256"),
+            "ready": st["ready"], "reason": st.get("reason"),
+            "protocol": "faultlab.bridge.fc001-fmu.v1"}
+
+
+def fc_simulate(run_key):
+    st = _fc_checked()
+    if not st["ready"]:
+        return None, st.get("reason") or "FC 面不可用"
+    runs = st["runs"]
+    if run_key:
+        if run_key not in runs:
+            return None, "未知 Run key：" + str(run_key)
+        return {"run": runs[run_key], "fmu_sha256": st["fmu_sha256"],
+                "model_id": "fc.pem.fmu_l1"}, None
+    return {"runs": {k: v for k, v in runs.items()}, "fmu_sha256": st["fmu_sha256"],
+            "model_id": "fc.pem.fmu_l1"}, None
 
 
 def origin_allowed(origin):
@@ -110,6 +165,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path.startswith("/capabilities"):
             self._send(200, {"ok": True, "capabilities": capabilities_payload()})
+        elif self.path.startswith("/capability"):
+            self._send(200, {"ok": True, "capability": fc_capability_payload()})
         else:
             self._send(404, {"ok": False, "error": "未知端点"})
 
@@ -117,6 +174,18 @@ class Handler(BaseHTTPRequestHandler):
         guard = self._guard()
         if guard:
             self._send(guard[0], {"ok": False, "error": guard[1]})
+            return
+        if self.path.startswith("/simulate-fc001-fmu"):
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+                out, err = fc_simulate(body.get("runKey"))
+                if err:
+                    self._send(503, {"ok": False, "error": err, "reason_code": "fmu-unavailable"})
+                else:
+                    self._send(200, {"ok": True, "result": out})
+            except Exception as e:  # noqa: BLE001
+                self._send(500, {"ok": False, "error": "FC 面失败：" + str(e)})
             return
         if not self.path.startswith("/simulate"):
             self._send(404, {"ok": False, "error": "未知端点"})

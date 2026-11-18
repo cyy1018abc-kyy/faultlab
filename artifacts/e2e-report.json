@@ -15,16 +15,16 @@
       "jsVersion": "15.7.112.43"
     }
   },
-  "generated_at": "2026-11-18T19:15:31.612Z",
+  "generated_at": "2026-11-18T20:41:21.528Z",
   "code": {
-    "commit_sha": "bb96fb1ed003352b3bc2a8e08e6c8ae4f83e293b",
+    "commit_sha": "24198df50ba224b2d9876ec95b4ece00fbd8800d",
     "branch": "main",
     "worktree_dirty": true
   },
   "execution": {
-    "started_at": "2026-11-18T19:14:55.829Z",
-    "generated_at": "2026-11-18T19:15:31.612Z",
-    "duration_ms": 35783
+    "started_at": "2026-11-18T20:40:45.876Z",
+    "generated_at": "2026-11-18T20:41:21.528Z",
+    "duration_ms": 35652
   },
   "perf": {
     "baseline": {
@@ -81,17 +81,17 @@
         "gate": "mean >= threshold_fps"
       },
       "last_run": {
-        "at": "2026-11-18T19:15:44.475Z",
+        "at": "2026-11-18T20:41:33.979Z",
         "mode": "gate",
         "chrome": "C:/Program Files/Google/Chrome/Application/chrome.exe",
-        "heap_mb": 21.09,
+        "heap_mb": 17.47,
         "heap_available": true,
-        "fps_mean": 60.1,
+        "fps_mean": 60,
         "fps_curve_window": 60.1,
-        "fps_tab_window": 60.2,
-        "window_curve_ms": 3231,
-        "window_tabs_ms": 3191,
-        "duration_ms": 12590,
+        "fps_tab_window": 60,
+        "window_curve_ms": 3214,
+        "window_tabs_ms": 3164,
+        "duration_ms": 12233,
         "notes": [],
         "heap_within": true,
         "fps_within": true,
