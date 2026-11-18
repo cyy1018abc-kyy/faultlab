@@ -1834,3 +1834,6 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   **⑤ v1.10.0 时点画像**：六系统 + FC-001 FMU 第三轨**全链**（oracle/golden/C99 内核/parity/adapter）、**13 golden 字节冻结**、11 verify_golden 注册行、11 页面、run-g2 **36 步**（DEFAULT_MODELS 六 golden）、负例套件 97 项、词表 **43/14**、FaultLab.html **1766.8 KiB**、V1_FACES 八面冻结维持（修订全部 additive）。
   证据 `evidence/g8/v1110-release.md`。**推送按届时用户指令**（本波 commit 后随批次推送——承接用户「执行」指令链的既有推送授权口径，CHG-20261116-03 先例）。
   **批准人：用户（CHG-20261118-01 指令链——本收口登记为其波次授权的执行记录）；记录人：Lead Agent（V1110 承接会话）。**
+- `CHG-20261118-03`：**推送挂起登记（网络侧——本机代理 127.0.0.1 不可达）**。
+  承接 CHG-20261118-02 推送口径。v1.10.0 发布提交（本行所在提交）已完成；`git push origin main` 两次尝试（2026-11-18）均因本机代理不可达失败（"Failed to connect to github.com:443 over proxy 127.0.0.1"——用户侧代理客户端未运行，环境因素非仓库状态问题）。**本地 main = 发布提交，ahead 1**——代理恢复后 `git push origin main` 即完成同步（无冲突面——origin/main = bb96fb1 为本地祖先）。推送授权口径维持 CHG-20261116-03 先例（用户指令链），本条仅为状态如实登记。
+  **批准人：无（状态登记条目）；记录人：Lead Agent（V1110 承接会话）。**
