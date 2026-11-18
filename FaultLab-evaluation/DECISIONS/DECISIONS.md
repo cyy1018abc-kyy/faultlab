@@ -1840,3 +1840,7 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
 - `CHG-20261118-04`：**推送兑现登记（CHG-20261118-03 挂起闭合——用户「推送/继续」指令）**。
   reflog 实证：`bb96fb1..7665e66 main -> main`（代理恢复后首次推送成功）——v1.10.0 发布提交 8829478 + CHG-20261118-03 上库；origin/main = 本地 main = 7665e66（本登记行随其后提交同批推送）。推送待办闭合。
   **批准人：用户（2026-11-18「推送/继续」指令链）；记录人：Lead Agent（V1110 承接会话）。**
+- `CHG-20261118-05`：**V1111_WAVE_DESIGN v1 批准（v1.10.1 波：bridge→fmu_runner HTTP 端到端接线深化——承接 CHG-20261118-02 ④ v1.10.x 待办首项）**。
+  用户 2026-11-18 指令「推送/继续」——推送兑现（CHG-20261118-04）+ 待办继续。**DEC-1…3 全采推荐项**：① bridge.py additive 两端点（GET /capability FMU 能力面 + POST /simulate-fc001-fmu run_fc001_shell 委托——64 位解释器内进程导入；32 位/产物缺位 ⇒ ready=false + 503 结构化不静默；既有端点/安全边界零触碰）+ adapter additive bridgeRun（fetch 注入式）；② E2E 断言并入 tests/backend-bridge.test.js（64 位解释器起桥实调——**桥服务 C Run 序列与 fc001_fmu_v1 golden 全等断言**——R-G9-02 parity 0.0 的 HTTP 面复证；无 64 位环境 skip）——run-g2 步账 36 维持；③ additive 三不承诺。版本 v1.10.1（patch——全 additive 零 breaking）。
+  ② 冲突规避机检：工作树 clean（HEAD=42e2409）。
+  **批准人：用户（2026-11-18「推送/继续」指令链）；记录人：Lead Agent（V1110 承接会话）。**
