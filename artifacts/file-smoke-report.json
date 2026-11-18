@@ -3,7 +3,7 @@
   "target": {
     "path": "FaultLab.html",
     "absolute": "F:\\GitHub项目合集\\FaultLab — Virtual Energy Lab\\FaultLab.html",
-    "bytes": 1799120
+    "bytes": 1809235
   },
   "protocol": "file:",
   "assertions_per_round": 98,
@@ -18,7 +18,7 @@
       "pass": 98,
       "fail": 0,
       "failures": [],
-      "duration_ms": 37132,
+      "duration_ms": 37734,
       "aborted": null
     }
   ],
@@ -27,21 +27,21 @@
     "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
     "node": "v26.5.1",
     "browser": {
-      "product": "Chrome/157.0.8103.52",
-      "revision": "@0985600c06a688b9c669e74afde7dacd5aaed047",
+      "product": "Chrome/157.0.8103.79",
+      "revision": "@6dc9bc3bdaea5c35ed6d41fceab2f7a3a2227c4f",
       "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
-      "jsVersion": "15.7.112.23"
+      "jsVersion": "15.7.112.43"
     }
   },
   "code": {
-    "commit_sha": "fa05562a0840c6226f7c56d2f69cfd940f2bd367",
+    "commit_sha": "bb96fb1ed003352b3bc2a8e08e6c8ae4f83e293b",
     "branch": "main",
     "worktree_dirty": true
   },
   "execution": {
     "command": "node tools/file-smoke.mjs",
-    "started_at": "2026-11-15T21:34:46.283Z",
-    "generated_at": "2026-11-15T21:35:23.561Z",
-    "duration_ms": 37278
+    "started_at": "2026-11-18T19:15:55.039Z",
+    "generated_at": "2026-11-18T19:16:32.948Z",
+    "duration_ms": 37909
   }
 }

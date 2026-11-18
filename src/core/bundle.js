@@ -138,6 +138,10 @@
       integrity: run.manifest.integrity,
       config_hash: run.configHash,
       model_hash: run.modelHash,
+      /* G9 勘误②（FCFMU-G2b-04，CHG-20261118-01）：fmu_sha256 additive 条件字段——
+         仅当 Run manifest 携带 backend.fmu_sha256（后端 FMU 轨）时写入；不入 run_hash
+         （V312 C-2 先例同构——五哈希既有面零变化，既有 Run 输出逐字节不变）。 */
+      fmu_sha256: (run.manifest.backend && run.manifest.backend.fmu_sha256) || undefined,
       files: fileList,
       csv: { encoding: 'utf-8-sig(BOM)', newline: '\n' },
       note: 'EvidenceBundle v1：导入时执行 哈希→Schema→重算 metrics/checks→run_hash 比对；本包不包含盲投影。'

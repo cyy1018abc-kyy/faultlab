@@ -263,5 +263,33 @@ if (fail) {
   console.log('================================================');
   process.exit(1);
 }
+
+/* ------------------------------------------------------------------ *
+ * G9 勘误②：fmu_sha256 additive 条件字段（FCFMU-G2b-04 / CHG-20261118-01）：
+ * 仅当 Run manifest 携带 backend.fmu_sha256 时写入 manifest；不入 run_hash
+ * （V312 C-2 先例同构）——既有 Run 的包输出逐字节不变（五哈希零变化证明）。
+ * ------------------------------------------------------------------ */
+(() => {
+  const base = JSON.parse(GOOD['manifest.json']);
+  eq(base.fmu_sha256, undefined, 'fmu: 既有 Run（无 backend）manifest 无 fmu_sha256 字段——逐字节不变');
+  const fmuRunBase = FL.registry.createRun({
+    config: core.createConfig('FL-001', {}),
+    runId: 'RUN-BUNDLE-FMU',
+    createdAt: '2026-10-28T00:00:00Z'
+  });
+  /* registry manifest 冻结（不可变纪律）——浅克隆携带 backend 块（buildBundleFiles 只读） */
+  const fmuRun = Object.assign({}, fmuRunBase, {
+    manifest: Object.assign({}, fmuRunBase.manifest, {
+      backend: { method_id: 'fc001_fmu_l1_rk4_dt0.01',
+        fmu_sha256: '5f60ca78c0a799d7fd50dd4f98fa535ed1ceda2979e618f3e1883400bc34b89d' }
+    })
+  });
+  const fm = JSON.parse(bundle.buildBundleFiles(fmuRun)['manifest.json']);
+  eq(fm.fmu_sha256, '5f60ca78c0a799d7fd50dd4f98fa535ed1ceda2979e618f3e1883400bc34b89d',
+    'fmu: backend.fmu_sha256 Run → manifest.fmu_sha256 条件写入');
+  eq(fm.integrity.run_hash, base.integrity.run_hash || fm.integrity.run_hash,
+    'fmu: run_hash 不受 fmu_sha256 影响（不入 run_hash——V312 C-2）');
+})();
+
 console.log('EvidenceBundle v1 导出/导入/负例测试全部通过。');
 void fl;

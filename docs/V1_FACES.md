@@ -701,3 +701,24 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
   N-B18..20 → 仓内 N-B20..22——V150 N-B18/19 冻结维持，面⑤ 增补纪律）——tools/** 评测
   基础设施，src/** 产品面零触碰（FaultLab.html 面仅 engine wiring 重构差量）；
 - §1/§3/面③/面④/面⑥ 零触碰。
+
+## 17. v1.10.0 additive 修订记录（2026-11-18，CHG-20261118-02）
+
+- **面① FC-001 FMU 轨全链**：C99 内核 `tools/backend/fmu/fc001_l1.c`（FMI 2.0 CS 最小
+  合规面 + I-3 认知分离——壳职责归 host）+ modelDescription.xml VR 契约 + `data/fmu/
+  fc001_l1_v1.fmu`（V312 §10 钉 hash 5f60ca78…）+ fmu_runner run_fc001_shell（壳 +
+  pre/post 分裂 + R-G9-03 三次恒等 + **D-27 关闭**）+ **R-G9-02 parity 散差 0.0**
+  （C↔Python 全 5 Run 全 21 列全 601 点——-ffp-contract=off IEEE 序纪律）；
+- **面② golden 13 维持**（零新 golden——本波为 G2b-04 实现/parity 波，oracle/golden
+  字节零触碰）；
+- **面⑤ admission 面**：V312 §10 钉 hash 行 + §7 provenance 例外行（fmu_l1_lumped_
+  unvalidated——Q2(A) CHG-20261118-01 ④ 授权修订）+ fmu_admission A-4 docstring 同步；
+- **面⑥ compare 面**：cross_fidelity_l0_vs_l1_fmu 谓词（engine.js compareRuns
+  comparison_kind additive 字段 + 跨保真警示——既有 P0 关系零变化）；
+- **面⑦ 快照注**：35→**36 步**（parity 步 additive——SKIP 语义 V312 §9⑥；DEFAULT_MODELS
+  六 golden 维持）；
+- **面⑧ 39→43 注**：Q11 四词入表（水位/液位/water level/liquid level——G0-V05-DEC-03
+  微重力守卫机检化；词表单调不减；teaching.test.js 镜像同步）；
+- **面③/④ 零触碰**（场景键面零新增——Q13(a) adapter 层绑定；run_hash 既有清单零变化）；
+- EvidenceBundle v1.1 fmu_sha256 additive 条件字段（勘误②——五哈希零变化证明
+  bundle.test.js 三断言）。

@@ -3420,6 +3420,17 @@
     } else {
       verdict = 'comparable';
     }
+    /* G9 cross_fidelity_l0_vs_l1_fmu 谓词（APPROVED v1.0 §2.5.2 逐字转写；FCFMU-G2b-04
+       additive 第三比对关系——既有 P0 关系零变化）：配置完全一致（无 faultDiff/modeDiff）
+       且 provenance 分属 analytical_demo(L0) 与 fmu_l1_lumped_unvalidated(L1-FMU) ⇒
+       comparison_kind='cross_fidelity'；actuator 局结构性不可比由 sameFaultConfig 天然排除
+       （§2.2 登记——L0 无排水阀对应物 + 幅值单位/尺度不同 ⇒ faultDiff → incomparable）。 */
+    var provA = (baselineRun.manifest && baselineRun.manifest.model_provenance) || null;
+    var provB = (trialRun.manifest && trialRun.manifest.model_provenance) || null;
+    var crossPair = (provA === 'analytical_demo' && provB === 'fmu_l1_lumped_unvalidated') ||
+      (provA === 'fmu_l1_lumped_unvalidated' && provB === 'analytical_demo');
+    var comparisonKind = (!failed && verdict === 'comparable' && !faultDiff && !modeDiff && crossPair)
+      ? 'cross_fidelity' : 'default';
     var diffAllowed = verdict !== 'incomparable';
 
     /* 指标配对 */
@@ -3441,6 +3452,9 @@
     if (!diffAllowed) warnings.push('两个 Run 的配置差异不在批准白名单内（baseline↔fault 允许 fault/bias；closed↔monitor 允许 feedback_mode），已禁用差值图与因果断言。');
     if (verdict === 'incomparable') {
       warnings.push('本对比不可比（incomparable）："仅由故障造成"类结论不可用；请改用兼容运行或仅查看。');
+    }
+    if (comparisonKind === 'cross_fidelity') {
+      warnings.push('跨保真比对（L0↔L1-FMU）：comparable 标记承载族级可解释性对齐——两轨无共享观测通道，数值差值不构成同模型误差（APPROVED §2.5⑤）。');
     }
 
     function pairOf(id) {
@@ -3515,6 +3529,7 @@
       valid: !failed,
       diffAllowed: diffAllowed,
       verdict: verdict,
+      comparison_kind: comparisonKind,
       allowed_diffs: allowedDiffs,
       compatibility: {
         model_version: { ok: sameModel },

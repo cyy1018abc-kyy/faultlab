@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- FC-001 5 态 L1-FMU FMI 2.0 Co-Simulation 描述（FCFMU-G2b-04 / CHG-20261118-01）。
+     VR 契约与 fc001_l1.c 逐字对齐；sealed 面输出（true 物理）——传感/控制/残差归 host
+     （I-3 认知分离，APPROVED v1.0 §1.1）。 -->
+<fmiModelDescription
+  fmiVersion="2.0"
+  modelName="fc001_l1"
+  guid="{fc001f3e-a1b2-c3d4-e5f6-0123456789ab}"
+  version="1.0.0"
+  generationTool="faultlab-fcfmu-g2b-04"
+  generationDateAndTime="2026-11-18T00:00:00Z"
+  numberOfEventIndicators="0">
+  <CoSimulation
+    modelIdentifier="fc001_l1"
+    needsExecutionTool="false"
+    canHandleVariableCommunicationStepSize="false"
+    canInterpolateInputs="false"
+    maxOutputDerivativeOrder="0"
+    canRunAsynchronuously="false"
+    canBeInstantiatedOnlyOncePerProcess="false"
+    canNotUseMemoryFunctions="false"
+    canGetAndSetFMUstate="false"
+    canSerializeFMUstate="false"
+    providesDirectionalDerivatives="false" />
+  <DefaultExperiment startTime="0" stopTime="60" stepSize="0.1" tolerance="0.0"/>
+  <ModelVariables>
+    <ScalarVariable name="I_load_A" valueReference="0" causality="input" variability="discrete">
+      <Real start="100.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="u_o2_valve_cmd" valueReference="1" causality="input" variability="discrete">
+      <Real start="0.5"/>
+    </ScalarVariable>
+    <ScalarVariable name="u_drain_valve_cmd" valueReference="2" causality="input" variability="discrete">
+      <Real start="0.5"/>
+    </ScalarVariable>
+    <ScalarVariable name="u_an_valve_cmd" valueReference="3" causality="input" variability="discrete">
+      <Real start="0.5"/>
+    </ScalarVariable>
+    <ScalarVariable name="alpha_drain" valueReference="4" causality="input" variability="discrete">
+      <Real start="1.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="p_O2_ca_true_kPa" valueReference="5" causality="output" variability="continuous" initial="exact">
+      <Real start="120.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="p_N2_ca_true_kPa" valueReference="6" causality="output" variability="continuous" initial="exact">
+      <Real start="50.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="p_H2_an_true_kPa" valueReference="7" causality="output" variability="continuous" initial="exact">
+      <Real start="180.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="V_water_store_true_mL" valueReference="8" causality="output" variability="continuous" initial="exact">
+      <Real start="200.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="T_stack_true_K" valueReference="9" causality="output" variability="continuous" initial="exact">
+      <Real start="343.15"/>
+    </ScalarVariable>
+    <ScalarVariable name="p_vap_ca_kPa" valueReference="10" causality="output" variability="continuous" initial="exact">
+      <Real start="30.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="p_ca_true_kPa" valueReference="11" causality="output" variability="continuous" initial="exact">
+      <Real start="200.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="y_O2_ca_true" valueReference="12" causality="output" variability="continuous" initial="exact">
+      <Real start="0.6"/>
+    </ScalarVariable>
+    <ScalarVariable name="cap_water_ratio_true" valueReference="13" causality="output" variability="continuous" initial="exact">
+      <Real start="0.4"/>
+    </ScalarVariable>
+    <ScalarVariable name="V_stack_true_V" valueReference="14" causality="output" variability="continuous" initial="exact">
+      <Real start="52.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_gross_kW" valueReference="15" causality="output" variability="continuous" initial="exact">
+      <Real start="5.2"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_net_kW" valueReference="16" causality="output" variability="continuous" initial="exact">
+      <Real start="5.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="eta_sys_true_pct" valueReference="17" causality="output" variability="continuous" initial="exact">
+      <Real start="49.840510366826156"/>
+    </ScalarVariable>
+  </ModelVariables>
+  <ModelStructure>
+    <Outputs>
+      <Unknown index="6"/>
+      <Unknown index="7"/>
+      <Unknown index="8"/>
+      <Unknown index="9"/>
+      <Unknown index="10"/>
+      <Unknown index="11"/>
+      <Unknown index="12"/>
+      <Unknown index="13"/>
+      <Unknown index="14"/>
+      <Unknown index="15"/>
+      <Unknown index="16"/>
+      <Unknown index="17"/>
+      <Unknown index="18"/>
+    </Outputs>
+  </ModelStructure>
+</fmiModelDescription>

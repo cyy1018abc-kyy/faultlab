@@ -1,10 +1,10 @@
 /**
  * run-g2.mjs — G2 验收四件套聚合器（P0b-05 / G0-DEC-16；V0.3.0 T1 追溯增强）。
  *
- *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，35 步全量）
+ *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，36 步全量——FCFMU-G2b-04 parity 步 CHG-20261118-01）
  *   node tools/run-g2.mjs --skip-e2e # 跳过浏览器步（CI 无 Chrome 时）
  *   node tools/run-g2.mjs --tier core     # 只跑 core 层（28 步；部分运行，非全量门禁）
- *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（7 步；部分运行）
+ *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（8 步；部分运行）
  *
  * D-1 tier 分层（CHG-20261104-08 DEC-3，采纳 D1_LITE_ASSESSMENT 方案 C）：
  *   STEPS 每步带 tier: 'core' | 'extended' 标签；--tier 仅过滤运行步面，
@@ -54,6 +54,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const args = process.argv.slice(2);
 const skipE2e = args.indexOf('--skip-e2e') !== -1;
+/* FCFMU-G2b-04 parity 步 SKIP 语义（CHG-20261118-01 DEC-3/Q17——V312 §9⑥ 先例）：
+   编译产物缺位（.fmu 不存在）⇒ parity 步记 skipped 不 fail（环境依赖显式化，不虚设）。 */
+const skipFmu = !fs.existsSync('data/fmu/fc001_l1_v1.fmu');
 /* --tier core|extended|all（D-1，CHG-20261104-08 DEC-3）：默认 all = 全量，
    非法取值立即退出（exit 2），避免手误触发意外的部分运行或全量运行 */
 const tierIdx = args.indexOf('--tier');
@@ -131,7 +134,8 @@ const STEPS = [
   { id: 'C-3 teaching.test.js（教学路径回归：7 路径校验/负例 8 类/禁词子串自检/FL 3 Run 冒烟——V1_FACES §4 #11 残留②补挂，第 32 步）', cmd: 'node', args: ['tests/teaching.test.js'], tier: 'core' },
   { id: 'C-4 leaderboard.test.js（本地排行榜回归——排行属生态扩展面，与 arena/backend 同层；V1_FACES §4 #11 残留②补挂，第 33 步）', cmd: 'node', args: ['tests/leaderboard.test.js'], tier: 'extended' },
   { id: 'MG-001 verify_golden mg001（第 7 个 golden，MG-G2b-03 / CHG-20261110-01 批准链，第 34 步）', cmd: 'python', args: ['scripts/verify_golden.py', 'mg001'], tier: 'core' },
-  { id: 'MG-001 engine-mg.test.js（引擎↔golden mg001_v1 5 Run 一致性 + R-5 守卫，第 35 步）', cmd: 'node', args: ['tests/engine-mg.test.js'], tier: 'core' }
+  { id: 'MG-001 engine-mg.test.js（引擎↔golden mg001_v1 5 Run 一致性 + R-5 守卫，第 35 步）', cmd: 'node', args: ['tests/engine-mg.test.js'], tier: 'core' },
+  { id: 'FCFMU-G2b-04 fc001_fmu parity（C↔Python 独立机检 R-G9-02——实测散差 0.0；SKIP=编译产物/64 位解释器缺位，CHG-20261118-01 DEC-3/Q17，第 36 步）', cmd: 'python', args: ['-I', 'tools/oracle/fc001_fmu_parity.py'], tier: 'extended', skip: skipFmu, skipReason: '编译产物缺位（data/fmu/fc001_l1_v1.fmu 不存在——SKIP 语义，CHG-20261118-01 DEC-3）' }
 ];
 
 /* ------------------------------------- 步数账与 tier 口径（I-7 / D-1 DEC-3） *
@@ -244,7 +248,7 @@ const results = [];
 let failed = 0;
 for (const step of selectedSteps) {
   if (step.skip) {
-    results.push({ id: step.id, status: 'skipped', reason: '--skip-e2e' });
+    results.push({ id: step.id, status: 'skipped', reason: step.skipReason || '--skip-e2e' });
     console.log('[SKIP] ' + step.id);
     continue;
   }

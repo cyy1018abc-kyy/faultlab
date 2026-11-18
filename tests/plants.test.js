@@ -149,10 +149,53 @@ ok(gtPlantS.bAt(gtTs - 0.05) === 0 && gtPlantS.bAt(gtTs + 0.05) === gtCfgS.fault
 ok(gtPlantS.fGovAt(50, gtTs + 0.05) === 50 + gtCfgS.fault.params.magnitude,
   'GT-001 fGovAt closed_loop = f + b（monitor 恒等视图由 monitor 配置承载）');
 
+
+/* ------------------------------------------------------------------ */
+/* 5.6 FC-001 L1-FMU adapter 挂载与 golden 装载守卫 + 因果规则注册面
+   （FCFMU-G2b-04，CHG-20261118-01——数据/装载面，零引擎仿真轨触碰） */
+/* ------------------------------------------------------------------ */
+ok(plants && typeof plants.createFc001FmuAdapter === 'function',
+  'FL.core.plants.createFc001FmuAdapter 存在');
+(() => {
+  const golden = JSON.parse(fs.readFileSync(
+    path.join(__dirname, '..', 'data', 'golden', 'fc001_fmu_v1.json'), 'utf8'));
+  const adapter = plants.createFc001FmuAdapter({});
+  ok(adapter.mode === 'uninitialized', 'FMU adapter 初始未初始化（显式装载纪律）');
+  ok(adapter.initPrebaked(golden) === true && adapter.mode === 'prebaked',
+    'FMU adapter initPrebaked（fc001_fmu_v1 真档案）= prebaked');
+  const runs = adapter.listRuns();
+  ok(runs.length === 5 && runs[0].key === 'baseline' && runs[4].key === 'actuator_drain_closed_loop',
+    'FMU adapter listRuns = 5 Run 白名单全集');
+  const run0 = adapter.getRun('sensor_p_ca_closed_loop');
+  ok(run0 && run0.series && run0.series.t.length === 601 && run0.series.p_ca_meas_kPa.length === 601,
+    'FMU adapter getRun 序列 601 点（21 列面）');
+  const meta = adapter.meta();
+  ok(meta && meta.model_provenance === 'fmu_l1_lumped_unvalidated'
+    && meta.model_id === 'fc.pem.fmu_l1' && meta.approved_by,
+    'FMU adapter meta = 批准档案身份（provenance/model_id/approval）');
+  /* 拒绝面：非本轨 golden / 未批准档案 */
+  const bad = plants.createFc001FmuAdapter({});
+  bad.initPrebaked(Object.assign({}, golden, { golden_id: 'fc001_v2' }));
+  ok(bad.mode === 'prebaked-invalid', 'FMU adapter 非 FMU golden 拒载（轨锚定校验）');
+  const bad2 = plants.createFc001FmuAdapter({});
+  const noApproval = JSON.parse(JSON.stringify(golden)); delete noApproval.approval;
+  bad2.initPrebaked(noApproval);
+  ok(bad2.mode === 'prebaked-invalid', 'FMU adapter 未批准档案拒载（approval 纪律）');
+  /* 因果规则注册面（causal-rules.js——数据面） */
+  const rules = core.causalRules && core.causalRules.fc001_fmu;
+  ok(Array.isArray(rules) && rules.length === 6
+    && rules[0].rule_id === 'FC_RULE_01_MEAS_STEP'
+    && rules[5].rule_id === 'FC_RULE_06_ALGEBRAIC_RES',
+    'causalRules.fc001_fmu = 6 节规则（FC_RULE_01..06 逐字注册）');
+  ok(rules.every(function (r) { return r.node_slot && r.epistemic_layer && r.statement; }),
+    'FMU 因果规则字段面齐备（node_slot/layer/statement）');
+})();
+
+/* ------------------------------------------------------------------ */
 /* ------------------------------------------------------------------ */
 /* 6. 经典脚本纪律静态扫描（plants 三个文件）                           */
 /* ------------------------------------------------------------------ */
-['plants/fl001.js', 'plants/fc001.js', 'plants/gt001.js'].forEach(function (rel) {
+['plants/fl001.js', 'plants/fc001.js', 'plants/gt001.js', 'plants/fc001-fmu-adapter.js', 'causal-rules.js'].forEach(function (rel) {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'core', rel), 'utf8');
   ['fetch(', 'document.', 'XMLHttpRequest', 'require(', 'import ', 'export '].forEach(function (tok) {
     ok(src.indexOf(tok) === -1, rel + ' 静态扫描无 ' + JSON.stringify(tok));

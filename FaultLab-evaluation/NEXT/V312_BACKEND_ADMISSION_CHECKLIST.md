@@ -83,7 +83,9 @@
 - 后端 Run 的 `model_manifest` **必须自述**（方程/参数/假设/limitations/数值口径），不得借
   `systems.js` 清单——防 `model_hash` 与 JS 相同致 `engine.js:1407` 检查语义失真；FMU 黑盒
   无 manifest 不得准入（Q-5），「已声明未复核」状态放 `manifest.backend.self_declared: true` +
-  UI 标签，**不新增 provenance 档位**。
+  UI 标签，**不新增 provenance 档位**（**例外——FC-001 已批 FMU 轨（FCFMU-G2b-02 批准轮，
+  CHG-20261115-10）：Q2(A) 裁定 additive 新档位 `fmu_l1_lumped_unvalidated`——V312 本行
+  按黑盒准入轨作用域限缩解释，FC-001 批准轨显式 CHG 例外（CHG-20261118-01 ④ 授权修订）**）。
 - 复核分工照 RFC §4 v1.1：`verify_bundle.py` = 文件/结构层；metrics/checks/run_hash 重算 =
   应用内导入路径（`createFromParts` 原子入口）；离线重算脚本（后端 golden 比对）列入实现期
   交付物。
@@ -112,5 +114,17 @@
 
 ---
 
+## 10. FC-001 L1-FMU 轨钉 hash（FCFMU-G2b-04，CHG-20261118-01 ④ 授权修订——勘误②③ + Q17 定案兑现）
+
+| 项 | 值 |
+|---|---|
+| 产物 | `data/fmu/fc001_l1_v1.fmu`（FMI 2.0 CS zip——modelDescription.xml + binaries/win64/fc001_l1.dll + model_manifest.json；固定时间戳字节确定性） |
+| **fmu_sha256（钉）** | `5f60ca78c0a799d7fd50dd4f98fa535ed1ceda2979e618f3e1883400bc34b89d`（18,117 B） |
+| model_id / provenance | `fc.pem.fmu_l1`（A-3 自述）/ `fmu_l1_lumped_unvalidated`（Q2(A) additive 档位——§7 例外行） |
+| 构建命令（钉） | `python -I tools/backend/fmu/build_fmu.py --gcc <gcc.exe>`（gcc -std=c99 -O2 -ffp-contract=off -fno-fast-math——WinLibs GCC 16.2.0 UCRT/SEH r3，sha256 校验 3c693050…；Q10=(c) win64 单平台先行） |
+| 重钉纪律 | 编译器/平台矩阵变更 ⇒ 产物字节变更 ⇒ 本表重钉须 CHG（fmu_runner FC_FMU_SHA256_PINNED 常量同步） |
+| 校验面 | fmu_runner.run_fc001_shell 装载前强制校验（不符即拒——R-G9-03 前置） |
+
 **冻结声明**：本清单自登记起为后端适配实现的准入事实源；与 RFC v1.1 冲突时以本清单为准
-（本清单即 RFC 裁定的实施细则）。**文件结束**。2026-10-30。
+（本清单即 RFC 裁定的实施细则）。**文件结束**。2026-10-30。（§10 + §7 例外行 = 2026-11-18
+CHG-20261118-01 ④ 授权修订——修订面仅此两处，其余条目零触碰。）

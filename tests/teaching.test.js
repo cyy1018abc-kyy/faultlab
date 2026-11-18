@@ -261,7 +261,7 @@ const guardSrc = fs.readFileSync(path.join(ROOT, 'tools', 'copy-guard.mjs'), 'ut
 const mBanned = guardSrc.match(/const BANNED = \[([\s\S]*?)\]\.map\(/);
 ok(!!mBanned, 'tools/copy-guard.mjs BANNED 数组可提取');
 const BANNED = (0, eval)('[' + mBanned[1] + ']');
-eq(BANNED.length, 39, 'BANNED 模式数=39');
+eq(BANNED.length, 43, 'BANNED 模式数=43（FCFMU-G2b-04 Q11 四词入表——CHG-20261118-01）');
 
 function hitByPattern(pattern, text) {
   if (pattern.indexOf('(?i)') === 0) {

@@ -10,7 +10,9 @@
       method_id/积分口径）；
   A-3 model_id 必须自述（禁借用 FL-001 目录清单——engine.js:1407 语义失真防护）；
   A-4 provenance 标 numerical_simulation + self_declared=true（UI「方程经声明、未经第三方
-      方程级复核」）；
+      方程级复核」）——**例外（CHG-20261118-01 ④）：已批 FC-001 FMU 轨 manifest provenance
+      = fmu_l1_lumped_unvalidated（Q2(A) 档位；admit() 现行未机检 provenance——纪律文本
+      与机检现状差异由本注记显式承载，评审 B P3-6 处置）**；
   A-5 拒绝路径：任一不满足 → 拒绝原因枚举（admitted=false + reasons[]）。
 
 真实 FMI 二进制执行（ctypes doStep，FMI 2.0 CS）需要实际 FMU 样本验证——D-27 记录，
