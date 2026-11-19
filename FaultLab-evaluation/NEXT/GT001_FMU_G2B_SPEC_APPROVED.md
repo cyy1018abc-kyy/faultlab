@@ -1,7 +1,11 @@
-# GT001_FMU_G2B_SPEC_DRAFT — GT-001 L1-FMU（第二例三层夹心）G2b 物理规格（DRAFT v0.1）
+# GT001_FMU_G2B_SPEC_APPROVED — GT-001 L1-FMU（第二例三层夹心）G2b 物理规格（APPROVED v1.0）
 
-> **状态**：`DRAFT v0.1（2026-11-18，V1120 波阶段一 S1——零实现承诺；Q 点全候选 + 推荐
-> 不定案；批准留待 v1.12.0 批准轮——本状态行即 DRAFT 依据）`。
+> **状态**：`APPROVED v1.0（2026-11-19，GTFMU-G2b-02 批准轮收口，CHG-20261119-01）——
+> 双路独立评审（A:PASS_WITH_CONDITIONS(2) / B:PASS_WITH_CONDITIONS(3)）+ 用户书面批准
+> （2026-11-19「批准」指令链——Q1…Q12 全按推荐定案）+ 条件 A-1/A-2/B-1/B-2/B-3 落正文
+> （§10.2）+ 更名 APPROVED v1.0（FCFMU-G2b-02 先例同款 git mv）。实现（GTFMU-G2b-03
+> oracle emit / G2b-04 C99 编译）= v1.12.0 实现轮随批开工；Q7 = 平台矩阵 (a) 本轮裁定
+> win64 先行（linux64/.dylib 后补重钉须 CHG）。`
 > **任务**：V07_ROADMAP §1 主线 A **A-6 行**「GT-001 L1-FMU（第二例三层夹心）：热力链内核
 > （EQ-GTL1-1..12/EQ-GTL2 域，gt001_v3/v4 oracle 为 Python 侧权威）——GTFMU-x 自检 + parity +
 > adapter/bridge 复用；fc001_fmu 全套先例同构」的 G2b 草案轮兑现（v1.11.x 治理波——零代码
@@ -507,7 +511,7 @@ src/** 前逐句预检 + copy-guard 终检双保险。）
 |---|---|---|---|
 | 评审人 A（物理/数值） | EQ-GTFMU 转写保真与量纲、Q1 更新序等价性、稳态点复算、RK4 制度、parity 制度、12 Run 结构、包络值域 | **PASS_WITH_CONDITIONS(2)（2026-11-18 S5a 子代理——报告 evidence/g2b/GTFMU_G2B_REVIEW_A.md）** | P1=0——载荷断言独立复算逐项命中（EQ-GTFMU-1..12 转写零改动/设计点残差 4.26e-14≈登记值/三点稳态角点全中/Q1(B) 更新序逐步对应成立/parity 制度转写零失真）；2 P2（Run 计数口径跨节矛盾→A-1；GTFMU-5 镜像守卫收窄→A-2）；5 P3（record 面语义/Ki 单位/行号注记/角点硬条件/ctypes 开销量级——均登记） |
 | 评审人 B（治理/契约面） | I-1…I-9 核对、准入面、golden 治理与 verify_golden 注册面、V312 准入、步数账、copy-guard | **PASS_WITH_CONDITIONS(3)（2026-11-18 S5b 子代理——报告 evidence/g2b/GTFMU_G2B_REVIEW_B.md；与评审 A 互不可见）** | P1=0——T-B 分派链 GT 27 列逐键路由 python -I 复刻零缺口/36 步/43 patterns 实跑/scope 零 GT 分支/零新键全过；3 P2（基线计数 14→13 失实→B-1；V312 例外行 FC-001 限定缺口→B-2；A-3 一般化表述超出机检实况→B-3）；3 P3（行号偏移/词面自涉/历史锚点——均登记） |
-| 用户批准 | Q1…Q12 定案 + 平台矩阵 + 容差/步账冻结 | 待定 | — |
+| 用户批准 | Q1…Q12 定案 + 平台矩阵 + 容差/步账冻结 | **批准（2026-11-19，CHG-20261119-01）** | 用户 2026-11-19 指令「批准」（V1120 收口汇报的 v1.12.0 排程入口响应——GTFMU-G2b-02 批准链）；Q1…Q12 全按推荐定案（§11 定案记录）；Q7 = 平台矩阵 (a) 本轮裁定 win64 先行；Q10 = (a) parity 独立步 36→37 |
 
 ### 10.2 条件处置追记（S6 评审轮落正文——2026-11-18，CHG-20261118-09；批准轮 GTFMU-G2b-02 复核）
 
@@ -539,9 +543,27 @@ src/** 前逐句预检 + copy-guard 终检双保险。）
 | Q11 | oracle 自检段名 | (a) GTFMU-1…n（V07 A-6 行原文点名「GTFMU-x 自检」）；(b) GFMU-1…n；(c) FMU-1…n 复用 | **(a)**——上游授权文本原文命名（非开放裁定面）；(c) 与 fc001_fmu_oracle FMU-x 段跨文件同名混淆 V-04 报告/审计面（GTCMB Q6 (c) 不推荐理由同构） |
 | Q12 | FMU 轨选择键面 | (a) plant adapter 层绑定（gt001-fmu-adapter.js——场景零新键；fc001 Q13 先例）；(b) scenario 显式新键（B-1a 同构） | **(a)**——fc001-fmu-adapter.js 轨锚定校验三面先例（golden_id/model_provenance/model_id）；涟漪最小；实现证明需场景钉轨则停下显式 CHG |
 
+**定案记录（GTFMU-G2b-02 批准轮，2026-11-19，CHG-20261119-01——全部按推荐定案；实现轮不再重开，如实现中证明不可行，停下显式 CHG）**：
+- **Q1 = (B)**：控制积分器 u 归 host——内核纯物理真值（[f,T3]/[f,T3,x_comb] RK4 面）；host 以 h=0.01 子步粒度驱动 doStep（n=1）+ 子步间 EQ-GTL1-9/10 推进 + 记账复刻；通信步粒度 0.01 显式登记（DefaultExperiment stepSize=0.01 + canHandleVariableCommunicationStepSize=false）；ZOH 降级变体排除。
+- **Q2 = (a)**：thermo 基准 + comb 深化双轨并列——两 C99 内核（gt001_l1.c 2 态 / gt001_comb_l1.c 3 态）+ 两 .fmu 包（各自 V312 B-4 钉 hash）+ 两 golden（gt001_fmu_v1 / gt001_fmu_comb_v1，均 supersedes=null）。
+- **Q3 = gt.sync.fmu_l1 + '1.0.0'**；包命名 gt001_l1_v1.fmu / gt001_comb_l1_v1.fmu。
+- **Q4 = gt001_fmu_v1 + gt001_fmu_comb_v1**；单 oracle `gt001_fmu_oracle.py`（双 Run 组——thermo 组/comb 组）。
+- **Q5 = (a) 12 Run 全集**（thermo 镜像 6 + comb 镜像 6——oracle RUNS 逐字）。
+- **Q6 = (a)**：gt001_fmu_parity.py 独立机检（I-9 独立成文；≤1e-9 规模相对误差判据 + SKIP exit 3 沿 fc001 先例）。
+- **Q7 = (a) 平台矩阵本轮裁定：win64 先行**（gcc -std=c99 -O2 -ffp-contract=off -fno-fast-math 钉死；linux64/.dylib 后补重钉须 CHG——A-7）。
+- **Q8 = (a) 复用 fmu_l1_lumped_unvalidated**（枚举零新增；**B-2：V312 §7 例外行 + A-4 docstring 扩域随批准轮 CHG 打包**——已落 CHG-20261119-01 ④）；golden 顶层 + run 级双落位。
+- **Q9 = (a)**：DEFAULT_MODELS 尾追加 gt001_fmu + gt001_fmu_comb（步① 无参调用 8 golden）。
+- **Q10 = (a)**：新增独立 gt001_fmu_parity 步（第 37 步——36→37 显式申报；I-9 独立成文；SKIP 语义沿 fc001 先例）。
+- **Q11 = (a) GTFMU-1…n**；**Q12 = (a) plant adapter 层绑定**（gt001-fmu-adapter.js——场景零新键）。
+
 ---
 
 **修订记录**：
+- **v1.0（2026-11-19 批准轮收口，GTFMU-G2b-02 / CHG-20261119-01）**：双路独立评审 A
+  （PASS_WITH_CONDITIONS(2)）+ B（PASS_WITH_CONDITIONS(3)——evidence/g2b/GTFMU_G2B_REVIEW_B.md）
+  + 用户书面批准（「批准」指令链）；条件 A-1/A-2/B-1/B-2/B-3 落正文（§10.2）；Q1…Q12 全按
+  推荐定案（§11 定案记录）；§10.1 双评审 + 用户批准行回填；头部/状态由 DRAFT v0.1 升
+  APPROVED v1.0（git mv 更名——FCFMU-G2b-02 先例同款）。
 - v0.1（2026-11-18 初稿，V1120 波阶段一 S1 / CHG-20261118-08 授权链）：全文初稿——GT 批准
   规格（GTL1 §2/GTCMB §1.3）逐字保留声明 + 逐条映射表；§0 边界 + 勘误头七项承接表（§0.1
   ——601 点原生沿用 fc001 Q1(A)）；§1 模型形态（三层夹心 GT 语境 / 工件身份 / EQ-GTFMU
@@ -555,13 +577,13 @@ src/** 前逐句预检 + copy-guard 终检双保险。）
   两条逐条）+ copy-guard 预查（BANNED 43 现值实读——零增词预期）；§7 进入条件；§8 工作面
   GTFMU-G2b-01…04；§9 风险 R-1…R-9；§10 评审记录留空；§11 Q1…Q12 不定案。
 
-**状态 `DRAFT v0.1`**：V1120 波 S1 起草轮（2026-11-18，CHG-20261118-08）——零实现承诺；
-批准留待 v1.12.0 批准轮 GTFMU-G2b-02（双路独立评审 + 用户书面批准 + 条件落正文 + Q 定案 +
-更名 APPROVED）。实现面（GTFMU-G2b-03 oracle emit / G2b-04 C99 编译）随用户逐版本指令派发；
-验收路径两门禁面（§4 项 10）自 gt001_fmu_v1 emit verify 通过起开放。
+**状态 `APPROVED v1.0`**：GTFMU-G2b-02 批准轮收口（2026-11-19，CHG-20261119-01——双路
+独立评审 + 用户书面批准 + 条件落正文 + Q 定案）。实现面（GTFMU-G2b-03 oracle emit /
+G2b-04 C99 编译）= v1.12.0 实现轮随批开工；验收路径两门禁面（§4 项 10）自 gt001_fmu_v1
+emit verify 通过起开放。
 
-**文件结束**。GT001_FMU_G2B_SPEC_DRAFT v0.1（2026-11-18，V1120 波 S1，CHG-20261118-08）。
-本草案为 GT 批准规格（GTL1_G2B_SPEC_APPROVED v1.0 §2 / GT001_COMBUSTION_G2B_SPEC_APPROVED
-v1.0 §1.3）热力链物理的仓内 G2b 化 FMU 轨转写——上游批准文本为唯一物理载体逐字保留；物理
-内容（方程/参数/稳态点/Run 矩阵/因果）逐字转写值零改动；Q1…Q12 全候选 + 推荐不定案，
-定案于批准轮（如实现中证明不可行，停下显式 CHG）。
+**文件结束**。GT001_FMU_G2B_SPEC_APPROVED v1.0（2026-11-19，GTFMU-G2b-02 批准轮收口，
+CHG-20261119-01；原 GT001_FMU_G2B_SPEC_DRAFT v0.1 由本批准升格更名）。本规格为 GT 批准
+规格（GTL1_G2B_SPEC_APPROVED v1.0 §2 / GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0 §1.3）
+热力链物理的仓内 G2b 化 FMU 轨转写——上游批准文本为唯一物理载体逐字保留；Q1…Q12 已定案
+冻结，实现轮不再重开（如实现中证明不可行，停下显式 CHG）。
