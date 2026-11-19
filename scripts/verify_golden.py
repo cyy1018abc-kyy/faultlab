@@ -32,6 +32,11 @@
   python scripts/verify_golden.py pv001          # PV-001（PV-G2b-03 / v0.7，CHG-20261104-10 批准链）
   python scripts/verify_golden.py wt001          # WT-001（WT-G2b-03 / v0.8，CHG-20261107-01 批准链）
   python scripts/verify_golden.py mg001          # MG-001（MG-G2b-03 / V110 W4，CHG-20261110-01 批准链）
+  python scripts/verify_golden.py gt001_fmu      # GT-001 L1-FMU 镜像轨 thermo（GTFMU-G2b-03 /
+                                                 #   CHG-20261119-01 批准链；golden gt001_fmu_v1，
+                                                 #   tier T-B，27 列同集零新增 gate 分支）
+  python scripts/verify_golden.py gt001_fmu_comb # GT-001 L1-FMU 镜像轨 comb 深化（Q2(a)；golden
+                                                 #   gt001_fmu_comb_v1，同 oracle 单文件）
   python scripts/verify_golden.py fc001_fmu      # FC-001 5 态 L1-FMU 第三轨（FCFMU-G2b-03 /
                                                  #   CHG-20261115-10 批准链；golden fc001_fmu_v1，
                                                  #   tier T-B，`_mL`/dim 分支 = Q15 定案显式硬项）
@@ -46,7 +51,8 @@
   V-03b approval 批准摘要一致（去除 generated_by/approval 后内容摘要）；
   V-04 oracle 自检全过（fl001 SC-1…9 / fl001_l1 FL-1…8 / fl001_cap FCAP-1…8 /
        fc001 SC-1…10 / fc001_l1 FEC-1…8 / gt001_l1 GL-1…8 / gt001_comb GCMB-1…9 /
-       pv001 PS-1…7 / wt001 WS-1…8 / mg001 MS-1…8 / fc001_fmu FMU-1…7）；
+       pv001 PS-1…7 / wt001 WS-1…8 / mg001 MS-1…8 / fc001_fmu FMU-1…7 /
+       gt001_fmu(_comb) GTFMU-1…7）；
   V-05 关键点（19.9/21.5/26.0/60.0 s 的 true/meas 对）——tier 分派：T-A rtol 1e-12
        （I_A 键，既有路径零改动）/ T-B 按 series_limit 序列容差键（GTL1-G2b-03 参数化）；
   V-06 标量（E/SOC）gate 容差（±1e-6 kWh / ±1e-5 pp）；
@@ -101,6 +107,10 @@ import fc001_fmu_oracle  # noqa: E402  FC-001 5 态 L1-FMU 第三轨（FCFMU-G2b
                          #   CHG-20261115-10 批准链；FC001_FMU_G2B_SPEC_APPROVED v1.0
                          #   §4 项 9——注册行为显式工作面；tier T-B；`_mL`/dim 分支 =
                          #   Q15 定案显式硬项）
+import gt001_fmu_oracle  # noqa: E402  GT-001 L1-FMU 镜像轨（GTFMU-G2b-03 / CHG-20261119-01
+                         #   批准链；GT001_FMU_G2B_SPEC_APPROVED v1.0 §4 项 9——双 golden
+                         #   gt001_fmu_v1 + gt001_fmu_comb_v1 单 oracle；tier T-B；
+                         #   27 列同集零新增 gate 分支）
 
 MODELS = {
     "fl001": {
@@ -255,6 +265,38 @@ MODELS = {
             ("eta_cycle_end_pct", "%"),
         ],
     },
+    "gt001_fmu": {
+        # GTFMU-G2b-03（CHG-20261119-01 批准链）：GT-001 L1-FMU 镜像轨 golden gt001_fmu_v1
+        # （thermo 组 6 Run，tier T-B；oracle=gt001_fmu_oracle 出生接入 oracle_base，
+        # GT001_FMU_G2B_SPEC_APPROVED v1.0 §4 项 9——Q2(a) 双 golden 前者；Q1(B) FMU+host
+        # 全系统镜像更新序）。i_true/i_meas/event_tol 沿 gt001 现行映射；scalars 九键镜像；
+        # 27 列同集 ⇒ T-B 分派链全既有支零缺口（GTFMU 草案 §4 项 8 预登记 + 评审 B 复刻零缺口）。
+        "oracle": gt001_fmu_oracle,
+        "golden_file": "gt001_fmu_v1.json",
+        "i_true": "f_true_Hz", "i_meas": "n_meas_rpm",
+        "event_tol": "n_rpm_atol",
+        "scalars": [
+            ("E_source_kWh", "kWh"), ("E_bat_kWh", "kWh"), ("E_load_kWh", "kWh"),
+            ("E_rotor_kWh", "kWh"), ("E_fuel_kWh", "kWh"),
+            ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
+            ("eta_cycle_end_pct", "%"),
+        ],
+    },
+    "gt001_fmu_comb": {
+        # GTFMU-G2b-03（CHG-20261119-01 批准链）：Q2(a) comb 深化镜像 golden
+        # gt001_fmu_comb_v1（comb 组 6 Run，tier T-B；同 oracle 单文件双 Run 组——
+        # inertia_model=thermo_comb；27 列同集零缺口同上）。
+        "oracle": gt001_fmu_oracle,
+        "golden_file": "gt001_fmu_comb_v1.json",
+        "i_true": "f_true_Hz", "i_meas": "n_meas_rpm",
+        "event_tol": "n_rpm_atol",
+        "scalars": [
+            ("E_source_kWh", "kWh"), ("E_bat_kWh", "kWh"), ("E_load_kWh", "kWh"),
+            ("E_rotor_kWh", "kWh"), ("E_fuel_kWh", "kWh"),
+            ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
+            ("eta_cycle_end_pct", "%"),
+        ],
+    },
     "pv001": {
         "oracle": pv001_oracle,
         "event_tol": "P_kW_atol",  # PV gate 无 I_A_atol：事件快照相位值按 P_kW_atol 判
@@ -308,7 +350,11 @@ MODELS = {
 # v1.9.0 六 golden 顺序验证，FCFMU-G2b-03/Q7，CHG-20261115-10 批准链（尾追加 fc001_fmu
 # ——FC-001 5 态 L1-FMU 第三轨 golden fc001_fmu_v1；步① 无参调用六 golden 顺序验证，
 # FL/FC/GT 先例形态；步① label 滞后说明沿先例维持登记不修）
-DEFAULT_MODELS = ["fl001", "fl001_l1", "fc001_l1", "fl001_cap", "gt001_comb", "fc001_fmu"]
+# v1.12.0 八 golden 顺序验证，GTFMU-G2b-03/Q9，CHG-20261119-01 批准链（尾追加 gt001_fmu +
+# gt001_fmu_comb——GT-001 L1-FMU 镜像轨双 golden；步① 无参调用八 golden 顺序验证，
+# 先例形态；步① label 滞后说明沿先例维持登记不修）
+DEFAULT_MODELS = ["fl001", "fl001_l1", "fc001_l1", "fl001_cap", "gt001_comb", "fc001_fmu",
+                  "gt001_fmu", "gt001_fmu_comb"]
 
 KEY_POINTS = [19.9, 21.5, 26.0, 60.0]
 
@@ -518,7 +564,19 @@ def _verify_model(model):
     n = golden.get("sampling", {}).get("n")
 
     for run_key, g_run in golden.get("runs", {}).items():
-        spec = next((s for s in oracle.RUNS if s["key"] == run_key), None)
+        # GTFMU-G2b-03（CHG-20261119-01）：多组 oracle 支持——单 oracle 双 golden 首例
+        # （GT-001 L1-FMU：gt001_fmu/gt001_fmu_comb 共用 gt001_fmu_oracle，Run key 六键同名、
+        # inertia_model 组异）。oracle.RUNS_GROUPS 存在时按 golden.inertia_model 选组解析；
+        # 无该属性/组缺 key ⇒ 既有 flat RUNS fallback（既有 oracle 行为逐字节不变）。
+        spec = None
+        runs_pool = oracle.RUNS
+        groups = getattr(oracle, "RUNS_GROUPS", None)
+        if groups:
+            pool = groups.get(golden.get("inertia_model"))
+            if pool:
+                spec = next((s for s in pool if s["key"] == run_key), None)
+        if spec is None:
+            spec = next((s for s in runs_pool if s["key"] == run_key), None)
         if spec is None:
             rec("V-05-run-%s" % run_key, False, "未知 Run key")
             all_ok = False

@@ -175,6 +175,8 @@ max|Δf| = 0.998 Hz（thermo 轨 oracle 域扫描冻结，GTL1_G2B_SPEC_APPROVED
 指令域钳位语义，A-gtl1-actuator-cmd-domain）；
 t_clear 清除支持已实现（actuator_clear 场景）。
 
+**L1-FMU 镜像轨注记（GTFMU-G2b-04，2026-11-19；`GT001_FMU_G2B_SPEC_APPROVED.md` v1.0，CHG-20261119-01 批准链）**：GT-001 增 L1-FMU 镜像轨（Q1(B) 控制积分器归 host——内核纯物理 [f,T3]/[f,T3,x_comb] RK4；Q2(a) thermo+comb 双轨并列两包两 golden——gt001_fmu_v1 + gt001_fmu_comb_v1，supersedes=null 并列轨；model_id=gt.sync.fmu_l1/1.0.0；model_provenance=fmu_l1_lumped_unvalidated 复用档位；oracle gt001_fmu_oracle.py 出生即 oracle_base 接入、GTFMU-1..7 自检、GTFMU-5 镜像恒等 194724 值 0.0；**非新故障族，族面零变化声明**）；C↔Python parity 散差 ~2.5e-4（pow() 跨 libm——R-1 预登记；×≥10 冻结 gate 值远在 T-B golden gates 内）；实施 = GTFMU-G2b-04（CHG-20261119-01 ④）。
+
 ## 4. scope 映射表（逐族回答 SCOPE_SPLIT_MEMO）
 
 | 故障族 | SCOPE 依据 | 归属 | 白名单/守卫挂载 |

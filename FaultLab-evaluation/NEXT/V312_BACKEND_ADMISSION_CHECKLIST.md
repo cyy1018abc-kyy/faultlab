@@ -85,7 +85,7 @@
   无 manifest 不得准入（Q-5），「已声明未复核」状态放 `manifest.backend.self_declared: true` +
   UI 标签，**不新增 provenance 档位**（**例外——FC-001 已批 FMU 轨（FCFMU-G2b-02 批准轮，
   CHG-20261115-10）：Q2(A) 裁定 additive 新档位 `fmu_l1_lumped_unvalidated`——V312 本行
-  按黑盒准入轨作用域限缩解释，FC-001 批准轨显式 CHG 例外（CHG-20261118-01 ④ 授权修订）**）。
+  按黑盒准入轨作用域限缩解释，FC-001 批准轨显式 CHG 例外（CHG-20261118-01 ④ 授权修订）——**B-2 扩域（CHG-20261119-01 ④）：适用面扩至已批 FMU 轨通用（GT-001 FMU 镜像轨随批准轮同轮增列——fmu_admission A-4 docstring 同步修订）**）。
 - 复核分工照 RFC §4 v1.1：`verify_bundle.py` = 文件/结构层；metrics/checks/run_hash 重算 =
   应用内导入路径（`createFromParts` 原子入口）；离线重算脚本（后端 golden 比对）列入实现期
   交付物。
@@ -128,3 +128,15 @@
 **冻结声明**：本清单自登记起为后端适配实现的准入事实源；与 RFC v1.1 冲突时以本清单为准
 （本清单即 RFC 裁定的实施细则）。**文件结束**。2026-10-30。（§10 + §7 例外行 = 2026-11-18
 CHG-20261118-01 ④ 授权修订——修订面仅此两处，其余条目零触碰。）
+
+## 11. GT-001 L1-FMU 镜像轨钉 hash（GTFMU-G2b-04，CHG-20261119-01 ④ 授权修订）
+
+| 项 | gt001_l1_v1.fmu（thermo） | gt001_comb_l1_v1.fmu（comb 深化） |
+|---|---|---|
+| **fmu_sha256（钉）** | `db966da9c8c8d70dae5bd7f871641ecf31b836073f9cf0afc0b7ff7b891f88e8` | `fc2289a2eabb393e06ca2513fb79c4a59cb7235fae754812d66eeceff98a8684` |
+| 字节 | 17811 | 18064 |
+| model_id | gt.sync.fmu_l1 | gt.sync.fmu_l1 |
+| provenance | fmu_l1_lumped_unvalidated（§7 例外行 B-2 扩域） | 同左 |
+| 构建 | gcc -std=c99 -O2 -ffp-contract=off -fno-fast-math（WinLibs GCC 16.2.0 UCRT/SEH r3） | 同左 |
+| parity | 散差 ~2.5e-4（pow 跨 libm——R-1；×≥10 冻结制 gate 值远在 T-B 内） | 同左 |
+| 重钉纪律 | 编译器/平台矩阵变更 ⇒ 产物字节变更 ⇒ 本表重钉须 CHG | 同左 |

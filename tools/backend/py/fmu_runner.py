@@ -180,6 +180,273 @@ def _fc_row(true_map, feedback_mode, b_p, b_v, bias_applied):
     }
 
 
+# ---------------------------------------------------------------------------
+# GT-001 L1-FMU 壳执行（GTFMU-G2b-04 / CHG-20261119-01——Q1(B)：控制积分器归 host，
+# h=0.01 子步驱动 doStep n=1；内核纯物理 [f,T3]/[f,T3,x_comb] RK4 面）
+# ---------------------------------------------------------------------------
+#: GT FMU 包 SHA-256 钉值（V312 §10 双钉——CHG-20261119-01 ④ 授权；装载前强制校验）
+GT_FMU_SHA256_PINNED = {
+    "gt001_l1": "db966da9c8c8d70dae5bd7f871641ecf31b836073f9cf0afc0b7ff7b891f88e8",
+    "gt001_comb_l1": "fc2289a2eabb393e06ca2513fb79c4a59cb7235fae754812d66eeceff98a8684",
+}
+
+GT_VR_F = 2
+GT_VR_T3 = 3
+GT_VR_XCOMB = 4  # comb only
+GT_VR_DEMAND = 0
+GT_VR_UEFF = 1
+
+#: GT 12 Run 白名单（APPROVED §2.1——thermo 镜像 6 + comb 镜像 6；oracle RUNS 逐字）
+GT_RUNS = [
+    {"key": "healthy", "role": "baseline", "feedback_mode": "closed_loop",
+     "family": "none", "faulted": False, "magnitude": 0.0, "unit": "",
+     "inertia_model": "thermo"},
+    {"key": "closed_loop_fault", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "sensor_drift", "faulted": True, "magnitude": 0.3, "unit": "Hz",
+     "inertia_model": "thermo"},
+    {"key": "monitor_only", "role": "monitor", "feedback_mode": "monitor",
+     "family": "sensor_drift", "faulted": True, "magnitude": 0.3, "unit": "Hz",
+     "inertia_model": "thermo"},
+    {"key": "load_step", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "load_step", "faulted": True, "magnitude": 10.0, "unit": "kW",
+     "inertia_model": "thermo"},
+    {"key": "actuator_fault", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "actuator_fault", "faulted": True, "magnitude": 50.0, "unit": "%",
+     "inertia_model": "thermo"},
+    {"key": "actuator_clear", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "actuator_fault", "faulted": True, "magnitude": 50.0, "unit": "%",
+     "t_clear_s": 35.0, "inertia_model": "thermo"},
+    {"key": "healthy", "role": "baseline", "feedback_mode": "closed_loop",
+     "family": "none", "faulted": False, "magnitude": 0.0, "unit": "",
+     "inertia_model": "thermo_comb"},
+    {"key": "closed_loop_fault", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "sensor_drift", "faulted": True, "magnitude": 0.3, "unit": "Hz",
+     "inertia_model": "thermo_comb"},
+    {"key": "monitor_only", "role": "monitor", "feedback_mode": "monitor",
+     "family": "sensor_drift", "faulted": True, "magnitude": 0.3, "unit": "Hz",
+     "inertia_model": "thermo_comb"},
+    {"key": "load_step", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "load_step", "faulted": True, "magnitude": 10.0, "unit": "kW",
+     "inertia_model": "thermo_comb"},
+    {"key": "actuator_fault", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "actuator_fault", "faulted": True, "magnitude": 50.0, "unit": "%",
+     "inertia_model": "thermo_comb"},
+    {"key": "actuator_clear", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "actuator_fault", "faulted": True, "magnitude": 50.0, "unit": "%",
+     "t_clear_s": 35.0, "inertia_model": "thermo_comb"},
+]
+
+GT_N_SAMPLES = 601
+GT_DT_S = 0.1
+GT_DT_INT = 0.01
+GT_T_START = 20.0
+GT_LOAD0 = 30.0
+GT_V_BUS = 400.0
+GT_CAP_KWH = 40.0
+GT_SOC0 = 60.0
+GT_U0 = 25.0
+GT_SERIES_IDS = [
+    "t", "f_true_Hz", "f_meas_Hz", "n_meas_rpm",
+    "P_gen_true_kW", "P_gen_meas_kW", "P_gen_cmd_kW",
+    "P_bat_true_kW", "P_bat_meas_kW",
+    "P_load_demand_kW", "P_load_served_kW", "P_rotor_kW",
+    "V_bus_V", "SOC_true_pct", "SOC_est_pct",
+    "r_true_kW", "f_channel_diff_Hz", "valve_cmd_pct", "valve_meas_pct",
+    "T3_out_K", "T2_out_K", "p2_out_kPa", "T4_out_K",
+    "Q_fuel_kW", "P_comp_kW", "P_turb_kW", "eta_cycle_pct",
+]
+
+
+def js_clamp(v, lo, hi):
+    return lo if v < lo else (hi if v > hi else v)
+
+
+def run_gt001_shell(fmu_path, out_path=None):
+    """GT-001 5+5 Run 壳执行（Q1(B)：host h=0.01 子步驱动 doStep n=1 + EQ-GTL1-9/10 +
+    记账复刻；EV-001/002 事件分裂；确定性零墙钟输出——R-G9-03 前提）。
+
+    双组支持：按 modelIdentifier 分派（gt001_l1 → thermo 组 6 Run /
+    gt001_comb_l1 → comb 组 6 Run——Q2(a) 双包双组）。
+    """
+    import hashlib
+
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import fmu_admission
+
+    adm = fmu_admission.admit(fmu_path)
+    if not adm["admitted"]:
+        return {"ok": False, "stage": "admission", "admission": adm}
+
+    with open(fmu_path, "rb") as f:
+        fmu_sha256 = hashlib.sha256(f.read()).hexdigest()
+    info = load_fmu(fmu_path)
+    model_id = info["model_identifier"]
+    if model_id not in GT_FMU_SHA256_PINNED:
+        raise RuntimeError("未知 GT FMU modelIdentifier：" + model_id)
+    if fmu_sha256 != GT_FMU_SHA256_PINNED[model_id]:
+        raise RuntimeError("FMU SHA-256 与 V312 钉值不符：%s（pinned=%s）"
+                           % (fmu_sha256, GT_FMU_SHA256_PINNED[model_id]))
+    variant = "thermo" if model_id == "gt001_l1" else "comb"
+    runs_pool = [s for s in GT_RUNS if s["inertia_model"] == ("thermo" if variant == "thermo" else "thermo_comb")]
+
+    lib = ctypes.CDLL(info["binary_path"])
+    _define_fmi2(lib)
+    guid = info["guid"].encode("utf-8")
+    mid = info["model_identifier"].encode("utf-8")
+    c = lib.fmi2Instantiate(None, 1, guid, mid, None, None, 0)
+    if not c:
+        raise RuntimeError("fmi2Instantiate 失败")
+    lib.fmi2SetupExperiment(c, 1, 0.0, 0.0, 0, 60.0)
+    lib.fmi2EnterInitializationMode(c)
+    lib.fmi2ExitInitializationMode(c)
+
+    # VR 分派（thermo: 2=f/3=T3/10=p_gen/11=p_bat/12=p_rotor/7=q_f；
+    #          comb:   2=f/3=T3/11=p_gen/12=p_bat/13=p_rotor/8=q_f）
+    if variant == "thermo":
+        vr_f, vr_pgen, vr_pbat, vr_protor, vr_qf = 2, 10, 11, 12, 7
+        vr_read = (ctypes.c_uint32 * 4)(vr_pgen, vr_pbat, vr_protor, vr_qf)
+    else:
+        vr_f, vr_pgen, vr_pbat, vr_protor, vr_qf = 2, 11, 12, 13, 8
+        vr_read = (ctypes.c_uint32 * 4)(vr_pgen, vr_pbat, vr_protor, vr_qf)
+    vr_in = (ctypes.c_uint32 * 2)(GT_VR_DEMAND, GT_VR_UEFF)
+    val_in = (ctypes.c_double * 2)()
+    val_read = (ctypes.c_double * 4)()
+
+    def get_f():
+        rc = lib.fmi2GetReal(c, (ctypes.c_uint32 * 1)(GT_VR_F), 1, val_read)
+        if rc != FMI_OK:
+            raise RuntimeError("fmi2GetReal(f) rc=%d" % rc)
+        return val_read[0]
+
+    def get_alg():
+        rc = lib.fmi2GetReal(c, vr_read, 4, val_read)
+        if rc != FMI_OK:
+            raise RuntimeError("fmi2GetReal(alg) rc=%d" % rc)
+        return {"p_gen": val_read[0], "p_bat": val_read[1],
+                "p_rotor": val_read[2], "q_f": val_read[3]}
+
+    def set_inputs(demand, u_eff):
+        val_in[0], val_in[1] = demand, u_eff
+        rc = lib.fmi2SetReal(c, vr_in, 2, val_in)
+        if rc != FMI_OK:
+            raise RuntimeError("fmi2SetReal rc=%d" % rc)
+
+    def do_step(t):
+        rc = lib.fmi2DoStep(c, t, GT_DT_INT, 0)
+        if rc != FMI_OK:
+            raise RuntimeError("fmi2DoStep rc=%d @t=%s" % (rc, t))
+
+    runs_out = {}
+    for spec in runs_pool:
+        lib.fmi2Reset(c)
+        family = spec["family"]
+        faulted = spec["faulted"]
+        monitor = spec["feedback_mode"] == "monitor"
+        magnitude = spec["magnitude"] if faulted else 0.0
+        t_start = GT_T_START if faulted else None
+        is_sensor = family == "sensor_drift"
+        is_load = family == "load_step"
+        is_act = family == "actuator_fault"
+        u_cap = 40.0 * magnitude / 100.0 if is_act else None
+        t_clear = spec.get("t_clear_s") if is_act else None
+
+        def b_at(time):
+            return magnitude if (is_sensor and t_start is not None
+                                 and time >= t_start - 1e-9) else 0.0
+
+        def demand_at(time):
+            return (GT_LOAD0 + magnitude) if (is_load and t_start is not None
+                                              and time >= t_start - 1e-9) else GT_LOAD0
+
+        def cap_active(time):
+            return bool(is_act and t_start is not None and time >= t_start - 1e-9
+                        and not (t_clear is not None and time >= t_clear - 1e-9))
+
+        series = {k: [None] * GT_N_SAMPLES for k in GT_SERIES_IDS if k != "t"}
+
+        f = 50.0
+        u = GT_U0
+        int_pbat = 0.0
+        int_pgen = 0.0
+        int_demand = 0.0
+        int_rotor = 0.0
+        int_fuel = 0.0
+
+        def record(k):
+            time = k * GT_DT_S
+            b = b_at(time)
+            demand = demand_at(time)
+            u_eff = min(u, u_cap) if cap_active(time) else u
+            set_inputs(demand, u_eff)
+            al = get_alg()
+            p_bat = al["p_bat"]
+            series["f_true_Hz"][k] = f
+            series["f_meas_Hz"][k] = f
+            series["n_meas_rpm"][k] = 60.0 * (f + b)
+            series["P_gen_true_kW"][k] = al["p_gen"]
+            series["P_gen_meas_kW"][k] = al["p_gen"]
+            series["P_gen_cmd_kW"][k] = u
+            series["P_bat_true_kW"][k] = p_bat
+            series["P_bat_meas_kW"][k] = p_bat
+            series["P_load_demand_kW"][k] = demand
+            series["P_load_served_kW"][k] = demand
+            series["P_rotor_kW"][k] = al["p_rotor"]
+            series["V_bus_V"][k] = GT_V_BUS
+            series["SOC_true_pct"][k] = GT_SOC0 - int_pbat / (GT_CAP_KWH * 3600.0) * 100.0
+            series["SOC_est_pct"][k] = GT_SOC0 - int_pbat / (GT_CAP_KWH * 3600.0) * 100.0
+            series["r_true_kW"][k] = al["p_gen"] + p_bat - demand - al["p_rotor"]
+            series["f_channel_diff_Hz"][k] = series["n_meas_rpm"][k] / 60.0 - series["f_meas_Hz"][k]
+            series["valve_cmd_pct"][k] = js_clamp(u / 40.0 * 100.0, 0.0, 100.0)
+            series["valve_meas_pct"][k] = magnitude if cap_active(time) else series["valve_cmd_pct"][k]
+
+        record(0)
+        for k in range(1, GT_N_SAMPLES):
+            for j in range(10):
+                time = (k - 1) * 10 * GT_DT_INT + j * GT_DT_INT
+                b = b_at(time)
+                demand = demand_at(time)
+                f = get_f()
+                f_gov = f if (monitor and is_sensor) else f + b
+                u_next = js_clamp(u + 2.0 * (50.0 - f_gov) * GT_DT_INT, 0.0, 40.0)
+                u_eff = min(u_next, u_cap) if cap_active(time) else u_next
+                set_inputs(demand, u_eff)
+                k1 = get_alg()
+                do_step(time)
+                al_b = get_alg()
+                int_pgen += 0.5 * (k1["p_gen"] + al_b["p_gen"]) * GT_DT_INT
+                int_pbat += 0.5 * (k1["p_bat"] + al_b["p_bat"]) * GT_DT_INT
+                int_demand += demand * GT_DT_INT
+                int_rotor += k1["p_rotor"] * GT_DT_INT
+                int_fuel += k1["q_f"] * GT_DT_INT
+                u = u_next
+            # record(k)：记录面 u_eff/demand 重设（不污染下一子步）
+            record(k)
+
+        # run_hash
+        body = json.dumps({"key": spec["key"], "series": series, "inertia_model": spec["inertia_model"]},
+                          ensure_ascii=False, sort_keys=True)
+        run_key = spec["key"] + "_" + spec["inertia_model"]
+        runs_out[run_key] = {
+            "role": spec["role"], "feedback_mode": spec["feedback_mode"],
+            "inertia_model": spec["inertia_model"],
+            "events": [],  # 事件由 golden 侧比对——壳面零事件编码（oracle _fault_events 先例）
+            "series": series,
+            "run_hash": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+        }
+
+    lib.fmi2Terminate(c)
+    lib.fmi2FreeInstance(c)
+    cleanup(info)
+
+    output = {"fmu_sha256": fmu_sha256, "model_id": model_id,
+              "variant": variant, "runs": runs_out}
+    if out_path:
+        with open(out_path, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(output, f, ensure_ascii=False, indent=2)
+    return {"ok": True, "fmu_sha256": fmu_sha256, "variant": variant, "runs": runs_out}
+
+
+
 def run_fc001_shell(fmu_path, out_path=None):
     """FC-001 5 Run 壳执行：准入 + SHA-256 对 V312 钉值校验 → ctypes 加载 →
     I-11 壳（传感污染/控制反馈/残差——事件分裂归 host）→ pre/post 左极限分裂 →
@@ -391,6 +658,22 @@ def main(argv):
         ok, checks = self_check()
         print(json.dumps({"ok": ok, "checks": checks}, ensure_ascii=False, indent=2))
         return 0 if ok else 2
+    if "--run-gt001" in argv:
+        i = argv.index("--run-gt001")
+        fmu = argv[i + 1] if i + 1 < len(argv) and not argv[i + 1].startswith("--") else \
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+                "data", "fmu", "gt001_l1_v1.fmu")
+        r = run_gt001_shell(fmu)
+        if not r.get("ok"):
+            print(json.dumps({"ok": False, "stage": r.get("stage"), "detail": r.get("admission")},
+                             ensure_ascii=False, indent=2))
+            return 1
+        print(json.dumps({"ok": True, "fmu_sha256": r["fmu_sha256"], "variant": r["variant"],
+                          "runs": {k: {"run_hash": v["run_hash"], "series": v["series"]}
+                                   for k, v in r["runs"].items()}},
+                         ensure_ascii=False, indent=2))
+        return 0
     if "--run-fc001" in argv:
         i = argv.index("--run-fc001")
         fmu = argv[i + 1] if i + 1 < len(argv) and not argv[i + 1].startswith("--") else \

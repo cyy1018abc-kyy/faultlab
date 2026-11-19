@@ -731,3 +731,40 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
 - **面② golden 13 维持**（零触碰）；**面③ 零触碰**（场景键面零新增）；**面⑦ 36 步维持**
   （E2E 断言并入 backend-bridge 既有步）；**面⑧ 43 维持**（零增词）；
 - **面⑤/⑥ 零变化**（V312 §10 钉 hash / compare 谓词均为 v1.10.0 面——本波零触碰）。
+
+## 19. v1.12.0 additive 修订记录（2026-11-19，CHG-20261119-02）
+
+- **面① GT-001 FMU 镜像轨全链**：C99 内核 gt001_l1.c（2 态 [f,T3]）+ gt001_comb_l1.c（3 态
+  [f,T3,x_comb]——Q2(a) 双轨并列）+ modelDescription.xml ×2 + data/fmu/ 双包（V312 §11 双钉
+  hash）+ fmu_runner run_gt001_shell（Q1(B) host 子步驱动）+ **R-GTFMU parity 散差 ~2.5e-4**
+  （pow() 跨 libm——R-1 预登记；×≥10 冻结 gate 远在 T-B 内）+ gt001_fmu_parity.py 独立机检
+  + **D-27 沿袭关闭**（GT 壳复用 fc001 doStep 机制面零开口）；
+- **面② golden 13→15**（gt001_fmu_v1 + gt001_fmu_comb_v1——Q2(a) 双轨并列；supersedes=null；
+  model_id=gt.sync.fmu_l1/1.0.0；model_provenance=fmu_l1_lumped_unvalidated 复用；tier T-B；
+  27 列同集零新增 gate 分支）；
+- **面⑤ admission 面**：V312 §11 GT 双钉 hash 行 + §7 例外行 B-2 扩域（已批 FMU 轨通用）
+  + fmu_admission A-4 docstring 同步；
+- **面⑦ 快照注**：36→**37 步**（gt001_fmu parity 步 additive——SKIP 语义）+ DEFAULT_MODELS
+  六→**八** golden + verify_golden MODELS 11→**13** 注册行 + 15 golden 字节冻结面；
+- **面⑧ 43 维持**（零增词——GT 链词面无涉四词）；
+- **面③/④/⑥ 零触碰**（场景键面零新增——Q12 adapter 层绑定；compare 面沿 v1.10.0 cross_fidelity
+  既有谓词零改写）；
+- EvidenceBundle fmu_sha256 additive 条件字段沿 fc001 先例（零新增面）。
+
+## 19. v1.12.0 additive 修订记录（2026-11-19，CHG-20261119-02）
+
+- **面① GT-001 FMU 镜像轨全链**：C99 内核 gt001_l1.c（2 态 [f,T3]）+ gt001_comb_l1.c（3 态
+  [f,T3,x_comb]——Q2(a) 双轨并列）+ modelDescription.xml ×2 + data/fmu/ 双包（V312 §11 双钉
+  hash）+ fmu_runner run_gt001_shell（Q1(B) host 子步驱动）+ R-GTFMU parity 散差 ~2.5e-4
+  （pow() 跨 libm——R-1 预登记；×≥10 冻结 gate 远在 T-B 内）+ gt001_fmu_parity.py 独立机检
+  + D-27 沿袭关闭（GT 壳复用 fc001 doStep 机制面零开口）；
+- **面② golden 13→15**（gt001_fmu_v1 + gt001_fmu_comb_v1——Q2(a) 双轨并列；supersedes=null；
+  model_id=gt.sync.fmu_l1/1.0.0；model_provenance=fmu_l1_lumped_unvalidated 复用；tier T-B；
+  27 列同集零新增 gate 分支）；
+- **面⑤ admission 面**：V312 §11 GT 双钉 hash 行 + §7 例外行 B-2 扩域（已批 FMU 轨通用）
+  + fmu_admission A-4 docstring 同步；
+- **面⑦ 快照注**：36→**37 步**（gt001_fmu parity 步 additive——SKIP 语义）+ DEFAULT_MODELS
+  六→**八** golden + verify_golden MODELS 11→**13** 注册行 + 15 golden 字节冻结面；
+- **面⑧ 43 维持**（零增词——GT 链词面无涉四词）；
+- **面③/④/⑥ 零触碰**（场景键面零新增——Q12 adapter 层绑定；compare 面沿 v1.10.0 cross_fidelity
+  既有谓词零改写）。

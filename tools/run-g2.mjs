@@ -1,10 +1,10 @@
 /**
  * run-g2.mjs — G2 验收四件套聚合器（P0b-05 / G0-DEC-16；V0.3.0 T1 追溯增强）。
  *
- *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，36 步全量——FCFMU-G2b-04 parity 步 CHG-20261118-01）
+ *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，37 步全量——FCFMU-G2b-04 parity 步 CHG-20261118-01）
  *   node tools/run-g2.mjs --skip-e2e # 跳过浏览器步（CI 无 Chrome 时）
  *   node tools/run-g2.mjs --tier core     # 只跑 core 层（28 步；部分运行，非全量门禁）
- *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（8 步；部分运行）
+ *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（9 步；部分运行）
  *
  * D-1 tier 分层（CHG-20261104-08 DEC-3，采纳 D1_LITE_ASSESSMENT 方案 C）：
  *   STEPS 每步带 tier: 'core' | 'extended' 标签；--tier 仅过滤运行步面，
@@ -57,6 +57,7 @@ const skipE2e = args.indexOf('--skip-e2e') !== -1;
 /* FCFMU-G2b-04 parity 步 SKIP 语义（CHG-20261118-01 DEC-3/Q17——V312 §9⑥ 先例）：
    编译产物缺位（.fmu 不存在）⇒ parity 步记 skipped 不 fail（环境依赖显式化，不虚设）。 */
 const skipFmu = !fs.existsSync('data/fmu/fc001_l1_v1.fmu');
+const skipFmuGt = !fs.existsSync('data/fmu/gt001_l1_v1.fmu');
 /* --tier core|extended|all（D-1，CHG-20261104-08 DEC-3）：默认 all = 全量，
    非法取值立即退出（exit 2），避免手误触发意外的部分运行或全量运行 */
 const tierIdx = args.indexOf('--tier');
@@ -135,7 +136,8 @@ const STEPS = [
   { id: 'C-4 leaderboard.test.js（本地排行榜回归——排行属生态扩展面，与 arena/backend 同层；V1_FACES §4 #11 残留②补挂，第 33 步）', cmd: 'node', args: ['tests/leaderboard.test.js'], tier: 'extended' },
   { id: 'MG-001 verify_golden mg001（第 7 个 golden，MG-G2b-03 / CHG-20261110-01 批准链，第 34 步）', cmd: 'python', args: ['scripts/verify_golden.py', 'mg001'], tier: 'core' },
   { id: 'MG-001 engine-mg.test.js（引擎↔golden mg001_v1 5 Run 一致性 + R-5 守卫，第 35 步）', cmd: 'node', args: ['tests/engine-mg.test.js'], tier: 'core' },
-  { id: 'FCFMU-G2b-04 fc001_fmu parity（C↔Python 独立机检 R-G9-02——实测散差 0.0；SKIP=编译产物/64 位解释器缺位，CHG-20261118-01 DEC-3/Q17，第 36 步）', cmd: 'python', args: ['-I', 'tools/oracle/fc001_fmu_parity.py'], tier: 'extended', skip: skipFmu, skipReason: '编译产物缺位（data/fmu/fc001_l1_v1.fmu 不存在——SKIP 语义，CHG-20261118-01 DEC-3）' }
+  { id: 'FCFMU-G2b-04 fc001_fmu parity（C↔Python 独立机检 R-G9-02——实测散差 0.0；SKIP=编译产物/64 位解释器缺位，CHG-20261118-01 DEC-3/Q17，第 36 步）', cmd: 'python', args: ['-I', 'tools/oracle/fc001_fmu_parity.py'], tier: 'extended', skip: skipFmu, skipReason: '编译产物缺位（data/fmu/fc001_l1_v1.fmu 不存在——SKIP 语义，CHG-20261118-01 DEC-3）' },
+  { id: 'GTFMU-G2b-04 gt001_fmu parity（C↔Python 独立机检 R-GTFMU——pow 散差 ~2.5e-4 ×≥10 冻结制；SKIP=编译产物/64 位解释器缺位，CHG-20261119-01 Q10，第 37 步）', cmd: 'python', args: ['-I', 'tools/oracle/gt001_fmu_parity.py'], tier: 'extended', skip: skipFmuGt, skipReason: '编译产物缺位（data/fmu/gt001_l1_v1.fmu 不存在——SKIP 语义，CHG-20261119-01 Q10）' }
 ];
 
 /* ------------------------------------- 步数账与 tier 口径（I-7 / D-1 DEC-3） *

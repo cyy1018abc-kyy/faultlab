@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GT-001 L1-FMU 镜像轨 thermo FMI 2.0 Co-Simulation 描述（GTFMU-G2b-04 / CHG-20261119-01）。
+     VR 契约与 gt001_l1.c 逐字对齐；真值面输出——传感/控制/记账归 host（I-3 + Q1(B)）。 -->
+<fmiModelDescription
+  fmiVersion="2.0"
+  modelName="gt001_l1"
+  guid="{gt001fmu-a1b2-c3d4-e5f6-0123456789ab}"
+  version="1.0.0"
+  generationTool="faultlab-gtfmu-g2b-04"
+  generationDateAndTime="2026-11-19T00:00:00Z"
+  numberOfEventIndicators="0">
+  <CoSimulation
+    modelIdentifier="gt001_l1"
+    needsExecutionTool="false"
+    canHandleVariableCommunicationStepSize="false"
+    canInterpolateInputs="false"
+    maxOutputDerivativeOrder="0"
+    canRunAsynchronuously="false"
+    canBeInstantiatedOnlyOncePerProcess="false"
+    canNotUseMemoryFunctions="false"
+    canGetAndSetFMUstate="false"
+    canSerializeFMUstate="false"
+    providesDirectionalDerivatives="false" />
+  <DefaultExperiment startTime="0" stopTime="60" stepSize="0.01" tolerance="0.0"/>
+  <ModelVariables>
+    <ScalarVariable name="demand_kW" valueReference="0" causality="input" variability="discrete">
+      <Real start="30.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="u_eff_kW" valueReference="1" causality="input" variability="discrete">
+      <Real start="25.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="f_Hz" valueReference="2" causality="output" variability="continuous" initial="exact">
+      <Real start="50.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="T3_K" valueReference="3" causality="output" variability="continuous" initial="exact">
+      <Real start="1173.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="p2_kPa" valueReference="4" causality="output" variability="continuous" initial="exact">
+      <Real start="810.6"/>
+    </ScalarVariable>
+    <ScalarVariable name="T2_K" valueReference="5" causality="output" variability="continuous" initial="exact">
+      <Real start="573.2946"/>
+    </ScalarVariable>
+    <ScalarVariable name="T4_K" valueReference="6" causality="output" variability="continuous" initial="exact">
+      <Real start="770.197"/>
+    </ScalarVariable>
+    <ScalarVariable name="Q_f_kW" valueReference="7" causality="output" variability="continuous" initial="exact">
+      <Real start="101.7633"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_comp_kW" valueReference="8" causality="output" variability="continuous" initial="exact">
+      <Real start="41.351847"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_turb_kW" valueReference="9" causality="output" variability="continuous" initial="exact">
+      <Real start="67.667636"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_gen_kW" valueReference="10" causality="output" variability="continuous" initial="exact">
+      <Real start="25.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_bat_kW" valueReference="11" causality="output" variability="continuous" initial="exact">
+      <Real start="5.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_rotor_kW" valueReference="12" causality="output" variability="continuous" initial="exact">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="dfdt" valueReference="13" causality="output" variability="continuous">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="dt3" valueReference="14" causality="output" variability="continuous">
+      <Real start="0.0"/>
+    </ScalarVariable>
+  </ModelVariables>
+  <ModelStructure>
+    <Outputs>
+      <Unknown index="3"/>
+      <Unknown index="4"/>
+      <Unknown index="5"/>
+      <Unknown index="6"/>
+      <Unknown index="7"/>
+      <Unknown index="8"/>
+      <Unknown index="9"/>
+      <Unknown index="10"/>
+      <Unknown index="11"/>
+      <Unknown index="12"/>
+      <Unknown index="13"/>
+      <Unknown index="14"/>
+      <Unknown index="15"/>
+    </Outputs>
+  </ModelStructure>
+</fmiModelDescription>

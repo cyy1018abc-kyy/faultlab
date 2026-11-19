@@ -32,6 +32,112 @@ DLL_REL = os.path.join("binaries", "win64", "fc001_l1.dll")
 DLL_OUT = os.path.join(HERE, "binaries", "win64", "fc001_l1.dll")
 FMU_OUT = os.path.join(ROOT, "data", "fmu", "fc001_l1_v1.fmu")
 
+#: GT-001 L1-FMU 双包（GTFMU-G2b-04 / CHG-20261119-01——Q2(a) thermo+comb 各自另批）
+GT_TARGETS = {
+    "gt001_l1": {
+        "c": os.path.join(HERE, "gt001_l1.c"),
+        "xml": os.path.join(HERE, "gt001_l1_modelDescription.xml"),
+        "dll_rel": os.path.join("binaries", "win64", "gt001_l1.dll"),
+        "fmu": os.path.join(ROOT, "data", "fmu", "gt001_l1_v1.fmu"),
+    },
+    "gt001_comb_l1": {
+        "c": os.path.join(HERE, "gt001_comb_l1.c"),
+        "xml": os.path.join(HERE, "gt001_comb_l1_modelDescription.xml"),
+        "dll_rel": os.path.join("binaries", "win64", "gt001_comb_l1.dll"),
+        "fmu": os.path.join(ROOT, "data", "fmu", "gt001_comb_l1_v1.fmu"),
+    },
+}
+
+GT_MANIFEST = {
+    "model_id": "gt.sync.fmu_l1",
+    "model_version": "1.0.0",
+    "equations": [
+        "EQ-GTL1-1 pi_c = pi_c0*(f/f0)^2; p2 = pi_c*p1",
+        "EQ-GTL1-2 T2 = T1*(1 + (pi_c^a_c - 1)/eps_c)",
+        "EQ-GTL1-3 Q_f = k_f*u_eff; mdot_f = Q_f/LHV; mdot_g = mdot_a + mdot_f",
+        "EQ-GTL1-4 C_3*dT3/dt = eta_b*Q_f - mdot_g*cp_g*(T3 - T2)",
+        "EQ-GTL1-5 p3 = (1-beta_b)*p2; pi_t = p3/p1; T4 = T3*(1 - eps_t*(1 - pi_t^(-a_t)))",
+        "EQ-GTL1-6 P_comp/P_turb/P_gen = eta_m*(P_turb - P_comp)",
+        "EQ-GTL1-7 df/dt = (P_rotor/K_J)*(f0/f)",
+        "EQ-GTL2-3/4 comb variant: tau_comb*dQ_f,d/dt + Q_f,d = Q_f; C_3*dT3/dt = eta_b*Q_f,d - mdot_g*cp_g*(T3-T2)",
+    ],
+    "parameters": {
+        "T1_K": 288.15, "p1_kPa": 101.325, "cp_a": 1.005, "gamma_a": 1.4,
+        "cp_g": 1.148, "pi_c0": 8.0, "eps_c": 0.82, "eps_t": 0.86,
+        "beta_b": 0.04, "LHV_kJ_kg": 50000.0, "eta_b": 0.99, "eta_m": 0.95,
+        "T3D_K": 1173.0, "tau_3_s": 2.0, "K_J": 5.0, "f0_Hz": 50.0,
+        "K_bat": 24.0, "P_bat_ref_kW": 5.0,
+        "k_f_kW_eq": 4.070531454334211, "mdot_a_kg_s": 0.144299140389011,
+        "C_3_kJ_K": 0.335983796442745, "tau_comb_s": 0.5,
+    },
+    "assumptions": [
+        "GT thermodynamic lumped chain (swing + combustor lumped heat + quasi-steady efficiency)",
+        "comb variant: first-order fuel-energy lag (delay state x_comb, not in series)",
+        "|df| <= 1 Hz validity domain (inherited assumption declaration)",
+    ],
+    "limitations": [
+        "behavioral+numerical lumped demo model (no experimental/hardware verification) - numerical+implementation self-consistency only",
+        "protection systems not modeled (over-temp/over-speed)",
+        "flow-speed coupling waived (mdot_a constant)",
+    ],
+    "method_id": "gt001_fmu_l1_rk4_dt0.01",
+    "integration": {
+        "kind": "co-simulation",
+        "step_s": 0.01,
+        "solver": "classic RK4",
+        "provenance": "fmu_l1_lumped_unvalidated",
+        "self_declared": True,
+    },
+}
+
+
+def compile_gt(name, gcc_path):
+    """GT kernel compile (ASCII temp dir - gcc-to-ld non-ASCII path workaround)."""
+    import shutil
+    import tempfile
+    tgt = GT_TARGETS[name]
+    dll_out = os.path.join(HERE, tgt["dll_rel"])
+    os.makedirs(os.path.dirname(dll_out), exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="gt001_fmu_build_") as td:
+        out_dll = os.path.join(td, name + ".dll")
+        src_tmp = os.path.join(td, name + ".c")
+        with open(tgt["c"], "rb") as f:
+            src_bytes = f.read()
+        with open(src_tmp, "wb") as f:
+            f.write(src_bytes)
+        cmd = [gcc_path] + CC_FLAGS + [out_dll, src_tmp]
+        res = subprocess.run(cmd, capture_output=True, cwd=td)
+        out = (res.stdout or b"").decode("utf-8", errors="replace")
+        err = (res.stderr or b"").decode("utf-8", errors="replace")
+        if res.returncode != 0:
+            raise RuntimeError("compile failed rc=%d\n%s\n%s" % (res.returncode, out, err))
+        shutil.copyfile(out_dll, dll_out)
+    return dll_out
+
+
+def package_gt(name):
+    """GT FMU packaging (fixed timestamp deterministic; GT-context manifest)."""
+    tgt = GT_TARGETS[name]
+    with open(os.path.join(HERE, tgt["dll_rel"]), "rb") as f:
+        dll_bytes = f.read()
+    with open(tgt["xml"], "rb") as f:
+        xml_bytes = f.read()
+    manifest = dict(GT_MANIFEST)
+    manifest["integration"] = dict(GT_MANIFEST["integration"])
+    manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")
+    stamp = (1980, 1, 1, 0, 0, 0)
+    with zipfile.ZipFile(tgt["fmu"], "w", zipfile.ZIP_DEFLATED) as z:
+        for member, data in (("modelDescription.xml", xml_bytes),
+                             (tgt["dll_rel"].replace(chr(92), "/"), dll_bytes),
+                             ("model_manifest.json", manifest_bytes)):
+            info = zipfile.ZipInfo(member, date_time=stamp)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o600 << 16
+            z.writestr(info, data)
+    with open(tgt["fmu"], "rb") as f:
+        digest = hashlib.sha256(f.read()).hexdigest()
+    return tgt["fmu"], digest
+
 #: 编译命令钉死（V1110 DEC：-ffp-contract=off 禁 FMA 收缩 + -fno-fast-math 禁快算重结合）
 CC_FLAGS = ["-std=c99", "-O2", "-Wall", "-Wextra", "-ffp-contract=off", "-fno-fast-math", "-shared", "-o"]
 
@@ -127,9 +233,32 @@ def main(argv):
     ap.add_argument("--gcc", required=True, help="gcc 可执行文件路径（用户态工具链显式传参）")
     ap.add_argument("--compile-only", action="store_true")
     ap.add_argument("--package-only", action="store_true")
+    ap.add_argument("--gt", action="store_true", help="build GT-001 L1-FMU dual packages (GTFMU-G2b-04)")
     args = ap.parse_args(argv[1:])
 
     warnings = ""
+    if args.gt:
+        if not args.package_only:
+            for name in GT_TARGETS:
+                compile_gt(name, args.gcc)
+                print("[compile] OK:", name)
+        results = []
+        sys.path.insert(0, os.path.join(ROOT, "tools", "backend", "py"))
+        import fmu_admission  # noqa: E402
+        for name in GT_TARGETS:
+            fmu_path, digest = package_gt(name)
+            r = fmu_admission.admit(fmu_path)
+            if not r["admitted"]:
+                print(json.dumps({"ok": False, "name": name, "admission": r},
+                                 ensure_ascii=False, indent=2))
+                return 1
+            _, digest2 = package_gt(name)
+            results.append({"name": name, "fmu": os.path.relpath(fmu_path, ROOT),
+                            "bytes": os.path.getsize(fmu_path), "fmu_sha256": digest,
+                            "deterministic": digest == digest2, "admitted": True})
+        print(json.dumps({"ok": True, "targets": results}, ensure_ascii=False, indent=2))
+        return 0
+
     if not args.package_only:
         info = compile_dll(args.gcc)
         warnings = info["warnings"]
