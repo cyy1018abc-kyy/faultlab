@@ -1,0 +1,209 @@
+{
+  "protocol": "l2",
+  "agent": {
+    "name": "eval-session-003-gt"
+  },
+  "testset_id": "arena2-GT001-3-675394c9",
+  "match_id": "3e0a0ebe-b35e-4aec-96eb-dff5dac78fda",
+  "episodes": [
+    {
+      "episode_id": "66c572dc-f90d-4487-84e6-46615869da08",
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "actuator_fault",
+        "component": "fuel_valve",
+        "magnitude": {
+          "value": null,
+          "unit": "%"
+        },
+        "detectTime_s": 48.1,
+        "confidence": 0.9,
+        "explanation": "盲观测 n_meas_rpm 在 t=48.1 s 出现 0.000 rpm 阶跃（物理执行面）。"
+      },
+      "evidence_anchors": [
+        {
+          "kind": "onset",
+          "variable": "n_meas_rpm",
+          "t_start": 47.7,
+          "t_end": 48.5,
+          "rule_id": "n1",
+          "backed_by_query_seq": 2,
+          "note": "onset 阶跃窗"
+        },
+        {
+          "kind": "propagation",
+          "variable": "n_meas_rpm",
+          "t_start": 49.1,
+          "t_end": 59.1,
+          "rule_id": "n3",
+          "backed_by_query_seq": 3,
+          "note": "传播窗"
+        }
+      ]
+    },
+    {
+      "episode_id": "5a8de2e4-40e9-430b-8cb7-c44d0c229b7a",
+      "diagnosis": {
+        "faultDetected": false,
+        "faultType": "none",
+        "component": "none",
+        "magnitude": null,
+        "detectTime_s": null,
+        "confidence": 0.05,
+        "explanation": "全部盲观测通道粗信标无显著阶跃，判健康局。"
+      },
+      "evidence_anchors": [
+        {
+          "kind": "steady_state",
+          "variable": "f_meas_Hz",
+          "t_start": 10,
+          "t_end": 20,
+          "rule_id": "n1",
+          "backed_by_query_seq": 4,
+          "note": "稳态平稳"
+        }
+      ]
+    },
+    {
+      "episode_id": "b9854160-fd46-4f7f-9c25-9e9986f2e9a9",
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "actuator_fault",
+        "component": "fuel_valve",
+        "magnitude": {
+          "value": null,
+          "unit": "%"
+        },
+        "detectTime_s": 17.7,
+        "confidence": 0.9,
+        "explanation": "盲观测 n_meas_rpm 在 t=17.7 s 出现 0.000 rpm 阶跃（物理执行面）。"
+      },
+      "evidence_anchors": [
+        {
+          "kind": "onset",
+          "variable": "n_meas_rpm",
+          "t_start": 17.3,
+          "t_end": 18.099999999999998,
+          "rule_id": "n1",
+          "backed_by_query_seq": 6,
+          "note": "onset 阶跃窗"
+        },
+        {
+          "kind": "propagation",
+          "variable": "n_meas_rpm",
+          "t_start": 18.7,
+          "t_end": 28.7,
+          "rule_id": "n3",
+          "backed_by_query_seq": 7,
+          "note": "传播窗"
+        }
+      ]
+    }
+  ],
+  "query_ledger": [
+    {
+      "seq": 1,
+      "episode_id": "66c572dc-f90d-4487-84e6-46615869da08",
+      "variables": [
+        "n_meas_rpm"
+      ],
+      "t_start": 48,
+      "t_end": 50,
+      "stride": 4,
+      "returned_rows": 8,
+      "cost_points": 8,
+      "slice_sha256": "c6b7bf2180a0df844936124767d8980c1dea94b20916b0686d93b997227f017f",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 2,
+      "episode_id": "66c572dc-f90d-4487-84e6-46615869da08",
+      "variables": [
+        "n_meas_rpm",
+        "f_channel_diff_Hz"
+      ],
+      "t_start": 47.7,
+      "t_end": 48.5,
+      "stride": 1,
+      "returned_rows": 10,
+      "cost_points": 20,
+      "slice_sha256": "5bcf613cde741b0d8e345ef067b730c0060c551a9a964139304931cc8634d78d",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 3,
+      "episode_id": "66c572dc-f90d-4487-84e6-46615869da08",
+      "variables": [
+        "n_meas_rpm",
+        "f_channel_diff_Hz"
+      ],
+      "t_start": 49.1,
+      "t_end": 59.1,
+      "stride": 10,
+      "returned_rows": 10,
+      "cost_points": 20,
+      "slice_sha256": "7f42519da7b0254837507137e063234f7d0c29ab2f2531e7d9b731738e13d707",
+      "includes_pre_post": false
+    },
+    {
+      "seq": 4,
+      "episode_id": "5a8de2e4-40e9-430b-8cb7-c44d0c229b7a",
+      "variables": [
+        "f_meas_Hz",
+        "n_meas_rpm"
+      ],
+      "t_start": 10,
+      "t_end": 20,
+      "stride": 10,
+      "returned_rows": 11,
+      "cost_points": 22,
+      "slice_sha256": "fc58fbc61136cfb531b54b808c30bafa12ba97ad6ed597c24175d618bb501e75",
+      "includes_pre_post": false
+    },
+    {
+      "seq": 5,
+      "episode_id": "b9854160-fd46-4f7f-9c25-9e9986f2e9a9",
+      "variables": [
+        "n_meas_rpm"
+      ],
+      "t_start": 16,
+      "t_end": 18,
+      "stride": 4,
+      "returned_rows": 8,
+      "cost_points": 8,
+      "slice_sha256": "c5751a4e51b7a3ae2e6e878620c84883942ce803426d3c33c62c19f27a568011",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 6,
+      "episode_id": "b9854160-fd46-4f7f-9c25-9e9986f2e9a9",
+      "variables": [
+        "n_meas_rpm",
+        "f_channel_diff_Hz"
+      ],
+      "t_start": 17.3,
+      "t_end": 18.099999999999998,
+      "stride": 1,
+      "returned_rows": 10,
+      "cost_points": 20,
+      "slice_sha256": "5635979ce53788680371ccb01ba139f7bc91a2ad21e1f6076edf65a20fc2aa38",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 7,
+      "episode_id": "b9854160-fd46-4f7f-9c25-9e9986f2e9a9",
+      "variables": [
+        "n_meas_rpm",
+        "f_channel_diff_Hz"
+      ],
+      "t_start": 18.7,
+      "t_end": 28.7,
+      "stride": 10,
+      "returned_rows": 10,
+      "cost_points": 20,
+      "slice_sha256": "651a7c6a138f3c38a679eb66c6c67a6c3e84d0619d451b18b910bef75896b3ea",
+      "includes_pre_post": false
+    }
+  ],
+  "submission_sha256": "df24870be197cd5184ed53a7fe3a578d426a10525a60b9a9dcf7e319c8f37f35"
+}

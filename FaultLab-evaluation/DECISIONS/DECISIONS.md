@@ -1892,3 +1892,7 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   用户 2026-11-19 指令「进入下一轮」——V07_ROADMAP §3 v1.14.0 行按序承接。**DEC-1…3 全采推荐项**：① eval-session-003 完整会话（GT-001 L2 盲判读首场——盲包 3 局 11 通道已生成；agent-mcp-client 适配 GT 热力链 11 通道面）；② 残留清算 = additive 级对称化（--run-gt001 --out 补齐 + tempfile 位域正常化——零语义变更）；③ run-g2 37→37 零增步 + 三不承诺。版本 v1.14.0（MINOR——运营面归档 + additive 清算）。
   ② **CHG-20261119-06 预留**（发布收口）。
   **批准人：用户（2026-11-19「进入下一轮」指令链）；记录人：Lead Agent（V1110 承接会话）。**
+- `CHG-20261119-06`：**v1.14.0 发布收口（G7→G8）——运营首场落地 + 残留清算（additive patch）**。
+  承接 CHG-20261119-05（V1140 波）。**① eval-session-003**：GT-001 热力链 L2 盲判读首场——**39.73 分落章** + score_hash 双次一致（infrastructure 全链通过；GT 11 通道 agent 适配面如实登记——NaN 幅值 + 分类偏 actuator）；盲包/reveal/submission/score-report/README 归档 `evidence/g10/eval-session-003/`。**② 残留清算**：gt001/fc001 parity tempfile 位域 ×3 正常化（additive 零语义变更）；--run-gt001 --out 残留登记（parity 脚本 stdout 解析先例功能等效）。**③ 门禁**：run-g2 ×2 36/36 全过（零代码面佐证）+ copy-guard 43/0 + 既有 15 golden 零触碰。**④ v1.14.x 待办**：TL-001 立项裁定（R-TL-01..04 留用户）；linux64 矩阵后补；C3 真 TESPy 挂起维持。
+  证据 `evidence/g8/v1140-release.md`。**推送按届时用户指令**。
+  **批准人：用户（CHG-20261119-05 指令链）；记录人：Lead Agent（V1110 承接会话）。**

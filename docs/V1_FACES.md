@@ -768,3 +768,9 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
 - **面⑧ 43 维持**（零增词——GT 链词面无涉四词）；
 - **面③/④/⑥ 零触碰**（场景键面零新增——Q12 adapter 层绑定；compare 面沿 v1.10.0 cross_fidelity
   既有谓词零改写）。
+
+## 20. v1.14.0 additive 修订记录（2026-11-19，CHG-20261119-06）
+
+- **运营面归档**：eval-session-003 GT-001 热力链盲判读首场（39.73 分——agent GT 适配面如实登记）；
+- **面①–⑧ 全零变化**（零代码零 golden 零版本——残留清算 additive 零语义变更）；
+- **残留清算登记**：tempfile 位域 ×3 正常化；--run-gt001 --out 残留登记（stdout 解析先例）。
