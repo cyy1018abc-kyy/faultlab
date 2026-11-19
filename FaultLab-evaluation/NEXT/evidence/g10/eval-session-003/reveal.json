@@ -1,0 +1,79 @@
+{
+  "schema": "faultlab.arena.reveal.v1",
+  "testset_id": "arena2-GT001-3-675394c9",
+  "match_id": "3e0a0ebe-b35e-4aec-96eb-dff5dac78fda",
+  "set_seed": 20261119,
+  "mapping": [
+    {
+      "match_id": "3e0a0ebe-b35e-4aec-96eb-dff5dac78fda",
+      "round": 1,
+      "truth": {
+        "faultFamily": "load_step",
+        "faultFamilyLabel": "负载冲击",
+        "faultId": "load_step_10kW",
+        "component": "load",
+        "componentLabel": "负载",
+        "magnitude": {
+          "value": 7,
+          "unit": "kW"
+        },
+        "t_fault": 48.1,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "closed_loop",
+        "active_s": 11.9,
+        "detectedAt": null,
+        "rule_id_onset": "n1",
+        "rule_id_propagation": "n3"
+      }
+    },
+    {
+      "match_id": "3e0a0ebe-b35e-4aec-96eb-dff5dac78fda",
+      "round": 2,
+      "truth": {
+        "faultFamily": "none",
+        "faultFamilyLabel": "健康局",
+        "faultId": null,
+        "component": "none",
+        "componentLabel": "无",
+        "magnitude": null,
+        "t_fault": null,
+        "healthy": true,
+        "none": true,
+        "feedbackMode": "healthy",
+        "active_s": 0,
+        "detectedAt": null,
+        "rule_id_onset": null,
+        "rule_id_propagation": null
+      }
+    },
+    {
+      "match_id": "3e0a0ebe-b35e-4aec-96eb-dff5dac78fda",
+      "round": 3,
+      "truth": {
+        "faultFamily": "load_step",
+        "faultFamilyLabel": "负载冲击",
+        "faultId": "load_step_10kW",
+        "component": "load",
+        "componentLabel": "负载",
+        "magnitude": {
+          "value": 19,
+          "unit": "kW"
+        },
+        "t_fault": 17.7,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "closed_loop",
+        "active_s": 42.3,
+        "detectedAt": null,
+        "rule_id_onset": "n1",
+        "rule_id_propagation": "n3"
+      }
+    }
+  ],
+  "scenario_rules": "sr1",
+  "scoring_rules_spec": "v2",
+  "engine_version": "0.1.0",
+  "model_version": "1.2.0",
+  "generated_at": "2026-11-19T21:46:40.478Z"
+}
