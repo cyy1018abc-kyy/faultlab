@@ -1896,3 +1896,7 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   承接 CHG-20261119-05（V1140 波）。**① eval-session-003**：GT-001 热力链 L2 盲判读首场——**39.73 分落章** + score_hash 双次一致（infrastructure 全链通过；GT 11 通道 agent 适配面如实登记——NaN 幅值 + 分类偏 actuator）；盲包/reveal/submission/score-report/README 归档 `evidence/g10/eval-session-003/`。**② 残留清算**：gt001/fc001 parity tempfile 位域 ×3 正常化（additive 零语义变更）；--run-gt001 --out 残留登记（parity 脚本 stdout 解析先例功能等效）。**③ 门禁**：run-g2 ×2 36/36 全过（零代码面佐证）+ copy-guard 43/0 + 既有 15 golden 零触碰。**④ v1.14.x 待办**：TL-001 立项裁定（R-TL-01..04 留用户）；linux64 矩阵后补；C3 真 TESPy 挂起维持。
   证据 `evidence/g8/v1140-release.md`。**推送按届时用户指令**。
   **批准人：用户（CHG-20261119-05 指令链）；记录人：Lead Agent（V1110 承接会话）。**
+
+- `CHG-20261119-07`：**TL-001 立项裁定（条件立项 TL-b 功角摇摆）+ V07_ROADMAP v3 收口对账（v1.11.x→v1.14.0 全兑现）**。
+  用户 2026-11-19 指令「继续」——V07_ROADMAP C-7 前研报告裁定留白章按推荐项回填。**① TL-001 立项裁定**：R-TL-01 = **条件立项**（TL-b 功角摇摆路线——教学价值最高 + GT 摇摆协同）；R-TL-02 = **TL-b**；R-TL-03 = **前置条件——跨系统联合 golden 架构 RFC 待排**（跨系统联合 Run/golden 无先例——架构突破面需独立 RFC + 用户裁定）；R-TL-04 = **远期**（前置 RFC 完成后再排——不预设日期）。裁定面始终对用户开放（可随时推翻）。**② V07_ROADMAP v3 收口对账**：v1.11.x→v1.14.0 四波全兑现（含零代码治理波两波 + additive minor 发布两波）；§8 收口对账段追加于 V07_ROADMAP；TL-001 立项裁定回填于 TL001_TRANSMISSION_PRE_RESEARCH.md 裁定留白章。**③ 下一步方向**：TL-001 跨系统联合 golden 架构 RFC（前置）+ v2.0.0 收敛预研（D-10）——待用户排程；C3 真 TESPy 挂起维持。
+  **批准人：用户（2026-11-19「继续」指令链——裁定留白章按推荐项采纳）；记录人：Lead Agent（V1110 承接会话）。**
