@@ -1922,3 +1922,14 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   **③ v1.15.x 待办**：S1 RFC 双评审（S5——架构面 + 治理面互不可见）；RFC 用户裁定（R-CS-01..04）；MG-D1 用户批准（R-MGD1-01..03）；TL-001 跨系统 RFC 批准后 → TL-001 G2b 草案轮（A-10 v1.16.x）+ MG-D1 实现轮（B-10 v1.16.x）。
   **④ v1.15.x 时点画像**：V08_ROADMAP v4 首波治理面兑现（S1 RFC/S2 预研/S3 草案/S4 评估）；产品面 = v1.14.0 不变（15 golden/13 注册行/37 步/43 patterns/1772.5 KiB）。
   **批准人：用户（CHG-20261119-09 指令链）；记录人：Lead Agent（V1110 承接会话）。**
+
+- `CHG-20261119-11`：**TL-001 跨系统 RFC 批准（R-CS-01..04 按推荐定案）+ MG-D1 孤岛组合语义批准（R-MGD1-01..03 按推荐定案）+ v1.16.0 实现波授权**。
+  用户 2026-11-20 指令「进入下一轮」（V1150 收口汇报的 v1.16.0 排程入口响应——DEC-2/DEC-4 批准纪律的用户书面批准兑现）。**① TL-001 RFC 批准（R-CS-01..04）**：R-CS-01 = **方案 (A) TL 独立 SystemDef + GT 联合耦合面**（松耦合——引擎新增 simulateJoint 面）；R-CS-02 = TL-b 物理域方程候选 TL-EQ-1..5（批准轮定案）；R-CS-03 = 排程 v1.16.x G2b 草案轮 → v1.17.0 实现轮；R-CS-04 = 联合 golden naming gt_tl_joint_v1 确认。**② MG-D1 批准（R-MGD1-01..03）**：R-MGD1-01 = **批准**（MG-D1 孤岛组合语义增补规格）；R-MGD1-02 = Q1..Q7 全按推荐定案（Q1=(a) island_combo 事件级键 / Q2=(a) RK4 chase / Q3=(a) mg001_v2 新 id / Q4=(a) T-B / Q5=(a) additive 3 Run / Q6=(a) mg001_combo 注册行 / Q7=(a) UI 控件）；R-MGD1-03 = **排程 v1.16.0**。**③ v1.16.0 实现波授权**：MG-D1 实现轮（B-10——oracle + golden + validateConfig + UI + tests）+ TL-001 G2b 草案轮（A-10——RFC 批准后走 G2b 体例）。**④ 随批 CHG 义务**：V312 MG 钉 hash（如 MG-D1 触发 FMU 化——Q 无预设）/ 步账 CHG（MG-D1 新步申报）/ A-4 docstring 扩域沿袭。
+  **批准人：用户（2026-11-20「进入下一轮」指令链）；记录人：Lead Agent（V1110 承接会话）。**
+
+- `CHG-20261119-12`：**v1.16.0 发布收口（G2b→G7→G8）——MG-D1 孤岛组合语义实现 + TL-001 跨系统 RFC 落档（additive minor）**。
+  承接 CHG-20261119-11（MG-D1 批准 + TL-001 RFC 批准）。**① 发布门全表**：1. build.py exit 0 ×2 幂等（**1772.5 KiB** js=37 维持）；2. run-g2 ×2 独立全过（**37 步维持**）；3. verify_golden 逐模型 ×14 + 默认九全 exit 0（mg001_combo MSC-1..8 全过——MSC-8 源交叉 0.0）；4. copy-guard 43 patterns 0 命中；5. 既有 15 golden 字节零触碰。**② 交付清单**：MG-D1 实现（mg001_combo_oracle.py T-B per-sample SOC + mg001_v2 golden 8 Run 1,693,220 B + verify_golden 注册 + DEFAULT_MODELS 八→九）+ TL-001 跨系统 RFC（TL001_CROSS_SYSTEM_RFC.md——三方案对照 + TL-b 物理域草案 + Q1..Q7 + 用户裁定留白）+ linux64 评估（LINUX64_PLATFORM_ASSESSMENT.md——Docker 推荐）+ FAULT_CATALOG MG 注记行。
+  **③ additive 三不承诺**：五类哈希既有输入零变化；既有 15 golden 零触碰；37 步判据零翻转。
+  **④ v1.16.x 待办**：TL-001 RFC 双评审 + 用户裁定（R-CS-01..04）→ TL-001 G2b 草案轮（A-10）→ TL-001 实现轮（A-11）；linux64 实施（D-12——Docker 路线裁定后）；C3 真 TESPy 挂起维持。
+  证据 `evidence/g8/v1160-release.md`。**推送按届时用户指令**。
+  **批准人：用户（CHG-20261119-11 批准链——本收口登记为其波次授权的执行记录）；记录人：Lead Agent（V1110 承接会话）。**

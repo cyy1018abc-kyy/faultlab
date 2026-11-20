@@ -774,3 +774,18 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
 - **运营面归档**：eval-session-003 GT-001 热力链盲判读首场（39.73 分——agent GT 适配面如实登记）；
 - **面①–⑧ 全零变化**（零代码零 golden 零版本——残留清算 additive 零语义变更）；
 - **残留清算登记**：tempfile 位域 ×3 正常化；--run-gt001 --out 残留登记（stdout 解析先例）。
+
+## 21. v1.16.0 additive 修订记录（2026-11-20，CHG-20261119-12）
+
+- **面① MG-001 combo 轨**：mg001_combo_oracle.py（oracle_base 出生接入——T-B per-sample SOC
+  左矩形累计 **T-A→T-B 制度切换首例** + island_combo 事件级组合键 Q1=(a) + chase 面时变化
+  Q2=(a) + MSC-1..8 自检——MSC-8 源 golden 交叉 0.0）+ **mg001_v2 golden**（8 Run；tier T-B；
+  supersedes=mg001_v1；model_provenance=fmu_l1_lumped_unvalidated 复用；r_meas_kW_atol gate
+  键新增——MG T-B 首例）；
+- **面② golden 15→16**（mg001_v2 + sidecar——既有 15 零触碰）；
+- **面⑤ admission 面**：V312 §11 GT 双钉（v1.12.0 沿袭）+ MG 钉 hash 行（新增——T-B per-sample）；
+- **面⑦ 快照注**：37 步维持 + DEFAULT_MODELS 八→**九** golden + verify_golden MODELS 13→**14**
+  注册行 + 16 golden 字节冻结面；
+- **面⑧ 43 维持**（零增词）；
+- **面③/④/⑥ 零触碰**（island_combo 场景键 additive B-1a 纪律 + compare 面沿袭）；
+- EvidenceBundle fmu_sha256 additive 条件字段沿 fc001 先例（零新增面）。

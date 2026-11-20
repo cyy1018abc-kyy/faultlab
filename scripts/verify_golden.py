@@ -103,6 +103,9 @@ import wt001_oracle  # noqa: E402  WT-001（WT-G2b-03 / CHG-20261107-01 批准�
 import mg001_oracle  # noqa: E402  MG-001（MG-G2b-03 / V110 W4；CHG-20261110-01 批准链；
                      #   MG001_G2B_SPEC_APPROVED §4 项 7——注册行追加不改参数化逻辑，
                      #   T-A 路径零改动）
+import mg001_combo_oracle  # noqa: E402  MG-001 孤岛组合语义（B-10 / CHG-20261119-11 批准链；
+                           #   MG001_ISLAND_COMBO_G2B_SPEC_DRAFT v0.1 §4 项 9——golden mg001_v2；
+                           #   tier T-B；island_combo 事件级组合键；per-sample SOC 左矩形）
 import fc001_fmu_oracle  # noqa: E402  FC-001 5 态 L1-FMU 第三轨（FCFMU-G2b-03 /
                          #   CHG-20261115-10 批准链；FC001_FMU_G2B_SPEC_APPROVED v1.0
                          #   §4 项 9——注册行为显式工作面；tier T-B；`_mL`/dim 分支 =
@@ -335,6 +338,22 @@ MODELS = {
             ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
         ],
     },
+    "mg001_combo": {
+        # B-10（CHG-20261119-11 批准链）：MG-001 孤岛组合语义 golden mg001_v2
+        # （8 Run，tier T-B；oracle=mg001_combo_oracle 出生接入 oracle_base——
+        # T-B per-sample SOC 左矩形累计；Q2=(a) chase 面时变化；Q3=(a) mg001_v2
+        # 新 id 并列 supersedes=mg001_v1；island_combo 事件级组合键）。
+        "oracle": mg001_combo_oracle,
+        "golden_file": "mg001_v2.json",
+        "i_true": "P_grid_true_kW", "i_meas": "P_grid_meas_kW",
+        "event_tol": "P_kW_atol",
+        "scalars": [
+            ("E_pv_kWh", "kWh"), ("E_wt_kWh", "kWh"), ("E_bess_kWh", "kWh"),
+            ("E_grid_kWh", "kWh"), ("E_load_served_kWh", "kWh"),
+            ("E_shed_kWh", "kWh"), ("E_dump_kWh", "kWh"), ("E_load_demand_kWh", "kWh"),
+            ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
+        ],
+    },
 }
 
 # 默认（无参）运行的 golden 序列（DEC-6：run-g2 步①同一 python 调用内顺序验证，
@@ -354,7 +373,7 @@ MODELS = {
 # gt001_fmu_comb——GT-001 L1-FMU 镜像轨双 golden；步① 无参调用八 golden 顺序验证，
 # 先例形态；步① label 滞后说明沿先例维持登记不修）
 DEFAULT_MODELS = ["fl001", "fl001_l1", "fc001_l1", "fl001_cap", "gt001_comb", "fc001_fmu",
-                  "gt001_fmu", "gt001_fmu_comb"]
+                  "gt001_fmu", "gt001_fmu_comb", "mg001_combo"]
 
 KEY_POINTS = [19.9, 21.5, 26.0, 60.0]
 
