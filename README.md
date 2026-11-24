@@ -1,4 +1,4 @@
-# FaultLab — Virtual Energy Lab · v0.5.0
+# FaultLab — Virtual Energy Lab · v1.16.0
 
 > 亲手制造故障，观察系统反应。离线可运行的能源系统故障注入与传播解释实验场。
 >
@@ -7,7 +7,22 @@
 > （`model_validation=not_performed`）、未做硬件验证（`hardware_verification=not_performed`）。
 > 所有数字带来源标签；「内部一致性检查通过」不等于模型验证，更不等于与真实设备一致。
 
-> **范围与状态（v0.4.0 minor：2026-10-31；v0.3.1 补丁：2026-10-30；v0.3.0 发布：G8 关闭 2026-10-30）**
+> **当前版本 v1.16.0（2026-11-20，G8 关闭；CHG-20261119-12，证据 `FaultLab-evaluation/NEXT/evidence/g8/v1160-release.md`）**
+> - **系统**：六个已实现系统——FL-001 电池储能（P0 基准；thermal / capacity 扩展轨）、FC-001 燃料电池
+>   （electrochem 轨 + L1-FMU 镜像轨）、GT-001 燃气轮机（swing / linear / thermo / thermo_comb 四轨 +
+>   L1-FMU 镜像轨）、PV-001 光伏、WT-001 风机、MG-001 微电网（v1.16.0 新增 MG-D1 孤岛组合语义，
+>   `mg001_v2` golden）。TL-001 输电线（GT+TL 联合功角摇摆）处于 G2b 规格草案阶段，**未实现**。
+> - **模型层级**：L0 / L0b 解析行为级 + 部分 L1 集总参数轨（RK4 数值轨）；FMU 轨
+>   `model_provenance=fmu_l1_lumped_unvalidated`。三标签不变：未做模型验证、未做硬件验证。
+> - **门禁面**：16 个 golden（`data/golden/`，各带 `.sha256`）+ 14 个 `verify_golden` 注册行 +
+>   `node tools/run-g2.mjs` 37 步 + copy-guard 43 patterns；单文件构建产物 `FaultLab.html` 1772.5 KiB。
+> - **平台说明**：FMU 二进制目前仅提供 win64（`tools/backend/fmu/binaries/win64/`）；在 Linux/macOS 上
+>   run-g2 第 36/37 步（FC/GT FMU parity）无法加载 FMU 并报失败——linux64 平台矩阵为路线图 D-12 待实施项。
+> - 版本演进与每次变更见 `FaultLab-evaluation/DECISIONS/DECISIONS.md`（`CHG-*` 台账）与
+>   `FaultLab-evaluation/NEXT/evidence/g8/`（各版本发布证据）；路线图见 `NEXT/V08_ROADMAP.md`。
+>   下文 v0.3.0–v0.5.0 段落为早期版本记录，保留原文供追溯。
+
+> **早期版本记录：范围与状态（v0.4.0 minor：2026-10-31；v0.3.1 补丁：2026-10-30；v0.3.0 发布：G8 关闭 2026-10-30）**
 > - **发布版本 v0.4.0**（标签 `v0.4.0`，minor——新功能首次进入发布物）：FC-001 升正式验收
 >   （scope=approved_fc，model_version 1.1.0）、GT-001 正式化（L0b 标签、f_channel_diff 通道差、
 >   gt001_v1 golden 六 Run ±1e-9、GT PHY 检查）、FL-001 load_step 删除（O-13）、后端对照框架
@@ -215,7 +230,8 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
   首场次归档 `evidence/g8/eval-session-001/`（3 参赛、score_hash 落章）；页面演示轨不变；
   评分只标「合成故障评测游戏，非真实诊断性能」。
 - 浏览器端计算与哈希不构成第三方验证；分享/复核以证据包 v1 + `verify_bundle.py` 为准。
-- 未接入 Simulink/FMU 后端、真实设备、云端账户与排行榜（明确不做）。
+- 未接入 Simulink、真实设备、云端账户与云端排行榜（明确不做）。FMU 后端已接入 FC-001 / GT-001
+  L1 镜像轨（FMI 2.0 Co-Simulation，C99 内核，仅 win64 二进制）；排行榜仅为本地排行（`leaderboard.js`）。
 
 ## 10. 参考
 
