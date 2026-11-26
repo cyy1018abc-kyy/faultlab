@@ -122,7 +122,7 @@ S6 收口：v1170-release.md + V1_FACES 增节 + V08_ROADMAP 对账 + CHG 收口
 | Q5 runHashInput systems 数组 | additive 进 runHashInput | **缓做** | 须同轮改证据包导出/导入与 verify_bundle.py；联合身份已由 config_hash 内 systemId=TL-001/modelId 承载 |
 | EVENT_KEYS +1（line_fault） | 封闭集扩 1 | **不需要** | `line_fault` 是 family 值而非事件字段键——scenario.js 按 SystemDef 故障目录校验族名，EVENT_KEYS（字段名集）零变化 |
 | 事件 id EV-J1/EV-J2 | 提案命名 | **EV-001 / EV-002**（line_fault / line_clear） | 沿引擎/verify_golden V-09 既有事件编号约定 |
-| **发现 F-1** | §3.2 预填：joint_sensor_drift f→49.7、δ 线性漂移、0.3 Hz 拍频 | **实测不发生滑差**：同步功率把 f 钳在 ≈50 Hz（最低 49.997），调速器按偏置读数持续减燃料（u 25→1.21），T3 降至 631.7 K、P_gen 末值 −5.12 kW（负净功外推区），P_elec −30 kW、δ_end −36.9° | GLJ-7 对该 Run 仅豁免 T3 下界（735→600 K）显式登记为域外角点；limitations + 因果模板如实表述；**Run 参数是否调整（如偏置幅值下调）留用户裁定** |
+| **发现 F-1** | §3.2 预填：joint_sensor_drift f→49.7、δ 线性漂移、0.3 Hz 拍频 | **实测不发生滑差**：同步功率把 f 钳在 ≈50 Hz（最低 49.997），调速器按偏置读数持续减燃料（u 25→1.21），T3 降至 631.7 K、P_gen 末值 −5.12 kW（负净功外推区），P_elec −30 kW、δ_end −36.9° | GLJ-7 对该 Run 仅豁免 T3 下界（735→600 K）显式登记为域外角点；limitations + 因果模板如实表述；**用户裁定（2026-11-26，CHG-20261126-01）：维持现状——0.3 Hz 参数不变，作为「强电网下转速偏置后果与孤网不同」教学点；联合模式下垂调速器维持远期候选** |
 | 其余预填核对 | load_step δ_ss≈−11.4°/u≈25.063/P_elec≈−9.9；actuator δ≈−7.74° | **实测命中**：−11.4°/25.064/−9.915 kW；−7.7° | — |
 
 **文件结束**。V1170_WAVE_DESIGN v1（2026-11-25，CHG-20261125-01 批准，按推荐执行）；§4 修订
