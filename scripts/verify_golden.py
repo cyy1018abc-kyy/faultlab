@@ -114,6 +114,9 @@ import gt001_fmu_oracle  # noqa: E402  GT-001 L1-FMU 镜像轨（GTFMU-G2b-03 / 
                          #   批准链；GT001_FMU_G2B_SPEC_APPROVED v1.0 §4 项 9——双 golden
                          #   gt001_fmu_v1 + gt001_fmu_comb_v1 单 oracle；tier T-B；
                          #   27 列同集零新增 gate 分支）
+import gt_tl_joint_oracle  # noqa: E402  GT-001 + TL-001 联合轨（GTLJ-G2b-03 / CHG-20261125-01
+                           #   批准链 + CHG-20261125-02 轻量实现轮；TL001_FMU_G2B_SPEC_APPROVED
+                           #   v1.0 §4 项 5——tier T-B；`_rad_s`/`_rad` 条件支 = Q10 定案）
 
 MODELS = {
     "fl001": {
@@ -354,6 +357,24 @@ MODELS = {
             ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
         ],
     },
+    "gt_tl_joint": {
+        # GTLJ-G2b-03（CHG-20261125-01 批准链 + CHG-20261125-02 轻量实现轮）：GT-001 + TL-001
+        # 联合轨 golden gt_tl_joint_v1（8 Run / 30 列，tier T-B；oracle=gt_tl_joint_oracle
+        # 出生接入 oracle_base——flat RUNS（Q12 (I)）；TL001_FMU_G2B_SPEC_APPROVED v1.0 §4 项 5
+        # 注册行四件套）。i_true/i_meas/event_tol 沿 GT 对（gt001_fmu 注册行镜像）；scalars
+        # 九键镜像（rad 类标量规避——Q10 附带决定）；TL 列 delta_rad/omega_rad_s 经新增
+        # `_rad`/`_rad_s` 条件支路由（P_elec_kW 走既有 `_kW` 支）。
+        "oracle": gt_tl_joint_oracle,
+        "golden_file": "gt_tl_joint_v1.json",
+        "i_true": "f_true_Hz", "i_meas": "n_meas_rpm",
+        "event_tol": "n_rpm_atol",
+        "scalars": [
+            ("E_source_kWh", "kWh"), ("E_bat_kWh", "kWh"), ("E_load_kWh", "kWh"),
+            ("E_rotor_kWh", "kWh"), ("E_fuel_kWh", "kWh"),
+            ("SOC_true_end_pct", "pp"), ("SOC_est_end_pct", "pp"), ("SOC_err_end_pp", "pp"),
+            ("eta_cycle_end_pct", "%"),
+        ],
+    },
 }
 
 # 默认（无参）运行的 golden 序列（DEC-6：run-g2 步①同一 python 调用内顺序验证，
@@ -372,8 +393,10 @@ MODELS = {
 # v1.12.0 八 golden 顺序验证，GTFMU-G2b-03/Q9，CHG-20261119-01 批准链（尾追加 gt001_fmu +
 # gt001_fmu_comb——GT-001 L1-FMU 镜像轨双 golden；步① 无参调用八 golden 顺序验证，
 # 先例形态；步① label 滞后说明沿先例维持登记不修）
+# v1.17.0 十 golden 顺序验证，GTLJ-G2b-03/§4 项 5④，CHG-20261125-02（尾追加 gt_tl_joint——
+# GT-001 + TL-001 联合轨；步① label 滞后说明沿先例维持登记不修）
 DEFAULT_MODELS = ["fl001", "fl001_l1", "fc001_l1", "fl001_cap", "gt001_comb", "fc001_fmu",
-                  "gt001_fmu", "gt001_fmu_comb", "mg001_combo"]
+                  "gt001_fmu", "gt001_fmu_comb", "mg001_combo", "gt_tl_joint"]
 
 KEY_POINTS = [19.9, 21.5, 26.0, 60.0]
 
@@ -428,6 +451,16 @@ def series_limit(sid, arr, tol):
         # 条件支先例同构）。
         if sid.endswith("_mL") and "V_mL_atol" in tol:
             return tol["V_mL_atol"]
+        # GTLJ-G2b-03（CHG-20261125-01 批准链 Q10=(a)+(i)；CHG-20261125-02 落地）：T-B 分派
+        # `_rad_s`/`_rad` 双条件支新增（additive）。插入点按规格 §4 项 5② 钉死 = `_mL` 支后、
+        # r_true/r_meas 子串判别前；`_rad_s` 先于 `_rad` 判别（omega_rad_s 不以 `_rad` 结尾，
+        # 两支互斥，顺序仅为可读性）。无本两支时 delta_rad/omega_rad_s 落 f_Hz_atol 兜底
+        # （rad ≠ Hz 量纲错型——FCFMU P1-1 同类形态）。仅当 gate 声明对应键时激活——既有
+        # golden 无 `_rad`/`_rad_s` 后缀 id ⇒ 既有键路由行为逐字节不变。
+        if sid.endswith("_rad_s") and "omega_rad_s_atol" in tol:
+            return tol["omega_rad_s_atol"]
+        if sid.endswith("_rad") and "delta_rad_atol" in tol:
+            return tol["delta_rad_atol"]
         if "r_true" in sid:
             return tol["r_true_kW"]
         if "r_meas" in sid:

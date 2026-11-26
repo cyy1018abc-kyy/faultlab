@@ -1,5 +1,5 @@
 /* owner: core-engine | module: systems | contract: docs/CONTRACT.md */
-/* 六系统 SystemDef（FL-001 / FC-001 / GT-001 / PV-001 / WT-001 / MG-001）：拓扑、信号元数据、故障目录、模型假设、因果模板。
+/* 七系统 SystemDef（FL-001 / FC-001 / GT-001 / PV-001 / WT-001 / MG-001 / TL-001——TL-001 = CHG-20261125-02 轻量实现轮）：拓扑、信号元数据、故障目录、模型假设、因果模板。
    纯数据 + 查询 API，挂在 FL.systems；不依赖 DOM / FL.protocol。
    PV-001 = PV001_G2B_SPEC_APPROVED v1.0 实现（PV-G2b-04a / CHG-20261104-10 批准）。
    FL-001 thermal 面 + WT-001 = FL001_THERMAL_G2B_SPEC_APPROVED v1.0 / WT001_G2B_SPEC_APPROVED v1.0
@@ -3179,7 +3179,363 @@
     }
   };
 
-  var ALL = [FL001, FC001, GT001, PV001, WT001, MG001];
+  /* ================================================================== */
+  /* TL-001 输电线路 · GT+TL 联合功角摇摆（TL001_FMU_G2B_SPEC_APPROVED v1.0，                */
+  /* CHG-20261125-01 批准；轻量实现轮 CHG-20261125-02——C99/FMU/parity 链缓做随 linux64）  */
+  /* ================================================================== */
+  /* 单转子形（Q1=(a)）：GT-001 thermo 轨热力链 + 转子 [f,T3] 逐字沿袭，联合态增受驱功角 δ；
+     P_rotor = P_gen + P_bat − P_load − P_elec(δ)，dδ/dt = 2π(f − f₀)，
+     P_elec = s·(V_gen·V_inf/X_line)·sin δ/1000，V_gen = (f/f₀)·V_rated（§1.3 冻结表）。
+     信号/部件/故障三族由 GT-001 定义克隆后增补（GT001 字段零变化）；model_id =
+     tl.transmission.l0（§0 SystemDef）——golden 自述 id gt.sync.tl.l0 分域（§1.2/Q12）。
+     scope：scope.js 无 TL 分支 ⇒ extension_preview（§1.2 推定）；不入 Arena 盲测池（§2.4）。 */
+  function tlStripLegacyTrack(text) {
+    return String(text || '').replace(/；swing\/linear 遗留轨[^）。]*/g, '');
+  }
+  var TL_SIG_OVERRIDES = {
+    f_true_Hz: {
+      definition: '同步发电机真实电频率（转子惯量状态；联合轨转子功率含线路出口项 −P_elec）。',
+      formula: 'df/dt = (P_rotor/K_J)·(f₀/f), P_rotor = P_gen + P_bat − P_load − P_elec(δ)'
+    },
+    P_gen_true_kW: {
+      definition: '发电机真实出力，由热力链给出 P_gen = η_m·(P_turb − P_comp)（GT-001 thermo 轨逐字沿袭）。',
+      formula: 'P_gen = η_m·(P_turb − P_comp)（EQ-GTL1-6）'
+    },
+    P_gen_cmd_kW: {
+      definition: '调速器积分输出的燃料指令（等效功率指令域 kW_eq，钳位 [0, 40]）。',
+      formula: 'u_next = clamp(u + Ki·(50 − f_gov)·h, 0, 40), Ki = 2.0'
+    },
+    P_rotor_kW: {
+      definition: '转子释放/吸收的惯量功率；联合轨含线路出口项（单转子形 EQ-GTL1-7 联合修订行）。',
+      formula: 'P_rotor = P_gen + P_bat − P_load − P_elec(δ) = K_J·(f/f₀)·df/dt'
+    },
+    r_true_kW: {
+      definition: '含转子惯量项与线路出口项的真实守恒残差，是定义恒等式（代数一致性，不是物理验证），理想模型下恒为 0。',
+      formula: 'r_true = P_gen + P_bat − P_load − P_elec − P_rotor'
+    },
+    P_gen_cap_kW: {
+      definition: '燃料阀卡涩场景下的燃料指令域上限 u_cap = 40 × magnitude%（实际 P_gen 由热力链给出）。其他场景不可用（null）。'
+    }
+  };
+  /* GT 故障/部件文案按联合语义改写（孤网口径「频率稳态偏移/电池长期支撑」在无穷母线下不成立） */
+  var TL_FAULT_OVERRIDES = {
+    sensor_drift: {
+      description: '转速测量通道注入等效频率偏置；接入无穷母线后真实频率被同步功率钳在 ≈50 Hz，调速器按偏高读数持续减燃料，缺口由电网经线路输入。',
+      closedLoopEffect: '频率被电网钳在 ≈50 Hz，调速器持续减燃料，线路由出口转为进口',
+      monitorEffect: '调速器使用健康频率，真实状态不变，仅转速读数偏移'
+    },
+    load_step: {
+      description: '负载需求阶跃 +magnitude kW；功角减小、线路即时补足大部分缺口，频率跌落远浅于孤网。',
+      closedLoopEffect: '频率浅跌，新增负荷主要由电网经线路承担'
+    },
+    actuator_fault: {
+      description: '燃料阀卡涩于 magnitude% 开度，机组出力受限；缺口由电网经线路输入，频率仅短暂小幅偏离。',
+      closedLoopEffect: '机组出力受限，线路由出口转为进口'
+    }
+  };
+  var TL_COMP_OVERRIDES = {
+    turbine: { description: '燃气涡轮热力链（GT-001 thermo 轨逐字沿袭）：压气机-燃烧室-透平效率链 + 燃烧室集总热容，P_gen = η_m·(P_turb − P_comp)。' },
+    generator: { description: '同步发电机与转子等效惯量；联合轨摇摆方程 df/dt = (P_gen + P_bat − P_load − P_elec)/K_J × (f₀/f)，功角 δ 随频率偏差积分。' },
+    load: { role: '默认 20 kW（出口基线）' }
+  };
+  var TL_SIGNALS = GT001.signals.map(function (sg) {
+    var c = clone(sg);
+    c.definition = tlStripLegacyTrack(c.definition);
+    var o = TL_SIG_OVERRIDES[c.id];
+    if (o) Object.keys(o).forEach(function (k) { c[k] = o[k]; });
+    return c;
+  }).concat([
+    sig({ id: 'delta_rad', label: '功角 δ', shortLabel: 'δ', unit: 'rad', category: 'line', sourceKind: 'MODEL_STATE', definition: '发电机内电势相对无穷母线的功角（受驱角态，非独立转子态）；频率偏离 50 Hz 时 δ 持续累积。', formula: 'dδ/dt = 2π·(f − f₀)；δ₀ = arcsin((25 + 5 − P_load)/50)', precision: 4, chart: { style: 'solid', colorToken: 'acc', axis: 'left' } }),
+    sig({ id: 'P_elec_kW', label: '线路传输功率', shortLabel: 'P_elec', unit: 'kW', category: 'line', sourceKind: 'MODEL_STATE', definition: '经输电线路送往无穷母线的功率（出口为正、进口为负）；三相短路窗内为 0。', formula: 'P_elec = s·(V_gen·V_inf/X_line)·sin δ/1000, V_gen = (f/50)·400 V, V_inf = 400 V, X_line = 3.2 Ω', precision: 3, chart: { style: 'solid', colorToken: 'warm', axis: 'left' } }),
+    sig({ id: 'omega_rad_s', label: '电角频率 ω', shortLabel: 'ω', unit: 'rad/s', category: 'line', sourceKind: 'DERIVED', definition: '电角频率派生量（非独立微分态）。', formula: 'ω = 2π·f', precision: 3, chart: { style: 'solid', colorToken: 'ink', axis: 'left', defaultVisible: false } })
+  ]);
+
+  var TL001 = {
+    id: 'TL-001',
+    title: '输电线路联合系统',
+    shortTitle: '输电线路',
+    experimentCode: 'TL-001',
+    experimentName: '线路三相短路 · 功角摇摆',
+    tagline: '燃气涡轮机组经输电线路接入无穷母线：在 20 秒让线路三相短路 0.5 秒，看转子加速、功角摆动与再同步。GT+TL 联合功角摇摆演示（扩展预览），非机组/电网动态验证。',
+    level: 'L0 线路面 · GT 热力链 L1（联合轨，扩展预览）',
+    summary: 'GT-001 燃气涡轮发电机（thermo 热力链 + 转子惯量 K_J = 5 kW·s/Hz + 电池一次调频 + 积分调速器）经 X_line = 3.2 Ω 输电线路接入 400 V 无穷母线。单转子形联合模型：线路传输功率 P_elec = (V_gen·V_inf/X_line)·sin δ 作为转子出口项，功角 δ 由频率偏差积分驱动。默认负载 20 kW 时机组向电网输出 10 kW（δ₀ = 11.54°）。TL-001 G2b 规格获用户书面批准（TL001_FMU_G2B_SPEC_APPROVED v1.0，CHG-20261125-01）；行为与数值集总参数演示模型（未经实验/硬件验证）。',
+    questions: [
+      '线路短路时发电机送不出功率，转子为什么会加速？',
+      '故障清除后功角为什么会摆回来，什么时候会摆不回来？',
+      '接入强电网后，转速传感器偏置为什么不再拉低频率，而是让调速器持续减燃料？'
+    ],
+    duration_s: 60,
+    dt_s: 0.1,
+    topologyViewBox: [0, 0, 1000, 620],
+    defaults: {
+      feedback_mode: 'closed_loop',
+      /* Q3=(a)：功角摇摆需非零出口基线——默认负载 20 kW（P_elec_eq = 10 kW，δ₀ = arcsin 0.2）；
+         负载 30 kW 为零出口基线（δ₀ = 0，GT 族镜像 Run 口径）。 */
+      initial: { load_kW: 20, SOC_pct: 60 },
+      noise: { enabled: false, seed: 12345, level: 0 }
+    },
+    bounds: {
+      load_kW: { min: 10, max: 45 },
+      SOC_pct: { min: 0, max: 100 }
+    },
+    components: GT001.components.filter(function (c) { return c.id !== 'controller'; }).map(function (c) {
+      var cc = clone(c);
+      var o = TL_COMP_OVERRIDES[cc.id];
+      if (o) Object.keys(o).forEach(function (k) { cc[k] = o[k]; });
+      return cc;
+    }).concat([
+      comp({
+        id: 'line', label: '输电线路', kind: 'line', role: 'X_line = 3.2 Ω（0.5 p.u.）· 故障注入点',
+        description: '单机-无穷母线等效线路：P_elec = (V_gen·V_inf/X_line)·sin δ /1000；line_fault 场景在故障窗内金属性三相短路（传输功率归零）。',
+        x: 480, y: 440, w: 190, h: 96, faultable: true,
+        inspector: [
+          { id: 'P_elec_kW', source: 'MODEL_STATE' },
+          { id: 'delta_rad', source: 'MODEL_STATE' }
+        ]
+      }),
+      comp({
+        id: 'grid', label: '无穷母线', kind: 'grid', role: '400 V · 50 Hz 恒定',
+        description: '理想无穷大电网：电压与频率恒定（V_inf = 400 V、f₀ = 50 Hz），无自身动态。',
+        x: 730, y: 440, w: 180, h: 96, faultable: false,
+        inspector: [
+          { id: 'P_elec_kW', source: 'MODEL_STATE' },
+          { id: 'omega_rad_s', source: 'DERIVED' }
+        ]
+      })
+    ]),
+    edges: GT001.edges.filter(function (e) { return e.from !== 'controller' && e.to !== 'controller'; }).map(function (e) {
+      var ce = clone(e);
+      if (ce.id === 'bus->load') ce.label = '负载需求';   /* GT 字面「30 kW 需求」不适用（TL 默认 20 kW） */
+      return ce;
+    }).concat([
+      { id: 'bus->line', from: 'bus', to: 'line', kind: 'power', label: '线路出口 P_elec' },
+      { id: 'line->grid', from: 'line', to: 'grid', kind: 'power', label: '无穷母线' },
+      { id: 'line->generator', from: 'line', to: 'generator', kind: 'signal', label: '同步功率（功角）' }
+    ]),
+    faultAnchors: { line_fault: 'line', sensor_drift: 'speed_sensor', load_step: 'load', actuator_fault: 'valve' },
+    signalCategories: GT001.signalCategories.map(clone).concat([{ id: 'line', label: '线路/功角' }]),
+    signals: TL_SIGNALS,
+    faults: [
+      fault({
+        id: 'tl_line_3ph_short', family: 'line_fault', label: '线路三相短路', shortLabel: '线路短路',
+        target: 'line',
+        description: '线路金属性三相短路：故障窗内线路传输功率归零（p_elec_scale = 0），持续 magnitude 秒后清除；发电机出力送不出去，转子加速、功角增大，清除后同步功率把功角拉回。',
+        params: [{ key: 'magnitude', label: '故障持续时间', unit: 's', min: 0.1, max: 1.0, step: 0.1, default: 0.5, precision: 1, help: '清除时刻 = 注入时刻 + 持续时间；持续越久转子加速越多、功角摆幅越大' }],
+        defaultTime_s: 20, timeRange: [2, 55],
+        closedLoopEffect: '转子加速、功角增大，清除后功角回摆并再同步',
+        monitorEffect: '线路短路是物理故障，与控制模式无关，两种模式均生效',
+        causalTemplateId: 'tl-line-fault'
+      })
+    ].concat(GT001.faults.map(function (f) {
+      var c = clone(f);
+      c.causalTemplateId = c.causalTemplateId.replace(/^gt-/, 'tl-');
+      var o = TL_FAULT_OVERRIDES[c.family];
+      if (o) Object.keys(o).forEach(function (k) { c[k] = o[k]; });
+      return c;
+    })),
+    model: {
+      model_id: 'tl.transmission.l0',
+      model_version: '1.0.0',
+      assumptions: GT001.model.assumptions.filter(function (a) {
+        return ['A-ideal-bus', 'A-droop', 'A-gov-integral', 'A-freq-redundant', 'A-soc-linear', 'A-gt-bat-rating', 'A-gt-antiwindup-clamp'].indexOf(a.id) !== -1 ||
+          a.id.indexOf('A-gtl1-') === 0;
+      }).map(function (a) { return { id: a.id, text: a.text.replace(/^【thermo 轨】/, '') }; }).concat([
+        { id: 'A-tl-single-rotor', text: '单转子形：转子动力学唯一由 GT 摇摆方程承载（K_J = 5 kW·s/Hz），功角 δ 为受驱角态 dδ/dt = 2π(f − f₀)；线路传输功率作为转子出口项 −P_elec(δ) 进入 P_rotor。' },
+        { id: 'A-tl-smib', text: '单机-无穷母线等效：无穷母线电压 400 V、频率 50 Hz 恒定；线路为纯电抗 X_line = 3.2 Ω（0.5 p.u.，Z_base = 6.4 Ω），无电阻损耗、无充电电容。' },
+        { id: 'A-tl-vgen', text: '发电机内电势幅值随频率线性映射 V_gen = (f/50)·400 V（无励磁/AVR 动态）；|Δf| ≤ 1 Hz 域内 P_max 在 49–51 kW 之间。' },
+        { id: 'A-tl-fault', text: '线路故障为金属性三相短路：故障窗 [t_start, t_start + 持续时间) 内传输功率系数 p_elec_scale = 0，清除后恢复 1；无重合闸、无保护动作。' },
+        { id: 'A-tl-no-damping', text: '首版不启用阻尼项 D（D = 0）：摇摆阻尼由电池一次调频与调速器积分承载。' },
+        { id: 'A-tl-manifold', text: '调速器积分 ∫(50 − f)dt 与功角积分 ∫(f − f₀)dt 同源——联合系统存在零特征值，受扰后收敛至功率平衡流形上由暂态轨迹确定的一点（不是唯一解析稳态）；这与无差调速机组接入无穷母线时的功率分配不定性同源。' },
+        { id: 'A-tl-params', text: 'X_line / V_rated / V_inf / 基值为演示用整定值，未经实验/硬件验证。' }
+      ]),
+      limitations: [
+        '单机无穷大母线等效：无电网潮流、多机交互、网络拓扑与网损。',
+        '不含励磁调压（AVR）、电力系统稳定器（PSS）、阻尼绕组与发电机电磁暂态；功角动态仅由转子惯量与同步功率承载。',
+        '无继电保护、重合闸、失步解列与低频减载；失步（功角单调逸出）为合法教学输出，模型不会自动动作。',
+        '线路为纯电抗、无损耗；三相短路以传输功率归零的理想化方式表示，不计故障电流、电弧与不对称故障。',
+        '燃气涡轮热力链局限沿袭 GT-001 thermo 轨（压气机特性图、变比热、燃烧动态、冷却与老化均未建模）。',
+        '无穷母线下转速传感器偏置不会造成频率偏移：同步功率把 f 钳在 ≈50 Hz，调速器按偏置读数持续减燃料；默认幅值 0.3 Hz 的 60 s 窗口内燃料指令降至约 1.2、P_gen 为负（负净功——压气机耗功超过透平出功的模型外推区，物理对应机组被电网反拖），属登记的域外角点（CHG-20261125-02 发现 F-1）。',
+        '扩展预览：仅引擎↔独立 oracle 的数值一致性检查；未做模型验证与硬件验证；C99/FMU 镜像轨与 parity 尚未实现（随 linux64 平台工作缓做）。',
+        'L0 线路面 + L1 热力链演示模型；非实测、非 Simulink、无实测对比。'
+      ],
+      equations: GT001.model.equations.filter(function (e) {
+        return e.id.indexOf('EQ-GTL1-') === 0 && e.id !== 'EQ-GTL1-7';
+      }).map(clone).concat([
+        { id: 'EQ-GTL1-7J', latex_text: 'df/dt = (P_rotor/K_J)·(f₀/f); P_rotor = P_gen + P_bat − P_load − P_elec(δ)', note: '联合修订行（单转子形：独立口径的单一新增出口项；线路开断 P_elec ≡ 0 时精确退化为 GT 独立式）' },
+        { id: 'TL-EQ-1', latex_text: 'dδ/dt = 2π·(f − f₀)', note: '功角-频率关系（δ 为受驱角态）' },
+        { id: 'TL-EQ-3', latex_text: 'P_elec = s·(V_gen·V_inf/X_line)·sin δ / 1000, X_line = 3.2 Ω, V_inf = 400 V', note: '线路传输功率（kW；s = p_elec_scale，故障窗内 0）' },
+        { id: 'TL-EQ-5', latex_text: 'V_gen = (f/f₀)·V_rated, V_rated = 400 V', note: '频率→电压幅值映射' },
+        { id: 'TL-EQ-IC', latex_text: 'δ₀ = arcsin((P_gen0 + P_bat,ref − P_load)/P_max0), P_max0 = 50 kW', note: '初始功角取功率平衡点（P_rotor(0) = 0）' }
+      ])
+    },
+    acceptance: {
+      reference: 'TL001_FMU_G2B_SPEC_APPROVED v1.0 §3',
+      exactness: 'TL-001 为扩展预览：引擎对 gt_tl_joint_v1 golden 走 T-B gate；守恒含转子项与线路项 ≤1e-3 kWh',
+      keyValues: { delta0_export_rad: 0.2013579207903308, P_elec_export_kW: 10, P_max_kW: 50 }
+    }
+  };
+  TL001.causalTemplates = {
+    line_fault: {
+      id: 'tl-line-fault',
+      headline: 't={t0} s，{faultLabel} {mag} s：线路传输功率 {P_elec_pre} → 0 kW，功角最大摆至 {delta_max_deg}°',
+      mechanismSummary: '线路短路 → 发电机出力送不出去（P_elec 归零）→ 转子功率出现 +{P_elec_pre} kW 盈余而加速 → 频率升至 {f_max} Hz、功角随频率偏差积分增大 → 清除后同步功率 P_max·sin δ 远大于盈余，把转子拉回 → 功角回摆、频率回落，电池一次调频与调速器共同阻尼振荡。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '线路三相短路', short: 'P_elec {P_elec_pre} → {P_elec_post} kW（{t0}–{tc} s）',
+          layer: 'config', componentId: 'line', signalIds: ['P_elec_kW'],
+          detail: '因为 {t0} s 线路发生金属性三相短路（持续 {mag} s，{tc} s 清除），所以故障窗内线路传输功率系数为 0，P_elec 由 {P_elec_pre} kW 归零。这是配置定义的物理故障事实（两种控制模式均生效）。',
+          evidence: [{ varId: 'P_elec_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: '{t0} s 前 {P_elec_pre} kW，故障窗内 0 kW' }]
+        },
+        {
+          id: 'n2', order: 2, title: '转子功率盈余加速', short: 'P_rotor → +{P_rotor_post} kW，f 升至 {f_max} Hz',
+          layer: 'mechanism', componentId: 'generator', signalIds: ['P_rotor_kW', 'f_true_Hz'],
+          detail: '因为 P_rotor = P_gen + P_bat − P_load − P_elec，出口项消失后转子获得 +{P_rotor_post} kW 盈余，所以转子加速（df/dt = P_rotor/K_J），真实频率最高升至 {f_max} Hz；电池按下垂少放电，部分抵消盈余。',
+          evidence: [{ varId: 'f_true_Hz', tStartOffset: 0.0, tEndOffset: 2.0, note: '故障后频率上升，最高 {f_max} Hz' }]
+        },
+        {
+          id: 'n3', order: 3, title: '功角增大', short: 'δ {delta_pre_deg}° → 最大 {delta_max_deg}°',
+          layer: 'observation', componentId: 'line', signalIds: ['delta_rad'],
+          detail: '因为 dδ/dt = 2π(f − 50)，频率高于 50 Hz 期间功角持续增大，所以 δ 由 {delta_pre_deg}° 摆到最大 {delta_max_deg}°。',
+          evidence: [{ varId: 'delta_rad', tStartOffset: 0.0, tEndOffset: 2.0, note: '功角在故障与清除后短时内达到峰值' }]
+        },
+        {
+          id: 'n4', order: 4, title: '清除后同步功率回拉', short: 'P_elec 峰值 {P_elec_max} kW → 再同步',
+          layer: 'mechanism', componentId: 'line', signalIds: ['P_elec_kW', 'delta_rad'],
+          detail: '因为清除后线路恢复，P_elec = P_max·sin δ 在大功角下远超原出口 {P_elec_pre} kW（峰值 {P_elec_max} kW），转子功率转为负值而减速，所以功角回摆；电池一次调频与调速器积分提供阻尼，60 s 时 δ = {delta_60_deg}°、P_elec = {P_elec_60} kW（收敛至功率平衡流形上由暂态确定的一点）。',
+          evidence: [{ varId: 'P_elec_kW', tStartOffset: 0.0, tEndOffset: 10.0, note: '清除后传输功率先冲高再衰减振荡' }]
+        },
+        {
+          id: 'n5', order: 5, title: '恒等式维持', short: 'r_true ≡ {r_true_max} kW',
+          layer: 'observation', componentId: 'bus', signalIds: ['r_true_kW'],
+          kind: 'algebraic_identity',
+          epistemic: '代数恒等',
+          detail: 'r_true = P_gen + P_bat − P_load − P_elec − P_rotor 最大 {r_true_max} kW——定义恒等式按构造成立（代数一致性，不是物理验证）。',
+          evidence: [{ varId: 'r_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: 'r_true 恒为 0（定义恒等式回归）' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '出口消失' },
+        { from: 'n2', to: 'n3', label: '频率偏差积分' },
+        { from: 'n3', to: 'n4', label: '同步功率' },
+        { from: 'n4', to: 'n5', label: '恒等式闭合', dashed: true }
+      ],
+      assumptions: ['A-tl-single-rotor', 'A-tl-smib', 'A-tl-fault', 'A-tl-no-damping', 'A-tl-manifold'],
+      limitations: ['无继电保护与重合闸：故障清除时刻由配置给定。', '持续时间过长时功角可能单调逸出（失步）——模型不自动解列，属合法教学输出。', '演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若负载为 30 kW（零出口基线）', text: '基线 P_elec = 0、δ₀ = 0，短路不改变转子功率平衡——线路故障对机组无可见影响（物理事实，非缺陷）。' }]
+    },
+    sensor_drift: {
+      id: 'tl-sensor-drift',
+      headline: 't={t0} s，{faultLabel}：{sign}{mag} Hz 注入转速测量通道——频率被电网钳住，调速器持续减燃料',
+      mechanismSummary: '转速读数偏高 → 调速器误认为频率偏高而持续减燃料 → 机组出力下降，但无穷母线的同步功率把频率钳在 ≈50 Hz → 缺口由线路从电网输入（功角转负）→ 偏置读数始终高于 50 Hz，调速器不停减燃料（与孤网 GT-001「频率降到 49.7 Hz 后稳定」形成对照）。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '转速传感器偏置注入', short: '转速通道 +{n_rpm} rpm',
+          layer: 'config', componentId: 'speed_sensor', signalIds: ['n_meas_rpm'],
+          detail: '因为 {t0} s 转速传感器注入 {sign}{mag} Hz 等效偏置（{n_rpm} rpm），所以调速器看到的频率 f_gov = n_meas/60 比真实频率高 {mag} Hz。',
+          evidence: [{ varId: 'n_meas_rpm', tStartOffset: -0.1, tEndOffset: 0.1, note: '偏置注入时刻转速读数阶跃' }]
+        },
+        {
+          id: 'n2', order: 2, title: '频率被电网钳住', short: 'f_true 最低 {f_min} Hz（≈50 Hz）',
+          layer: 'observation', componentId: 'generator', signalIds: ['f_true_Hz'],
+          detail: '因为同步功率 P_max·cos δ ≈ 50 kW/rad 远强于调速器作用，所以真实频率几乎不偏离 50 Hz（最低 {f_min} Hz）——这与孤网 GT-001 同一故障下频率降到 49.7 Hz 完全不同。',
+          evidence: [{ varId: 'f_true_Hz', tStartOffset: 0.0, tEndOffset: 40.0, note: '真实频率始终贴近 50 Hz' }]
+        },
+        {
+          id: 'n3', order: 3, title: '调速器持续减燃料', short: '燃料指令 25 → {u_60}',
+          layer: 'mechanism', componentId: 'governor', signalIds: ['P_gen_cmd_kW', 'P_gen_true_kW'],
+          detail: '因为 f_gov 始终比 50 Hz 高 {mag} Hz，积分调速器每秒减燃料指令 Ki × {mag}，所以指令由 25 降到 {u_60}，发电机出力降到 {P_gen_60} kW（指令接近 0 时 P_gen 为负——模型外推区，见局限）。',
+          evidence: [{ varId: 'P_gen_cmd_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '燃料指令单调下降' }]
+        },
+        {
+          id: 'n4', order: 4, title: '电网经线路补足缺口', short: 'P_elec → {P_elec_60} kW，δ → {delta_60_deg}°',
+          layer: 'observation', componentId: 'line', signalIds: ['P_elec_kW', 'delta_rad'],
+          detail: '因为负载不变而机组出力下降，所以功角转为负值、线路由出口变为进口：60 s 时 P_elec = {P_elec_60} kW（负为从电网输入），δ = {delta_60_deg}°。若持续更久，δ 将逼近 −90° 稳定极限。',
+          evidence: [{ varId: 'P_elec_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '线路功率由出口转为进口' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n3', label: '误调燃料' },
+        { from: 'n3', to: 'n2', label: '电网钳频' },
+        { from: 'n3', to: 'n4', label: '缺口由电网输入' }
+      ],
+      assumptions: ['A-gov-integral', 'A-freq-redundant', 'A-tl-smib', 'A-tl-manifold'],
+      limitations: ['燃料指令接近 0 时 P_gen 为负净功——模型外推区（物理对应机组被电网反拖），登记为域外角点 F-1。', '无失步保护：偏置持续足够久时功角越过 −90° 将失步。', '演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若线路开断（孤网运行）', text: '与 GT-001 相同：调速器把带偏置的 f_gov 拉回 50 Hz，真实频率稳定在 50 − {mag} Hz。' }]
+    },
+    load_step: {
+      id: 'tl-load-step',
+      headline: 't={t0} s，{faultLabel} +{mag} kW：线路即时补足，频率最低 {f_min} Hz',
+      mechanismSummary: '负载阶跃 → 转子功率出现缺口而减速 → 功角减小、线路出口减少或转为进口 → 电网即时补足大部分缺口，频率跌落远浅于孤网 → 调速器只需小幅加燃料，终点落在功率平衡流形上（新增负荷主要由电网承担）。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '负载阶跃', short: 'P_load {P_load_pre} → {P_load_post} kW',
+          layer: 'config', componentId: 'load', signalIds: ['P_load_demand_kW'],
+          detail: '因为 {t0} s 负载需求阶跃 +{mag} kW，所以转子功率 P_rotor 出现 −{mag} kW 缺口。',
+          evidence: [{ varId: 'P_load_demand_kW', tStartOffset: -0.1, tEndOffset: 0.1, note: '负载阶跃' }]
+        },
+        {
+          id: 'n2', order: 2, title: '功角减小、电网补足', short: 'δ → {delta_60_deg}°，P_elec → {P_elec_60} kW',
+          layer: 'mechanism', componentId: 'line', signalIds: ['delta_rad', 'P_elec_kW'],
+          detail: '因为转子短暂减速使 δ 减小，P_elec = P_max·sin δ 随之下降（{P_elec_pre} → {P_elec_60} kW），电网承担了新增负荷的大部分。',
+          evidence: [{ varId: 'P_elec_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '线路功率下降以补足负荷' }]
+        },
+        {
+          id: 'n3', order: 3, title: '频率浅跌后恢复', short: 'f 最低 {f_min} Hz',
+          layer: 'observation', componentId: 'generator', signalIds: ['f_true_Hz'],
+          detail: '因为同步功率在功角减小时立即响应，所以频率最低只到 {f_min} Hz，并很快回到 50 Hz 附近（孤网 GT-001 同一阶跃 nadir ≈ 49.59 Hz）。',
+          evidence: [{ varId: 'f_true_Hz', tStartOffset: 0.0, tEndOffset: 10.0, note: '频率跌落浅且短' }]
+        },
+        {
+          id: 'n4', order: 4, title: '调速器小幅加燃料', short: 'P_gen → {P_gen_60} kW',
+          layer: 'observation', componentId: 'governor', signalIds: ['P_gen_cmd_kW', 'P_gen_true_kW'],
+          detail: '因为频率偏差只在暂态中短暂出现，积分调速器只小幅加燃料，发电机出力仅升到 {P_gen_60} kW——终点由暂态轨迹决定（功率平衡流形），不是唯一稳态。',
+          evidence: [{ varId: 'P_gen_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '发电机出力小幅上升' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '转子减速' },
+        { from: 'n2', to: 'n3', label: '同步功率支撑' },
+        { from: 'n3', to: 'n4', label: '积分调速' }
+      ],
+      assumptions: ['A-tl-single-rotor', 'A-tl-smib', 'A-tl-manifold'],
+      limitations: ['无穷母线容量无限：真实电网的频率支撑有限。', '演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若线路开断（孤网运行）', text: '与 GT-001 相同：缺口由转子动能与电池补足，频率跌落更深，调速器积分把出力拉到新负荷。' }]
+    },
+    actuator_fault: {
+      id: 'tl-valve-stuck',
+      headline: 't={t0} s，{faultLabel} {mag}%：机组出力受限，缺口由电网经线路输入',
+      mechanismSummary: '燃料阀卡涩 → 燃料指令被钳位、机组出力降到 {P_gen_60} kW → 转子短暂减速使功角减小 → 线路由出口转为进口，电网补足缺口 → 频率仅短暂小幅偏离 50 Hz。',
+      nodes: [
+        {
+          id: 'n1', order: 1, title: '燃料阀卡涩', short: '燃料指令上限 {P_gen_cap}',
+          layer: 'config', componentId: 'valve', signalIds: ['P_gen_cap_kW', 'valve_meas_pct'],
+          detail: '因为 {t0} s 燃料阀卡涩于 {mag}% 开度，所以燃料指令被钳位在 {P_gen_cap}（指令域）。',
+          evidence: [{ varId: 'valve_meas_pct', tStartOffset: -0.1, tEndOffset: 0.1, note: '阀位卡在 {mag}%' }]
+        },
+        {
+          id: 'n2', order: 2, title: '机组出力下降', short: 'P_gen → {P_gen_60} kW',
+          layer: 'mechanism', componentId: 'generator', signalIds: ['P_gen_true_kW'],
+          detail: '因为燃料受限，热力链给出的发电机出力降到 {P_gen_60} kW。',
+          evidence: [{ varId: 'P_gen_true_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '发电机出力下降' }]
+        },
+        {
+          id: 'n3', order: 3, title: '线路转为进口', short: 'P_elec → {P_elec_60} kW，δ → {delta_60_deg}°',
+          layer: 'observation', componentId: 'line', signalIds: ['P_elec_kW', 'delta_rad'],
+          detail: '因为负载不变，缺口由电网经线路输入：P_elec 降到 {P_elec_60} kW（负为进口），功角 {delta_60_deg}°；频率最低 {f_min} Hz，只短暂小幅偏离。',
+          evidence: [{ varId: 'P_elec_kW', tStartOffset: 0.0, tEndOffset: 40.0, note: '线路功率下降' }]
+        }
+      ],
+      edges: [
+        { from: 'n1', to: 'n2', label: '燃料钳位' },
+        { from: 'n2', to: 'n3', label: '电网补足' }
+      ],
+      assumptions: ['A-tl-single-rotor', 'A-tl-smib', 'A-gtl1-actuator-cmd-domain'],
+      limitations: ['卡涩建模为理想燃料指令上限，不是真实保护动作。', '演示模型：结论只在上述假设下成立。'],
+      alternatives: [{ title: '若线路开断（孤网运行）', text: '与 GT-001 相同：频率持续偏低、电池长期支撑。' }]
+    }
+  };
+
+  var ALL = [FL001, FC001, GT001, PV001, WT001, MG001, TL001];
   var BY_ID = {};
   ALL.forEach(function (s) { BY_ID[s.id] = s; });
 

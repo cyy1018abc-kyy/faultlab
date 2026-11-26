@@ -20,6 +20,10 @@
     { id: 'leaderboard', index: '09', ext: true }
   ];
   const TRUTH_PAGES = ['signals', 'causal', 'compare'];
+  /* 应用版本单一来源（src/core/version.js——V1170 DEC-3，CHG-20261126-02）：界面不再写死版本字面；
+     version.js 缺载时显示「?」而非伪造版本号 */
+  function appVersion() { return (FL && FL.APP_VERSION) ? FL.APP_VERSION : '?'; }
+  function appReleaseDate() { return (FL && FL.APP_RELEASE_DATE) ? FL.APP_RELEASE_DATE : '?'; }
 
   const refs = {};
   const pageRoots = {};
@@ -59,7 +63,7 @@
       h('span', { class: 'brand-mark' }, [ui.icon('pulse', { size: 22 })]),
       h('span', { class: 'brand-text' }, [
         h('span', { class: 'brand-name' }, ['FAULT', h('em', {}, 'LAB')]),
-        h('span', { class: 'brand-sub' }, ['Virtual Energy Lab · V0.5.0'])
+        h('span', { class: 'brand-sub' }, ['Virtual Energy Lab · V' + appVersion()])
       ])
     ]);
 
@@ -531,16 +535,22 @@
       h('div', { class: 'eyebrow mb-8' }, '页面'),
       h('p', { class: 'muted' },
         '首页选择系统并创建运行；系统页注入故障并观察能量流；曲线页同步查看真实/测量/派生信号；' +
-        '因果页解释"为什么变化"；对比页比较故障组与无故障基准；竞技场让诊断 Agent 在封存真值条件下比赛。'),
+        '因果页解释"为什么变化"；对比页比较故障组与无故障基准；竞技场（扩展预览）让诊断 Agent 在封存真值条件下比赛；' +
+        '场景编排页导入并校验场景文件，按事件序生成一组运行，可导出场景信封供他人复现；' +
+        '教学页提供 8 条预设教学路径（注入 → 闭环观察 → 仅监测对照 → 因果 → 生成评测场景）；' +
+        '本地排行榜（扩展预览）只读展示导入的成绩文件——合成场景评测游戏，非真实诊断性能。'),
       h('hr', { class: 'hr' }),
       h('div', { class: 'eyebrow mb-8' }, '数据可信度'),
       h('p', { class: 'muted' },
-        'FaultLab V0.5.0 是离线可运行的行为级（L0）解析模型演示：FL-001 的数值由规格中的解析式精确生成，' +
-        '非 Simulink、非现场数据、非实测。所有数字都带来源标签（配置 / 模型状态 / 观测 / 控制器 / 故障事件 / 派生 / 模型假设），' +
-        '说明文本不作为计算数据源。观测残差（如 +4 kW）是测量一致性残差，不是能量损失。'),
+        'FaultLab V' + appVersion() + ' 是离线可运行的能源系统行为级演示，涵盖七个系统：FL-001 电池储能、FC-001 燃料电池、' +
+        'GT-001 燃气涡轮、PV-001 光伏、WT-001 风电、MG-001 微电网多源聚合、TL-001 输电线路联合系统（GT+TL 功角摇摆，扩展预览）。' +
+        '模型层级为 L0 / L0b 解析行为级主轨，另有部分 L1 集总参数数值轨（RK4）；FC-001 / GT-001 另设 L1-FMU 镜像轨（集总参数，未经模型验证）。' +
+        '全部数值为模型生成的合成数据：非 Simulink、非现场数据、非实测，未做模型验证与硬件验证；golden 比对只是内部一致性检查。' +
+        '所有数字都带来源标签（配置 / 模型状态 / 观测 / 控制器 / 故障事件 / 派生 / 模型假设），' +
+        '说明文本不作为计算数据源。观测残差（如 FL-001 的 +4 kW）是测量一致性残差，不是能量损失。'),
       h('hr', { class: 'hr' }),
       h('div', { class: 'eyebrow mb-8' }, '版本'),
-      h('p', { class: 'muted' }, 'FaultLab V0.5.0 / FL-001 · 基准日期 2026-10-27 · 离线单页应用 · 模型层级 L0')
+      h('p', { class: 'muted' }, 'FaultLab V' + appVersion() + ' · 七系统（FL / FC / GT / PV / WT / MG / TL）· 发布日期 ' + appReleaseDate() + ' · 离线单页应用 · 模型层级 L0 / L0b / L1')
     ]);
     ui.modal({ title: '帮助与快捷键', subtitle: 'FaultLab — Virtual Energy Lab', content, wide: false });
   }

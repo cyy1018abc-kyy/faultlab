@@ -72,9 +72,9 @@ linux64 产物产出后：V312 §10/§11 各增 linux64 行（.so sha256）+ fmu
 
 | # | 裁定项 | 用户裁定 |
 |---|---|---|
-| R-L64-01 | linux64 实施与否 | （待填） |
-| R-L64-02 | 路线选择（a/b/c/d） | （待填） |
-| R-L64-03 | .dylib（macOS）是否纳入 | （待填——PLATFORM_DIRS 已含 darwin64） |
+| R-L64-01 | linux64 实施与否 | **实施**（2026-11-25「全部采用推荐」，CHG-20261125-01；v1.17.0 首项——V1170_WAVE_DESIGN DEC-1/DEC-2） |
+| R-L64-02 | 路线选择（a/b/c/d） | **(e) 云端 Linux 开发容器原生 gcc**（本评估 §2 未列的新路线——2026-11-25 可行性实测：Ubuntu 24.04 / GCC 13.3.0 / glibc 2.39 下三内核按钉死参数（+ -fPIC/-lm）编译通过；临时副本注入 .so 后 fc001_fmu parity 散差 0.0、gt001_fmu parity 12 Run 最差 2.55e-4 < 冻结门 1e-3，与 win64 实测同量级）；打包 = .so 并入现有三 .fmu（binaries/linux64/），三包 V312 重钉 + 编译器版本入 manifest——V1170_WAVE_DESIGN DEC-2；(c) Docker 保留为用户本机复现备选 |
+| R-L64-03 | .dylib（macOS）是否纳入 | **暂不纳入**（darwin64 无构建/测试环境；PLATFORM_DIRS 现状维持，留后续 CHG） |
 
 **文件结束**。LINUX64_PLATFORM_ASSESSMENT v0.1（2026-11-19，V1150 D-12 / CHG-20261119-09）。
 本评估为零实施承诺文本（评估面——裁定留白章显式留用户）。

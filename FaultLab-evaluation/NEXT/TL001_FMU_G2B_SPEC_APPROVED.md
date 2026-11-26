@@ -1,6 +1,13 @@
-# TL001_FMU_G2B_SPEC_DRAFT — TL-001 跨系统联合（GT+TL 功角摇摆）G2b 物理规格草案（DRAFT v0.3）
+# TL001_FMU_G2B_SPEC_APPROVED — TL-001 跨系统联合（GT+TL 功角摇摆）G2b 物理规格（APPROVED v1.0）
 
-> **状态**：`DRAFT v0.3（2026-11-22，重审轮条件落正文——v0.2 双重审 PASS-WITH-CONDITIONS(2)+(2)，条件 A2-1/A2-2/B2-1/B2-2 全落正文 + B2-3 台账注记；零实现承诺；批准留待用户）`。
+> **状态**：`APPROVED v1.0（2026-11-25，GTLJ-G2b-02 批准轮收口，CHG-20261125-01）——
+> 双路独立评审重审轮（A:PASS_WITH_CONDITIONS(2) / B:PASS-WITH-CONDITIONS(2)——v0.1 轮
+> 双 FAIL 后 v0.2 重稿复审）+ 条件 A2-1/A2-2/B2-1/B2-2 已于 v0.3 落正文（B2-3 台账注记）+
+> 用户书面批准（2026-11-25「全部采用推荐」指令链——Q1…Q13 全按推荐定案，§13）+ 更名
+> APPROVED v1.0（GTFMU/FCFMU-G2b-02 先例同款 git mv）。实现（GTLJ-G2b-03/04）= v1.17.0
+> 实现轮 A-11；**排程裁定（R-TLFMU-03）：linux64 D-12 前置串行**——D-12 先落地（全量
+> 门禁在 Linux 开发环境可闭合），A-11 C99/parity 链随后开工（V1170_WAVE_DESIGN DEC-1）。`
+> **历史状态（v0.3 原文保留）**：`DRAFT v0.3（2026-11-22，重审轮条件落正文——v0.2 双重审 PASS-WITH-CONDITIONS(2)+(2)，条件 A2-1/A2-2/B2-1/B2-2 全落正文 + B2-3 台账注记；零实现承诺；批准留待用户）`。
 > **任务**：V08_ROADMAP 主线 A **A-10 行**「TL-001 G2b 草案轮」——**跨系统联合 Run 首例**
 > （方案 (A) TL 独立 SystemDef + GT 联合耦合面——TL001_CROSS_SYSTEM_RFC.md 已批准
 > R-CS-01..04）。
@@ -583,15 +590,15 @@ Docker 路线）——随批准 CHG 派发」——v0.1「linux64 另行 CHG」�
 | R-9 | sensor_drift 滑差拍频被误读为数值不稳定（δ 线性漂移/P_elec 周期摆） | §3.2 物理机理登记（滑差 0.3 Hz 拍频——正确物理）；δ_rad 合法列值声明 |
 | R-10 | 步数账/注册面 CHG 打包遗漏 | §5 面⑦ + §8 ⑤ 随批打包清单点名（步账/runHash/EVENT_KEYS/FAULT_CATALOG） |
 
-## §11 评审记录（GTLJ-G2b-02 收口回填——结构留空，体例沿 GT001_FMU §10）
+## §11 评审记录（GTLJ-G2b-02 收口回填——2026-11-25，CHG-20261125-01）
 
 | 路 | 范围 | verdict | 关键结论 |
 |---|---|---|---|
-| 评审线 A（物理/架构面） | 单转子形物理自洽与量纲、EQ 编号对齐、守卫三钉、host 分区、锚点复算、包络、parity 制度 | （待填——v0.1 轮 = FAIL/R-A-01..10，报告 evidence/g2b/TLFMU_G2B_REVIEW_A.md；v0.2 重审待开） | （待填） |
-| 评审线 B（治理/八面面） | 八面逐面、键面/夹心章、verify 注册面、golden 治理、哈希面、步数账、copy-guard、门禁序列 | （待填——v0.1 轮 = FAIL/R-B-01..13，报告 evidence/g2b/TLFMU_G2B_REVIEW_B.md；v0.2 重审待开） | （待填） |
-| 用户批准 | Q1..Q12 定案 + R-TLFMU-01..03 | （待填） | （待填） |
+| 评审线 A（物理/架构面） | 单转子形物理自洽与量纲、EQ 编号对齐、守卫三钉、host 分区、锚点复算、包络、parity 制度 | v0.1 轮 `FAIL`（R-A-01..10）→ **v0.2 重审 `PASS_WITH_CONDITIONS(2)`**（2026-11-22；报告 evidence/g2b/TLFMU_G2B_REVIEW_A.md v1.1） | R-A-01..10 核销 10/10；单转子形经专项物理复审自洽成立（幻影耦合消除、SMIB 机制成立）；条件 A2-1（GLJ-7 四域分域）/A2-2（load_step 终点精确恒等式勘正）已于 v0.3 落正文；新发现 R-A2-03 INFO |
+| 评审线 B（治理/八面面） | 八面逐面、键面/夹心章、verify 注册面、golden 治理、哈希面、步数账、copy-guard、门禁序列 | v0.1 轮 `FAIL`（R-B-01..13）→ **v0.2 重审 `PASS-WITH-CONDITIONS(2)`**（2026-11-22；报告 evidence/g2b/TLFMU_G2B_REVIEW_B.md；与 A 互不可见） | R-B-01..13 核销 13/13；16 章体例同构、`_rad` 分派支插入点与实读分派链精确吻合；条件 B2-1（三处锚点行号勘正）/B2-2（golden 层 provenance 转 Q13）已于 v0.3 落正文；B2-3 INFO 台账注记 |
+| 用户批准 | Q1..Q13 定案 + R-TLFMU-01..03 | **批准**（2026-11-25「全部采用推荐」指令链） | Q1..Q13 全按 §12 推荐定案（含评审 A/B 分歧项 Q8 → (a)+(i)）；排程按 V1170_WAVE_DESIGN DEC-1（D-12 前置串行）；§3.3 平衡流形维持现文（联合模式下垂调速器形态登记为远期项，非本规格 Q 点） |
 
-## §12 Q 点清单（**全候选 + 推荐——不定案**；定案于 GTLJ-G2b-02 批准轮——R-B-06 处置重编）
+## §12 Q 点清单（**已定案——2026-11-25 GTLJ-G2b-02 批准轮 Q1..Q13 全按下表「推荐」列定案**，CHG-20261125-01；候选列保留供追溯——R-B-06 处置重编）
 
 **RFC Q1..Q7 承接表**：
 
@@ -627,9 +634,9 @@ Docker 路线）——随批准 CHG 派发」——v0.1「linux64 另行 CHG」�
 
 | # | 裁定项 | 用户裁定 |
 |---|---|---|
-| R-TLFMU-01 | 本规格 v0.2 是否批准（进入 A-11 实现轮） | （待填） |
-| R-TLFMU-02 | **§12 Q1..Q13 定案**（联合特有 Q 全集——Q13 为 B2-2 golden 字段层 provenance 三选一；Q5/Q6 为 RFC Q3/Q4 候选化承接；RFC Q1/Q2 已由 R-CS-01/R-CS-04 定案不再重开；RFC Q7 → R-TLFMU-03） | （待填） |
-| R-TLFMU-03 | 排程（**A-11 边界重申**：CHG-20261120-01 ③ v1.17.0 实现轮预授权——oracle/golden/C99/parity/adapter 全链随批准 CHG 派发；**linux64 D-12 隔离声明**：D-12 为平台面独立工作流、随同一批准 CHG 派发、与本轨验收链并行隔离互不阻塞——v0.1「另行 CHG」措辞已按台账勘正） | （待填） |
+| R-TLFMU-01 | 本规格 v0.2 是否批准（进入 A-11 实现轮） | **批准**（2026-11-25「全部采用推荐」——本规格以 v0.3 正文更名 APPROVED v1.0；进入 v1.17.0 A-11 实现轮） |
+| R-TLFMU-02 | **§12 Q1..Q13 定案**（联合特有 Q 全集——Q13 为 B2-2 golden 字段层 provenance 三选一；Q5/Q6 为 RFC Q3/Q4 候选化承接；RFC Q1/Q2 已由 R-CS-01/R-CS-04 定案不再重开；RFC Q7 → R-TLFMU-03） | **Q1..Q13 全按 §12 推荐定案**：Q1=(a) 单转子形 [f,T3,δ]；Q2=§1.4 推荐值（P_max=50 kW、X_line=0.5 p.u.=3.2 Ω、δ₀=0、D 不启用）；Q3=(a) line_fault demand=20 出口基线、余 Run demand=30 零出口；Q4=(a) governor 归 host（Q1(B) 沿袭）；Q5=(a) config.systems 数组 additive 进 runHashInput；Q6=(a) 联合 RK4 单内核 + gt_tl_joint_parity.py；Q7=(a) 30 列；Q8=(a)+(i) 退化积分 + GLJ-5 守卫（评审 A/B 分歧项——用户按推荐裁 A 线口径）；Q9=(a) r_true 恒等换底 + r_line 入 GLJ-2；Q10=(a)+(i) delta_rad_atol/omega_rad_s_atol + `_rad_s`/`_rad` 双条件支；Q11=(a) 8 Run；Q12=(a)+(i)+(I) gt.sync.tl.l0 / inertia_model="thermo" / flat RUNS；Q13=(b) fmu_l1_lumped_unvalidated |
+| R-TLFMU-03 | 排程（**A-11 边界重申**：CHG-20261120-01 ③ v1.17.0 实现轮预授权——oracle/golden/C99/parity/adapter 全链随批准 CHG 派发；**linux64 D-12 隔离声明**：D-12 为平台面独立工作流、随同一批准 CHG 派发、与本轨验收链并行隔离互不阻塞——v0.1「另行 CHG」措辞已按台账勘正） | **v1.17.0；D-12 前置串行**（V1170_WAVE_DESIGN DEC-1——对 §6「并行隔离」声明的排程修订：linux64 先落地使 C99/parity 链在 Linux 开发环境可闭合，再开 GTLJ-G2b-03/04；D-12 仍为独立平台工作流、独立验收） |
 
 ---
 
@@ -679,6 +686,13 @@ Docker 路线）——随批准 CHG 派发」——v0.1「linux64 另行 CHG」�
 ---
 
 **修订记录**：
+- **APPROVED v1.0（2026-11-25，GTLJ-G2b-02 批准轮收口——CHG-20261125-01）**：用户「全部采用
+  推荐」指令链——R-TLFMU-01 批准 / R-TLFMU-02 Q1..Q13 全按推荐定案（Q8 评审分歧项裁 (a)+(i)）/
+  R-TLFMU-03 v1.17.0 + D-12 前置串行（V1170_WAVE_DESIGN DEC-1）；§11 评审记录回填（重审轮
+  双线 PWC(2)+(2)）、§12 标题改「已定案」、§13 三行填写、头部状态更新；git mv 更名
+  DRAFT→APPROVED（先例同款）。物理/方程/参数/Run 矩阵/golden 计划正文**零改动**（v0.3 正文
+  即批准文本）；§3.3 平衡流形维持现文，联合模式下垂调速器形态登记为远期项（不入本规格）。
+  零代码、零 golden、零 oracle、零脚本改动。
 - **v0.3（2026-11-22，重审轮条件落正文——A-10 轮内，零实现承诺维持）**：v0.2 双重审
   PASS-WITH-CONDITIONS(2)+(2)（评审 A：R-A-01..10 全解决 + 新 R-A2-01..03；评审 B：
   R-B-01..13 全解决 + 新 R-B2-01..03）的四条件全落正文——① GLJ-7 Δf 断言四域分域
@@ -710,7 +724,9 @@ Docker 路线）——随批准 CHG 派发」——v0.1「linux64 另行 CHG」�
   废弃）/ Run 矩阵 4 Run / golden 计划骨架（31 列）/ Q1..Q6 / 留白章。双评审 R-A/R-B
   一致 FAIL（处置路径 = 本 v0.2）。
 
-**文件结束**。TL001_FMU_G2B_SPEC_DRAFT v0.3（2026-11-22，A-10 轮内重稿 + 重审条件落正文，
+**文件结束**。TL001_FMU_G2B_SPEC_APPROVED v1.0（2026-11-25，GTLJ-G2b-02 批准轮收口，
+CHG-20261125-01——Q1..Q13 全按推荐定案；实现 = v1.17.0 A-11，D-12 前置串行）。
+前序：TL001_FMU_G2B_SPEC_DRAFT v0.3（2026-11-22，A-10 轮内重稿 + 重审条件落正文，
 CHG-20261120-01 ②授权链——v0.1 双评审 FAIL → v0.2 扩容重稿 → v0.2 重审双线
 PASS-WITH-CONDITIONS → v0.3 四条件全落正文；零实现承诺；批准留待用户——R-TLFMU-01..03 +
 Q1..Q13 定案为 GTLJ-G2b-02 批准登记前置）。

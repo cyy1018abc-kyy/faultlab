@@ -1,9 +1,9 @@
 /**
  * run-g2.mjs — G2 验收四件套聚合器（P0b-05 / G0-DEC-16；V0.3.0 T1 追溯增强）。
  *
- *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，37 步全量——FCFMU-G2b-04 parity 步 CHG-20261118-01）
+ *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，39 步全量——第 39 步 version.test CHG-20261126-02）
  *   node tools/run-g2.mjs --skip-e2e # 跳过浏览器步（CI 无 Chrome 时）
- *   node tools/run-g2.mjs --tier core     # 只跑 core 层（28 步；部分运行，非全量门禁）
+ *   node tools/run-g2.mjs --tier core     # 只跑 core 层（30 步；部分运行，非全量门禁）
  *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（9 步；部分运行）
  *
  * D-1 tier 分层（CHG-20261104-08 DEC-3，采纳 D1_LITE_ASSESSMENT 方案 C）：
@@ -137,7 +137,13 @@ const STEPS = [
   { id: 'MG-001 verify_golden mg001（第 7 个 golden，MG-G2b-03 / CHG-20261110-01 批准链，第 34 步）', cmd: 'python', args: ['scripts/verify_golden.py', 'mg001'], tier: 'core' },
   { id: 'MG-001 engine-mg.test.js（引擎↔golden mg001_v1 5 Run 一致性 + R-5 守卫，第 35 步）', cmd: 'node', args: ['tests/engine-mg.test.js'], tier: 'core' },
   { id: 'FCFMU-G2b-04 fc001_fmu parity（C↔Python 独立机检 R-G9-02——实测散差 0.0；SKIP=编译产物/64 位解释器缺位，CHG-20261118-01 DEC-3/Q17，第 36 步）', cmd: 'python', args: ['-I', 'tools/oracle/fc001_fmu_parity.py'], tier: 'extended', skip: skipFmu, skipReason: '编译产物缺位（data/fmu/fc001_l1_v1.fmu 不存在——SKIP 语义，CHG-20261118-01 DEC-3）' },
-  { id: 'GTFMU-G2b-04 gt001_fmu parity（C↔Python 独立机检 R-GTFMU——pow 散差 ~2.5e-4 ×≥10 冻结制；SKIP=编译产物/64 位解释器缺位，CHG-20261119-01 Q10，第 37 步）', cmd: 'python', args: ['-I', 'tools/oracle/gt001_fmu_parity.py'], tier: 'extended', skip: skipFmuGt, skipReason: '编译产物缺位（data/fmu/gt001_l1_v1.fmu 不存在——SKIP 语义，CHG-20261119-01 Q10）' }
+  { id: 'GTFMU-G2b-04 gt001_fmu parity（C↔Python 独立机检 R-GTFMU——pow 散差 ~2.5e-4 ×≥10 冻结制；SKIP=编译产物/64 位解释器缺位，CHG-20261119-01 Q10，第 37 步）', cmd: 'python', args: ['-I', 'tools/oracle/gt001_fmu_parity.py'], tier: 'extended', skip: skipFmuGt, skipReason: '编译产物缺位（data/fmu/gt001_l1_v1.fmu 不存在——SKIP 语义，CHG-20261119-01 Q10）' },
+  /* TL-001 联合轨（TL001_FMU_G2B_SPEC_APPROVED v1.0 §6 步账 37→38 显式申报——CHG-20261125-01 批准链；
+     轻量实现轮 CHG-20261125-02：规格原拟第 38 步 = 联合 C99 parity，随 C99/FMU 链缓做（linux64 D-12）
+     改由引擎↔golden 一致性测试承载；gt_tl_joint_v1 golden↔oracle 校验并入步①（DEFAULT_MODELS 尾追加）） */
+  { id: 'TL-001 engine-tl.test.js（引擎↔golden gt_tl_joint_v1 7 Run × 30 列 T-B + 守卫 + F-1 登记面，CHG-20261125-02，第 38 步）', cmd: 'node', args: ['tests/engine-tl.test.js'], tier: 'core' },
+  /* 版本单一来源（V1170_WAVE_DESIGN DEC-3，CHG-20261126-02）：步账 38→39 显式申报 */
+  { id: 'DEC-3 version.test.js（应用版本单一来源：version.js ↔ README/index.html/界面/构建产物一致 + 不入哈希，CHG-20261126-02，第 39 步）', cmd: 'node', args: ['tests/version.test.js'], tier: 'core' }
 ];
 
 /* ------------------------------------- 步数账与 tier 口径（I-7 / D-1 DEC-3） *

@@ -428,8 +428,10 @@ Object.keys(golden.runs).forEach((runKey) => {
   const i1 = src.indexOf('function systemTitle');
   ok(i0 !== -1 && i1 > i0, 'arena.js systemList 函数定位');
   const body = src.slice(i0, i1);
-  ok(body.indexOf('ARENA_EXCLUDED = []') !== -1,
-    'Arena ARENA_EXCLUDED 已收缩为空（六系统入池——V130 DEC-2 验证轮，CHG-20261113-05）');
+  /* TL-001 注册（CHG-20261125-02）：ARENA_EXCLUDED 由 [] 变为 ['TL-001']——联合轨不入盲测池
+     （TL001_FMU_G2B_SPEC_APPROVED v1.0 §2.4）；六系统入池面不变（判据数零变化） */
+  ok(body.indexOf("ARENA_EXCLUDED = ['TL-001']") !== -1,
+    'Arena ARENA_EXCLUDED 仅排除 TL-001（六系统入池——V130 DEC-2 验证轮 CHG-20261113-05；TL-001 联合轨不入池 CHG-20261125-02）');
   ok(src.indexOf('CHG-20261104-10') !== -1, 'Arena 历史排除链批准注释保留登记 CHG-20261104-10');
   ok(body.indexOf('ARENA_EXCLUDED') !== -1 && src.indexOf('ARENA_EXPOSURE_VERIFICATION_ROUND') !== -1,
     'Arena 守卫过滤结构在场 + 验证轮依据登记（ARENA_EXPOSURE_VERIFICATION_ROUND.md）');

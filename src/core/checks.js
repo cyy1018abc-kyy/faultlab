@@ -191,7 +191,9 @@
        WT-001 走通用 else 面（r_true/r_meas ≡ 0 定义恒等，EQ-WT-8）：tolTrue else 档 1e-12 kW
        与 WT 规格 §4 项 3 WS-4（≤1e-12）对齐——通用面自动覆盖 WT，无专属分支；
        r_meas 全功率通道健康（故障期仍 ≡ 0），conservation-meas 不会误入 warn 路径。 */
-    var tolTrue = system.id === 'GT-001' ? 1e-9 : (system.id === 'FC-001' ? 1e-6 : 1e-12);
+    /* TL-001 联合轨（CHG-20261125-02）：GT 档 1e-9（含 P_rotor 与线路出口项）——gtLikeChk 对 GT 逐字等价 */
+    var gtLikeChk = system.id === 'GT-001' || system.id === 'TL-001';
+    var tolTrue = gtLikeChk ? 1e-9 : (system.id === 'FC-001' ? 1e-6 : 1e-12);
     var maxRt = maxAbs(series.r_true_kW);
     var trueOk = maxRt !== null && maxRt <= tolTrue;
     quality.push(check(
@@ -208,7 +210,7 @@
     ));
 
     /* ---- conservation-meas ---- */
-    if (system.id === 'GT-001') {
+    if (gtLikeChk) {
       /* GT：r_meas 已废除（G2b v1.1 条件 2）——改为频率通道冗余一致性检查。
          无噪声 golden 口径 max|f_channel_diff| ≤ 1e-9 Hz；故障期 = b(t) 属预期检测信号（warn）。 */
       var maxFd = maxAbs(series.f_channel_diff_Hz);
@@ -260,8 +262,10 @@
     /* ---- GT 专属 PHY（G2b v1.1 §3/§5；CHG-20261030-06 批准口径；A-1 双轨分派 CHG-20261102-01；
          L1 thermo 分派 GTL1-G2b-04 / CHG-20261104-12；燃烧延迟深化轨分派 GTCMB-G2b-04 /
          CHG-20261114-09——规格 GTCMB-G2b-04 行漏 checks.js 项，实现轮复算补齐并登记）---- */
-    if (system.id === 'GT-001') {
-      var inertiaGt = (cfg && cfg.inertia_model === 'linear') ? 'linear'
+    if (gtLikeChk) {
+      /* TL-001 联合轨恒 thermo 热力链（cfg 无 inertia_model 键）——走 thermo 分支（CHG-20261125-02） */
+      var inertiaGt = system.id === 'TL-001' ? 'thermo'
+        : (cfg && cfg.inertia_model === 'linear') ? 'linear'
         : (cfg && cfg.inertia_model === 'thermo') ? 'thermo'
         : (cfg && cfg.inertia_model === 'thermo_comb') ? 'thermo_comb' : 'swing';
       var fArrGt = series.f_true_Hz;
@@ -426,6 +430,9 @@
        （本波零扩展）——MG 键控改在本检查面补 '-'，既有五系统 allowedUnits 面零变化
        （WT units 状态维持其规格登记的现状，不在本波触碰）。 */
     if (system.id === 'MG-001') allowedUnits.push('-');
+    /* TL-001 联合轨（CHG-20261125-02）：功角 rad / 电角频率 rad/s——键控 additive（不改
+       systems.js UNITS：该表进入 modelManifest.units → model_hash，改动会扰动全部系统 run_hash） */
+    if (system.id === 'TL-001') allowedUnits.push('rad', 'rad/s');
     /* on 轨专属列缺席不计（FCECH-G2b-04 任务5裁定配套——FC001_ELECTROCHEM_G2B_SPEC_APPROVED
        v1.0 §3.1 off 轨零变化最高判据，CHG-20261113-01）：units 检查的遍历与计数按
        timeseries.signals 列在场（makeSeries 建列面）——FC off 轨三列结构性缺席 ⇒
@@ -522,13 +529,13 @@
       var eSource = metricValue(metrics, 'E_source_kWh');
       var eBat = metricValue(metrics, 'E_bat_kWh');
       var eServed = metricValue(metrics, 'E_load_served_kWh');
-      var balanceTol = system.id === 'GT-001' ? 1e-3 : (system.id === 'FC-001' ? 1e-3 : 1e-6);
+      var balanceTol = (system.id === 'GT-001' || system.id === 'TL-001') ? 1e-3 : (system.id === 'FC-001' ? 1e-3 : 1e-6);
       var flThermalBal = system.id === 'FL-001' && !!(cfg && cfg.thermal_model === 'on');
       var residual = null;
       var balanceMsg;
       if (eSource === null || eBat === null || eServed === null) {
         balanceMsg = '能量指标不可用，无法校验能量平衡';
-      } else if (system.id === 'GT-001') {
+      } else if (gtLikeChk) {
         var fArr = series.f_true_Hz;
         var fFirst = fArr && isNum(fArr[0]) ? fArr[0] : null;
         var fLast = fArr && isNum(fArr[fArr.length - 1]) ? fArr[fArr.length - 1] : null;
@@ -536,9 +543,18 @@
           balanceMsg = '频率信号不可用，无法校验含转子项的能量平衡';
         } else {
           var eRotor = (5.0 * (fLast - fFirst)) / 3600;
+          if (system.id === 'TL-001') {
+            /* TL-001（CHG-20261125-02）：联合账本 E_gen + E_bat − E_load − E_line − E_rotor */
+            var eLine = metricValue(metrics, 'E_line_kWh');
+            residual = eLine === null ? null : Math.abs(eSource + eBat - eServed - eLine - eRotor);
+            balanceMsg = eLine === null ? '线路电能指标不可用，无法校验联合能量平衡'
+              : ('|E_gen + E_bat − E_load − E_line − E_rotor| = ' + residual.toExponential(3) +
+                ' kWh（E_line = ' + eLine.toExponential(3) + ' kWh，E_rotor = K_J·Δf/3600）');
+          } else {
           residual = Math.abs(eSource + eBat - eServed - eRotor);
           balanceMsg = '|E_gen + E_bat − E_load − E_rotor| = ' + residual.toExponential(3) +
             ' kWh（E_rotor = K_J·Δf/3600 = ' + eRotor.toExponential(3) + ' kWh）';
+          }
         }
       } else if (flThermalBal) {
         var eLossBal = metricValue(metrics, 'E_loss_kWh');

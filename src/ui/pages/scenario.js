@@ -82,7 +82,10 @@
     'GT-001': ['focal_change', 'f_nadir_Hz'],
     'PV-001': ['focal_change', 'E_pv_err_kWh', 'E_grid_kWh'],
     'WT-001': ['focal_change', 'E_wt_err_kWh', 'd_wt_kW'],
-    'MG-001': ['focal_change', 'E_grid_kWh', 'E_shed_kWh']
+    'MG-001': ['focal_change', 'E_grid_kWh', 'E_shed_kWh'],
+    /* TL-001 联合轨（CHG-20261125-02）：focal_change = 线路传输功率变化（FOCAL_SIGNAL P_elec_kW）；
+       E_line_kWh 线路输出电能（出口为正）；f_nadir_Hz 频率最低点（GT 面共用） */
+    'TL-001': ['focal_change', 'E_line_kWh', 'f_nadir_Hz']
   };
   /* FL-001 thermal_model 事件/Run 展示（FL001_THERMAL_G2B_SPEC_APPROVED v1.0 §2.0：
      off|on 单键枚举，默认 off；L5 在 src/core/scenario.js EVENT_KEYS 白名单加
