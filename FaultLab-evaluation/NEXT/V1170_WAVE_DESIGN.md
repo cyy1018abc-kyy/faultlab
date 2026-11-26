@@ -106,4 +106,24 @@ S6 收口：v1170-release.md + V1_FACES 增节 + V08_ROADMAP 对账 + CHG 收口
 | 4 | 规格 §10 R-1…R-10（sin/pow 散差、守卫失效、域越界等） | 按规格缓解列执行；超限停下显式 CHG，不静默调门 |
 | 5 | 实现轮体量大（L+L） | S3/S4 分段提交、可跨会话；每段自带门禁 |
 
-**文件结束**。V1170_WAVE_DESIGN v1（2026-11-25，CHG-20261125-01 批准，按推荐执行）。
+## 4. 修订：轻量实现轮（CHG-20261125-02，2026-11-26）
+
+**授权**：用户 2026-11-25 指令「暂时不做（linux64），先做轻量化的实现」→ 澄清选项「TL-001
+轻量版（推荐）」。**DEC-1 排程修订**：D-12 linux64 暂缓（不前置）；S2 版本单源暂缓；A-11 拆分为
+**轻量轮（本节，已执行）** + **C99/FMU 链（随 D-12 后续另行开工）**。
+
+| 项 | 规格 v1.0 计划 | 轻量轮实际 | 处置 |
+|---|---|---|---|
+| oracle + golden（GTLJ-G2b-03） | gt_tl_joint_oracle.py + gt_tl_joint_v1（8 Run/30 列/T-B） | **已落地**（GLJ-1…7 全过；GLJ-5 ↔ gt001_v3 实测 worst 0.0） | — |
+| verify_golden 注册 | MODELS 行 + DEFAULT_MODELS 尾追加 + `_rad_s`/`_rad` 条件支 | **已落地**（DEFAULT_MODELS 九→十；既有 golden 无 `_rad` 后缀 id——路由零变化） | — |
+| 引擎 + SystemDef + UI | simulateJoint + TL-001 SystemDef + 教学接线 | **已落地**（simulateTL001；引擎↔oracle 最大相对散差 ~1e-12；UI 七系统化，Arena 排除 TL-001） | 既有全部 Run 哈希 before/after 逐位相同（I-11 快照仅元数据差） |
+| C99 联合内核 / FMU 包 / parity / adapter | gt_tl_joint_l1.c + gt_tl_joint_parity.py | **缓做** | 随 D-12 linux64 后续开工 |
+| run-g2 第 38 步 | 联合 C99 parity | **engine-tl.test.js**（引擎↔golden 7 Run × 30 列 + 守卫） | 步账 37→38 维持；parity 步届时另申报 |
+| Q5 runHashInput systems 数组 | additive 进 runHashInput | **缓做** | 须同轮改证据包导出/导入与 verify_bundle.py；联合身份已由 config_hash 内 systemId=TL-001/modelId 承载 |
+| EVENT_KEYS +1（line_fault） | 封闭集扩 1 | **不需要** | `line_fault` 是 family 值而非事件字段键——scenario.js 按 SystemDef 故障目录校验族名，EVENT_KEYS（字段名集）零变化 |
+| 事件 id EV-J1/EV-J2 | 提案命名 | **EV-001 / EV-002**（line_fault / line_clear） | 沿引擎/verify_golden V-09 既有事件编号约定 |
+| **发现 F-1** | §3.2 预填：joint_sensor_drift f→49.7、δ 线性漂移、0.3 Hz 拍频 | **实测不发生滑差**：同步功率把 f 钳在 ≈50 Hz（最低 49.997），调速器按偏置读数持续减燃料（u 25→1.21），T3 降至 631.7 K、P_gen 末值 −5.12 kW（负净功外推区），P_elec −30 kW、δ_end −36.9° | GLJ-7 对该 Run 仅豁免 T3 下界（735→600 K）显式登记为域外角点；limitations + 因果模板如实表述；**Run 参数是否调整（如偏置幅值下调）留用户裁定** |
+| 其余预填核对 | load_step δ_ss≈−11.4°/u≈25.063/P_elec≈−9.9；actuator δ≈−7.74° | **实测命中**：−11.4°/25.064/−9.915 kW；−7.7° | — |
+
+**文件结束**。V1170_WAVE_DESIGN v1（2026-11-25，CHG-20261125-01 批准，按推荐执行）；§4 修订
+2026-11-26（CHG-20261125-02 轻量实现轮）。

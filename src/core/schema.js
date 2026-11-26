@@ -24,7 +24,9 @@
     /* WT-001 L0b 轨（WT001_G2B_SPEC_APPROVED v1.0 §1.2/§4 项 5/§8 WT-G2b-03，CHG-20261107-01）：
        纯增项——'m/s'（风速 3 信号）/'°'（桨距角 3 信号）/'-'（λ/Cp 无量纲 2 信号，§1.2 信号表）；
        量纲类名沿 golden units 表命名（§4 项 5 "wind":"m/s","angle":"°"）。 */
-    'm/s': 'wind', '°': 'angle', '-': 'dimensionless'
+    'm/s': 'wind', '°': 'angle', '-': 'dimensionless',
+    /* TL-001 联合轨（TL001_FMU_G2B_SPEC_APPROVED v1.0 §4 项 4，CHG-20261125-02）：纯增项 */
+    'rad': 'angle_rad', 'rad/s': 'angular_velocity'
   };
   var P0_UNITS = ['A', 'kW', 'kWh', 'V', 's', '%', 'pp'];
 

@@ -107,7 +107,9 @@
        空数组 + 过滤结构保留：未来如有系统须显式排除 Arena 盲测池（入池延后等治理裁定），
        在此登记系统 id 即可恢复过滤——批准链见本函数上方注释块与
        ARENA_EXPOSURE_VERIFICATION_ROUND.md §6。 */
-    const ARENA_EXCLUDED = [];
+    /* TL-001 联合轨不入盲测池（TL001_FMU_G2B_SPEC_APPROVED v1.0 §2.4——新轨首版，L2 入池为
+       后续独立裁定面；CHG-20261125-02） */
+    const ARENA_EXCLUDED = ['TL-001'];
     try {
       const list = api.systems && api.systems.list ? api.systems.list() : [];
       if (list && list.length) return list.filter((s) => ARENA_EXCLUDED.indexOf(s.id) === -1);

@@ -13,8 +13,10 @@
   FL.core = FL.core || {};
 
   var CAP_KWH = 40;
-  var FOCAL_SIGNAL = { 'FL-001': 'I_bat_true_A', 'FC-001': 'I_fc_true_A', 'GT-001': 'P_gen_true_kW', 'PV-001': 'P_pv_true_kW' };
-  var SOURCE_SIGNAL = { 'FL-001': 'P_gen_true_kW', 'FC-001': 'P_fc_true_kW', 'GT-001': 'P_gen_true_kW' };
+  var FOCAL_SIGNAL = { 'FL-001': 'I_bat_true_A', 'FC-001': 'I_fc_true_A', 'GT-001': 'P_gen_true_kW', 'PV-001': 'P_pv_true_kW',
+    /* TL-001 联合轨（CHG-20261125-02）：焦点 = 线路传输功率；源 = 发电机（GT 同源） */
+    'TL-001': 'P_elec_kW' };
+  var SOURCE_SIGNAL = { 'FL-001': 'P_gen_true_kW', 'FC-001': 'P_fc_true_kW', 'GT-001': 'P_gen_true_kW', 'TL-001': 'P_gen_true_kW' };
   var P0_ANALYTIC = 'analytic_flux';
   var P0_ANALYTIC_VERSION = 'analytic_flux.1';
   var TRAP_VERSION = 'trapezoid_dt0.1';
@@ -250,10 +252,12 @@
         definition: 'max |r_true|；定义恒等式（P_gen := P_load − P_bat' +
           (flThermalOn ? ' + P_loss' : '') + '），仅作代数一致性回归，不是物理验证'
       });
-    mk(system.id === 'GT-001' ? 'max_abs_f_channel_diff_Hz' : 'max_abs_r_meas_kW',
-      system.id === 'GT-001' ? '最大频率通道不一致' : '最大测量一致性残差',
-      maxAbs(system.id === 'GT-001' ? series.f_channel_diff_Hz : series.r_meas_kW),
-      system.id === 'GT-001' ? 'Hz' : 'kW', 4,
+    /* TL-001 联合轨承 GT 频率通道面（CHG-20261125-02）：gtLikeFd 对 GT-001 逐字等价 */
+    var gtLikeFd = system.id === 'GT-001' || system.id === 'TL-001';
+    mk(gtLikeFd ? 'max_abs_f_channel_diff_Hz' : 'max_abs_r_meas_kW',
+      gtLikeFd ? '最大频率通道不一致' : '最大测量一致性残差',
+      maxAbs(gtLikeFd ? series.f_channel_diff_Hz : series.r_meas_kW),
+      gtLikeFd ? 'Hz' : 'kW', 4,
       'algebraic', {
         method_version: '1',
         source_signal_ids: [system.id === 'GT-001' ? 'f_channel_diff_Hz' : 'r_meas_kW'],
@@ -378,8 +382,10 @@
         signal_label: isMG ? null : (focalMeta ? focalMeta.label : focalSig)
       });
 
-    /* ---- GT-001 专属：频率最低点 / 恢复时间 / 转子动能 ---- */
-    if (system.id === 'GT-001') {
+    /* ---- GT-001 专属：频率最低点 / 恢复时间 / 转子动能 ----
+       TL-001 联合轨（CHG-20261125-02）共用本块（发电机转子/热力链面同源；TL 恒 thermo 热力链） */
+    var isTL = system.id === 'TL-001';
+    if (system.id === 'GT-001' || isTL) {
       var fArr = series.f_true_Hz;
       var fMin = minValue(fArr, 0);
       var fStartIdx = faulted ? indexAt(t, tStart) : 0;
@@ -428,7 +434,7 @@
       /* 深化轨扩展（GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0，CHG-20261114-07 批准链）：
          thermo_comb 轨与 thermo 共享同一组热力标量注册（E_fuel/eta_cycle/E_comb_net——
          延迟口径下 intComb 由引擎 k1.dT3·C_3·dt 左矩形自然承载 EQ-GTL2-12）。 */
-      if ((cfg.inertia_model === 'thermo' || cfg.inertia_model === 'thermo_comb') && integrals) {
+      if ((cfg.inertia_model === 'thermo' || cfg.inertia_model === 'thermo_comb' || isTL) && integrals) {
         mk('E_fuel_kWh', '燃料电能（输入）', isNum(integrals.E_fuel) ? integrals.E_fuel / 3600 : null, 'kWh', 7,
           null, {
             source_signal_ids: ['Q_fuel_kW'],
@@ -449,6 +455,22 @@
             source_signal_ids: ['T3_out_K', 'Q_fuel_kW'],
             blindSafe: false,
             definition: '∫(η_b·Q_f − ṁ_g·cp_g·(T3−T2)) dt / 3600（子步左矩形，EQ-GTL1-12 检查式右侧；与 C_3·ΔT3 之差 = 燃烧室离散能量恒等残差，gt-energy-consistency thermo 分支承载）'
+          });
+      }
+      /* TL-001 线路面（CHG-20261125-02）：E_line_kWh 与 gt_tl_joint_v1 golden metrics 同名同口径
+         （子步梯形，出口为正）；P_elec_end_kW 末值。rad 单位量不立指标（Q10 附带决定）。 */
+      if (isTL) {
+        mk('E_line_kWh', '线路输出电能（出口为正）', (integrals && isNum(integrals.E_line)) ? integrals.E_line / 3600 : null, 'kWh', 7,
+          null, {
+            source_signal_ids: ['P_elec_kW'],
+            blindSafe: false,
+            definition: '∫ P_elec dt / 3600（子步梯形；出口为正、从电网输入为负）'
+          });
+        mk('P_elec_end_kW', '线路传输功率（末值）', valueAt(t, series.P_elec_kW, duration), 'kW', 3,
+          null, {
+            source_signal_ids: ['P_elec_kW'],
+            blindSafe: false,
+            definition: 'P_elec(t_end)；终点收敛至功率平衡流形上由暂态轨迹确定的一点（不是唯一稳态）'
           });
       }
       void fMin;

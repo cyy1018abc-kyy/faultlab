@@ -192,6 +192,8 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | WT `v_sensor_bias` / `pitch_stuck` / `gust_step` | §8.2 新系统 G2b（WT001_G2B_SPEC_APPROVED，CHG-20261107-01 批准链） | extension_preview | WT001_G2B_SPEC_APPROVED + golden wt001_v1；SA-24 不动（scope.js 对 WT-001 全场景 fall-through 返回 extension_preview 即正确语义，classify/assertApprovedP0 零改动，PV 同款）；gust_step 为新族名登记（§7 节） |
 | MG `load_step` / `pv_shading_link` / `wt_gust_link` / `island_event` | §8.2 新系统 G2b（MG001_G2B_SPEC_APPROVED，CHG-20261110-01 批准链） | extension_preview | MG001_G2B_SPEC_APPROVED + golden mg001_v1；SA-24 不动（scope.js 对 MG-001 全场景 fall-through 返回 extension_preview 即正确语义，classify/assertApprovedP0 零改动，PV/WT 同款）；`shading_link`/`gust_link` 为新族名登记（不复用 PV `shading_step`/WT `gust_step`——MG 聚合层子轨联动转发，作用位置与因果方向不同，§8 节）；`island_event` 零参数族（params:[]，库内首例，Q2 定案）+ t_clear_s 守卫扩展为 (GT-001×actuator_fault) ∨ (MG-001×island_event)（scenario.js，EVENT_KEYS/hashProjection 零变化，既有场景哈希零变化）；MG `load_step` 为聚合输入阶跃——与 FL-001 已删除 load_step（O-13）无语义继承（O-13 语义差异声明，§0/§8）；ARENA_EXCLUDED 增 'MG-001'（exposure 三值映射验证轮未做前不入池，V110 DEC-4） |
 
+| TL `tl_line_3ph_short` / `speed_sensor_bias` / `load_step_10kW` / `fuel_valve_stuck` | §8.2 新系统 G2b（TL001_FMU_G2B_SPEC_APPROVED v1.0，CHG-20261125-01 批准链） | extension_preview | TL001_FMU_G2B_SPEC_APPROVED + golden gt_tl_joint_v1；SA-24 不动（scope.js 对 TL-001 全场景 fall-through 返回 extension_preview，PV/WT/MG 同款）；`line_fault` 为 TL 新族名（§9 节）；GT 三族为联合语境镜像（族名同 §3）；ARENA_EXCLUDED 增 'TL-001'（规格 §2.4 不入盲测池） |
+
 ## 5. 状态勘误表（冻结时点后的授权状态变化登记于此）
 
 | 日期 | 故障族 | 状态变化 | 依据 |
@@ -207,6 +209,7 @@ t_clear 清除支持已实现（actuator_clear 场景）。
 | 2026-11-11 | MG-001 `load_step` / `pv_shading_link` / `wt_gust_link` / `island_event` | **新系统登记（新增 §8 节）→ extension_preview**（MG G2b 批准 CHG-20261110-01；oracle `tools/oracle/mg001_oracle.py` 源轨复用委托接入（pv001/wt001 oracle import 显式授权 + BESS 能量面内联 + MS-3 复用一致性 emit 硬条件）+ golden mg001_v1 5 Run 首签（schema v2、method mg001_aggregate_analytic、gate T-A（含 I_A 两键，A-1 修订）、approval=CHG-20261110-01 批准链首签）+ verify_golden `mg001` 注册行落地 + scenario.js t_clear_s 守卫扩展 (GT-001×actuator_fault) ∨ (MG-001×island_event)（EVENT_KEYS/hashProjection 零变化）——MG-G2b-03/04，V110_WAVE_DESIGN DEC-5 步数账 33→35；`island_event` 零参数族（params:[]，库内首例，Q2 定案）；`shading_link`/`gust_link` 新族名（MG 聚合层子轨联动转发，不复用 PV/WT 本地族名）；MG `load_step` 为聚合输入阶跃（与 FL-001 已删除 load_step（O-13）无语义继承——O-13 语义差异声明）；引擎 MG 轨/systems.js MG001 SystemDef/UI 六系统化 + ARENA_EXCLUDED 增 'MG-001' 同波接入（V110 W5/W6/W7）） | MG001_G2B_SPEC_APPROVED v1.0 §2/§4 + V110_WAVE_DESIGN DEC-1/DEC-4/DEC-5（CHG-20261110-01） |
 | 2026-11-13 | FC-001（三族不变，模型轨面） | **electrochem 轨（electrochem_model=on）G2b 批准并实现落地 → off/on 双轨制 + off 默认**（§2 节增 electrochem 轨注记行：golden 增 fc001_v2 5 Run 全部 on——schema v2、method fc001_l1_polarization_rk4_dt0.01、gate tier T-B、supersedes=fc001_v1、model_version 1.1.0、oracle `tools/oracle/fc001_l1_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261113-01 批准链首签；EQ-FCEC-1…7 登记；verify_golden `fc001_l1` 注册行 + 默认运行扩为 fl001+fl001_l1+fc001_l1 三 golden；scenario 面 B-1(a) 显式键条件式——EVENT_KEYS additive 新键 electrochem_model、缺省全链 absent、既有 FC 场景 scenarioHash 零变化（偏离 thermal/inertia 先例，Q9 定案）；三新信号 T_st_K/V_stack_V/P_loss_stack_kW 带 onTrackOnly（run.signals 21→24、off 轨 null、全非盲显——盲包语义零变化）；off 轨/fc001_v1 零变化；系统 scope 维持 approved_fc、族白名单零改动——**非新故障族，族面零变化声明**） | FC001_ELECTROCHEM_G2B_SPEC_APPROVED v1.0 §2/§4（项 10/§1.1）/§8 FCECH-G2b-03/04 + V120_WAVE_DESIGN §2 W2/W3/W5 + CHG-20261113-01 |
 | 2026-11-14 | FL-001（两族不变，模型轨面） | **capacity 轨（capacity_model=on，前置 thermal_model=on）G2b 批准并实现落地 → (off,·)/(on,off)/(on,on)/(off,on)=拒绝 三元封闭路由**（§1 节增 capacity 轨注记行：golden 增 fl001_v3 4 Run 全部 on_cap（thermal_model=on + capacity_model=on 双键入 config 块）——schema v2、method fl001_capacity_rk4_dt0.01、gate tier T-B、supersedes=fl001_v2（off 轨字节冻结留档）、model_version 1.1.0 维持仅登记、oracle `tools/oracle/fl001_cap_oracle.py` 出生即 oracle_base 接入、approval=CHG-20261114-01 批准链首签；EQ-FLTH-10…12 登记（EQ-FLTH-2/7/9 域内修订——「SOC 定义不动」V072 DEC-2 裁定重开采纳、仅 capacity_model=on 域内生效，域外 EQ-FLTH-7 原式逐字不动，SOC_est 维持铭牌容量测量记账口径）；verify_golden `fl001_cap` 注册行 + 默认运行扩为 fl001+fl001_l1+fc001_l1+fl001_cap 四 golden；scenario 面 B-1(a) 显式键条件式——EVENT_KEYS additive 新键 capacity_model、缺省全链 absent、既有 FL 场景 scenarioHash 零变化 + 组合守卫双落点（engine validate + scenario，(off,on) 结构化拒绝、三元封闭路由 Q11 定案）；新信号 E_cap_kWh 带 onTrackOnly（run.signals 18→19、off 轨与 thermal on 无 capacity 轨结构性缺席、全非盲显——盲包语义零变化；η_cap 不出信号 Q10 定案）；off/(on,off) 轨零变化（fl001_v1/v2 字节冻结）；系统 scope 维持 approved_p0、族白名单零改动——**物理深度轨非新故障族，族面零变化声明**） | FL001_CAPACITY_G2B_SPEC_APPROVED v1.0 §2/§4（项 9/10/§6.2.1）/§8 FLCAP-G2b-03/04 + V140_WAVE_DESIGN §2 W2/W3/W4/W5 + CHG-20261114-01 |
+| 2026-11-26 | TL-001 `tl_line_3ph_short` / `speed_sensor_bias` / `load_step_10kW` / `fuel_valve_stuck` | **新系统登记（新增 §9 节）→ extension_preview**（TL G2b 批准 CHG-20261125-01；轻量实现轮 CHG-20261125-02：oracle `tools/oracle/gt_tl_joint_oracle.py` + golden gt_tl_joint_v1 8 Run 首签（schema v2、method gt_tl_joint_rk4_dt0.01、gate T-B + delta_rad_atol/omega_rad_s_atol，approval=CHG-20261125-01 批准链）+ verify_golden `gt_tl_joint` 注册行 + DEFAULT_MODELS 九→十；引擎 TL 轨/systems.js/UI 同波接入；run-g2 步账 37→38（第 38 步 = engine-tl.test.js）；`line_fault` 为 TL 新族；C99/FMU/parity 链缓做随 linux64 D-12） | TL001_FMU_G2B_SPEC_APPROVED v1.0 §2/§4 + V1170_WAVE_DESIGN §4（CHG-20261125-02） |
 
 ## 6. PV-001 光伏逆变器（L0，scope=extension_preview）
 
@@ -358,9 +361,39 @@ UI 单 Run 可达包络行（signals 页）为当前单 Run 引擎逐点计算�
 
 
 
+## 9. TL-001 输电线路联合系统（GT+TL 功角摇摆，L0 线路面 + GT L1 热力链，scope=extension_preview）
+
+> 新增节（2026-11-26，GTLJ-G2b-03/04 轻量实现轮，CHG-20261125-02）。规格权威文本 =
+> `NEXT/TL001_FMU_G2B_SPEC_APPROVED.md` v1.0（CHG-20261125-01 批准链，Q1…Q13 定案）。
+> 时间尺度沿用 §0（采样 0.1 s、仿真窗 60 s、默认注入 t=20 s、601 点网格）。
+> 单转子形联合模型：GT-001 thermo 热力链 + 转子 [f, T3] 逐字沿袭，联合态增受驱功角 δ
+> （dδ/dt = 2π(f − f₀)）；线路传输功率 P_elec = s·(V_gen·V_inf/X_line)·sin δ/1000 作为转子
+> 出口项进入 P_rotor。GT 三族为联合语境下的镜像（族名/参数域与 §3 同），`line_fault` 为
+> TL 新族。默认负载 20 kW（出口基线 δ₀ = arcsin 0.2——Q3 定案）。
+> **I-5 措辞**：「无穷母线」「三相短路」为单机-无穷母线等效抽象；无继电保护/重合闸/失步
+> 解列，失步为合法教学输出，不代表真实电网侧动态。
+
+| fault id | 家族 | 类型 | 作用位置 | 幅值参数 | 默认时刻 | 授权状态 | golden | 因果模板 |
+|---|---|---|---|---|---|---|---|---|
+| `tl_line_3ph_short` | line_fault（**TL 新族**） | 线路金属性三相短路（故障窗内 p_elec_scale = 0，清除后恢复 1；理想化——不计故障电流/不对称故障） | line（输电线路） | **magnitude = 故障持续时间** 0.1…1.0 s，step 0.1，默认 0.5 s；清除时刻 = t_start + magnitude（须落 0.1 s 网格且早于 60 s——engine validateConfig 守卫） | t=20 s（域 [2,55]） | **extension_preview**（TL G2b 已批准，`TL001_FMU_G2B_SPEC_APPROVED.md`） | gt_tl_joint_v1（joint_line_fault Run：demand=20 出口基线，EV-001 line_fault @20.0 / EV-002 line_clear @20.5；P_elec 10→0 kW，δ 最大 58.5°，再同步） | tl-line-fault |
+| `speed_sensor_bias` | sensor_drift（GT 族镜像） | 转速测量偏置（同 §3） | speed_sensor | 同 §3（默认 +0.3 Hz） | t=20 s | **extension_preview**（同上） | gt_tl_joint_v1（joint_sensor_drift / joint_monitor_only——demand=30 零出口基线；**F-1**：无穷母线把 f 钳在 ≈50 Hz，调速器持续减燃料至负净功外推区，域外角点显式登记） | tl-sensor-drift |
+| `load_step_10kW` | load_step（GT 族镜像） | 负载阶跃（同 §3） | load | 同 §3（默认 +10 kW） | t=20 s | **extension_preview**（同上） | gt_tl_joint_v1（joint_load_step：终点 δ ≈ −11.4°、P_elec ≈ −9.9 kW——收敛至功率平衡流形） | tl-load-step |
+| `fuel_valve_stuck` | actuator_fault（GT 族镜像） | 燃料阀卡涩（同 §3，可选 t_clear_s） | valve | 同 §3（默认 50%） | t=20 s | **extension_preview**（同上） | gt_tl_joint_v1（joint_actuator_fault / joint_actuator_clear @35） | tl-valve-stuck |
+
+**实现事实（CHG-20261125-02 轻量实现轮）**：独立 oracle `tools/oracle/gt_tl_joint_oracle.py`
+（出生即 oracle_base 接入；不 import 任何既有 oracle；GLJ-1…7 自检——GLJ-5 joint_gt_standalone /
+joint_monitor_only ↔ gt001_v3 只读交叉实测 worst 0.0）+ golden `gt_tl_joint_v1`（8 Run / 30 列 /
+schema v2 / T-B，model_id gt.sync.tl.l0）+ verify_golden `gt_tl_joint` 注册行（`_rad_s`/`_rad`
+条件支）+ 引擎 `simulateTL001`（引擎↔oracle 全序列最大相对散差 ~1e-12）+ systems.js TL001
+SystemDef（GT 三族镜像 + line_fault）+ UI 七系统化（ARENA_EXCLUDED = ['TL-001']——联合轨不入
+盲测池，规格 §2.4）。**缓做**：C99 联合内核 / FMU 包 / C↔Python parity（随 linux64 D-12）；
+runHashInput systems 数组（Q5——随证据包/verify_bundle 面同轮落地）。
+
 ---
 
-**文件结束**。FAULT_CATALOG v1.8（2026-11-14：§3 GT-001 增 combustion 深化轨注记行
+**文件结束**。FAULT_CATALOG v1.9（2026-11-26：新增 §9 TL-001 节（line_fault 新族 + GT 三族
+联合镜像；GTLJ-G2b-03/04 轻量实现轮，CHG-20261125-02，系统级/族级 scope=extension_preview）
++ §4 映射表/§5 勘误表登记；v1.8 = 2026-11-14：§3 GT-001 增 combustion 深化轨注记行
 （GT001_COMBUSTION_G2B_SPEC_APPROVED v1.0，GTCMB-G2b-03/04，CHG-20261114-07 批准链，
 系统 scope 维持 extension_preview、族面零变化——物理深度轨非新故障族；inertia_model 枚举
 3→4 值 + gt001_v4 四代链 + checks.js comb 延迟口径分支登记）+ §5 勘误表登记；

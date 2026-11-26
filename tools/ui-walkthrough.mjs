@@ -91,7 +91,8 @@ const STARTED_AT = new Date().toISOString();
 const REDLINE_TERMS = ['孤岛检测', '孤岛保护', '防孤岛', '检同期', '并网保护', '电网保护', '稳定验证',
   '低电压穿越', '高电压穿越', '解列', '重合闸'];
 
-const SYSTEMS = ['FL-001', 'FC-001', 'GT-001', 'PV-001', 'WT-001', 'MG-001'];
+/* TL-001 注册 6→7（CHG-20261125-02）：联合轨纳入全页走查（尾接注册序） */
+const SYSTEMS = ['FL-001', 'FC-001', 'GT-001', 'PV-001', 'WT-001', 'MG-001', 'TL-001'];
 /* 原理卡形态面：测量偏置三系统 = 参数化静态图解（PRINCIPLE_DIAGRAM 注册键）；
    PV/WT/MG = 声明性机制说明卡（home.js buildPrincipleCard）。 */
 const DIAGRAM_SYSTEMS = ['FL-001', 'FC-001', 'GT-001'];
@@ -316,8 +317,8 @@ async function main() {
                  cta: c.textContent.indexOf('查看实验详情') !== -1 };
       });
     })()`);
-    eq(cards.length, 6, 'W-A1：home 六系统卡（count=6）');
-    eq(JSON.stringify(cards.map((c) => c.id)), JSON.stringify(SYSTEMS), 'W-A2：卡序 = FL/FC/GT/PV/WT/MG（注册序）');
+    eq(cards.length, 7, 'W-A1：home 七系统卡（count=7）');
+    eq(JSON.stringify(cards.map((c) => c.id)), JSON.stringify(SYSTEMS), 'W-A2：卡序 = FL/FC/GT/PV/WT/MG/TL（注册序）');
     const flBadge = cards.filter((c) => c.id === 'FL-001')[0] || {};
     const fcBadge = cards.filter((c) => c.id === 'FC-001')[0] || {};
     const extBadges = cards.filter((c) => c.id !== 'FL-001' && c.id !== 'FC-001');

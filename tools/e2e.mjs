@@ -491,7 +491,9 @@ async function main() {
       return { count: cards.length,
                ids: cards.map(function (c) { return c.getAttribute('data-system'); }) };
     })()`);
-    eq(home6.count, 6, 'E-10：home 六系统卡');
+    /* TL-001 注册 6→7（CHG-20261125-02——注册面预期失效面；Arena 入池面仍为 6，见 E-12） */
+    eq(home6.count, 7, 'E-10：home 七系统卡（TL-001 尾接）');
+    ok(home6.ids.indexOf('TL-001') !== -1, 'E-10：home 卡序含 TL-001（联合轨扩展预览）', JSON.stringify(home6.ids));
     ok(home6.ids.indexOf('WT-001') !== -1, 'E-10：home 卡序含 WT-001（L0b 徽章）', JSON.stringify(home6.ids));
     const homeMg = await cdp.evalExpr(`(function(){
       const card = document.querySelector('.home-sys-card[data-system="MG-001"]');

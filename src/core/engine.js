@@ -377,6 +377,9 @@
          island_event 为拓扑分断零参数族（Q2 定案，params:[] 无幅值语义），按系统显式追加；
          FL/FC/GT/PV/WT 的家族分派面零改动 */
       if (system.id === 'MG-001') allowed = allowed.concat(['shading_link', 'gust_link', 'island_event']);
+      /* TL-001 联合轨（TL001_FMU_G2B_SPEC_APPROVED v1.0 §2.1/§2.5，CHG-20261125-02）：GT 三族镜像
+         + line_fault（线路三相短路——TL 新族）；既有六系统家族面零改动 */
+      if (system.id === 'TL-001') allowed = allowed.concat(['line_fault']);
       if (allowed.indexOf(fcfg.family) === -1) {
         /* 族面文案按系统派生（MG-001 四族；既有五系统消息逐字不变——PV/WT 显式追加
            不改消息面的现状 wart 沿袭，MG 新分支不扩大） */
@@ -434,6 +437,16 @@
                 push('fault.t_clear_s', '必须晚于 fault.t_start_s（' + tStart + ' s）');
               } else if (tClear >= durForFault) {
                 push('fault.t_clear_s', '必须早于 duration_s（' + durForFault + ' s）');
+              }
+            }
+            /* TL-001 line_fault（CHG-20261125-02）：magnitude = 故障持续时间，清除时刻
+               t_start + magnitude 须落在 0.1 s 网格且早于 duration_s（EV-002 线路清除快照面） */
+            if (system.id === 'TL-001' && fcfg.family === 'line_fault' && typeof params.magnitude === 'number') {
+              var lfMag = params.magnitude;
+              if (Math.abs(lfMag * 10 - Math.round(lfMag * 10)) > 1e-9) {
+                push('fault.params.magnitude', '线路故障持续时间必须落在 0.1 s 网格上（收到 ' + lfMag + '）');
+              } else if (typeof tStart === 'number' && tStart + lfMag >= durForFault) {
+                push('fault.params.magnitude', '清除时刻 t_start + 持续时间必须早于 duration_s（' + durForFault + ' s）');
               }
             }
           }
@@ -2391,6 +2404,176 @@
   /* ================================================================== */
   /* 观测噪声（仅 OBSERVATION 通道，确定性；默认关闭）                     */
   /* ================================================================== */
+  /* ---------------- TL-001 GT+TL 联合轨（单转子形功角摇摆） ---------------- */
+  /* TL001_FMU_G2B_SPEC_APPROVED v1.0（CHG-20261125-01 批准）；轻量实现轮 CHG-20261125-02。
+     联合态 y = [f, T3, δ] 经典 RK4（h = DT_INT = 0.01）：GT-001 thermo 热力链逐字沿袭，
+     EQ-GTL1-7 联合修订行 P_rotor = P_gen + P_bat − P_load − P_elec(δ)，TL-EQ-1 dδ/dt = 2π(f−f₀)，
+     TL-EQ-3 P_elec = s·(V_gen·V_inf/X_line)·sin δ/1000，TL-EQ-5 V_gen = (f/f₀)·V_rated。
+     更新序 = gt_tl_joint_oracle.py 逐算子镜像（host ①调速器积分 → ②内核 RK4（u_eff/demand/s
+     子步冻结、P_elec 逐 stage 现算）→ ③记账 → ④提交）；A_C/A_T 取 oracle 同式
+     (γ−1)/γ（与 GT 引擎 2/7 字面末位不同——本轨对齐 oracle）。δ₀ = arcsin((25+5−load0)/P_max0)。
+     line_fault：magnitude = 故障持续时间（s），窗 [t_start, t_start+magnitude) 内 s = 0。
+     GT 分派链（simulateGT001*）零改动。 */
+  function simulateTL001(system, cfg, t) {
+    var n = t.length - 1;
+    var KJ = 5.0, K_bat = 24.0, P_bat_ref = 5.0, F0 = 50.0, KI = 2.0;
+    var T1 = 288.15, P1 = 101.325, CP_A = 1.005, CP_G = 1.148;
+    var A_C = (1.4 - 1.0) / 1.4;
+    var A_T = (4.0 / 3.0 - 1.0) / (4.0 / 3.0);
+    var PI_C0 = 8.0, EPS_C = 0.82, EPS_T = 0.86, BETA_B = 0.04, LHV = 50000.0;
+    var ETA_B = 0.99, ETA_M = 0.95, T3D = 1173.0;
+    var K_F = 4.070531454334211, MDOT_A = 0.144299140389011, C_3 = 0.335983796442745;
+    var V_RATED = 400.0, V_INF = 400.0, X_LINE = 3.2;
+    var P_MAX0 = V_RATED * V_INF / X_LINE / 1000.0;
+    var TWO_PI = 2.0 * Math.PI;
+
+    var family = cfg.fault.family;
+    var faulted = family !== 'none';
+    var magnitude = faulted ? cfg.fault.params.magnitude : 0;
+    var tStart = faulted ? cfg.fault.t_start_s : null;
+    var monitor = cfg.feedback_mode === 'monitor';
+    var isSensor = family === 'sensor_drift';
+    var isLoad = family === 'load_step';
+    var isAct = family === 'actuator_fault';
+    var isLine = family === 'line_fault';
+    var u_cap = isAct ? 40.0 * magnitude / 100.0 : null;
+    var tClear = isLine ? tStart + magnitude : (isAct && cfg.fault.t_clear_s != null ? cfg.fault.t_clear_s : null);
+    var load0 = cfg.initial.load_kW;
+    var soc0 = cfg.initial.SOC_pct;
+
+    function bAt(time) { return (isSensor && time >= tStart - 1e-9) ? magnitude : 0; }
+    function demandAt(time) { return (isLoad && time >= tStart - 1e-9) ? load0 + magnitude : load0; }
+    function cappedAt(time) {
+      return !!(isAct && time >= tStart - 1e-9 && !(tClear !== null && time >= tClear - 1e-9));
+    }
+    function scaleAt(time) {
+      return (isLine && time >= tStart - 1e-9 && !(time >= tClear - 1e-9)) ? 0.0 : 1.0;
+    }
+
+    function chain(fv, t3v, dv, uEff, demand, scale) {
+      var piC = PI_C0 * (fv / F0) * (fv / F0);
+      var p2 = piC * P1;
+      var t2 = T1 * (1.0 + (Math.pow(piC, A_C) - 1.0) / EPS_C);
+      var qF = K_F * uEff;
+      var mF = qF / LHV;
+      var mG = MDOT_A + mF;
+      var p3 = (1.0 - BETA_B) * p2;
+      var piT = p3 / P1;
+      var t4 = t3v * (1.0 - EPS_T * (1.0 - Math.pow(piT, -A_T)));
+      var pComp = MDOT_A * CP_A * (t2 - T1);
+      var pTurb = mG * CP_G * (t3v - t4);
+      var pGen = ETA_M * (pTurb - pComp);
+      var pBat = P_bat_ref - K_bat * (fv - 50.0);
+      var vGen = (fv / F0) * V_RATED;
+      var pElec = scale * (vGen * V_INF / X_LINE) * Math.sin(dv) / 1000.0;
+      var pRotor = pGen + pBat - demand - pElec;
+      return {
+        t2: t2, p2: p2, t4: t4, pComp: pComp, pTurb: pTurb, pGen: pGen, pBat: pBat,
+        pRotor: pRotor, qF: qF, mG: mG, pElec: pElec,
+        df: (pRotor / KJ) * (F0 / fv),
+        dT3: (ETA_B * qF - mG * CP_G * (t3v - t2)) / C_3,
+        dd: TWO_PI * (fv - F0)
+      };
+    }
+
+    var series = makeSeries(system, n);
+    var f = 50.0;
+    var T3 = T3D;
+    var d = Math.asin((25.0 + P_bat_ref - load0) / P_MAX0);
+    var u = 25.0;
+    var intPbat = 0, intPgen = 0, intLine = 0, intDemand = 0, intResidual = 0, intEfuel = 0, intComb = 0;
+
+    function record(k) {
+      var time = t[k];
+      var b = bAt(time);
+      var demand = demandAt(time);
+      var capped = cappedAt(time);
+      var uEff = capped ? Math.min(u, u_cap) : u;
+      var al = chain(f, T3, d, uEff, demand, scaleAt(time));
+      series.f_true_Hz[k] = f;
+      series.f_meas_Hz[k] = f;
+      series.n_meas_rpm[k] = 60.0 * (f + b);
+      series.P_gen_true_kW[k] = al.pGen;
+      series.P_gen_meas_kW[k] = al.pGen;
+      series.P_gen_cmd_kW[k] = u;
+      series.P_bat_true_kW[k] = al.pBat;
+      series.P_bat_meas_kW[k] = al.pBat;
+      series.P_load_demand_kW[k] = demand;
+      series.P_load_served_kW[k] = demand;
+      series.P_rotor_kW[k] = al.pRotor;
+      series.V_bus_V[k] = 400;
+      series.SOC_true_pct[k] = soc0 - intPbat / (CAP_KWH * 3600.0) * 100.0;
+      series.SOC_est_pct[k] = soc0 - intPbat / (CAP_KWH * 3600.0) * 100.0;
+      series.r_true_kW[k] = al.pGen + al.pBat - demand - al.pElec - al.pRotor;
+      series.f_channel_diff_Hz[k] = series.n_meas_rpm[k] / 60.0 - series.f_meas_Hz[k];
+      series.valve_cmd_pct[k] = clamp(u / 40.0 * 100.0, 0.0, 100.0);
+      series.valve_meas_pct[k] = capped ? magnitude : series.valve_cmd_pct[k];
+      series.P_gen_cap_kW[k] = capped ? u_cap : null;
+      series.T3_out_K[k] = T3;
+      series.T2_out_K[k] = al.t2;
+      series.p2_out_kPa[k] = al.p2;
+      series.T4_out_K[k] = al.t4;
+      series.Q_fuel_kW[k] = al.qF;
+      series.P_comp_kW[k] = al.pComp;
+      series.P_turb_kW[k] = al.pTurb;
+      series.eta_cycle_pct[k] = 100.0 * al.pGen / al.qF;
+      series.delta_rad[k] = d;
+      series.P_elec_kW[k] = al.pElec;
+      series.omega_rad_s[k] = TWO_PI * f;
+    }
+
+    var h = DT_INT;
+    record(0);
+    for (var k = 1; k <= n; k++) {
+      for (var j = 0; j < SUB; j++) {
+        var time = (k - 1) * SUB * h + j * h;
+        var b = bAt(time);
+        var demand = demandAt(time);
+        var scale = scaleAt(time);
+        /* ① 调速器积分（EQ-GTL1-9/10——host 面） */
+        var fGov = (monitor && isSensor) ? f : f + b;
+        var uNext = clamp(u + KI * (50.0 - fGov) * h, 0.0, 40.0);
+        var uEff = cappedAt(time) ? Math.min(uNext, u_cap) : uNext;
+        /* ② 联合 RK4（y = [f, T3, δ]） */
+        var k1 = chain(f, T3, d, uEff, demand, scale);
+        var k2 = chain(f + 0.5 * h * k1.df, T3 + 0.5 * h * k1.dT3, d + 0.5 * h * k1.dd, uEff, demand, scale);
+        var k3 = chain(f + 0.5 * h * k2.df, T3 + 0.5 * h * k2.dT3, d + 0.5 * h * k2.dd, uEff, demand, scale);
+        var k4 = chain(f + h * k3.df, T3 + h * k3.dT3, d + h * k3.dd, uEff, demand, scale);
+        var fNew = f + h / 6.0 * (k1.df + 2.0 * k2.df + 2.0 * k3.df + k4.df);
+        var t3New = T3 + h / 6.0 * (k1.dT3 + 2.0 * k2.dT3 + 2.0 * k3.dT3 + k4.dT3);
+        var dNew = d + h / 6.0 * (k1.dd + 2.0 * k2.dd + 2.0 * k3.dd + k4.dd);
+        var alB = chain(fNew, t3New, dNew, uEff, demand, scale);
+        /* ③ 记账（E_gen/E_bat/E_line 梯形；E_fuel/E_load/E_rotor 左矩形——oracle 同口径） */
+        intPgen += 0.5 * (k1.pGen + alB.pGen) * h;
+        intPbat += 0.5 * (k1.pBat + alB.pBat) * h;
+        intLine += 0.5 * (k1.pElec + alB.pElec) * h;
+        intDemand += demand * h;
+        intResidual += k1.pRotor * h;
+        intEfuel += k1.qF * h;
+        intComb += k1.dT3 * C_3 * h;
+        /* ④ 提交 */
+        f = fNew;
+        T3 = t3New;
+        d = dNew;
+        u = uNext;
+      }
+      record(k);
+    }
+    return {
+      series: series,
+      integrals: {
+        E_load: intDemand,
+        E_source: intPgen,
+        E_bat: intPbat,
+        E_line: intLine,
+        E_rotor: KJ * (f - 50),
+        intResidual: intResidual,
+        E_fuel: intEfuel,
+        intComb: intComb
+      }
+    };
+  }
+
   function applyNoise(system, cfg, series) {
     var noise = cfg.noise;
     if (!noise || !noise.enabled || !(noise.level > 0)) return;
@@ -2464,11 +2647,15 @@
     /* MG-001 四族（MG001_G2B_SPEC_APPROVED v1.0 §2；event_type = 族名——PV/WT 物理输入族
        同款约定；island_event 双事件面 EV-001=island_event/EV-002=island_reconnect，
        mg001_v1 golden 事件编码同源） */
-    shading_link: 'shading_link', gust_link: 'gust_link', island_event: 'island_event' };
+    shading_link: 'shading_link', gust_link: 'gust_link', island_event: 'island_event',
+    /* TL-001 线路三相短路（CHG-20261125-02；gt_tl_joint_v1 golden event_type 同源） */
+    line_fault: 'line_fault' };
   var TARGET_SIGNAL = {
     'FL-001': { sensor_drift: 'bias_A', load_step: 'P_load_demand_kW', actuator_fault: 'I_bat_cap_A' },
     'FC-001': { sensor_drift: 'bias_A', load_step: 'P_load_demand_kW', actuator_fault: 'I_fc_cap_A' },
     'GT-001': { sensor_drift: 'n_meas_rpm', load_step: 'P_load_demand_kW', actuator_fault: 'P_gen_cap_kW' },
+    /* TL-001 联合轨（CHG-20261125-02）：GT 三族镜像 + line_fault 目标 = 线路传输功率 */
+    'TL-001': { sensor_drift: 'n_meas_rpm', load_step: 'P_load_demand_kW', actuator_fault: 'P_gen_cap_kW', line_fault: 'P_elec_kW' },
     /* PV-001 新轨（PV001_G2B_SPEC_APPROVED §2）：sensor_drift 注入点为辐照度偏置，
        shading_step 为物理输入阶跃（有效真实辐照度） */
     'PV-001': { sensor_drift: 'bias_W_m2', shading_step: 'G_true_W_m2' },
@@ -2554,7 +2741,7 @@
       postSnapshotId: 'EV-001-post'
     }];
     /* G2b v1.1 §9 扩展轮：执行器清除事件（t_clear 后钳位释放） */
-    if (system.id === 'GT-001' && family === 'actuator_fault' && cfg.fault.t_clear_s != null) {
+    if ((system.id === 'GT-001' || system.id === 'TL-001') && family === 'actuator_fault' && cfg.fault.t_clear_s != null) {
       out.push({
         event_id: 'EV-002',
         event_type: 'actuator_clear',
@@ -2566,6 +2753,25 @@
         phase: 'clear',
         label: '执行器故障清除 @ ' + Number(cfg.fault.t_clear_s).toFixed(1) + ' s',
         description: '钳位释放：P_gen 回到指令跟随（清除瞬态见 A-gt-antiwindup-clamp）。',
+        target_component_label: comp ? comp.label : target,
+        preSnapshotId: 'EV-002-pre',
+        postSnapshotId: 'EV-002-post'
+      });
+    }
+    /* TL-001 line_fault 线路清除 EV-002（CHG-20261125-02；gt_tl_joint_v1 golden EV-002 line_clear 同源） */
+    if (system.id === 'TL-001' && family === 'line_fault') {
+      var tLineClear = tStart + cfg.fault.params.magnitude;
+      out.push({
+        event_id: 'EV-002',
+        event_type: 'line_clear',
+        trigger_s: tLineClear,
+        target_signal: 'P_elec_kW',
+        target_component: target,
+        magnitude: 0,
+        unit: '',
+        phase: 'clear',
+        label: '线路故障清除 @ ' + Number(tLineClear).toFixed(1) + ' s',
+        description: '线路恢复传输：同步功率 P_max·sin δ 重新作用于转子，功角回摆。',
         target_component_label: comp ? comp.label : target,
         preSnapshotId: 'EV-002-pre',
         postSnapshotId: 'EV-002-post'
@@ -2672,7 +2878,10 @@
       faultFamily: family,
       faultId: cfg.fault.faultId,
       faultActiveFrom_s: cfg.fault.t_start_s,
-      faultDuration_s: roundTo(cfg.duration_s - cfg.fault.t_start_s, 6),
+      /* TL-001 line_fault（CHG-20261125-02）：故障持续时间 = magnitude（清除后线路恢复） */
+      faultDuration_s: (system.id === 'TL-001' && family === 'line_fault')
+        ? roundTo(cfg.fault.params.magnitude, 6)
+        : roundTo(cfg.duration_s - cfg.fault.t_start_s, 6),
       /* 零参数族（MG-001 island_event——Q2 定案）：无幅值语义 → peakMagnitude null；
          既有五系统各族 params.length ≥ 1，本分支对其零变化 */
       peakMagnitude: (def && def.params.length) ? cfg.fault.params.magnitude : null,
@@ -2860,6 +3069,36 @@
       facts.E_pv_err = metricFmt('E_pv_err_kWh', 7);
       facts.E_grid = metricFmt('E_grid_kWh', 7);
       facts.E_load = metricFmt('E_load_kWh', 5);
+    } else if (system.id === 'TL-001') {
+      /* TL-001 联合轨（CHG-20261125-02）：tl-* 模板占位符面（GT 频率/功率面 + 线路功角面） */
+      var DEG = 180 / Math.PI;
+      var degAt = function (time) {
+        var arr = series.delta_rad;
+        var v = arr ? arr[idxAt(time)] : null;
+        return (v === null || v === undefined || !isFinite(v)) ? '—' : fmtVal(v * DEG, 1);
+      };
+      var tcTl = family === 'line_fault' ? tStart + mag : (cfg.fault.t_clear_s != null ? cfg.fault.t_clear_s : null);
+      facts.tc = tcTl === null ? '—' : Number(tcTl).toFixed(1);
+      facts.n_rpm = formatMagnitude(mag * 60, 1);
+      facts.P_elec_pre = at('P_elec_kW', tStart - 0.1, 2);
+      facts.P_elec_post = at('P_elec_kW', tStart, 2);
+      facts.P_elec_60 = at('P_elec_kW', dur, 2);
+      facts.P_rotor_post = at('P_rotor_kW', tStart, 2);
+      facts.P_gen_60 = at('P_gen_true_kW', dur, 2);
+      facts.P_load_pre = at('P_load_demand_kW', tStart - 0.1, 2);
+      facts.P_load_post = at('P_load_demand_kW', tStart, 2);
+      facts.u_60 = at('P_gen_cmd_kW', dur, 2);
+      facts.P_gen_cap = family === 'actuator_fault' ? fmtVal(40 * mag / 100, 1) : '—';
+      facts.delta_pre_deg = degAt(tStart - 0.1);
+      facts.delta_60_deg = degAt(dur);
+      var dRange = rangeValues('delta_rad', tStart, dur);
+      facts.delta_max_deg = dRange ? fmtVal(dRange.max * DEG, 1) : '—';
+      var fRangeTl = rangeValues('f_true_Hz', tStart, dur);
+      facts.f_max = fRangeTl ? fmtVal(fRangeTl.max, 3) : '—';
+      facts.f_min = fRangeTl ? fmtVal(fRangeTl.min, 3) : '—';
+      var peRange = rangeValues('P_elec_kW', tStart, dur);
+      facts.P_elec_max = peRange ? fmtVal(peRange.max, 2) : '—';
+      facts.r_true_max = fmtVal(maxAbsFrom('r_true_kW', 0), 2);
     } else if (system.id === 'MG-001') {
       /* MG-001 新轨（MG001_G2B_SPEC_APPROVED v1.0 §6.4 模板占位符面；信号全部 MG 自有）。
          注意：island_event 为零参数族（Q2 定案）——facts.mag 为 'NaN' 占位串（formatAmount
@@ -2915,7 +3154,8 @@
     var map = {
       'FL-001': '仅监测模式下真实电池电流保持 25 A，测量电流仍从 20.0 s 起偏高 {mag} {unit}，SOC 估计偏差与闭环故障相同，但没有真实电流下降。',
       'FC-001': '仅监测模式下电堆真实电流保持 50 A、电池功率保持 10 kW，测量电流仍偏高 {mag} {unit}，SOC 估计偏差不变。',
-      'GT-001': '仅监测模式下真实频率保持 50 Hz，转速通道读数仍偏高 {mag} {unit}（{n_rpm} rpm），但调速器使用健康频率，因此真实状态不变。'
+      'GT-001': '仅监测模式下真实频率保持 50 Hz，转速通道读数仍偏高 {mag} {unit}（{n_rpm} rpm），但调速器使用健康频率，因此真实状态不变。',
+      'TL-001': '仅监测模式下调速器使用健康频率，燃料指令不变，真实频率与功角保持基线，只有转速读数偏高 {mag} {unit}（{n_rpm} rpm）。'
     };
     return { description: interpolate(map[system.id] || '仅监测模式下真实状态保持不变，只有测量通道偏移。', facts) };
   }
@@ -3092,6 +3332,9 @@
        else→GT001 兜底之前——GT 轨数值与 MG 锚点不同，禁止 MG-001 静默落入 GT 物理
        （PV/WT R-4/R-7 同款守卫）；五系统既有分支零改动。 */
     else if (system.id === 'MG-001') sim = simulateMG001(system, cfg, t);
+    /* TL-001 联合轨（CHG-20261125-02）：显式分支置于 else→GT001 兜底之前（PV/WT/MG R-4/R-7/R-5
+       同款守卫——禁止 TL-001 静默落入 GT 独立物理） */
+    else if (system.id === 'TL-001') sim = simulateTL001(system, cfg, t);
     else sim = simulateGT001(system, cfg, t);
 
     var series = sim.series;

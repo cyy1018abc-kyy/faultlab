@@ -244,15 +244,17 @@ const sysList = systems.list();
    预期失效面）；WT-001 注册 4→5（WT001_G2B_SPEC_APPROVED v1.0 / CHG-20261107-01，
    L4 系统面落地，V080 预期失效面——L9a 逐项登记）；MG-001 注册 5→6
    （MG001_G2B_SPEC_APPROVED v1.0 / CHG-20261110-01，MG-G2b-04 systems.js 面，
-   V110_WAVE_DESIGN §2 W5——尾接，本波预期失效面）。 */
-eq(sysList.length, 6, 'systems.list 返回六个系统（PV-001、WT-001、MG-001 注册面演进）');
-eq(sysList.map((s) => s.id).join(','), 'FL-001,FC-001,GT-001,PV-001,WT-001,MG-001', 'systems.list 顺序稳定（MG-001 尾接）');
+   V110_WAVE_DESIGN §2 W5——尾接，本波预期失效面）；TL-001 注册 6→7（TL001_FMU_G2B_SPEC_APPROVED
+   v1.0 / CHG-20261125-01 批准、CHG-20261125-02 轻量实现轮——尾接，本波预期失效面）。 */
+eq(sysList.length, 7, 'systems.list 返回七个系统（PV-001、WT-001、MG-001、TL-001 注册面演进）');
+eq(sysList.map((s) => s.id).join(','), 'FL-001,FC-001,GT-001,PV-001,WT-001,MG-001,TL-001', 'systems.list 顺序稳定（TL-001 尾接）');
 sysList.forEach((item) => {
   ok(item.experimentCode && item.title && item.shortTitle && item.tagline && item.level, 'systems.list 字段齐备（' + item.id + '）');
   eq(item.available, true, 'systems.list available（' + item.id + '）');
   /* MG-001 默认族 = 目录首族 load_step（MG 四族为聚合/联动面，无 sensor_drift——
-     MG001_G2B_SPEC_APPROVED v1.0 §2；其余五系统维持 sensor_drift 既有键面）。 */
-  eq(item.defaultFaultFamily, item.id === 'MG-001' ? 'load_step' : 'sensor_drift',
+     MG001_G2B_SPEC_APPROVED v1.0 §2；TL-001 默认族 = 目录首族 line_fault（功角摇摆主实验——
+     CHG-20261125-02）；其余五系统维持 sensor_drift 既有键面）。 */
+  eq(item.defaultFaultFamily, item.id === 'MG-001' ? 'load_step' : (item.id === 'TL-001' ? 'line_fault' : 'sensor_drift'),
     'systems.list defaultFaultFamily（' + item.id + '）');
 });
 

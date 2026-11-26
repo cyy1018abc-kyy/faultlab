@@ -302,7 +302,9 @@ const EXPANDED_POOL_BLIND = {
   'MG-001': ['P_sched_kW', 'P_bess_chase_kW', 'P_load_demand_kW', 'P_grid_meas_kW',
     'V_bus_V', 'SOC_est_pct', 'SOC_err_pp', 'r_meas_kW']
 };
-ok(FL.systems.list().length === 6, 'systems.list() 返回 6 系统（扩池面）', String(FL.systems.list().length));
+/* TL-001 注册 6→7（CHG-20261125-02）：注册表 7 系统，Arena 页 ARENA_EXCLUDED=['TL-001']（联合轨不入盲测池——
+   TL001_FMU_G2B_SPEC_APPROVED v1.0 §2.4）——入池面仍为 6 系统 */
+ok(FL.systems.list().length === 7, 'systems.list() 返回 7 系统（TL-001 注册；入池面 6）', String(FL.systems.list().length));
 ['PV-001', 'WT-001', 'MG-001'].forEach((systemId) => {
   let m = null;
   let err = null;
