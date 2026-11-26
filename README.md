@@ -11,7 +11,11 @@
 > - **系统**：六个已实现系统——FL-001 电池储能（P0 基准；thermal / capacity 扩展轨）、FC-001 燃料电池
 >   （electrochem 轨 + L1-FMU 镜像轨）、GT-001 燃气轮机（swing / linear / thermo / thermo_comb 四轨 +
 >   L1-FMU 镜像轨）、PV-001 光伏、WT-001 风机、MG-001 微电网（v1.16.0 新增 MG-D1 孤岛组合语义，
->   `mg001_v2` golden）。TL-001 输电线（GT+TL 联合功角摇摆）处于 G2b 规格草案阶段，**未实现**。
+>   `mg001_v2` golden）。
+> - **主线未发布（v1.17.0 波进行中）**：TL-001 输电线路联合系统（GT+TL 单转子形功角摇摆，扩展预览）
+>   已按 `TL001_FMU_G2B_SPEC_APPROVED` v1.0 轻量实现——独立 oracle + `gt_tl_joint_v1` golden + 引擎 +
+>   界面（CHG-20261125-02）；C99/FMU 镜像轨与 parity 随 linux64 平台工作缓做。版本号单一来源
+>   `src/core/version.js`（CHG-20261126-02），run-g2 39 步。
 > - **模型层级**：L0 / L0b 解析行为级 + 部分 L1 集总参数轨（RK4 数值轨）；FMU 轨
 >   `model_provenance=fmu_l1_lumped_unvalidated`。三标签不变：未做模型验证、未做硬件验证。
 > - **门禁面**：16 个 golden（`data/golden/`，各带 `.sha256`）+ 14 个 `verify_golden` 注册行 +
