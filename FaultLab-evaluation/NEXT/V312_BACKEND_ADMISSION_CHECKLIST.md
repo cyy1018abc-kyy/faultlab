@@ -167,3 +167,18 @@ CHG-20261118-01 ④ 授权修订——修订面仅此两处，其余条目零触
 与历史钉值 5f60ca78… / db966da9… / fc2289a2… **逐字节一致**（证据 `evidence/g8/v1170-release.md` §2）——
 zip 成员 `create_system` 固定 0 消除宿主差异。darwin64 / `.dylib` 维持不纳入（R-L64-03）。
 
+
+## 13. TL-001 联合轨 FMU 钉 hash（GTLJ-G2b-04 C99/FMU 链，CHG-20261127-05 授权——V1180_WAVE_DESIGN R2-1…R2-6）
+
+| 项 | gt_tl_joint_l1_v1.fmu |
+|---|---|
+| **fmu_sha256（钉，现行——v1.18.0 linux64-only）** | `290ea21f301115c12443dcf5b3a878fb20b896071580b27b3ccd6f677a8be6ed`（8,778 B） |
+| 包内成员（固定序） | modelDescription.xml → binaries/linux64/gt_tl_joint_l1.so（`12a80d78…9615f4`，17,408 B——两次构建同哈希）→ model_manifest.json |
+| model_id / provenance | `gt.sync.tl.l0`（= parity golden `gt_tl_joint_v1` 的 model_id——FMU 先例「manifest id ≡ golden id」）/ `fmu_l1_lumped_unvalidated` |
+| golden 关系 | **golden 层不依赖本 FMU 工件**（规格 §1.2 澄清——R2-1）：gt_tl_joint_v1 由 oracle emit；本包仅服务 C↔golden parity |
+| VR 契约 | 输入 demand_kW / u_eff_kW / p_elec_scale / **line_open**（R2-2 规格偏离登记）+ 参数 delta0_rad；输出 f/T3/δ + 代数链 + P_elec / V_gen / ω |
+| 构建 | `python -I tools/backend/fmu/build_fmu.py --gcc gcc --platform linux64 --tl`（GCC 13.3.0 / glibc 2.39；钉死 CC_FLAGS + -fPIC / -lm） |
+| parity（linux64） | **0.0**——8 Run × 29 列 139,432 值逐位相同（含 -0.0 符号）；门 **1e-9**（R2-3：实测 0 ⇒ 1e-9） |
+| win64 | **暂缺**（V1170 DEC-4 / V1180 R1-3：用户 WinLibs 构建后随下一版本发布并重钉本表；此前 Windows parity 记 SKIP） |
+| 重钉纪律 | 编译器/平台矩阵变更 ⇒ 产物字节变更 ⇒ 本表重钉须 CHG（fmu_runner `GT_TL_FMU_SHA256_PINNED` 同步） |
+| 校验面 | fmu_runner.run_gt_tl_joint_shell 装载前 admit() + 钉值强制校验（不符即拒） |

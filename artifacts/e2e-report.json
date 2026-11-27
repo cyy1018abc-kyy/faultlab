@@ -15,16 +15,16 @@
       "jsVersion": "15.8.62.31"
     }
   },
-  "generated_at": "2026-11-27T06:01:54.934Z",
+  "generated_at": "2026-11-27T17:50:46.324Z",
   "code": {
-    "commit_sha": "205488cb6fe4d75a33b16b0fbdf11d42c6b6df83",
+    "commit_sha": "0a4a735cd703a537a1525f2000369215440ad4d7",
     "branch": "claude/gallant-fermat-1d24pe",
     "worktree_dirty": true
   },
   "execution": {
-    "started_at": "2026-11-27T06:01:20.489Z",
-    "generated_at": "2026-11-27T06:01:54.934Z",
-    "duration_ms": 34445
+    "started_at": "2026-11-27T17:50:12.028Z",
+    "generated_at": "2026-11-27T17:50:46.324Z",
+    "duration_ms": 34296
   },
   "perf": {
     "baseline": {
@@ -81,17 +81,17 @@
         "gate": "mean >= threshold_fps"
       },
       "last_run": {
-        "at": "2026-11-27T06:02:06.680Z",
+        "at": "2026-11-27T17:50:58.041Z",
         "mode": "gate",
         "chrome": "/usr/bin/google-chrome",
-        "heap_mb": 18.4,
+        "heap_mb": 16.12,
         "heap_available": true,
-        "fps_mean": 59.9,
+        "fps_mean": 60,
         "fps_curve_window": 60,
-        "fps_tab_window": 59.8,
+        "fps_tab_window": 60,
         "window_curve_ms": 3215,
-        "window_tabs_ms": 3160,
-        "duration_ms": 11655,
+        "window_tabs_ms": 3134,
+        "duration_ms": 11624,
         "notes": [],
         "heap_within": true,
         "fps_within": true,

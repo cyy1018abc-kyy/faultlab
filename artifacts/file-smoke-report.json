@@ -18,7 +18,7 @@
       "pass": 99,
       "fail": 0,
       "failures": [],
-      "duration_ms": 36821,
+      "duration_ms": 36703,
       "aborted": null
     }
   ],
@@ -34,14 +34,14 @@
     }
   },
   "code": {
-    "commit_sha": "205488cb6fe4d75a33b16b0fbdf11d42c6b6df83",
+    "commit_sha": "0a4a735cd703a537a1525f2000369215440ad4d7",
     "branch": "claude/gallant-fermat-1d24pe",
     "worktree_dirty": true
   },
   "execution": {
     "command": "node tools/file-smoke.mjs",
-    "started_at": "2026-11-27T06:02:13.883Z",
-    "generated_at": "2026-11-27T06:02:50.721Z",
-    "duration_ms": 36838
+    "started_at": "2026-11-27T17:51:04.874Z",
+    "generated_at": "2026-11-27T17:51:41.596Z",
+    "duration_ms": 36722
   }
 }

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GT-001 + TL-001 联合轨（单转子形功角摇摆）FMI 2.0 Co-Simulation 描述（GTLJ-G2b-04 C99/FMU 链 /
+     V1180_WAVE_DESIGN R2-1..R2-4，CHG-20261127-05）。VR 契约与 gt_tl_joint_l1.c 逐字对齐；真值面输出——
+     传感/控制/记账/故障窗归 host（I-3 + Q4=(a)）。line_open 为规格 §1.5 之外新增输入（R2-2 偏离登记）。 -->
+<fmiModelDescription
+  fmiVersion="2.0"
+  modelName="gt_tl_joint_l1"
+  guid="{gttljoint-a1b2-c3d4-e5f6-0123456789ab}"
+  version="1.0.0"
+  generationTool="faultlab-gtlj-g2b-04"
+  generationDateAndTime="2026-11-27T00:00:00Z"
+  numberOfEventIndicators="0">
+  <CoSimulation
+    modelIdentifier="gt_tl_joint_l1"
+    needsExecutionTool="false"
+    canHandleVariableCommunicationStepSize="false"
+    canInterpolateInputs="false"
+    maxOutputDerivativeOrder="0"
+    canRunAsynchronuously="false"
+    canBeInstantiatedOnlyOncePerProcess="false"
+    canNotUseMemoryFunctions="false"
+    canGetAndSetFMUstate="false"
+    canSerializeFMUstate="false"
+    providesDirectionalDerivatives="false" />
+  <DefaultExperiment startTime="0" stopTime="60" stepSize="0.01" tolerance="0.0"/>
+  <ModelVariables>
+    <ScalarVariable name="demand_kW" valueReference="0" causality="input" variability="discrete">
+      <Real start="30.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="u_eff_kW" valueReference="1" causality="input" variability="discrete">
+      <Real start="25.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="p_elec_scale" valueReference="2" causality="input" variability="discrete">
+      <Real start="1.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="line_open" valueReference="3" causality="input" variability="discrete">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="delta0_rad" valueReference="4" causality="parameter" variability="fixed" initial="exact">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="f_Hz" valueReference="5" causality="output" variability="continuous" initial="exact">
+      <Real start="50.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="T3_K" valueReference="6" causality="output" variability="continuous" initial="exact">
+      <Real start="1173.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="delta_rad" valueReference="7" causality="output" variability="continuous" initial="exact">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="p2_kPa" valueReference="8" causality="output" variability="continuous" initial="exact">
+      <Real start="810.6"/>
+    </ScalarVariable>
+    <ScalarVariable name="T2_K" valueReference="9" causality="output" variability="continuous" initial="exact">
+      <Real start="573.2946"/>
+    </ScalarVariable>
+    <ScalarVariable name="T4_K" valueReference="10" causality="output" variability="continuous" initial="exact">
+      <Real start="770.197"/>
+    </ScalarVariable>
+    <ScalarVariable name="Q_f_kW" valueReference="11" causality="output" variability="continuous" initial="exact">
+      <Real start="101.7633"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_comp_kW" valueReference="12" causality="output" variability="continuous" initial="exact">
+      <Real start="41.351847"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_turb_kW" valueReference="13" causality="output" variability="continuous" initial="exact">
+      <Real start="67.667636"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_gen_kW" valueReference="14" causality="output" variability="continuous" initial="exact">
+      <Real start="25.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_bat_kW" valueReference="15" causality="output" variability="continuous" initial="exact">
+      <Real start="5.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_rotor_kW" valueReference="16" causality="output" variability="continuous" initial="exact">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="P_elec_kW" valueReference="17" causality="output" variability="continuous" initial="exact">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="V_gen_V" valueReference="18" causality="output" variability="continuous" initial="exact">
+      <Real start="400.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="omega_rad_s" valueReference="19" causality="output" variability="continuous" initial="exact">
+      <Real start="314.1592653589793"/>
+    </ScalarVariable>
+    <ScalarVariable name="mdot_g_kg_s" valueReference="20" causality="output" variability="continuous" initial="exact">
+      <Real start="0.146334406116178"/>
+    </ScalarVariable>
+    <ScalarVariable name="dfdt" valueReference="21" causality="output" variability="continuous">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="dt3" valueReference="22" causality="output" variability="continuous">
+      <Real start="0.0"/>
+    </ScalarVariable>
+    <ScalarVariable name="ddelta" valueReference="23" causality="output" variability="continuous">
+      <Real start="0.0"/>
+    </ScalarVariable>
+  </ModelVariables>
+  <ModelStructure>
+    <Outputs>
+      <Unknown index="6"/>
+      <Unknown index="7"/>
+      <Unknown index="8"/>
+      <Unknown index="9"/>
+      <Unknown index="10"/>
+      <Unknown index="11"/>
+      <Unknown index="12"/>
+      <Unknown index="13"/>
+      <Unknown index="14"/>
+      <Unknown index="15"/>
+      <Unknown index="16"/>
+      <Unknown index="17"/>
+      <Unknown index="18"/>
+      <Unknown index="19"/>
+      <Unknown index="20"/>
+      <Unknown index="21"/>
+      <Unknown index="22"/>
+      <Unknown index="23"/>
+      <Unknown index="24"/>
+    </Outputs>
+  </ModelStructure>
+</fmiModelDescription>

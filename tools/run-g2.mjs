@@ -1,7 +1,7 @@
 /**
  * run-g2.mjs — G2 验收四件套聚合器（P0b-05 / G0-DEC-16；V0.3.0 T1 追溯增强）。
  *
- *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，39 步全量——第 39 步 version.test CHG-20261126-02）
+ *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，40 步全量——第 40 步 TL 联合 FMU parity CHG-20261127-05）
  *   node tools/run-g2.mjs --skip-e2e # 跳过浏览器步（CI 无 Chrome 时）
  *   node tools/run-g2.mjs --tier core     # 只跑 core 层（30 步；部分运行，非全量门禁）
  *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（9 步；部分运行）
@@ -58,6 +58,7 @@ const skipE2e = args.indexOf('--skip-e2e') !== -1;
    编译产物缺位（.fmu 不存在）⇒ parity 步记 skipped 不 fail（环境依赖显式化，不虚设）。 */
 const skipFmu = !fs.existsSync('data/fmu/fc001_l1_v1.fmu');
 const skipFmuGt = !fs.existsSync('data/fmu/gt001_l1_v1.fmu');
+const skipFmuTl = !fs.existsSync('data/fmu/gt_tl_joint_l1_v1.fmu');
 /* D-12 linux64 SKIP 语义补全（CHG-20261127-01——V1170_WAVE_DESIGN DEC-2）：parity 脚本运行期
    判定的环境缺位（包内无当前平台二进制 / 64 位解释器缺位）以 exit 3 + {"status":"skip"} 上报，
    声明 skipExitCode 的步将其记 skipped（不 fail、不计通过）——步数账不变。 */
@@ -160,7 +161,10 @@ const STEPS = [
      改由引擎↔golden 一致性测试承载；gt_tl_joint_v1 golden↔oracle 校验并入步①（DEFAULT_MODELS 尾追加）） */
   { id: 'TL-001 engine-tl.test.js（引擎↔golden gt_tl_joint_v1 7 Run × 30 列 T-B + 守卫 + F-1 登记面，CHG-20261125-02，第 38 步）', cmd: 'node', args: ['tests/engine-tl.test.js'], tier: 'core' },
   /* 版本单一来源（V1170_WAVE_DESIGN DEC-3，CHG-20261126-02）：步账 38→39 显式申报 */
-  { id: 'DEC-3 version.test.js（应用版本单一来源：version.js ↔ README/index.html/界面/构建产物一致 + 不入哈希，CHG-20261126-02，第 39 步）', cmd: 'node', args: ['tests/version.test.js'], tier: 'core' }
+  { id: 'DEC-3 version.test.js（应用版本单一来源：version.js ↔ README/index.html/界面/构建产物一致 + 不入哈希，CHG-20261126-02，第 39 步）', cmd: 'node', args: ['tests/version.test.js'], tier: 'core' },
+  /* TL-001 联合 FMU parity（V1180_WAVE_DESIGN R2-6，CHG-20261127-05）：步账 39→40 显式申报——extended 层
+     （FMU parity 两先例同层）；v1.18.0 包 linux64-only ⇒ Windows 上 exit 3 → skipped（R1-3） */
+  { id: 'GTLJ-G2b-04 gt_tl_joint parity（TL-001 联合内核 C99↔golden 8 Run × 29 列——linux64 实测 0.0，门 1e-9；SKIP=产物/平台二进制/64 位解释器缺位，CHG-20261127-05，第 40 步）', cmd: 'python', args: ['-I', 'tools/oracle/gt_tl_joint_parity.py'], tier: 'extended', skip: skipFmuTl, skipExitCode: 3, skipReason: '编译产物缺位（data/fmu/gt_tl_joint_l1_v1.fmu 不存在——SKIP 语义）' }
 ];
 
 /* ------------------------------------- 步数账与 tier 口径（I-7 / D-1 DEC-3） *

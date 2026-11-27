@@ -451,6 +451,231 @@ def run_gt001_shell(fmu_path, out_path=None):
 
 
 
+# ---------------------------------------------------------------------------
+# TL-001 联合轨 FMU 壳执行（GTLJ-G2b-04 C99/FMU 链——V1180_WAVE_DESIGN R2-1…R2-4，
+# CHG-20261127-05）。gt001 壳同构：governor（EQ-GTL1-9/10）/ 传感偏置 / 记账 / 故障窗 / 记录面
+# 全归 host；内核 gt_tl_joint_l1 纯物理 [f,T3,δ] RK4，h=0.01、n=1。更新序 =
+# tools/oracle/gt_tl_joint_oracle.py simulate_run 逐字镜像（parity 前提）。
+# ---------------------------------------------------------------------------
+#: TL 联合 FMU 包 SHA-256 钉值（V312 §13——装载前强制校验；v1.18.0 = linux64-only 包）
+GT_TL_FMU_SHA256_PINNED = "290ea21f301115c12443dcf5b3a878fb20b896071580b27b3ccd6f677a8be6ed"
+
+#: VR 契约（gt_tl_joint_l1_modelDescription.xml 逐字对齐）
+TL_VR_DEMAND, TL_VR_UEFF, TL_VR_SCALE, TL_VR_LINE_OPEN, TL_VR_DELTA0 = 0, 1, 2, 3, 4
+TL_VR_F, TL_VR_T3, TL_VR_DELTA = 5, 6, 7
+#: 记录/记账读取面：p2/T2/T4/Q_f/P_comp/P_turb/P_gen/P_bat/P_rotor/P_elec/omega
+TL_VR_READ = (8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19)
+TL_READ_KEYS = ("p2", "t2", "t4", "q_f", "p_comp", "p_turb", "p_gen", "p_bat",
+                "p_rotor", "p_elec", "omega")
+
+#: 8 Run 白名单（规格 §2.1 Q11=(a)——gt_tl_joint_oracle.RUNS 逐字）
+TL_RUNS = [
+    {"key": "joint_healthy", "role": "baseline", "feedback_mode": "closed_loop",
+     "family": "none", "magnitude": 0.0, "demand0_kW": 30.0, "line_open": False},
+    {"key": "joint_load_step", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "load_step", "magnitude": 10.0, "demand0_kW": 30.0, "line_open": False},
+    {"key": "joint_sensor_drift", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "sensor_drift", "magnitude": 0.3, "demand0_kW": 30.0, "line_open": False},
+    {"key": "joint_actuator_fault", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "actuator_fault", "magnitude": 50.0, "demand0_kW": 30.0, "line_open": False},
+    {"key": "joint_actuator_clear", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "actuator_fault", "magnitude": 50.0, "demand0_kW": 30.0, "line_open": False,
+     "t_clear_s": 35.0},
+    {"key": "joint_monitor_only", "role": "monitor", "feedback_mode": "monitor",
+     "family": "sensor_drift", "magnitude": 0.3, "demand0_kW": 30.0, "line_open": False},
+    {"key": "joint_line_fault", "role": "fault", "feedback_mode": "closed_loop",
+     "family": "line_fault", "magnitude": 0.5, "demand0_kW": 20.0, "line_open": False,
+     "t_clear_s": 20.5},
+    {"key": "joint_gt_standalone", "role": "baseline", "feedback_mode": "closed_loop",
+     "family": "none", "magnitude": 0.0, "demand0_kW": 30.0, "line_open": True},
+]
+
+TL_SERIES_IDS = GT_SERIES_IDS + ["delta_rad", "P_elec_kW", "omega_rad_s"]
+#: §1.4 设计点（δ₀ = asin((P_gen0 + P_bat_ref − demand0)/P_max0)——host 计算后写入 delta0_rad）
+TL_P_GEN0 = 25.0
+TL_P_BAT_REF = 5.0
+TL_P_MAX0 = 400.0 * 400.0 / 3.2 / 1000.0
+TL_TWO_PI = 2.0 * math.pi
+
+
+def run_gt_tl_joint_shell(fmu_path, out_path=None):
+    """TL-001 联合轨 8 Run 壳执行：准入 + V312 §13 钉值校验 → ctypes 加载 → host 子步循环
+    ①指令更新 ②内核 doStep ③能量累计 ④提交（oracle simulate_run 逐字镜像）→ 30 列序列 +
+    run_hash（零墙钟——确定性）。"""
+    import hashlib
+
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import fmu_admission
+
+    adm = fmu_admission.admit(fmu_path)
+    if not adm["admitted"]:
+        return {"ok": False, "stage": "admission", "admission": adm}
+    with open(fmu_path, "rb") as f:
+        fmu_sha256 = hashlib.sha256(f.read()).hexdigest()
+    if fmu_sha256 != GT_TL_FMU_SHA256_PINNED:
+        raise RuntimeError("FMU SHA-256 与 V312 §13 钉值不符：%s（pinned=%s）"
+                           % (fmu_sha256, GT_TL_FMU_SHA256_PINNED))
+    info = load_fmu(fmu_path)
+    if info["model_identifier"] != "gt_tl_joint_l1":
+        raise RuntimeError("未知 TL FMU modelIdentifier：" + info["model_identifier"])
+
+    lib = ctypes.CDLL(info["binary_path"])
+    _define_fmi2(lib)
+    c = lib.fmi2Instantiate(None, 1, info["guid"].encode("utf-8"),
+                            info["model_identifier"].encode("utf-8"), None, None, 0)
+    if not c:
+        raise RuntimeError("fmi2Instantiate 失败")
+    lib.fmi2SetupExperiment(c, 1, 0.0, 0.0, 0, 60.0)
+    lib.fmi2EnterInitializationMode(c)
+    lib.fmi2ExitInitializationMode(c)
+
+    n_read = len(TL_VR_READ)
+    vr_read = (ctypes.c_uint32 * n_read)(*TL_VR_READ)
+    val_read = (ctypes.c_double * n_read)()
+    vr_state = (ctypes.c_uint32 * 3)(TL_VR_F, TL_VR_T3, TL_VR_DELTA)
+    val_state = (ctypes.c_double * 3)()
+    vr_in = (ctypes.c_uint32 * 4)(TL_VR_DEMAND, TL_VR_UEFF, TL_VR_SCALE, TL_VR_LINE_OPEN)
+    val_in = (ctypes.c_double * 4)()
+
+    def get_state():
+        if lib.fmi2GetReal(c, vr_state, 3, val_state) != FMI_OK:
+            raise RuntimeError("fmi2GetReal(state) 失败")
+        return val_state[0], val_state[1], val_state[2]
+
+    def get_alg():
+        if lib.fmi2GetReal(c, vr_read, n_read, val_read) != FMI_OK:
+            raise RuntimeError("fmi2GetReal(alg) 失败")
+        return dict(zip(TL_READ_KEYS, val_read))
+
+    def set_inputs(demand, u_eff, scale, line_open):
+        val_in[0], val_in[1], val_in[2], val_in[3] = demand, u_eff, scale, line_open
+        if lib.fmi2SetReal(c, vr_in, 4, val_in) != FMI_OK:
+            raise RuntimeError("fmi2SetReal 失败")
+
+    def set_delta0(d0):
+        if lib.fmi2SetReal(c, (ctypes.c_uint32 * 1)(TL_VR_DELTA0), 1,
+                           (ctypes.c_double * 1)(d0)) != FMI_OK:
+            raise RuntimeError("fmi2SetReal(delta0) 失败")
+
+    runs_out = {}
+    for spec in TL_RUNS:
+        lib.fmi2Reset(c)
+        family = spec["family"]
+        faulted = family != "none"
+        monitor = spec["feedback_mode"] == "monitor"
+        magnitude = spec["magnitude"] if faulted else 0.0
+        t_start = GT_T_START if faulted else None
+        is_sensor = family == "sensor_drift"
+        is_load = family == "load_step"
+        is_act = family == "actuator_fault"
+        is_line = family == "line_fault"
+        line_open = 1.0 if spec["line_open"] else 0.0
+        demand0 = spec["demand0_kW"]
+        u_cap = 40.0 * magnitude / 100.0 if is_act else None
+        t_clear = spec.get("t_clear_s") if (is_act or is_line) else None
+
+        def b_at(time):
+            return magnitude if (is_sensor and t_start is not None
+                                 and time >= t_start - 1e-9) else 0.0
+
+        def demand_at(time):
+            return (demand0 + magnitude) if (is_load and t_start is not None
+                                             and time >= t_start - 1e-9) else demand0
+
+        def cap_active(time):
+            return bool(is_act and t_start is not None and time >= t_start - 1e-9
+                        and not (t_clear is not None and time >= t_clear - 1e-9))
+
+        def scale_at(time):
+            if is_line and time >= t_start - 1e-9 and not (time >= t_clear - 1e-9):
+                return 0.0
+            return 1.0
+
+        series = {k: [None] * GT_N_SAMPLES for k in TL_SERIES_IDS if k != "t"}
+        set_delta0(math.asin((TL_P_GEN0 + TL_P_BAT_REF - demand0) / TL_P_MAX0))
+        u = GT_U0
+        int_pbat = 0.0
+
+        def record(k):
+            time = k * GT_DT_S
+            b = b_at(time)
+            demand = demand_at(time)
+            u_eff = min(u, u_cap) if cap_active(time) else u
+            set_inputs(demand, u_eff, scale_at(time), line_open)
+            f, t3, d = get_state()
+            al = get_alg()
+            p_bat = al["p_bat"]
+            p_rotor = al["p_rotor"]
+            series["f_true_Hz"][k] = f
+            series["f_meas_Hz"][k] = f
+            series["n_meas_rpm"][k] = 60.0 * (f + b)
+            series["P_gen_true_kW"][k] = al["p_gen"]
+            series["P_gen_meas_kW"][k] = al["p_gen"]
+            series["P_gen_cmd_kW"][k] = u
+            series["P_bat_true_kW"][k] = p_bat
+            series["P_bat_meas_kW"][k] = p_bat
+            series["P_load_demand_kW"][k] = demand
+            series["P_load_served_kW"][k] = demand
+            series["P_rotor_kW"][k] = p_rotor
+            series["V_bus_V"][k] = GT_V_BUS
+            series["SOC_true_pct"][k] = GT_SOC0 - int_pbat / (GT_CAP_KWH * 3600.0) * 100.0
+            series["SOC_est_pct"][k] = GT_SOC0 - int_pbat / (GT_CAP_KWH * 3600.0) * 100.0
+            series["r_true_kW"][k] = al["p_gen"] + p_bat - demand - al["p_elec"] - p_rotor
+            series["f_channel_diff_Hz"][k] = series["n_meas_rpm"][k] / 60.0 - series["f_meas_Hz"][k]
+            series["valve_cmd_pct"][k] = js_clamp(u / 40.0 * 100.0, 0.0, 100.0)
+            series["valve_meas_pct"][k] = magnitude if cap_active(time) else series["valve_cmd_pct"][k]
+            series["T3_out_K"][k] = t3
+            series["T2_out_K"][k] = al["t2"]
+            series["p2_out_kPa"][k] = al["p2"]
+            series["T4_out_K"][k] = al["t4"]
+            series["Q_fuel_kW"][k] = al["q_f"]
+            series["P_comp_kW"][k] = al["p_comp"]
+            series["P_turb_kW"][k] = al["p_turb"]
+            series["eta_cycle_pct"][k] = 100.0 * al["p_gen"] / al["q_f"]
+            series["delta_rad"][k] = d
+            series["P_elec_kW"][k] = al["p_elec"]
+            series["omega_rad_s"][k] = al["omega"]
+
+        record(0)
+        for k in range(1, GT_N_SAMPLES):
+            for j in range(10):
+                time = (k - 1) * 10 * GT_DT_INT + j * GT_DT_INT
+                b = b_at(time)
+                demand = demand_at(time)
+                f, _, _ = get_state()
+                # host ①：指令更新（EQ-GTL1-9/10）
+                f_gov = f if (monitor and is_sensor) else f + b
+                u_next = js_clamp(u + 2.0 * (50.0 - f_gov) * GT_DT_INT, 0.0, 40.0)
+                u_eff = min(u_next, u_cap) if cap_active(time) else u_next
+                set_inputs(demand, u_eff, scale_at(time), line_open)
+                k1 = get_alg()
+                # 内核 ②：联合 RK4（n=1）
+                if lib.fmi2DoStep(c, time, GT_DT_INT, 0) != FMI_OK:
+                    raise RuntimeError("fmi2DoStep 失败 @t=%s" % time)
+                al_b = get_alg()
+                # host ③：能量累计（SOC 面所需 E_bat 梯形；其余积分属 oracle 指标面，不入序列）
+                int_pbat += 0.5 * (k1["p_bat"] + al_b["p_bat"]) * GT_DT_INT
+                # host ④：提交
+                u = u_next
+            record(k)
+
+        body = json.dumps({"key": spec["key"], "series": series}, ensure_ascii=False, sort_keys=True)
+        runs_out[spec["key"]] = {
+            "role": spec["role"], "feedback_mode": spec["feedback_mode"],
+            "series": series,
+            "run_hash": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+        }
+
+    lib.fmi2Terminate(c)
+    lib.fmi2FreeInstance(c)
+    cleanup(info)
+
+    output = {"fmu_sha256": fmu_sha256, "model_id": info["model_identifier"], "runs": runs_out}
+    if out_path:
+        with open(out_path, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(output, f, ensure_ascii=False, indent=2)
+    return {"ok": True, "fmu_sha256": fmu_sha256, "runs": runs_out}
+
 def run_fc001_shell(fmu_path, out_path=None):
     """FC-001 5 Run 壳执行：准入 + SHA-256 对 V312 钉值校验 → ctypes 加载 →
     I-11 壳（传感污染/控制反馈/残差——事件分裂归 host）→ pre/post 左极限分裂 →
@@ -677,6 +902,28 @@ def main(argv):
                           "runs": {k: {"run_hash": v["run_hash"], "series": v["series"]}
                                    for k, v in r["runs"].items()}},
                          ensure_ascii=False, indent=2))
+        return 0
+    if "--run-gt-tl-joint" in argv:
+        i = argv.index("--run-gt-tl-joint")
+        fmu = argv[i + 1] if i + 1 < len(argv) and not argv[i + 1].startswith("--") else \
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+                os.path.dirname(os.path.abspath(__file__))))),
+                "data", "fmu", "gt_tl_joint_l1_v1.fmu")
+        j = argv.index("--out") if "--out" in argv else -1
+        r = run_gt_tl_joint_shell(fmu, argv[j + 1] if j >= 0 else None)
+        if not r.get("ok"):
+            print(json.dumps({"ok": False, "stage": r.get("stage"), "detail": r.get("admission")},
+                             ensure_ascii=False, indent=2))
+            return 1
+        if j < 0:
+            print(json.dumps({"ok": True, "fmu_sha256": r["fmu_sha256"],
+                              "runs": {k: {"run_hash": v["run_hash"], "series": v["series"]}
+                                       for k, v in r["runs"].items()}},
+                             ensure_ascii=False, indent=2))
+        else:
+            print(json.dumps({"ok": True, "fmu_sha256": r["fmu_sha256"],
+                              "runs": {k: v["run_hash"] for k, v in r["runs"].items()}},
+                             ensure_ascii=False, indent=2))
         return 0
     if "--run-fc001" in argv:
         i = argv.index("--run-fc001")

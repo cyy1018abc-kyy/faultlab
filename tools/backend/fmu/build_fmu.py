@@ -25,7 +25,7 @@
 
 用法：
   python -I tools/backend/fmu/build_fmu.py --gcc <gcc 路径> [--platform win64|linux64]
-                                           [--gt] [--compile-only] [--package-only]
+                                           [--gt | --tl] [--compile-only] [--package-only]
 """
 
 import argparse
@@ -119,6 +119,58 @@ GT_MANIFEST = {
         "flow-speed coupling waived (mdot_a constant)",
     ],
     "method_id": "gt001_fmu_l1_rk4_dt0.01",
+    "integration": {
+        "kind": "co-simulation",
+        "step_s": 0.01,
+        "solver": "classic RK4",
+        "provenance": "fmu_l1_lumped_unvalidated",
+        "self_declared": True,
+    },
+}
+
+
+#: TL-001 联合轨 FMU（GTLJ-G2b-04 C99/FMU 链——V1180_WAVE_DESIGN R2-1/R2-4，CHG-20261127-05）
+TL_TARGETS = {
+    "gt_tl_joint_l1": {
+        "c": os.path.join(HERE, "gt_tl_joint_l1.c"),
+        "xml": os.path.join(HERE, "gt_tl_joint_l1_modelDescription.xml"),
+        "fmu": os.path.join(ROOT, "data", "fmu", "gt_tl_joint_l1_v1.fmu"),
+    },
+}
+
+#: manifest model_id = 其 parity golden（gt_tl_joint_v1）的 model_id（FMU 先例：manifest id ≡ golden id）
+TL_MANIFEST = {
+    "model_id": "gt.sync.tl.l0",
+    "model_version": "1.0.0",
+    "equations": [
+        "EQ-GTL1-1..6/8 GT thermo chain (GTL1 2.2 verbatim, values unchanged)",
+        "EQ-GTL1-7 joint revision: df/dt = (P_rotor/K_J)*(f0/f); P_rotor = P_gen + P_bat - P_load - P_elec(delta)",
+        "EQ-GTL1-4 C_3*dT3/dt = eta_b*Q_f - mdot_g*cp_g*(T3 - T2)",
+        "TL-EQ-1 d(delta)/dt = 2*pi*(f - f0)",
+        "TL-EQ-3 P_elec = s*(V_gen*V_inf/X_line)*sin(delta)/1000 (line_open => P_elec = 0)",
+        "TL-EQ-5 V_gen = (f/f0)*V_rated",
+    ],
+    "parameters": {
+        "T1_K": 288.15, "p1_kPa": 101.325, "cp_a": 1.005, "gamma_a": 1.4,
+        "cp_g": 1.148, "pi_c0": 8.0, "eps_c": 0.82, "eps_t": 0.86,
+        "beta_b": 0.04, "LHV_kJ_kg": 50000.0, "eta_b": 0.99, "eta_m": 0.95,
+        "T3D_K": 1173.0, "K_J": 5.0, "f0_Hz": 50.0,
+        "K_bat": 24.0, "P_bat_ref_kW": 5.0,
+        "k_f_kW_eq": 4.070531454334211, "mdot_a_kg_s": 0.144299140389011,
+        "C_3_kJ_K": 0.335983796442745,
+        "V_rated_V": 400.0, "V_inf_V": 400.0, "X_line_ohm": 3.2,
+    },
+    "assumptions": [
+        "single-rotor joint form: GT rotor + SMIB line to an infinite bus, state y = [f, T3, delta]",
+        "governor integrator, sensor bias, measured columns, energy accounting and fault windows live in the host",
+        "line fault = bolted three-phase short (p_elec_scale = 0) on [t_start, t_clear)",
+    ],
+    "limitations": [
+        "behavioral+numerical lumped demo model (no experimental/hardware verification) - numerical+implementation self-consistency only",
+        "no damping term (D not enabled); zero-eigenvalue equilibrium manifold (spec 3.3)",
+        "line protection, network equations and multi-machine dynamics not modeled",
+    ],
+    "method_id": "gt_tl_joint_rk4_dt0.01",
     "integration": {
         "kind": "co-simulation",
         "step_s": 0.01,
@@ -283,6 +335,17 @@ MANIFEST = {
 }
 
 
+def compile_tl(name, gcc_path, platform="win64"):
+    """TL-001 joint kernel compile (same ASCII temp-dir discipline)."""
+    return _compile_one(gcc_path, TL_TARGETS[name]["c"], name, platform, "gt_tl_joint_build_")["binary"]
+
+
+def package_tl(name):
+    tgt = TL_TARGETS[name]
+    fmu_path, digest, _ = write_fmu(tgt["fmu"], tgt["xml"], name, TL_MANIFEST)
+    return fmu_path, digest
+
+
 def compile_dll(gcc_path, platform="win64"):
     """FC-001 内核编译（平台分支见 compile_cmd；win64 命令与 v1.16.0 逐字相同）。"""
     return _compile_one(gcc_path, C_SOURCE, "fc001_l1", platform, "fc001_l1_build_")
@@ -300,6 +363,7 @@ def main(argv):
     ap.add_argument("--compile-only", action="store_true")
     ap.add_argument("--package-only", action="store_true")
     ap.add_argument("--gt", action="store_true", help="build GT-001 L1-FMU dual packages (GTFMU-G2b-04)")
+    ap.add_argument("--tl", action="store_true", help="build TL-001 joint FMU package (GTLJ-G2b-04, CHG-20261127-05)")
     ap.add_argument("--platform", choices=PLATFORM_ORDER, default="win64",
                     help="编译目标平台（缺省 win64；linux64 = D-12 additive 分支）——打包恒含全部在位平台")
     args = ap.parse_args(argv[1:])
@@ -307,6 +371,29 @@ def main(argv):
     warnings = ""
     if not args.package_only:
         check_toolchain(args.gcc, args.platform)
+    if args.tl:
+        sys.path.insert(0, os.path.join(ROOT, "tools", "backend", "py"))
+        import fmu_admission  # noqa: E402
+        results = []
+        for name in TL_TARGETS:
+            if not args.package_only:
+                compile_tl(name, args.gcc, args.platform)
+                print("[compile] OK:", name, args.platform)
+            if args.compile_only:
+                continue
+            fmu_path, digest = package_tl(name)
+            r = fmu_admission.admit(fmu_path)
+            if not r["admitted"]:
+                print(json.dumps({"ok": False, "name": name, "admission": r},
+                                 ensure_ascii=False, indent=2))
+                return 1
+            _, digest2 = package_tl(name)
+            results.append({"name": name, "fmu": os.path.relpath(fmu_path, ROOT),
+                            "bytes": os.path.getsize(fmu_path), "fmu_sha256": digest,
+                            "deterministic": digest == digest2, "admitted": True,
+                            "platforms": present_platforms(name)})
+        print(json.dumps({"ok": True, "targets": results}, ensure_ascii=False, indent=2))
+        return 0
     if args.gt:
         if not args.package_only:
             for name in GT_TARGETS:

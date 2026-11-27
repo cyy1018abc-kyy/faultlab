@@ -815,3 +815,15 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
   （259e2cc1… / 08cfd649… / 06d2c9f8…）；
 - **版本单一来源**：`src/core/version.js`（APP_VERSION 1.17.0）——不进入任何哈希输入，五类哈希零变化
   （I-11 对 b33ba27 before/after 12/12·36/36 + 46/46·138/138 逐位一致）。
+
+## 23. v1.18.0 additive 修订记录（2026-11-27，CHG-20261127-06；收录 CHG-20261127-03 / 04 / 05）
+
+- **面①–⑥ 零触碰**（17 golden 字节、SystemDef、scenario、oracle_base、eval protocol、scope 均无变化）；
+- **面⑦ 步账 39→40**（+1 显式申报：第 40 步 gt_tl_joint parity，extended 层，`skipExitCode: 3`——TL 联合包
+  暂 linux64-only，Windows 上记 skipped）；
+- **面⑧ 43 维持**；
+- **后端准入 / V312**：新增 §13 `gt_tl_joint_l1_v1.fmu` 钉值（`290ea21f…`）；内核输入面 `line_open`
+  为规格 §1.5 之外的登记偏离（R2-2）；golden 层不依赖该 FMU（规格 §1.2 澄清——R2-1）；
+- **I-11 发布门方法**：参照基线改为上一发布提交快照（`baseline-v1170-5545892.json` / `gt-baseline-v1170-5545892.json`）；
+  历史基线退役不删除；
+- **v2.0.0 候选增补**（不在本版生效）：runHash systems 数组（Q5 改判）、精简治理面。

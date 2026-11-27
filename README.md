@@ -1,4 +1,4 @@
-# FaultLab — Virtual Energy Lab · v1.17.0
+# FaultLab — Virtual Energy Lab · v1.18.0
 
 > 亲手制造故障，观察系统反应。离线可运行的能源系统故障注入与传播解释实验场。
 >
@@ -7,22 +7,21 @@
 > （`model_validation=not_performed`）、未做硬件验证（`hardware_verification=not_performed`）。
 > 所有数字带来源标签；「内部一致性检查通过」不等于模型验证，更不等于与真实设备一致。
 
-> **当前版本 v1.17.0（2026-11-27，G8 关闭；CHG-20261127-02，证据 `FaultLab-evaluation/NEXT/evidence/g8/v1170-release.md`）**
+> **当前版本 v1.18.0（2026-11-27，G8 关闭；CHG-20261127-06，证据 `FaultLab-evaluation/NEXT/evidence/g8/v1180-release.md`）**
 > - **系统**：七个系统——FL-001 电池储能（P0 基准；thermal / capacity 扩展轨）、FC-001 燃料电池
 >   （electrochem 轨 + L1-FMU 镜像轨）、GT-001 燃气轮机（swing / linear / thermo / thermo_comb 四轨 +
->   L1-FMU 镜像轨）、PV-001 光伏、WT-001 风机、MG-001 微电网（MG-D1 孤岛组合语义，`mg001_v2` golden），以及
->   **v1.17.0 新增**的 TL-001 输电线路联合系统（GT+TL 单转子形功角摇摆，扩展预览）——按
->   `TL001_FMU_G2B_SPEC_APPROVED` v1.0 轻量实现：独立 oracle + `gt_tl_joint_v1` golden + 引擎 + 界面
->   （CHG-20261125-02）；TL-001 的 C99/FMU 镜像轨与联合 parity 不在本版（v1.18.0 候选）。
-> - **v1.17.0 其余变更**：linux64 平台矩阵（三个 FMU 包增 `binaries/linux64/*.so`，V312 重钉，
->   CHG-20261127-01）；应用版本号单一来源 `src/core/version.js`（CHG-20261126-02）。
+>   L1-FMU 镜像轨）、PV-001 光伏、WT-001 风机、MG-001 微电网（MG-D1 孤岛组合语义，`mg001_v2` golden）、
+>   TL-001 输电线路联合系统（GT+TL 单转子形功角摇摆，扩展预览；v1.17.0 起）。
+> - **v1.18.0 变更**：TL-001 联合轨补齐 C99/FMU 链——C99 联合内核 `gt_tl_joint_l1.c` + FMU 包
+>   `gt_tl_joint_l1_v1.fmu`（暂仅 linux64）+ parity（与 `gt_tl_joint_v1` golden 逐位一致）+ run-g2 第 40 步
+>   （CHG-20261127-05）；I-11 逐位一致性基线以 v1.17.0 重新归档（CHG-20261127-04）。
 > - **模型层级**：L0 / L0b 解析行为级 + 部分 L1 集总参数轨（RK4 数值轨）；FMU 轨
 >   `model_provenance=fmu_l1_lumped_unvalidated`。三标签不变：未做模型验证、未做硬件验证。
 > - **门禁面**：17 个 golden（`data/golden/`，各带 `.sha256`）+ 15 个 `verify_golden` 注册行 +
->   `node tools/run-g2.mjs` 39 步 + copy-guard 43 patterns；单文件构建产物 `FaultLab.html` 1819.2 KiB（`python tools/build.py`）。
-> - **平台说明**：FMU 二进制提供 win64（`.dll`）与 linux64（`.so`），见 `tools/backend/fmu/binaries/`；
->   Windows 与 Linux 上 run-g2 第 36/37 步（FC/GT FMU parity）均可实跑。macOS（darwin64）未提供二进制——
->   parity 两步在该平台记 SKIP（不计通过）。
+>   `node tools/run-g2.mjs` 40 步 + copy-guard 43 patterns；单文件构建产物 `FaultLab.html` 1819.2 KiB（`python tools/build.py`）。
+> - **平台说明**：FC/GT 三个 FMU 包提供 win64（`.dll`）与 linux64（`.so`）；TL-001 联合包暂仅 linux64
+>   （win64 由 Windows 工具链构建后随后续版本补齐）——Windows 上 run-g2 第 40 步记 SKIP（不计通过）。
+>   macOS（darwin64）未提供二进制——FMU parity 步在该平台记 SKIP。
 > - 版本演进与每次变更见 `FaultLab-evaluation/DECISIONS/DECISIONS.md`（`CHG-*` 台账）与
 >   `FaultLab-evaluation/NEXT/evidence/g8/`（各版本发布证据）；路线图见 `NEXT/V08_ROADMAP.md`。
 >   下文 v0.3.0–v0.5.0 段落为早期版本记录，保留原文供追溯。

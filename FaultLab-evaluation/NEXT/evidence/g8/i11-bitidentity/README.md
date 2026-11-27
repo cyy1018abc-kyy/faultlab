@@ -130,3 +130,49 @@ Copy-Item out\comparison.json FaultLab-evaluation\NEXT\evidence\g8\i11-bitidenti
   （`1a8c1aee4f95d9e1d867fd318bc5114ee4330443`）上重新生成 `current.json` / `comparison.json`
   （`code.commit_sha=1a8c1ae…`、`worktree_dirty=false`）；`baseline-7aed9f6.json` 为固定基线
   （`7aed9f6e12408aed2a163255d03d029ad8030a50`，detached HEAD），不再变化。
+
+## 8. v1.18.0 基线重建（CHG-20261127-04，2026-11-27——V1180_WAVE_DESIGN R3-1）
+
+### 8.1 新基线（现行发布门参照）
+
+| 文件 | 套件 | 生成提交 | 环境 | 内容 |
+|---|---|---|---|---|
+| `baseline-v1170-5545892.json` | legacy（12 配置） | v1.17.0 发布合并提交 `5545892`（detached worktree，worktree_dirty=false） | Linux x86_64 / Node v22.23.5 | 12 × 3 字段 |
+| `gt-baseline-v1170-5545892.json` | gt（46 配置） | 同上 | 同上 | 46 × 3 字段 |
+
+**发布门方法（正式登记）**：每个发布轮以**上一个发布提交**的快照为参照做 before/after 比对
+（`--baseline <上一发布快照>` [`--suite gt`]，退出码 0 = 全等）；本次起参照 = 上表两文件。
+发布若含批准的模型面变更（预期改变哈希），须在发布证据中逐配置列出差异并引用批准 CHG，
+随后以该发布提交重新归档基线。v1.17.0 发布（证据 `v1170-release.md` §1 第 8 行）即按此法执行。
+
+### 8.2 历史基线（不再作发布门）
+
+`baseline-7aed9f6.json` / `current.json` / `comparison.json`（v0.3.0）与 `gt-v190-pre-wiring.json` /
+`gt-v190-comparison.json`（v1.9.0）保留原文供追溯，**不再作为发布门参照**。
+
+### 8.3 漂移溯源（2026-11-27，Linux / Node v22.23.5 实测）
+
+**legacy 套件（对 `baseline-7aed9f6.json`）——基线过期，非缺陷**：
+
+- v0.3.0 冻结候选 `1a8c1ae` 在本环境复现 **12/12 · 36/36**（跨 Windows/Linux、Node v24/v22 环境无关）；
+- first-parent 二分（`1a8c1ae..1331ed3`，26 提交）：`c3d82ea` 12/12 → **`a2f2a0d`（v0.3.1，V3-31/33 GT
+  f_channel_diff 改造——批准变更）11/12** → `96267b3` 5/12 → 此后至 v0.7.2 `1331ed3` 0/12；
+  v0.8.0 起至 v1.17.0 恒为 0/12 · 17/36——逐步被批准的模型面变更覆盖。
+
+**gt 套件（对 `gt-v190-pre-wiring.json`）——疑点待判定**：
+
+- 该基线在其自身提交 `fa05562`（干净 worktree + 现行工具）仅 **32/46 · 96/138** 复现；v1.9.0 `fc005d7`
+  至 v1.17.0 同为 32/46；差异 14 配置**全为 GT thermo / thermo_comb 路径**（另含 `GT-001/sensor_drift/
+  closed_loop`）；
+- 原归档 `gt-v190-comparison.json` 记 46/46，但基线与当前快照均生成于 **`fa05562` 脏工作树**、
+  **Windows / Node v26.5.1**；
+- 成因二选一：(i) 脏工作树含未提交改动；(ii) GT 热力链 `Math.pow` 跨 V8 版本末位差异（run_hash
+  对 pow 路径环境相关）。本容器无 Node v26，无法区分——**判定方法**：用户在 Windows 上于 `5545892`
+  生成 gt 快照，与 `gt-baseline-v1170-5545892.json` 比对：全等 ⇒ (i)；14 类 thermo 配置不等 ⇒ (ii)，
+  届时于 CONTRACT / V1_FACES 登记「pow 路径 run_hash 环境相关」。
+
+### 8.4 诚实边界
+
+同 §6：内部一致性 / 可复现性 only；非模型验证、非硬件验证。二分为 first-parent 粗粒度（每个
+采样点即一个提交的整体效果），未逐一归因到 v0.3.1 之后每个具体变更——各变更均已在 DECISIONS 中
+以批准 CHG 登记模型面改动。
