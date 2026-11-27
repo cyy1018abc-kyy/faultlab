@@ -21,7 +21,18 @@
 **不做（本轮确认）**：darwin64 / .dylib（R-L64-03 维持）；D-13 第三方 Agent 运营（不绑发布）；
 联合模式下垂调速器（远期候选维持）。
 
-## 2. 第二轮：A 组实现细节（讨论中）
+## 2. 第二轮裁定：A 组 TL-001 C99/FMU 链（2026-11-27，用户「全部采用推荐方案路线」）
+
+| # | 裁定点 | 裁定 |
+|---|---|---|
+| R2-1 | 工件形态 | **(a) 打包为 FMU** `data/fmu/gt_tl_joint_l1_v1.fmu`（fmu_admission 准入 + V312 新增 §13 钉值）；规格 §1.2「本轨无 FMU 工件…无 V312 钉值面」澄清为「**golden 层不依赖 FMU 工件**」（golden 由 oracle emit、model_id `gt.sync.tl.l0` 不变——零已发布面改动）。依据：规格 §1.1（C99 内核 + modelDescription.xml + fmu_runner 联合 shell）、Q6（三先例机制全复用）、V1170 DEC-4（「该包」）与 §1.2 字面不一致，按多数条文定 |
+| R2-2 | 内核输入面 | **增 `line_open`（0/1）为第四输入**（规格 §1.5 列三项：demand_kW / u_eff_kW / p_elec_scale）——规格偏离显式登记。依据：oracle `joint_gt_standalone` 走 `line_open → P_elec = 0.0` 分支（gt_tl_joint_oracle.py:215）；若以 scale=0 表达，δ<0 时得 `-0.0`，P_elec 列不再与 golden 逐位相同、并危及 GLJ-5 逐位恒等守卫 |
+| R2-3 | parity 判据与门值 | C 内核 + host shell 8 Run × 29 列（除 t）对 `gt_tl_joint_v1` golden 逐点规模相对误差（gt001 parity 同构）；**门值 = 不小于实测 ×10 的最小 10 的整数次幂，且远小于 golden T-B 容差；实测 0.0 ⇒ 1e-9（fc001 先例）**。规格 R-A-09(2) sin 大参数义务**销项**：golden 8 Run \|δ\| 最大 1.021 rad，无大参数路径 |
+| R2-4 | host shell 与构建 | `fmu_runner.py` 增 `run_gt_tl_joint_shell` + `--run-gt-tl-joint`（GT shell 同构：governor / 传感偏置 / 记账 / 事件分裂归 host；内核纯物理 [f,T3,δ] RK4，h=0.01、n=1）；`build_fmu.py` 增 `--tl` 目标（复用 D-12 平台分支）；v1.18.0 包仅 linux64（R1-3） |
+| R2-5 | adapter | **做**：`src/core/plants/gt-tl-joint-adapter.js`（gt001-fmu-adapter 同构——预烘焙 golden + bridge 探针 + 轨锚定校验 golden_id / model_id / provenance）；不增 bridge HTTP 端点、不接 UI（两先例同款），测试覆盖 |
+| R2-6 | 步账与测试 | run-g2 **39→40**（第 40 步 `gt_tl_joint_parity.py`，extended 层，`skipExitCode: 3`）；fmu_admission 自检覆盖新包 |
+
+## 3. 第三轮：B 组残留 + 治理收尾 + 波次（讨论中）
 
 见会话讨论稿；裁定后回填本节。
 
