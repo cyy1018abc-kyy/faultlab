@@ -1,0 +1,73 @@
+{
+  "purpose": "I-11 plant 接口移植逐位一致性快照（CHG-20261030-07）",
+  "code": {
+    "commit_sha": "5545892d8c4fbdff4fa6e241bcb1860e196bd638",
+    "branch": "HEAD",
+    "worktree_dirty": false
+  },
+  "node": "v22.23.5",
+  "engine_version": "0.1.0",
+  "generated_at": "2026-11-27T17:40:55.331Z",
+  "runs": {
+    "FL-001/none/closed_loop": {
+      "run_hash": "4250f5665ab179319d2975166dd632e449cdcc936922bf7d188de832a01b3dbc",
+      "signals_sha256": "e67c5ebff14a96163722a7d1044d765ad5081ad4cbc5b76cf8fc40702415013b",
+      "metrics_sha256": "15bf585804491d08cdef0d09f84423a318efebf3cdad04a252f0a73c915d8691"
+    },
+    "FL-001/none/monitor": {
+      "run_hash": "cd628b3c2547167aa3da64c9f270fcf9f7d41c9b0638add8b6b998dab16426c8",
+      "signals_sha256": "e67c5ebff14a96163722a7d1044d765ad5081ad4cbc5b76cf8fc40702415013b",
+      "metrics_sha256": "8a5d671ff05f5a8a0a42c3482132ae7333057eb4ac239c5d417cedbddad3aeca"
+    },
+    "FL-001/sensor_drift/closed_loop": {
+      "run_hash": "3a8752be785799703c2d5df9d00019488790bb27f450e87528daf42a51b6fddc",
+      "signals_sha256": "47301113e3e78890939916417afc3f20aec1497fb26c220047fce1cd8c46ae3e",
+      "metrics_sha256": "31ae2986c8f59878dbfc24fa36d341e218f42592c3f2e11c6e12dc15d0131f7d"
+    },
+    "FL-001/sensor_drift/monitor": {
+      "run_hash": "a411fbf4ce48f490d12f2e65560c82d35c02f4d16f59a451ed945942e98fbf91",
+      "signals_sha256": "389c2361821da2290a7ee3dbfb7c9d6ed9a1a22cd2f1d8bcaf10e3d11d829733",
+      "metrics_sha256": "829d7c3c875253b96b876f105c11cd7cff42538fbc892cd0f07626fa61397d19"
+    },
+    "FL-001/actuator_fault/closed_loop": {
+      "run_hash": "07412169862ca7be20956c86994cd4783f900f10f28bdcaed998288d3acede2b",
+      "signals_sha256": "f359575a7a294e81af595d4e3af5bb96f3762a2fe2b339948c9761de4038d148",
+      "metrics_sha256": "b492ac985e790a2d4cbca44bef75b2387e6e057721466fd5efda4b05c9127e5c"
+    },
+    "FC-001/none/closed_loop": {
+      "run_hash": "6ac0ae17d4b4b1b912b290a6b463a435db99f8888296160e17e9534f734204c6",
+      "signals_sha256": "9d16640eb9f83d5985d125c1a4fbfe2133a920e7cb18e47f3eb396b84eba5230",
+      "metrics_sha256": "58c2796379a5a49e557a199f8f20ebd0e94f86d488613a68a12ae3faa13449eb"
+    },
+    "FC-001/none/monitor": {
+      "run_hash": "b00f8b5e7248390a14547fc2b1ef4d9236551e67bcb0168a685228c6b2c14e98",
+      "signals_sha256": "9d16640eb9f83d5985d125c1a4fbfe2133a920e7cb18e47f3eb396b84eba5230",
+      "metrics_sha256": "9fdb357c52cab99a40cb3f33f475808e985992239dd27e812ff595a208647a74"
+    },
+    "FC-001/sensor_drift/closed_loop": {
+      "run_hash": "351ca0e3a04795da6d298998184e7c49d46e29bac12d193dd1ef168c82d88ddb",
+      "signals_sha256": "85d69501418370367b1c1b37d4e91d1cde2260fec2d457bdc2eabaf31df30ca0",
+      "metrics_sha256": "2bbfd74c7ca18202c989a5b2fc34c5b8a577db2a75fbb75a7bab897b47a48ee3"
+    },
+    "FC-001/sensor_drift/monitor": {
+      "run_hash": "32d21dbce6253ce112df5b4d4867d919009f1bd66dd3edfb860512fde94a8402",
+      "signals_sha256": "654b2dd31982325c395d27945395e8ed99461565a2c6891bea0fd747ca97eebd",
+      "metrics_sha256": "5fe45fc1ecce6004799c3d9013c13d3a37d6146a23586e52db788ac684cef6a0"
+    },
+    "FC-001/load_step/closed_loop": {
+      "run_hash": "0bb28a5f2ec807887238156d04fc57fa9e5e2d992a6efb3bc6792d04d8e00306",
+      "signals_sha256": "b00940dc1a580e00b286499e75b6355e8426ed560bade1be0e3226ef8677e5c6",
+      "metrics_sha256": "1f88f1ec59e7e7e2194cd1295acdf71f0172820e3b22e7f2eb2d012e005c08e3"
+    },
+    "FC-001/actuator_fault/closed_loop": {
+      "run_hash": "3784b2c70284549075712eb506d75e74234831e113597d3727ec38cee614a45a",
+      "signals_sha256": "5fb683d15b7e589fb4bfebfe21df5036563186e7b7ad82df9508a3d6abdcea48",
+      "metrics_sha256": "74f4d043413858055227163a9bffbb60f6ac558638e4c8afa879c86bfa901e94"
+    },
+    "GT-001/sensor_drift/closed_loop": {
+      "run_hash": "e92cd52b1dbea34d006341f935f50980bbdc535b8e31486e75431b5b8d5a4254",
+      "signals_sha256": "984dcf82f6f5928f7ee09e43304ba2c2a73eea88f09b48ffa2c0bc8c206b8e95",
+      "metrics_sha256": "cdf2e3160597f5d795ba25c86903ec485d22340c3e94909b93c5d20d1190e6b1"
+    }
+  }
+}

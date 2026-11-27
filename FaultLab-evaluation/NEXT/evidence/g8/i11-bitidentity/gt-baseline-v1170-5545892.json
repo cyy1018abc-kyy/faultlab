@@ -1,0 +1,243 @@
+{
+  "purpose": "I-11 plant 接口移植逐位一致性快照（CHG-20261030-07）——GT 四轨接线扩展套件（V190 CHG-20261115-09）",
+  "code": {
+    "commit_sha": "5545892d8c4fbdff4fa6e241bcb1860e196bd638",
+    "branch": "HEAD",
+    "worktree_dirty": false
+  },
+  "node": "v22.23.5",
+  "engine_version": "0.1.0",
+  "generated_at": "2026-11-27T17:40:55.698Z",
+  "runs": {
+    "FL-001/none/closed_loop": {
+      "run_hash": "4250f5665ab179319d2975166dd632e449cdcc936922bf7d188de832a01b3dbc",
+      "signals_sha256": "e67c5ebff14a96163722a7d1044d765ad5081ad4cbc5b76cf8fc40702415013b",
+      "metrics_sha256": "15bf585804491d08cdef0d09f84423a318efebf3cdad04a252f0a73c915d8691"
+    },
+    "FL-001/none/monitor": {
+      "run_hash": "cd628b3c2547167aa3da64c9f270fcf9f7d41c9b0638add8b6b998dab16426c8",
+      "signals_sha256": "e67c5ebff14a96163722a7d1044d765ad5081ad4cbc5b76cf8fc40702415013b",
+      "metrics_sha256": "8a5d671ff05f5a8a0a42c3482132ae7333057eb4ac239c5d417cedbddad3aeca"
+    },
+    "FL-001/sensor_drift/closed_loop": {
+      "run_hash": "3a8752be785799703c2d5df9d00019488790bb27f450e87528daf42a51b6fddc",
+      "signals_sha256": "47301113e3e78890939916417afc3f20aec1497fb26c220047fce1cd8c46ae3e",
+      "metrics_sha256": "31ae2986c8f59878dbfc24fa36d341e218f42592c3f2e11c6e12dc15d0131f7d"
+    },
+    "FL-001/sensor_drift/monitor": {
+      "run_hash": "a411fbf4ce48f490d12f2e65560c82d35c02f4d16f59a451ed945942e98fbf91",
+      "signals_sha256": "389c2361821da2290a7ee3dbfb7c9d6ed9a1a22cd2f1d8bcaf10e3d11d829733",
+      "metrics_sha256": "829d7c3c875253b96b876f105c11cd7cff42538fbc892cd0f07626fa61397d19"
+    },
+    "FL-001/actuator_fault/closed_loop": {
+      "run_hash": "07412169862ca7be20956c86994cd4783f900f10f28bdcaed998288d3acede2b",
+      "signals_sha256": "f359575a7a294e81af595d4e3af5bb96f3762a2fe2b339948c9761de4038d148",
+      "metrics_sha256": "b492ac985e790a2d4cbca44bef75b2387e6e057721466fd5efda4b05c9127e5c"
+    },
+    "FC-001/none/closed_loop": {
+      "run_hash": "6ac0ae17d4b4b1b912b290a6b463a435db99f8888296160e17e9534f734204c6",
+      "signals_sha256": "9d16640eb9f83d5985d125c1a4fbfe2133a920e7cb18e47f3eb396b84eba5230",
+      "metrics_sha256": "58c2796379a5a49e557a199f8f20ebd0e94f86d488613a68a12ae3faa13449eb"
+    },
+    "FC-001/none/monitor": {
+      "run_hash": "b00f8b5e7248390a14547fc2b1ef4d9236551e67bcb0168a685228c6b2c14e98",
+      "signals_sha256": "9d16640eb9f83d5985d125c1a4fbfe2133a920e7cb18e47f3eb396b84eba5230",
+      "metrics_sha256": "9fdb357c52cab99a40cb3f33f475808e985992239dd27e812ff595a208647a74"
+    },
+    "FC-001/sensor_drift/closed_loop": {
+      "run_hash": "351ca0e3a04795da6d298998184e7c49d46e29bac12d193dd1ef168c82d88ddb",
+      "signals_sha256": "85d69501418370367b1c1b37d4e91d1cde2260fec2d457bdc2eabaf31df30ca0",
+      "metrics_sha256": "2bbfd74c7ca18202c989a5b2fc34c5b8a577db2a75fbb75a7bab897b47a48ee3"
+    },
+    "FC-001/sensor_drift/monitor": {
+      "run_hash": "32d21dbce6253ce112df5b4d4867d919009f1bd66dd3edfb860512fde94a8402",
+      "signals_sha256": "654b2dd31982325c395d27945395e8ed99461565a2c6891bea0fd747ca97eebd",
+      "metrics_sha256": "5fe45fc1ecce6004799c3d9013c13d3a37d6146a23586e52db788ac684cef6a0"
+    },
+    "FC-001/load_step/closed_loop": {
+      "run_hash": "0bb28a5f2ec807887238156d04fc57fa9e5e2d992a6efb3bc6792d04d8e00306",
+      "signals_sha256": "b00940dc1a580e00b286499e75b6355e8426ed560bade1be0e3226ef8677e5c6",
+      "metrics_sha256": "1f88f1ec59e7e7e2194cd1295acdf71f0172820e3b22e7f2eb2d012e005c08e3"
+    },
+    "FC-001/actuator_fault/closed_loop": {
+      "run_hash": "3784b2c70284549075712eb506d75e74234831e113597d3727ec38cee614a45a",
+      "signals_sha256": "5fb683d15b7e589fb4bfebfe21df5036563186e7b7ad82df9508a3d6abdcea48",
+      "metrics_sha256": "74f4d043413858055227163a9bffbb60f6ac558638e4c8afa879c86bfa901e94"
+    },
+    "GT-001/sensor_drift/closed_loop": {
+      "run_hash": "e92cd52b1dbea34d006341f935f50980bbdc535b8e31486e75431b5b8d5a4254",
+      "signals_sha256": "984dcf82f6f5928f7ee09e43304ba2c2a73eea88f09b48ffa2c0bc8c206b8e95",
+      "metrics_sha256": "cdf2e3160597f5d795ba25c86903ec485d22340c3e94909b93c5d20d1190e6b1"
+    },
+    "GT-001/none/closed_loop/swing": {
+      "run_hash": "bd0f141eb41240be3e6cdd0e41cee0fa2515e622d2d632680f53ccf339521819",
+      "signals_sha256": "2f9ef2f05da4f9533c4afa182e307906eaccc3ba58a69370e4ec891a6a79d059",
+      "metrics_sha256": "70f14ccdedb864082e290ec8005c9dfc487d726bb114c9bb1f2de00aa5a4dab8"
+    },
+    "GT-001/none/closed_loop/linear": {
+      "run_hash": "dde397b27e6c3eeeffdaa299448ec8a2a2de896df3c7ececf0e60575b43275f0",
+      "signals_sha256": "9d9cf667b4a4350b0629ee994dbe4d39e53a80b833052aaee0269e5114b69a14",
+      "metrics_sha256": "b9a6c672aaa431c34c5215e0087a824beab9e26c1777acfef662ad0361a6d0e7"
+    },
+    "GT-001/none/closed_loop/thermo": {
+      "run_hash": "e92cd52b1dbea34d006341f935f50980bbdc535b8e31486e75431b5b8d5a4254",
+      "signals_sha256": "984dcf82f6f5928f7ee09e43304ba2c2a73eea88f09b48ffa2c0bc8c206b8e95",
+      "metrics_sha256": "9099a9a4c23079c6bf5a40d07bc66c00476eb7c5138f38b247f341bd21300587"
+    },
+    "GT-001/none/closed_loop/thermo_comb": {
+      "run_hash": "d9ad68f46e2b9eed60f7889a2508a77cc88828f8c3bcc763deea8fc17f05496e",
+      "signals_sha256": "e7083c3e23d288a536af7b7bd66839d04f287593d5be0bfcc346d8a574c98cfb",
+      "metrics_sha256": "f2bb8f331305019c7fdb1f5487a3926e7c5796575068314e93fbe99e0d8ad7ad"
+    },
+    "GT-001/none/monitor/swing": {
+      "run_hash": "1240ea418f7f25d0e2d160d10328d3387b585823fb56ca91c5e537705c990804",
+      "signals_sha256": "ca525c5dcc18fcb1f8046e5e536f0aecf4b9e12f369929808ae88ea94695eaa2",
+      "metrics_sha256": "31e57683bbb6aa93fa3ae34bb4a548d338a233670df17aa405e091ce59aec865"
+    },
+    "GT-001/none/monitor/linear": {
+      "run_hash": "e7f65086c3a8debbd84217387ea8cfd3bc73a52f1a86451776f73463572dd7d9",
+      "signals_sha256": "ca525c5dcc18fcb1f8046e5e536f0aecf4b9e12f369929808ae88ea94695eaa2",
+      "metrics_sha256": "ae2caa2c6d2e3d8d0b887e602213d009794426c9a3580ded28235ad0c9014a9e"
+    },
+    "GT-001/none/monitor/thermo": {
+      "run_hash": "08272fc2dc417e165553524f3043bba72489578a07dbe870ded068a026fa74fe",
+      "signals_sha256": "caec2eeb75aced0a20aac27b4ebc09939178116041cf52935a464c03d9b57a9b",
+      "metrics_sha256": "a980387810bd77995b076aad2ca859cf93a94503a80fa421a042ac7be4d33d43"
+    },
+    "GT-001/none/monitor/thermo_comb": {
+      "run_hash": "9284bcf651163607932b8d26a72d4e0c2a4c293c708cdc7eded1de58848dd40f",
+      "signals_sha256": "caec2eeb75aced0a20aac27b4ebc09939178116041cf52935a464c03d9b57a9b",
+      "metrics_sha256": "cb482fb54f921746e427e70824f7d470044c884fe38f142bd46cb8262595c925"
+    },
+    "GT-001/sensor_drift/closed_loop/swing": {
+      "run_hash": "bd0f141eb41240be3e6cdd0e41cee0fa2515e622d2d632680f53ccf339521819",
+      "signals_sha256": "2f9ef2f05da4f9533c4afa182e307906eaccc3ba58a69370e4ec891a6a79d059",
+      "metrics_sha256": "4ed1161413bba94bf566644abf392286ce4024f872ba283292ad4065ff9a4ca0"
+    },
+    "GT-001/sensor_drift/closed_loop/linear": {
+      "run_hash": "dde397b27e6c3eeeffdaa299448ec8a2a2de896df3c7ececf0e60575b43275f0",
+      "signals_sha256": "9d9cf667b4a4350b0629ee994dbe4d39e53a80b833052aaee0269e5114b69a14",
+      "metrics_sha256": "402a160110c00cddb397e0320c7404d5f3ce0eabaa06896fd554f44582fccdda"
+    },
+    "GT-001/sensor_drift/closed_loop/thermo": {
+      "run_hash": "e92cd52b1dbea34d006341f935f50980bbdc535b8e31486e75431b5b8d5a4254",
+      "signals_sha256": "984dcf82f6f5928f7ee09e43304ba2c2a73eea88f09b48ffa2c0bc8c206b8e95",
+      "metrics_sha256": "dcbfa69af940b3bcf72b31ede50d012b0a16da417370ab27cddd8533f39bc68e"
+    },
+    "GT-001/sensor_drift/closed_loop/thermo_comb": {
+      "run_hash": "d9ad68f46e2b9eed60f7889a2508a77cc88828f8c3bcc763deea8fc17f05496e",
+      "signals_sha256": "e7083c3e23d288a536af7b7bd66839d04f287593d5be0bfcc346d8a574c98cfb",
+      "metrics_sha256": "f0cd8dce67b0698ccae8fcb54f93c94cb6d030a1190c9358159a77681b48c4f9"
+    },
+    "GT-001/sensor_drift/monitor/swing": {
+      "run_hash": "1240ea418f7f25d0e2d160d10328d3387b585823fb56ca91c5e537705c990804",
+      "signals_sha256": "ca525c5dcc18fcb1f8046e5e536f0aecf4b9e12f369929808ae88ea94695eaa2",
+      "metrics_sha256": "dc68757c9094e31f6b97e2ac01b3eb3f04aa20b2218c28fe0f31f5db8e91d151"
+    },
+    "GT-001/sensor_drift/monitor/linear": {
+      "run_hash": "e7f65086c3a8debbd84217387ea8cfd3bc73a52f1a86451776f73463572dd7d9",
+      "signals_sha256": "ca525c5dcc18fcb1f8046e5e536f0aecf4b9e12f369929808ae88ea94695eaa2",
+      "metrics_sha256": "fe28d90aa2f6b2cae2432a7a9385dc7daa4c2a55c3a62cf5faaae921b5da09ce"
+    },
+    "GT-001/sensor_drift/monitor/thermo": {
+      "run_hash": "08272fc2dc417e165553524f3043bba72489578a07dbe870ded068a026fa74fe",
+      "signals_sha256": "caec2eeb75aced0a20aac27b4ebc09939178116041cf52935a464c03d9b57a9b",
+      "metrics_sha256": "f22ce4b5fd267e4d20be0ef44c28ae3f0b523e3b93a20855d6f60dc2284dbf7c"
+    },
+    "GT-001/sensor_drift/monitor/thermo_comb": {
+      "run_hash": "9284bcf651163607932b8d26a72d4e0c2a4c293c708cdc7eded1de58848dd40f",
+      "signals_sha256": "caec2eeb75aced0a20aac27b4ebc09939178116041cf52935a464c03d9b57a9b",
+      "metrics_sha256": "669bb3eeb10b17f9ffa6fb00b0a9bbf6bb5fe41b49ae79032be16f9b59d34568"
+    },
+    "GT-001/load_step/closed_loop/swing": {
+      "run_hash": "b2f316ca4783450188c847f9f5bf5fda1f959dbd33b7c6ab263dae8e826e1404",
+      "signals_sha256": "8f946000468fcaa0e4e4af6f2d25bc1622462580efaf451f6d6f001b44b472c4",
+      "metrics_sha256": "0c1fd32489b5c641c92a899d38a3affd0143492ac1e08f2e4446512cd88d9aaf"
+    },
+    "GT-001/load_step/closed_loop/linear": {
+      "run_hash": "e0a8da07686bb4db55b7e7cd47cc7a703866b26f951153f752e6cbb9828b6c01",
+      "signals_sha256": "f38a73e6329c6b5b0748e4891ac6ac87edab960c35e53f96da84ac8e34e41136",
+      "metrics_sha256": "afec34ad2f00f3f9faa286edb1369347e459e78a5c02989ebe3958d4d1cafc9f"
+    },
+    "GT-001/load_step/closed_loop/thermo": {
+      "run_hash": "f5952d35dfd4d6ef2ae0f8f6b689b9bdf553fac08bab37b7ba8360c8f5b931f4",
+      "signals_sha256": "18b7ec61a600b696b801e182bdabd1b81455422eeb521106550112ca166e8e70",
+      "metrics_sha256": "0468d36b395a6de4479b939d4043982adbcd245d2adf89a45a4fe5724543e081"
+    },
+    "GT-001/load_step/closed_loop/thermo_comb": {
+      "run_hash": "9a2750e1e0a2e82580be40452bda82cfd299b240193673fe519e6f2cd7474105",
+      "signals_sha256": "5279e924add43e042ace8fa925b932c08d896fff806ee3945edde501344d26ba",
+      "metrics_sha256": "f87bfbb869b845334e33a30e76442368dd01666aefa504c16df435782b67e076"
+    },
+    "GT-001/load_step/monitor/swing": {
+      "run_hash": "76fbab5727352ce4c0cb119b3af45458fc55f6b28c9d55d7880b7f2f403f61a0",
+      "signals_sha256": "8f946000468fcaa0e4e4af6f2d25bc1622462580efaf451f6d6f001b44b472c4",
+      "metrics_sha256": "740af0a86dd50a767b950875aa5ac9c93f69d776eaf21fb1d4c36390a4189452"
+    },
+    "GT-001/load_step/monitor/linear": {
+      "run_hash": "4bd2a1a625504f7129757b4138f6a55b36735687a154dc7180dc365211306a4a",
+      "signals_sha256": "f38a73e6329c6b5b0748e4891ac6ac87edab960c35e53f96da84ac8e34e41136",
+      "metrics_sha256": "03af90b6dd5e079885d32d18295fdf9126a8444210876907d9966db7ff973f61"
+    },
+    "GT-001/load_step/monitor/thermo": {
+      "run_hash": "3120ab8708f7fa3334cc9d93f573c05cb8c93c803b511241168046282d19d281",
+      "signals_sha256": "18b7ec61a600b696b801e182bdabd1b81455422eeb521106550112ca166e8e70",
+      "metrics_sha256": "fb43cedcd6397883d6cd398af06d4ff5d5b27d1f3098df4e9dab9a1391326640"
+    },
+    "GT-001/load_step/monitor/thermo_comb": {
+      "run_hash": "f8c596f452c4a89a8388aeeb9693c336726d485a8356b4fc3b990ee86d365b1f",
+      "signals_sha256": "5279e924add43e042ace8fa925b932c08d896fff806ee3945edde501344d26ba",
+      "metrics_sha256": "e0f1e77169ebf9fda0f73621e8ad13e9255111034c61defaa3f3a1c71b74ef60"
+    },
+    "GT-001/actuator_fault/closed_loop/swing": {
+      "run_hash": "02afe369dbcd24876ffd583a93b127611ec15ad804b23ccd1eaa2c58094b6829",
+      "signals_sha256": "0e7a88e4713e4f2bc153a33e19b3ce3f8ffc47eea4a98039ae8634c0f6c3af67",
+      "metrics_sha256": "6a5f8cc84d687ee7e231c1e11e6f2b27edeafdf54b15739afa16df03aafd6fd7"
+    },
+    "GT-001/actuator_fault/closed_loop/linear": {
+      "run_hash": "5c07f7f23e400bc000a42fbf6b6c724d551d324bafeebeb61c6aa9c591b80b24",
+      "signals_sha256": "db0b431f3aa4fda618de08e88f54344c14dc0aea1727d3c981a38bfc9958eb7e",
+      "metrics_sha256": "9a7d500898dc0a566cd7dea0ccef8ab842aa50917c9b357fc1da8448a39280fe"
+    },
+    "GT-001/actuator_fault/closed_loop/thermo": {
+      "run_hash": "e44f12d4d44f42913940dcba768f70311da56f3c63a88875445d6ae4ec23dbc1",
+      "signals_sha256": "71861834e4b22c1a8db428e68b6d401eba5fe40c636e7aadf5bf2960232dbf2a",
+      "metrics_sha256": "dff469798a21d93e9cf0884af641c561a336a3e2341f571cee2911a94a39741b"
+    },
+    "GT-001/actuator_fault/closed_loop/thermo_comb": {
+      "run_hash": "2bd065bf9835cb9f997d2a4d2d982572b0d71d2fbef64b3c2d269941971a7ab2",
+      "signals_sha256": "5c1973181ecc53e13633f0aef3c89d53eb1b01d9e6b3f2805a149e6b29ff366b",
+      "metrics_sha256": "722d0798a6b67e78170783114bc955df07cf2d2234b9e939f14ffd06a0d89ac9"
+    },
+    "GT-001/actuator_fault/monitor/swing": {
+      "run_hash": "092034db200f1e9a1f1021b3651064a4e5b1409a4fbce92403462425b6485a21",
+      "signals_sha256": "0e7a88e4713e4f2bc153a33e19b3ce3f8ffc47eea4a98039ae8634c0f6c3af67",
+      "metrics_sha256": "3721b63672c215e43e7b7b93ffcb9115929508642f180c309fff43a91d452159"
+    },
+    "GT-001/actuator_fault/monitor/linear": {
+      "run_hash": "9b237cbe003ea02bc2d230678516cf60da8e61be4fdc9d2ae19aee6fe6813641",
+      "signals_sha256": "db0b431f3aa4fda618de08e88f54344c14dc0aea1727d3c981a38bfc9958eb7e",
+      "metrics_sha256": "692c6906f64482c2ffacbfe5d125f29587f89f369763b5e7b7ede5fe1e4814f8"
+    },
+    "GT-001/actuator_fault/monitor/thermo": {
+      "run_hash": "a783ed846689102d4833f6c005597120decf73a4b9433bb8a8ccc2f10c1744eb",
+      "signals_sha256": "71861834e4b22c1a8db428e68b6d401eba5fe40c636e7aadf5bf2960232dbf2a",
+      "metrics_sha256": "b9494dcb3557137fadef18f81a3f95a478241c2a568ed6c15ad0c358deef4be0"
+    },
+    "GT-001/actuator_fault/monitor/thermo_comb": {
+      "run_hash": "7cc319ae7565fbe56098e6de16ad2170db5143e0e58d0fd6216ae5ce24c0f614",
+      "signals_sha256": "5c1973181ecc53e13633f0aef3c89d53eb1b01d9e6b3f2805a149e6b29ff366b",
+      "metrics_sha256": "883b6cde6b35f8f4ac1c9686ca7602f6c10bfaba0d226af1daac8f81605c5048"
+    },
+    "GT-001/actuator_fault/closed_loop/tclear35/swing": {
+      "run_hash": "0afd79617f7847775f64e2e02bad87bf2615203fc75851f4687d3510baed1fc3",
+      "signals_sha256": "e3e747ec5a3a20c33115abacd4abbec7cb0730e8831c77696bd0545912917e2d",
+      "metrics_sha256": "c59f6abeda6e80812ad7dcc9f0e2af56cc087ca962b7444da8f21da719992c02"
+    },
+    "GT-001/actuator_fault/closed_loop/tclear35/thermo": {
+      "run_hash": "87e937467758fcdae35cf824b25b6d0791a2b59e9f45fcfabe9f6a352b78a612",
+      "signals_sha256": "e4fd3713cc93e9fb044e8c9e782f53d66f2a9fec6ae6c38adb51985281a0c9c0",
+      "metrics_sha256": "3cd06161fa91dd3ac2de6b577bc74d97dc329bfd85f53a8991243e2126f3985d"
+    }
+  }
+}
