@@ -11,7 +11,8 @@
   5. 判据：规模相对误差 ≤ 1e-9（R-G9-02 数值容差承诺——非位级承诺）；实测值登记
      供 ×≥10 冻结制（Q9）——gate 冻结值 = 实测散差 × 安全系数 ≥10。
 
-环境缺位（无 64 位解释器 / .fmu 缺席 / 准入拒收）⇒ status=skip（结构化 JSON +
+环境缺位（无 64 位解释器 / .fmu 缺席 / 准入拒收 / 包内无当前平台二进制——D-12
+CHG-20261127-01）⇒ status=skip（结构化 JSON +
 exit 3）——run-g2 parity 步 SKIP 语义消费（V312 §9⑥ 先例，CHG-20261118-01 DEC-3）。
 判据不过 ⇒ status=fail exit 1；通过 exit 0。零第三方依赖；oracle 文件零触碰。
 """
@@ -32,6 +33,27 @@ PARITY_RTLIM = 1e-9
 
 sys.path.insert(0, HERE)
 import fc001_fmu_oracle  # noqa: E402  只读 import（V-03 锚定面——本文件不修改其任何字节）
+
+
+def platform_binary_missing(fmu_paths):
+    """D-12 SKIP 语义补全（CHG-20261127-01——V1170_WAVE_DESIGN DEC-2）：包内无当前平台
+    二进制 ⇒ 返回原因串（调用方记 status=skip exit 3，不记 fail）；全部在位 ⇒ None。
+    平台映射与 fmu_runner.load_fmu 同口径（win32 → win64/.dll，linux → linux64/.so）。"""
+    import zipfile
+    if sys.platform == "win32":
+        plat = "win64"
+    elif sys.platform == "linux":
+        plat = "linux64"
+    else:
+        return "非支持平台：%s（FMU 包仅含 win64/linux64 二进制）" % sys.platform
+    lacking = []
+    for p in fmu_paths:
+        with zipfile.ZipFile(p) as z:
+            if not any(n.startswith("binaries/%s/" % plat) for n in z.namelist()):
+                lacking.append(os.path.basename(p))
+    if lacking:
+        return "包内无当前平台二进制 binaries/%s/：%s" % (plat, ", ".join(lacking))
+    return None
 
 
 def find_py64():
@@ -63,6 +85,10 @@ def main(argv):
         pass
     if not os.path.exists(FMU_PATH):
         print(json.dumps({"status": "skip", "reason": "编译产物缺位（.fmu 不存在）：" + FMU_PATH}))
+        return 3
+    lacking = platform_binary_missing((FMU_PATH,))
+    if lacking:
+        print(json.dumps({"status": "skip", "reason": lacking}, ensure_ascii=False))
         return 3
     py64 = find_py64()
     if not py64:

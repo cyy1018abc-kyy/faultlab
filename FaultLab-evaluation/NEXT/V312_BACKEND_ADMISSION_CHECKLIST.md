@@ -118,8 +118,9 @@
 
 | 项 | 值 |
 |---|---|
-| 产物 | `data/fmu/fc001_l1_v1.fmu`（FMI 2.0 CS zip——modelDescription.xml + binaries/win64/fc001_l1.dll + model_manifest.json；固定时间戳字节确定性） |
-| **fmu_sha256（钉）** | `5f60ca78c0a799d7fd50dd4f98fa535ed1ceda2979e618f3e1883400bc34b89d`（18,117 B） |
+| 产物 | `data/fmu/fc001_l1_v1.fmu`（FMI 2.0 CS zip——modelDescription.xml + binaries/win64/fc001_l1.dll + **binaries/linux64/fc001_l1.so（D-12 增）** + model_manifest.json；固定时间戳 + 固定 create_system 字节确定性） |
+| **fmu_sha256（钉，现行——CHG-20261127-01 linux64 重钉）** | `259e2cc1c46e239da74bacabc075a40fc0b151bc3ed0b05b6e371a219da71ef6`（24,117 B）——见 §12 |
+| fmu_sha256（历史钉值 v1.11.0–v1.16.0，win64-only） | `5f60ca78c0a799d7fd50dd4f98fa535ed1ceda2979e618f3e1883400bc34b89d`（18,117 B） |
 | model_id / provenance | `fc.pem.fmu_l1`（A-3 自述）/ `fmu_l1_lumped_unvalidated`（Q2(A) additive 档位——§7 例外行） |
 | 构建命令（钉） | `python -I tools/backend/fmu/build_fmu.py --gcc <gcc.exe>`（gcc -std=c99 -O2 -ffp-contract=off -fno-fast-math——WinLibs GCC 16.2.0 UCRT/SEH r3，sha256 校验 3c693050…；Q10=(c) win64 单平台先行） |
 | 重钉纪律 | 编译器/平台矩阵变更 ⇒ 产物字节变更 ⇒ 本表重钉须 CHG（fmu_runner FC_FMU_SHA256_PINNED 常量同步） |
@@ -133,10 +134,36 @@ CHG-20261118-01 ④ 授权修订——修订面仅此两处，其余条目零触
 
 | 项 | gt001_l1_v1.fmu（thermo） | gt001_comb_l1_v1.fmu（comb 深化） |
 |---|---|---|
-| **fmu_sha256（钉）** | `db966da9c8c8d70dae5bd7f871641ecf31b836073f9cf0afc0b7ff7b891f88e8` | `fc2289a2eabb393e06ca2513fb79c4a59cb7235fae754812d66eeceff98a8684` |
-| 字节 | 17811 | 18064 |
+| **fmu_sha256（钉，现行——CHG-20261127-01 linux64 重钉）** | `08cfd649ac5b267d0bc4c093af8828b04e5dc6f75dbd39469ea400a223ac7f95` | `06d2c9f87182d4d9f14b9e8e547d620dbcdaa947aab8240dc00ab83fb9c8fd1d` |
+| 字节（现行） | 23427 | 23909 |
+| fmu_sha256（历史钉值 v1.12.0–v1.16.0，win64-only） | `db966da9c8c8d70dae5bd7f871641ecf31b836073f9cf0afc0b7ff7b891f88e8` | `fc2289a2eabb393e06ca2513fb79c4a59cb7235fae754812d66eeceff98a8684` |
+| 字节（历史） | 17811 | 18064 |
 | model_id | gt.sync.fmu_l1 | gt.sync.fmu_l1 |
 | provenance | fmu_l1_lumped_unvalidated（§7 例外行 B-2 扩域） | 同左 |
 | 构建 | gcc -std=c99 -O2 -ffp-contract=off -fno-fast-math（WinLibs GCC 16.2.0 UCRT/SEH r3） | 同左 |
 | parity | 散差 ~2.5e-4（pow 跨 libm——R-1；×≥10 冻结制 gate 值远在 T-B 内） | 同左 |
 | 重钉纪律 | 编译器/平台矩阵变更 ⇒ 产物字节变更 ⇒ 本表重钉须 CHG | 同左 |
+
+## 12. linux64 平台矩阵重钉（D-12，CHG-20261127-01 授权——A-7「重钉须 CHG」兑现；V1170_WAVE_DESIGN DEC-2）
+
+| 项 | fc001_l1_v1.fmu | gt001_l1_v1.fmu | gt001_comb_l1_v1.fmu |
+|---|---|---|---|
+| **fmu_sha256（钉，现行）** | `259e2cc1c46e239da74bacabc075a40fc0b151bc3ed0b05b6e371a219da71ef6` | `08cfd649ac5b267d0bc4c093af8828b04e5dc6f75dbd39469ea400a223ac7f95` | `06d2c9f87182d4d9f14b9e8e547d620dbcdaa947aab8240dc00ab83fb9c8fd1d` |
+| 字节 | 24,117 | 23,427 | 23,909 |
+| 包内成员（固定序） | modelDescription.xml → binaries/win64/fc001_l1.dll → binaries/linux64/fc001_l1.so → model_manifest.json | 同构（gt001_l1） | 同构（gt001_comb_l1） |
+| linux64 `.so` sha256 | `ef2ce5ae…edd326`（17,384 B） | `afbe6edc…eb7d1e`（17,352 B） | `550cba37…10f020`（17,360 B） |
+| win64 条目 | **逐字节保留**（成员内容与 v1.16.0 包逐字节相同——dll / modelDescription.xml 零变化） | 同左 | 同左 |
+| manifest 变化 | additive 键 `build_toolchains`（win64 + linux64 编译器身份与参数） | 同左 | 同左 |
+| linux64 构建 | `python -I tools/backend/fmu/build_fmu.py --gcc gcc --platform linux64 [--gt]`——gcc 13.3.0（Ubuntu 13.3.0-6ubuntu2~24.04.1）/ glibc 2.39；参数 = 钉死 CC_FLAGS + `-fPIC` / `-lm` | 同左 | 同左 |
+| win64 构建 | 命令逐字不变（`--platform` 缺省 win64；WinLibs GCC 16.2.0 UCRT/SEH r3） | 同左 | 同左 |
+| parity（linux64） | **0.0**（5 Run；门 1e-9） | **2.548e-4**（12 Run 双包合计；门 1e-3——与 win64 同量级） | 同左 |
+| 非支持平台 | parity 脚本：包内无当前平台二进制 ⇒ `status=skip` exit 3；run-g2 记 skipped（不 fail、不计通过） | 同左 | 同左 |
+
+**重钉同步面**：`fmu_runner.py` `FC_FMU_SHA256_PINNED` / `GT_FMU_SHA256_PINNED`（旧值注释留痕）+
+`tests/backend-bridge.test.js` FC 三处断言（收敛为单常量 `FC_FMU_PIN`）；`tests/bundle.test.js:284`
+为证据包往返夹具（非钉值校验）——维持原值不动；golden 文件不含包哈希——**16 golden 字节零触碰**。
+
+**可复现性**：Linux 上以 v1.16.0 形态（仅 win64 成员、无 build_toolchains 键）重新打包，三包 sha256
+与历史钉值 5f60ca78… / db966da9… / fc2289a2… **逐字节一致**（证据 `evidence/g8/v1170-release.md` §2）——
+zip 成员 `create_system` 固定 0 消除宿主差异。darwin64 / `.dylib` 维持不纳入（R-L64-03）。
+

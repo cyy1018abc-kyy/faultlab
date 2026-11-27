@@ -11,14 +11,28 @@
   3. fmu_admission 准入自检（admitted=true 方出境）；
   4. 输出 sha256（V312 钉 hash 载体——CHG-20261118-01 ④）。
 
+平台矩阵（D-12 linux64 / CHG-20261127-01——V1170_WAVE_DESIGN DEC-2）：
+  - `--platform win64`（缺省）：编译命令与 v1.16.0 逐字相同（CC_FLAGS，无额外参数）；
+  - `--platform linux64`：additive 平台分支——CC_FLAGS + `-fPIC`、链接 `-lm`，产出
+    binaries/linux64/<modelIdentifier>.so；
+  - 打包 = 包含仓库内已在位的全部平台二进制（PLATFORM_ORDER 固定序：win64 → linux64）——
+    在一个平台上重新打包不丢另一平台条目；win64 条目逐字节保留；
+  - zip 成员 create_system 固定为 0（MS-DOS/FAT——v1.16.0 Windows 打包时的实际值），
+    使 Linux 与 Windows 打包产物字节一致（Python zipfile 缺省按宿主系统取 0/3）；
+  - 编译器身份入 model_manifest.json `build_toolchains`（additive 键；按包内平台列出）；
+    编译前 `gcc -dumpfullversion` 须与 PLATFORM_TOOLCHAINS 登记值一致，否则拒绝编译
+    （工具链变更 ⇒ 产物字节变更 ⇒ V312 重钉须 CHG）。
+
 用法：
-  python -I tools/backend/fmu/build_fmu.py --gcc <gcc.exe 路径> [--compile-only] [--package-only]
+  python -I tools/backend/fmu/build_fmu.py --gcc <gcc 路径> [--platform win64|linux64]
+                                           [--gt] [--compile-only] [--package-only]
 """
 
 import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -28,22 +42,46 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 
 C_SOURCE = os.path.join(HERE, "fc001_l1.c")
 XML_SOURCE = os.path.join(HERE, "modelDescription.xml")
-DLL_REL = os.path.join("binaries", "win64", "fc001_l1.dll")
-DLL_OUT = os.path.join(HERE, "binaries", "win64", "fc001_l1.dll")
 FMU_OUT = os.path.join(ROOT, "data", "fmu", "fc001_l1_v1.fmu")
+
+#: 平台矩阵（D-12 / CHG-20261127-01）：固定打包序 + 平台分支参数 + 工具链登记值。
+#: win64 分支参数为空 ⇒ 编译命令与 v1.16.0 逐字相同；linux64 = +-fPIC / -lm（共享库必需）。
+PLATFORM_ORDER = ("win64", "linux64")
+PLATFORMS = {
+    "win64": {"ext": ".dll", "extra_cflags": [], "ldlibs": []},
+    "linux64": {"ext": ".so", "extra_cflags": ["-fPIC"], "ldlibs": ["-lm"]},
+}
+
+#: 编译器身份（写入 model_manifest.json build_toolchains——additive 键）。
+#: version = `gcc -dumpfullversion` 期望值（编译前机检）；变更须 CHG 并重钉 V312 §10/§11。
+PLATFORM_TOOLCHAINS = {
+    "win64": {
+        "compiler": "gcc",
+        "version": "16.2.0",
+        "distribution": "WinLibs GCC 16.2.0 UCRT/SEH r3 (x86_64-w64-mingw32)",
+        "runtime": "UCRT",
+    },
+    "linux64": {
+        "compiler": "gcc",
+        "version": "13.3.0",
+        "distribution": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 (x86_64-linux-gnu)",
+        "runtime": "glibc 2.39",
+    },
+}
+
+#: zip 成员 create_system 固定值（0 = MS-DOS/FAT；v1.16.0 三包 Windows 打包实际值）
+ZIP_CREATE_SYSTEM = 0
 
 #: GT-001 L1-FMU 双包（GTFMU-G2b-04 / CHG-20261119-01——Q2(a) thermo+comb 各自另批）
 GT_TARGETS = {
     "gt001_l1": {
         "c": os.path.join(HERE, "gt001_l1.c"),
         "xml": os.path.join(HERE, "gt001_l1_modelDescription.xml"),
-        "dll_rel": os.path.join("binaries", "win64", "gt001_l1.dll"),
         "fmu": os.path.join(ROOT, "data", "fmu", "gt001_l1_v1.fmu"),
     },
     "gt001_comb_l1": {
         "c": os.path.join(HERE, "gt001_comb_l1.c"),
         "xml": os.path.join(HERE, "gt001_comb_l1_modelDescription.xml"),
-        "dll_rel": os.path.join("binaries", "win64", "gt001_comb_l1.dll"),
         "fmu": os.path.join(ROOT, "data", "fmu", "gt001_comb_l1_v1.fmu"),
     },
 }
@@ -91,52 +129,115 @@ GT_MANIFEST = {
 }
 
 
-def compile_gt(name, gcc_path):
-    """GT kernel compile (ASCII temp dir - gcc-to-ld non-ASCII path workaround)."""
-    import shutil
+def binary_rel(identifier, platform):
+    """包内/仓库内平台二进制相对路径：binaries/<platform>/<modelIdentifier><ext>。"""
+    return os.path.join("binaries", platform, identifier + PLATFORMS[platform]["ext"])
+
+
+def compile_cmd(gcc_path, out_path, src_path, platform):
+    """编译命令（win64 = v1.16.0 逐字：[gcc] + CC_FLAGS + [out, src]）。"""
+    p = PLATFORMS[platform]
+    flags = list(CC_FLAGS)
+    if p["extra_cflags"]:
+        # 平台附加参数插在 -shared 之后、-o 之前（CC_FLAGS 以 "-o" 结尾）
+        flags = flags[:-1] + p["extra_cflags"] + flags[-1:]
+    return [gcc_path] + flags + [out_path, src_path] + p["ldlibs"]
+
+
+def check_toolchain(gcc_path, platform):
+    """编译前工具链身份机检：gcc -dumpfullversion 须等于登记值（不符即拒——重钉须 CHG）。"""
+    res = subprocess.run([gcc_path, "-dumpfullversion"], capture_output=True)
+    got = (res.stdout or b"").decode("utf-8", errors="replace").strip()
+    want = PLATFORM_TOOLCHAINS[platform]["version"]
+    if res.returncode != 0 or got != want:
+        raise RuntimeError(
+            "toolchain mismatch for %s: gcc -dumpfullversion = %r, registered %r "
+            "(PLATFORM_TOOLCHAINS change requires a CHG + V312 re-pin)" % (platform, got, want))
+    return got
+
+
+def _compile_one(gcc_path, c_source, identifier, platform, prefix):
+    """编译在 ASCII 临时目录进行（gcc→ld 链对非 ASCII 路径的 ANSI 码页退化敏感——
+    CHG-20261118-01 工具链纪律），产物 shutil 复制回仓库（Python 全 Unicode 安全）。"""
     import tempfile
-    tgt = GT_TARGETS[name]
-    dll_out = os.path.join(HERE, tgt["dll_rel"])
-    os.makedirs(os.path.dirname(dll_out), exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="gt001_fmu_build_") as td:
-        out_dll = os.path.join(td, name + ".dll")
-        src_tmp = os.path.join(td, name + ".c")
-        with open(tgt["c"], "rb") as f:
+    bin_out = os.path.join(HERE, binary_rel(identifier, platform))
+    os.makedirs(os.path.dirname(bin_out), exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=prefix) as td:
+        out_bin = os.path.join(td, identifier + PLATFORMS[platform]["ext"])
+        # 源文件亦复制到 ASCII 路径（include/诊断路径同理）
+        src_tmp = os.path.join(td, identifier + ".c")
+        with open(c_source, "rb") as f:
             src_bytes = f.read()
         with open(src_tmp, "wb") as f:
             f.write(src_bytes)
-        cmd = [gcc_path] + CC_FLAGS + [out_dll, src_tmp]
+        cmd = compile_cmd(gcc_path, out_bin, src_tmp, platform)
         res = subprocess.run(cmd, capture_output=True, cwd=td)
         out = (res.stdout or b"").decode("utf-8", errors="replace")
         err = (res.stderr or b"").decode("utf-8", errors="replace")
         if res.returncode != 0:
             raise RuntimeError("compile failed rc=%d\n%s\n%s" % (res.returncode, out, err))
-        shutil.copyfile(out_dll, dll_out)
-    return dll_out
+        shutil.copyfile(out_bin, bin_out)
+    return {"binary": bin_out, "command": cmd, "warnings": (err or out).strip()}
+
+
+def present_platforms(identifier):
+    """仓库内已在位的平台二进制（PLATFORM_ORDER 固定序）。"""
+    return [p for p in PLATFORM_ORDER
+            if os.path.exists(os.path.join(HERE, binary_rel(identifier, p)))]
+
+
+def manifest_with_toolchains(base, platforms):
+    """manifest 副本 + build_toolchains（additive 键——按包内平台列出编译器身份与命令参数）。"""
+    m = dict(base)
+    m["integration"] = dict(base["integration"])
+    m["build_toolchains"] = {
+        p: dict(PLATFORM_TOOLCHAINS[p],
+                flags=[f for f in compile_cmd("gcc", "OUT", "SRC", p)[1:]
+                        if f not in ("-o", "OUT", "SRC")])
+        for p in platforms
+    }
+    return m
+
+
+def write_fmu(fmu_path, xml_path, identifier, manifest_base):
+    """FMI zip 打包（固定时间戳 1980-01-01 + 固定 create_system ⇒ 跨宿主字节确定性）。
+    成员序：modelDescription.xml → binaries/<platform>/*（PLATFORM_ORDER）→ model_manifest.json。"""
+    platforms = present_platforms(identifier)
+    if not platforms:
+        raise FileNotFoundError("no platform binary for %s under %s"
+                                % (identifier, os.path.join(HERE, "binaries")))
+    with open(xml_path, "rb") as f:
+        members = [("modelDescription.xml", f.read())]
+    for p in platforms:
+        with open(os.path.join(HERE, binary_rel(identifier, p)), "rb") as f:
+            members.append((binary_rel(identifier, p).replace("\\", "/"), f.read()))
+    manifest = manifest_with_toolchains(manifest_base, platforms)
+    members.append(("model_manifest.json",
+                    json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")))
+    os.makedirs(os.path.dirname(fmu_path), exist_ok=True)
+    stamp = (1980, 1, 1, 0, 0, 0)
+    with zipfile.ZipFile(fmu_path, "w", zipfile.ZIP_DEFLATED) as z:
+        for member, data in members:
+            info = zipfile.ZipInfo(member, date_time=stamp)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o600 << 16
+            info.create_system = ZIP_CREATE_SYSTEM
+            z.writestr(info, data)
+    with open(fmu_path, "rb") as f:
+        digest = hashlib.sha256(f.read()).hexdigest()
+    return fmu_path, digest, platforms
+
+
+def compile_gt(name, gcc_path, platform="win64"):
+    """GT kernel compile (ASCII temp dir - gcc-to-ld non-ASCII path workaround)."""
+    return _compile_one(gcc_path, GT_TARGETS[name]["c"], name, platform, "gt001_fmu_build_")["binary"]
 
 
 def package_gt(name):
     """GT FMU packaging (fixed timestamp deterministic; GT-context manifest)."""
     tgt = GT_TARGETS[name]
-    with open(os.path.join(HERE, tgt["dll_rel"]), "rb") as f:
-        dll_bytes = f.read()
-    with open(tgt["xml"], "rb") as f:
-        xml_bytes = f.read()
-    manifest = dict(GT_MANIFEST)
-    manifest["integration"] = dict(GT_MANIFEST["integration"])
-    manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")
-    stamp = (1980, 1, 1, 0, 0, 0)
-    with zipfile.ZipFile(tgt["fmu"], "w", zipfile.ZIP_DEFLATED) as z:
-        for member, data in (("modelDescription.xml", xml_bytes),
-                             (tgt["dll_rel"].replace(chr(92), "/"), dll_bytes),
-                             ("model_manifest.json", manifest_bytes)):
-            info = zipfile.ZipInfo(member, date_time=stamp)
-            info.compress_type = zipfile.ZIP_DEFLATED
-            info.external_attr = 0o600 << 16
-            z.writestr(info, data)
-    with open(tgt["fmu"], "rb") as f:
-        digest = hashlib.sha256(f.read()).hexdigest()
-    return tgt["fmu"], digest
+    fmu_path, digest, _ = write_fmu(tgt["fmu"], tgt["xml"], name, GT_MANIFEST)
+    return fmu_path, digest
 
 #: 编译命令钉死（V1110 DEC：-ffp-contract=off 禁 FMA 收缩 + -fno-fast-math 禁快算重结合）
 CC_FLAGS = ["-std=c99", "-O2", "-Wall", "-Wextra", "-ffp-contract=off", "-fno-fast-math", "-shared", "-o"]
@@ -182,50 +283,15 @@ MANIFEST = {
 }
 
 
-def compile_dll(gcc_path):
-    """编译在 ASCII 临时目录进行（gcc→ld 链对非 ASCII 路径的 ANSI 码页退化敏感——
-    CHG-20261118-01 工具链纪律），产物 shutil 复制回仓库（Python 全 Unicode 安全）。"""
-    import shutil
-    import tempfile
-    os.makedirs(os.path.dirname(DLL_OUT), exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="fc001_l1_build_") as td:
-        out_dll = os.path.join(td, "fc001_l1.dll")
-        # 源文件亦复制到 ASCII 路径（include/诊断路径同理）
-        src_tmp = os.path.join(td, "fc001_l1.c")
-        with open(C_SOURCE, "rb") as f:
-            src_bytes = f.read()
-        with open(src_tmp, "wb") as f:
-            f.write(src_bytes)
-        cmd = [gcc_path] + CC_FLAGS + [out_dll, src_tmp]
-        res = subprocess.run(cmd, capture_output=True, cwd=td)
-        out = (res.stdout or b"").decode("utf-8", errors="replace")
-        err = (res.stderr or b"").decode("utf-8", errors="replace")
-        if res.returncode != 0:
-            raise RuntimeError("编译失败 rc=%d\n%s\n%s" % (res.returncode, out, err))
-        shutil.copyfile(out_dll, DLL_OUT)
-    return {"command": cmd, "warnings": (err or out).strip()}
+def compile_dll(gcc_path, platform="win64"):
+    """FC-001 内核编译（平台分支见 compile_cmd；win64 命令与 v1.16.0 逐字相同）。"""
+    return _compile_one(gcc_path, C_SOURCE, "fc001_l1", platform, "fc001_l1_build_")
 
 
 def package_fmu():
-    os.makedirs(os.path.dirname(FMU_OUT), exist_ok=True)
-    with open(DLL_OUT, "rb") as f:
-        dll_bytes = f.read()
-    with open(XML_SOURCE, "rb") as f:
-        xml_bytes = f.read()
-    manifest_bytes = json.dumps(MANIFEST, ensure_ascii=False, indent=2).encode("utf-8")
-    # 固定时间戳（1980-01-01）⇒ 字节确定性（两次打包同哈希——R-G9-03 前提）
-    stamp = (1980, 1, 1, 0, 0, 0)
-    with zipfile.ZipFile(FMU_OUT, "w", zipfile.ZIP_DEFLATED) as z:
-        for name, data in (("modelDescription.xml", xml_bytes),
-                           (DLL_REL.replace("\\", "/"), dll_bytes),
-                           ("model_manifest.json", manifest_bytes)):
-            info = zipfile.ZipInfo(name, date_time=stamp)
-            info.compress_type = zipfile.ZIP_DEFLATED
-            info.external_attr = 0o600 << 16
-            z.writestr(info, data)
-    with open(FMU_OUT, "rb") as f:
-        digest = hashlib.sha256(f.read()).hexdigest()
-    return FMU_OUT, digest
+    # 固定时间戳（1980-01-01）+ 固定 create_system ⇒ 字节确定性（两次打包同哈希——R-G9-03 前提）
+    fmu_path, digest, _ = write_fmu(FMU_OUT, XML_SOURCE, "fc001_l1", MANIFEST)
+    return fmu_path, digest
 
 
 def main(argv):
@@ -234,14 +300,18 @@ def main(argv):
     ap.add_argument("--compile-only", action="store_true")
     ap.add_argument("--package-only", action="store_true")
     ap.add_argument("--gt", action="store_true", help="build GT-001 L1-FMU dual packages (GTFMU-G2b-04)")
+    ap.add_argument("--platform", choices=PLATFORM_ORDER, default="win64",
+                    help="编译目标平台（缺省 win64；linux64 = D-12 additive 分支）——打包恒含全部在位平台")
     args = ap.parse_args(argv[1:])
 
     warnings = ""
+    if not args.package_only:
+        check_toolchain(args.gcc, args.platform)
     if args.gt:
         if not args.package_only:
             for name in GT_TARGETS:
-                compile_gt(name, args.gcc)
-                print("[compile] OK:", name)
+                compile_gt(name, args.gcc, args.platform)
+                print("[compile] OK:", name, args.platform)
         results = []
         sys.path.insert(0, os.path.join(ROOT, "tools", "backend", "py"))
         import fmu_admission  # noqa: E402
@@ -255,14 +325,15 @@ def main(argv):
             _, digest2 = package_gt(name)
             results.append({"name": name, "fmu": os.path.relpath(fmu_path, ROOT),
                             "bytes": os.path.getsize(fmu_path), "fmu_sha256": digest,
-                            "deterministic": digest == digest2, "admitted": True})
+                            "deterministic": digest == digest2, "admitted": True,
+                            "platforms": present_platforms(name)})
         print(json.dumps({"ok": True, "targets": results}, ensure_ascii=False, indent=2))
         return 0
 
     if not args.package_only:
-        info = compile_dll(args.gcc)
+        info = compile_dll(args.gcc, args.platform)
         warnings = info["warnings"]
-        print("[compile] OK:", os.path.relpath(DLL_OUT, ROOT))
+        print("[compile] OK:", os.path.relpath(info["binary"], ROOT))
         if warnings:
             print("[compile] stderr/stdout:", warnings[:500])
 
@@ -284,6 +355,7 @@ def main(argv):
             "fmu_sha256": digest,
             "deterministic": digest == digest2,
             "admitted": True,
+            "platforms": present_platforms("fc001_l1"),
             "manifest_model_id": MANIFEST["model_id"],
         }, ensure_ascii=False, indent=2))
     return 0

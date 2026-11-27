@@ -132,8 +132,10 @@ FC_V_CAP_MAX = 500.0
 FC_U_MIN, FC_U_MAX = 0.05, 0.95
 FC_U_AN = 0.50
 
-#: FMU SHA-256 钉值（V312 钉 hash——CHG-20261118-01 ④ 授权；R-G9-03 前置校验）
-FC_FMU_SHA256_PINNED = "5f60ca78c0a799d7fd50dd4f98fa535ed1ceda2979e618f3e1883400bc34b89d"
+#: FMU SHA-256 钉值（V312 §10 钉 hash——R-G9-03 前置校验）。
+#: 重钉 CHG-20261127-01（D-12 linux64：包内增 binaries/linux64/fc001_l1.so + manifest
+#: build_toolchains；win64 条目逐字节保留）。历史钉值 5f60ca78…（v1.11.0–v1.16.0，win64-only）。
+FC_FMU_SHA256_PINNED = "259e2cc1c46e239da74bacabc075a40fc0b151bc3ed0b05b6e371a219da71ef6"
 
 
 def _fc_control(feedback_mode, p_ca_meas, v_water_meas):
@@ -184,10 +186,12 @@ def _fc_row(true_map, feedback_mode, b_p, b_v, bias_applied):
 # GT-001 L1-FMU 壳执行（GTFMU-G2b-04 / CHG-20261119-01——Q1(B)：控制积分器归 host，
 # h=0.01 子步驱动 doStep n=1；内核纯物理 [f,T3]/[f,T3,x_comb] RK4 面）
 # ---------------------------------------------------------------------------
-#: GT FMU 包 SHA-256 钉值（V312 §10 双钉——CHG-20261119-01 ④ 授权；装载前强制校验）
+#: GT FMU 包 SHA-256 钉值（V312 §11 双钉——装载前强制校验）。
+#: 重钉 CHG-20261127-01（D-12 linux64：包内增 binaries/linux64/*.so + manifest build_toolchains；
+#: win64 条目逐字节保留）。历史钉值 db966da9… / fc2289a2…（v1.12.0–v1.16.0，win64-only）。
 GT_FMU_SHA256_PINNED = {
-    "gt001_l1": "db966da9c8c8d70dae5bd7f871641ecf31b836073f9cf0afc0b7ff7b891f88e8",
-    "gt001_comb_l1": "fc2289a2eabb393e06ca2513fb79c4a59cb7235fae754812d66eeceff98a8684",
+    "gt001_l1": "08cfd649ac5b267d0bc4c093af8828b04e5dc6f75dbd39469ea400a223ac7f95",
+    "gt001_comb_l1": "06d2c9f87182d4d9f14b9e8e547d620dbcdaa947aab8240dc00ab83fb9c8fd1d",
 }
 
 GT_VR_F = 2

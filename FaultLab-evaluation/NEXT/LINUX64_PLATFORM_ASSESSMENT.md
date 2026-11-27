@@ -76,5 +76,21 @@ linux64 产物产出后：V312 §10/§11 各增 linux64 行（.so sha256）+ fmu
 | R-L64-02 | 路线选择（a/b/c/d） | **(e) 云端 Linux 开发容器原生 gcc**（本评估 §2 未列的新路线——2026-11-25 可行性实测：Ubuntu 24.04 / GCC 13.3.0 / glibc 2.39 下三内核按钉死参数（+ -fPIC/-lm）编译通过；临时副本注入 .so 后 fc001_fmu parity 散差 0.0、gt001_fmu parity 12 Run 最差 2.55e-4 < 冻结门 1e-3，与 win64 实测同量级）；打包 = .so 并入现有三 .fmu（binaries/linux64/），三包 V312 重钉 + 编译器版本入 manifest——V1170_WAVE_DESIGN DEC-2；(c) Docker 保留为用户本机复现备选 |
 | R-L64-03 | .dylib（macOS）是否纳入 | **暂不纳入**（darwin64 无构建/测试环境；PLATFORM_DIRS 现状维持，留后续 CHG） |
 
-**文件结束**。LINUX64_PLATFORM_ASSESSMENT v0.1（2026-11-19，V1150 D-12 / CHG-20261119-09）。
-本评估为零实施承诺文本（评估面——裁定留白章显式留用户）。
+## 6. 实施记录（D-12，CHG-20261127-01，2026-11-27）
+
+按 R-L64-01..03 与 V1170_WAVE_DESIGN DEC-2 落地（用户 2026-11-27 指令「v1.17.0 还剩下 linux64 平台
+支持和发布收口……做完剩下的这部分」）：
+
+| 项 | 结果 |
+|---|---|
+| 路线 | (e) 云端 Linux 开发容器原生 gcc——GCC 13.3.0（Ubuntu 13.3.0-6ubuntu2~24.04.1）/ glibc 2.39 |
+| build_fmu.py | additive `--platform linux64`（+`-fPIC` / `-lm`）；win64 命令逐字不变；编译前 `gcc -dumpfullversion` 机检登记值；打包恒含全部在位平台；zip `create_system` 固定 0 |
+| 产物 | `tools/backend/fmu/binaries/linux64/{fc001_l1,gt001_l1,gt001_comb_l1}.so`（两次构建同哈希——确定性） |
+| 三包 | win64 条目逐字节保留 + linux64 条目 + manifest `build_toolchains`；V312 §10/§11 历史行 + §12 现行钉值 |
+| parity（Linux） | fc001 **0.0** / gt001 **2.548e-4**（门 1e-9 / 1e-3）——与 2026-11-25 可行性实测、win64 登记值一致 |
+| SKIP 语义 | 包内无当前平台二进制 ⇒ parity `status=skip` exit 3 → run-g2 记 skipped（负例实测：以 v1.16.0 包替换时两步 SKIP，不 FAIL） |
+| 附带 | `backend-bridge.test.js` FC-E2E 段 64 位解释器定位跨平台化（原 `where` 仅 Windows——Linux 下恒 SKIP；现 Linux 实跑 26/26） |
+| 未做 | darwin64 / `.dylib`（R-L64-03）；TL-001 联合内核 C99/FMU 链（V1170 §4 缓做，转 v1.18.0 候选） |
+
+**文件结束**。LINUX64_PLATFORM_ASSESSMENT v0.1（2026-11-19，V1150 D-12 / CHG-20261119-09）；
+§6 实施记录 2026-11-27（CHG-20261127-01）。

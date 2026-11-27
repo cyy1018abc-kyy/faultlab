@@ -58,6 +58,23 @@ const skipE2e = args.indexOf('--skip-e2e') !== -1;
    编译产物缺位（.fmu 不存在）⇒ parity 步记 skipped 不 fail（环境依赖显式化，不虚设）。 */
 const skipFmu = !fs.existsSync('data/fmu/fc001_l1_v1.fmu');
 const skipFmuGt = !fs.existsSync('data/fmu/gt001_l1_v1.fmu');
+/* D-12 linux64 SKIP 语义补全（CHG-20261127-01——V1170_WAVE_DESIGN DEC-2）：parity 脚本运行期
+   判定的环境缺位（包内无当前平台二进制 / 64 位解释器缺位）以 exit 3 + {"status":"skip"} 上报，
+   声明 skipExitCode 的步将其记 skipped（不 fail、不计通过）——步数账不变。 */
+function skipReasonFromStdout(stdout) {
+  const lines = String(stdout || '').trim().split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const j = JSON.parse(lines[i]);
+      if (j && j.status === 'skip') return String(j.reason || 'skip');
+    } catch (e) { /* 非 JSON 行 */ }
+  }
+  try {
+    const j = JSON.parse(String(stdout || ''));
+    if (j && j.status === 'skip') return String(j.reason || 'skip');
+  } catch (e) { /* ignore */ }
+  return 'skip（exit 3）';
+}
 /* --tier core|extended|all（D-1，CHG-20261104-08 DEC-3）：默认 all = 全量，
    非法取值立即退出（exit 2），避免手误触发意外的部分运行或全量运行 */
 const tierIdx = args.indexOf('--tier');
@@ -136,8 +153,8 @@ const STEPS = [
   { id: 'C-4 leaderboard.test.js（本地排行榜回归——排行属生态扩展面，与 arena/backend 同层；V1_FACES §4 #11 残留②补挂，第 33 步）', cmd: 'node', args: ['tests/leaderboard.test.js'], tier: 'extended' },
   { id: 'MG-001 verify_golden mg001（第 7 个 golden，MG-G2b-03 / CHG-20261110-01 批准链，第 34 步）', cmd: 'python', args: ['scripts/verify_golden.py', 'mg001'], tier: 'core' },
   { id: 'MG-001 engine-mg.test.js（引擎↔golden mg001_v1 5 Run 一致性 + R-5 守卫，第 35 步）', cmd: 'node', args: ['tests/engine-mg.test.js'], tier: 'core' },
-  { id: 'FCFMU-G2b-04 fc001_fmu parity（C↔Python 独立机检 R-G9-02——实测散差 0.0；SKIP=编译产物/64 位解释器缺位，CHG-20261118-01 DEC-3/Q17，第 36 步）', cmd: 'python', args: ['-I', 'tools/oracle/fc001_fmu_parity.py'], tier: 'extended', skip: skipFmu, skipReason: '编译产物缺位（data/fmu/fc001_l1_v1.fmu 不存在——SKIP 语义，CHG-20261118-01 DEC-3）' },
-  { id: 'GTFMU-G2b-04 gt001_fmu parity（C↔Python 独立机检 R-GTFMU——pow 散差 ~2.5e-4 ×≥10 冻结制；SKIP=编译产物/64 位解释器缺位，CHG-20261119-01 Q10，第 37 步）', cmd: 'python', args: ['-I', 'tools/oracle/gt001_fmu_parity.py'], tier: 'extended', skip: skipFmuGt, skipReason: '编译产物缺位（data/fmu/gt001_l1_v1.fmu 不存在——SKIP 语义，CHG-20261119-01 Q10）' },
+  { id: 'FCFMU-G2b-04 fc001_fmu parity（C↔Python 独立机检 R-G9-02——实测散差 0.0；SKIP=编译产物/64 位解释器缺位，CHG-20261118-01 DEC-3/Q17，第 36 步）', cmd: 'python', args: ['-I', 'tools/oracle/fc001_fmu_parity.py'], tier: 'extended', skip: skipFmu, skipExitCode: 3, skipReason: '编译产物缺位（data/fmu/fc001_l1_v1.fmu 不存在——SKIP 语义，CHG-20261118-01 DEC-3）' },
+  { id: 'GTFMU-G2b-04 gt001_fmu parity（C↔Python 独立机检 R-GTFMU——pow 散差 ~2.5e-4 ×≥10 冻结制；SKIP=编译产物/64 位解释器缺位，CHG-20261119-01 Q10，第 37 步）', cmd: 'python', args: ['-I', 'tools/oracle/gt001_fmu_parity.py'], tier: 'extended', skip: skipFmuGt, skipExitCode: 3, skipReason: '编译产物缺位（data/fmu/gt001_l1_v1.fmu 不存在——SKIP 语义，CHG-20261119-01 Q10）' },
   /* TL-001 联合轨（TL001_FMU_G2B_SPEC_APPROVED v1.0 §6 步账 37→38 显式申报——CHG-20261125-01 批准链；
      轻量实现轮 CHG-20261125-02：规格原拟第 38 步 = 联合 C99 parity，随 C99/FMU 链缓做（linux64 D-12）
      改由引擎↔golden 一致性测试承载；gt_tl_joint_v1 golden↔oracle 校验并入步①（DEFAULT_MODELS 尾追加）） */
@@ -263,6 +280,12 @@ for (const step of selectedSteps) {
   const stepStartedMs = Date.now();
   const res = spawnSync(step.cmd, step.args, { cwd: ROOT, encoding: 'utf8', timeout: 300000 });
   const durationMs = Date.now() - stepStartedMs;
+  if (typeof step.skipExitCode === 'number' && res.status === step.skipExitCode) {
+    const reason = skipReasonFromStdout(res.stdout);
+    results.push({ id: step.id, status: 'skipped', reason, exit_code: res.status, duration_ms: durationMs });
+    console.log('[SKIP] ' + step.id + '（' + reason + '）');
+    continue;
+  }
   const ok = res.status === 0;
   if (!ok) failed++;
   const entry = {
