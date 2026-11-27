@@ -102,7 +102,8 @@ run-g2 25 步（tier 分层候选）。
 | **v1.12.0** | GTFMU-G2b-02 批准轮 + GTFMU-G2b-03/04 实现轮：GT-001 L1-FMU 镜像轨全链（C99 双内核 + parity + adapter + V312 双钉 + run-g2 37 步）→ additive minor | A-6(GT-001 FMU) | G2b → R-GTFMU → G7（步数 37，+1 显式申报）→ G8 |
 | **v1.14.0** | 运营首场 GT-001 热力链盲判读首场归档 + 残留清算（tempfile 正常化 + --out 登记）→ additive patch | B-6(运营)/残留 | G7（步数 37 维持）→ G8 |
 | **v1.16.0** | MG-D1 孤岛组合语义实现（T-A→T-B 首例 + mg001_v2 + island_combo）+ TL-001 跨系统 RFC 落档 → additive minor | B-10(MG-D1 实现)/A-10(TL-001 RFC) | G2b → G7（步数 37 维持）→ G8 |
-| **v1.17.0**（本波） | TL-001 轻量实现轮（oracle + gt_tl_joint_v1 + 引擎/SystemDef/UI）+ 版本单一来源 + D-12 linux64 平台矩阵（三包 .so + V312 重钉）→ additive minor；TL-001 C99/FMU 链转 v1.18.0 | A-11(轻量)/D-12/DEC-3 | G2b → G7（步数 37→39，+2 显式申报）→ G8 |
+| **v1.17.0** | TL-001 轻量实现轮（oracle + gt_tl_joint_v1 + 引擎/SystemDef/UI）+ 版本单一来源 + D-12 linux64 平台矩阵（三包 .so + V312 重钉）→ additive minor；TL-001 C99/FMU 链转 v1.18.0 | A-11(轻量)/D-12/DEC-3 | G2b → G7（步数 37→39，+2 显式申报）→ G8 |
+| **v1.18.0**（本波） | TL-001 C99 联合内核 + FMU 包（linux64）+ parity 0.0 + I-11 基线重归档（精简版：adapter 不做）→ additive minor | A-11(收口)/残留 | G7（步数 39→40，+1 显式申报）→ G8 |
 
 ## 4. 决策点（已按用户指令全采推荐项）
 

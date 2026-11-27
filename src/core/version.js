@@ -9,6 +9,6 @@
 (function () {
   'use strict';
   var FL = window.FL = window.FL || {};
-  FL.APP_VERSION = '1.17.0';
+  FL.APP_VERSION = '1.18.0';
   FL.APP_RELEASE_DATE = '2026-11-27';
 })();
