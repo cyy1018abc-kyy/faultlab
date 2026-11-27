@@ -789,3 +789,29 @@ breaking 变更 = major 版本 + §3.3 五件套义务；additive 增长 = minor
 - **面⑧ 43 维持**（零增词）；
 - **面③/④/⑥ 零触碰**（island_combo 场景键 additive B-1a 纪律 + compare 面沿袭）；
 - EvidenceBundle fmu_sha256 additive 条件字段沿 fc001 先例（零新增面）。
+
+## 22. v1.17.0 additive 修订记录（2026-11-27，CHG-20261127-02；收录 CHG-20261125-02 / 20261126-01 / 20261126-02 / 20261127-01）
+
+- **面① SystemDef 七系统化**：TL-001 SystemDef（GT 三族镜像 + `line_fault` 新族；默认负载 20 kW
+  出口基线；扩展预览）——既有六系统字段面零变化；`rad` 单位仅在 checks 面放行（systems.js UNITS
+  进入 model_hash，不触碰）；
+- **面② golden 16→17**（`gt_tl_joint_v1`：8 Run / 30 列 / schema v2 / tier T-B；gate 键 additive
+  `delta_rad_atol` / `omega_rad_s_atol`；model_provenance=fmu_l1_lumped_unvalidated 复用）——既有 16
+  字节零触碰（D-12 重钉不涉 golden：golden 不含包哈希）；
+- **面③ scenario 零 breaking**：`line_fault` 为族值而非事件字段键——EVENT_KEYS 封闭集零变化；
+  METRIC_PICK 增 TL 行（additive）；
+- **面④ oracle_base**：gt_tl_joint_oracle.py 出生接入（GLJ-1…7 自检；F-1 角点登记维持——CHG-20261126-01）；
+  verify_golden MODELS 14→**15** 注册行、DEFAULT_MODELS 九→**十**；`_rad_s`/`_rad` 条件分派支（既有
+  golden 无该后缀 id——路由零变化）；
+- **面⑤ eval protocol 零触碰**（Arena 排除 TL-001）；
+- **面⑥ scope**：TL-001 = extension_preview（不进 P0 验收）；
+- **面⑦ 步账 37→39**（+2 显式申报：第 38 步 engine-tl.test.js、第 39 步 version.test.js）；parity 步
+  **SKIP 语义补全**——脚本以 exit 3 + `{"status":"skip"}` 上报「包内无当前平台二进制 / 非支持平台」，
+  run-g2 记 skipped（不 fail、不计通过）；Linux 下 39/39 全过（第 36/37 步由 D-12 前 FAIL 转 PASS——
+  平台补齐，非判据翻转）；
+- **面⑧ 43 维持**（零增词）；
+- **后端准入 / V312 钉 hash**（§21 同口径）：D-12 linux64——三包增 `binaries/linux64/*.so`、win64
+  条目逐字节保留、manifest additive 键 `build_toolchains`；V312 §10/§11 历史行 + §12 现行钉值
+  （259e2cc1… / 08cfd649… / 06d2c9f8…）；
+- **版本单一来源**：`src/core/version.js`（APP_VERSION 1.17.0）——不进入任何哈希输入，五类哈希零变化
+  （I-11 对 b33ba27 before/after 12/12·36/36 + 46/46·138/138 逐位一致）。

@@ -118,4 +118,22 @@ v1.15.x（治理波，串行队列——1 流约束实测）
 | S5（子代理 ×2） | S1 落地后 RFC 双路评审（架构 + 治理——互不可见） | 评审记录 | S1 |
 | S6（主线） | 收口：条件落正文/台账/证据/commit/push | CHG-20261119-10（治理收口） | S1–S5 |
 
+## 8. 对账（v1.17.0 收盘，2026-11-27，CHG-20261127-02）
+
+| 路线图项 | 计划版本 | 实际 | 状态 |
+|---|---|---|---|
+| A-9 TL-001 跨系统 RFC | v1.15.x | TL001_CROSS_SYSTEM_RFC.md（CHG-20261119-10）→ 批准 R-CS-01..04（CHG-20261120-01） | 兑现 |
+| A-10 TL-001 G2b 草案轮 | v1.16.x | v0.1→v0.3 双评审闭合（CHG-20261120-01-A/B）→ APPROVED v1.0（CHG-20261125-01） | 兑现 |
+| A-11 TL-001 实现轮 | v1.17.0 | **部分兑现**：oracle + gt_tl_joint_v1 golden + verify_golden 注册 + 引擎 simulateTL001 + SystemDef + UI（轻量轮 CHG-20261125-02，F-1 裁定 CHG-20261126-01）；**C99 联合内核 / FMU 包 / 联合 parity / adapter / Q5 runHash systems 数组未做** | 余项转 v1.18.0 候选 |
+| B-9 / B-10 MG-D1 | v1.15.x / v1.16.0 | 草案 + 实现（mg001_v2） | 兑现 |
+| C-8 v2.0.0 收敛预研 | v1.15.x | V2_CONVERGENCE_PRE_RESEARCH.md；R-V2-01..04 = 不排程 | 兑现（C-9 维持远期） |
+| D-12 linux64 平台矩阵 | 评估 v1.15.x / 实施 v1.16.x（V1170 改排 v1.17.0） | 评估（CHG-20261119-10）→ 裁定 R-L64-01..03（CHG-20261125-01）→ **实施**（CHG-20261127-01：三包 .so + V312 §12 重钉 + parity SKIP 语义；Linux run-g2 39/39） | 兑现（darwin64 维持不纳入） |
+| （波内增补）版本单一来源 | v1.17.0 | src/core/version.js + tests/version.test.js（CHG-20261126-02） | 兑现 |
+| D-13 L2 评测深化 | 运营项 | 未开工 | 维持 |
+
+**v1.18.0 候选（待用户排程，未授权开工）**：A-11 余项（TL-001 C99 联合内核 `gt_tl_joint_l1.c` +
+FMU 包 + `gt_tl_joint_parity.py` 第 N 步 + adapter + Q5 runHash systems 数组——须同轮改证据包与
+verify_bundle.py）；win64 联合 dll 按 V1170 DEC-4 由用户 Windows 工具链构建；D-13 运营；残留清算。
+
 **文件结束**。V08_ROADMAP v1（2026-11-19，CHG-20261119-08 批准）。具体实现逐 CHG + 门禁推进。
+§8 对账 2026-11-27（CHG-20261127-02）。

@@ -56,6 +56,9 @@ function post(url, headers, payload) {
   });
 }
 
+/* V312 §10 钉值（重钉 CHG-20261127-01——D-12 linux64；历史 5f60ca78…）——与 fmu_runner.FC_FMU_SHA256_PINNED 同值 */
+const FC_FMU_PIN = '259e2cc1c46e239da74bacabc075a40fc0b151bc3ed0b05b6e371a219da71ef6';
+
 (async () => {
   const child = spawn('python', [path.join(ROOT, 'tools', 'backend', 'py', 'bridge.py'),
     '--port', '0', '--discovery', DISCOVERY], { cwd: ROOT });
@@ -114,8 +117,23 @@ function post(url, headers, payload) {
    * + adapter probeBridge/bridgeRun 注入式实跑 + 桥服务 C Run ≡ golden 全等
    * （R-G9-02 parity 0.0 的 HTTP 面复证）。无 64 位解释器环境 ⇒ skip（§9⑥）。
    * ------------------------------------------------------------------ */
+  /* 64 位解释器定位：FAULTLAB_PY64 → win32 `where python3.14` / 其余平台 `command -v python3`
+     （D-12 linux64 CHG-20261127-01：原 `where` 仅 Windows 可用，Linux 下本段恒 SKIP）+ 位宽自检 */
   const py64 = process.env.FAULTLAB_PY64
-    || (function () { try { return require('child_process').execSync('where python3.14', { encoding: 'utf8' }).split(/\r?\n/)[0].trim(); } catch (e) { return null; } })();
+    || (function () {
+      const cp = require('child_process');
+      let p = null;
+      try {
+        p = cp.execSync(process.platform === 'win32' ? 'where python3.14' : 'command -v python3',
+          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/)[0].trim();
+      } catch (e) { return null; }
+      if (!p) return null;
+      try {
+        const bits = cp.execFileSync(p, ['-I', '-c', 'import struct;print(struct.calcsize("P")*8)'],
+          { encoding: 'utf8' }).trim();
+        return bits === '64' ? p : null;
+      } catch (e) { return null; }
+    })();
   if (!py64) {
     ok(true, 'FC-E2E SKIP：64 位解释器缺位（V312 §9⑥——SKIP 语义，不 fail）');
   } else {
@@ -138,7 +156,7 @@ function post(url, headers, payload) {
       const capData = JSON.parse(cap.body);
       eq(capData.capability.model_id, 'fc.pem.fmu_l1', 'FC-E2E: capability model_id');
       eq(capData.capability.ready, true, 'FC-E2E: capability ready=true（64 位 + 产物在位）');
-      eq(capData.capability.fmu_sha256, '5f60ca78c0a799d7fd50dd4f98fa535ed1ceda2979e618f3e1883400bc34b89d',
+      eq(capData.capability.fmu_sha256, FC_FMU_PIN,
         'FC-E2E: capability fmu_sha256 = V312 钉值');
       /* 无令牌拒绝（安全边界同构） */
       const noTok2 = await get(baseFmu + '/capability', { Origin: localOrigin });
@@ -149,7 +167,7 @@ function post(url, headers, payload) {
       eq(simF.status, 200, 'FC-E2E: /simulate-fc001-fmu 200');
       const simFData = JSON.parse(simF.body);
       eq(simFData.ok, true, 'FC-E2E: ok=true');
-      eq(simFData.result.fmu_sha256, '5f60ca78c0a799d7fd50dd4f98fa535ed1ceda2979e618f3e1883400bc34b89d',
+      eq(simFData.result.fmu_sha256, FC_FMU_PIN,
         'FC-E2E: 结果携带 V312 钉 hash');
       /* ③ 桥服务 C Run ≡ golden 全等（21 列逐位——R-G9-02 HTTP 面复证） */
       const golden = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'golden', 'fc001_fmu_v1.json'), 'utf8'));
@@ -183,7 +201,7 @@ function post(url, headers, payload) {
       const runViaAdapter = await adapter.bridgeRun(fetchImpl, key);
       eq(JSON.stringify(runViaAdapter.run.series.t), JSON.stringify(gRun.series.t),
         'FC-E2E: adapter bridgeRun 序列 = golden（t 列锚）');
-      eq(runViaAdapter.fmu_sha256, '5f60ca78c0a799d7fd50dd4f98fa535ed1ceda2979e618f3e1883400bc34b89d',
+      eq(runViaAdapter.fmu_sha256, FC_FMU_PIN,
         'FC-E2E: adapter bridgeRun 携带 V312 钉 hash');
     }
     childFmu.kill();

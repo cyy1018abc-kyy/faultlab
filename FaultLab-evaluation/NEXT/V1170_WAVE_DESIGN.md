@@ -125,5 +125,20 @@ S6 收口：v1170-release.md + V1_FACES 增节 + V08_ROADMAP 对账 + CHG 收口
 | **发现 F-1** | §3.2 预填：joint_sensor_drift f→49.7、δ 线性漂移、0.3 Hz 拍频 | **实测不发生滑差**：同步功率把 f 钳在 ≈50 Hz（最低 49.997），调速器按偏置读数持续减燃料（u 25→1.21），T3 降至 631.7 K、P_gen 末值 −5.12 kW（负净功外推区），P_elec −30 kW、δ_end −36.9° | GLJ-7 对该 Run 仅豁免 T3 下界（735→600 K）显式登记为域外角点；limitations + 因果模板如实表述；**用户裁定（2026-11-26，CHG-20261126-01）：维持现状——0.3 Hz 参数不变，作为「强电网下转速偏置后果与孤网不同」教学点；联合模式下垂调速器维持远期候选** |
 | 其余预填核对 | load_step δ_ss≈−11.4°/u≈25.063/P_elec≈−9.9；actuator δ≈−7.74° | **实测命中**：−11.4°/25.064/−9.915 kW；−7.7° | — |
 
+## 5. 修订：D-12 linux64 落地 + 发布收口（CHG-20261127-01/02，2026-11-27）
+
+**授权**：用户 2026-11-27 指令「v1.17.0 还剩下 linux64 平台支持和发布收口，从最新的 main 重建分支。
+做完剩下的这部分」——解除 §4 的 D-12 暂缓；发布范围按用户口径收口为 **D-12 + 版本单源（已落地）+
+TL-001 轻量轮（已落地）**，TL-001 联合内核 C99/FMU 链不随本版发布。
+
+| S 段 | 计划 | 实际 | 处置 |
+|---|---|---|---|
+| S1 D-12 | build_fmu 平台分支 → 三包注入 .so → 重钉 → parity SKIP 语义 → run-g2 Linux 全过 | **已落地**（CHG-20261127-01）：`--platform linux64` + 工具链机检 + `create_system` 固定 + manifest `build_toolchains`；三包重钉（V312 §12）；parity fc 0.0 / gt 2.548e-4；SKIP exit 3 负例实测 | win64 条目逐字节保留；16 golden 零触碰 |
+| S2 版本单源 | APP_VERSION + 一致性测试 | 已落地（CHG-20261126-02）；本版 APP_VERSION 1.16.0 → **1.17.0** | — |
+| S3 A-11 oracle/golden | — | 已落地（CHG-20261125-02 轻量轮） | — |
+| S4 A-11 C99 联合内核 / FMU / parity / adapter / 第 N 步联合 parity | gt_tl_joint_l1.c + gt_tl_joint_parity.py | **不随 v1.17.0 发布**——转 **v1.18.0 候选**（须另立 CHG；D-12 已就绪 ⇒ 届时 linux64 parity 可在开发容器原地闭合；win64 dll 仍按 DEC-4 由用户工具链构建） | 规格 §12 定案不变；Q5 runHash systems 数组同转 |
+| S5 门禁 | build ×2 + run-g2 ×2（Linux）+ verify_golden + copy-guard + I-11 + ui-walkthrough | 见 `evidence/g8/v1170-release.md` | Windows 侧回归由用户择机补跑（win64 dll 零变化） |
+| S6 收口 | release 证据 + V1_FACES + 路线图对账 + CHG + push | 已执行（CHG-20261127-02） | — |
+
 **文件结束**。V1170_WAVE_DESIGN v1（2026-11-25，CHG-20261125-01 批准，按推荐执行）；§4 修订
-2026-11-26（CHG-20261125-02 轻量实现轮）。
+2026-11-26（CHG-20261125-02 轻量实现轮）；§5 修订 2026-11-27（CHG-20261127-01/02 D-12 + 发布收口）。
