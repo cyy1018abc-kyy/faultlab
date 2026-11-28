@@ -1981,3 +1981,9 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
   结果：copy-guard 43/0；version.test 通过；run-g2 40/40；改动仅 6 份 .md + run-g2.mjs 注释（非注释行零变化）；17 golden 与全部哈希零触碰。
   证据：`NEXT/V1190_WAVE_DESIGN.md` §4。
   **批准人：用户（2026-11-28 指令链）；记录人：Lead Agent（云端会话 claude/gallant-fermat-1d24pe）。**
+- `CHG-20261128-03`：**V1200_WAVE_DESIGN v1 批准（v1.20 两批：第一批 = TL 联合轨 v2 G2b 规格〔C-4 下垂调速器切换 + C-5 line_trip〕+ C-6 参考 agent；第二批 = v2 实现 + C-3 升 approved + TL 教学路径 → v1.20.0）**。
+  指令：用户 2026-11-28 范围裁定（C-3…C-6、S-1…S-3、两批）→ 第一轮五项全部同意（含「同意使用」子 agent 双评审）。
+  范围：设计文档；零代码。
+  结果：调速器按线路状态切换（接通 = 下垂 K_d≈10 kW/Hz，断开 = 积分）；line_trip = 双回线单回跳闸（p_elec_scale=0.5，1 Run）；新 golden gt_tl_joint_v2 + 新 oracle 文件，v1 冻结，C 内核 / FMU 零改动；C-6 先冻结 agent 代码再生成盲包。
+  证据：`NEXT/V1200_WAVE_DESIGN.md` §0–§3。
+  **批准人：用户（2026-11-28 指令链）；记录人：Lead Agent（云端会话 claude/gallant-fermat-1d24pe）。**
