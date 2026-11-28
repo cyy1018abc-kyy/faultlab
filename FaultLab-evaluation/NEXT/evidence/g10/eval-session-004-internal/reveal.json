@@ -1,0 +1,79 @@
+{
+  "schema": "faultlab.arena.reveal.v1",
+  "testset_id": "arena2-GT001-3-fe441057",
+  "match_id": "656d2543-de1e-4676-ab18-96ba2b07bb35",
+  "set_seed": 20261128,
+  "mapping": [
+    {
+      "match_id": "656d2543-de1e-4676-ab18-96ba2b07bb35",
+      "round": 1,
+      "truth": {
+        "faultFamily": "sensor_drift",
+        "faultFamilyLabel": "传感器漂移",
+        "faultId": "speed_sensor_bias",
+        "component": "speed_sensor",
+        "componentLabel": "转速传感器",
+        "magnitude": {
+          "value": 0.85,
+          "unit": "Hz"
+        },
+        "t_fault": 6.4,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "closed_loop",
+        "active_s": 53.6,
+        "detectedAt": null,
+        "rule_id_onset": "n1",
+        "rule_id_propagation": "n3"
+      }
+    },
+    {
+      "match_id": "656d2543-de1e-4676-ab18-96ba2b07bb35",
+      "round": 2,
+      "truth": {
+        "faultFamily": "none",
+        "faultFamilyLabel": "健康局",
+        "faultId": null,
+        "component": "none",
+        "componentLabel": "无",
+        "magnitude": null,
+        "t_fault": null,
+        "healthy": true,
+        "none": true,
+        "feedbackMode": "healthy",
+        "active_s": 0,
+        "detectedAt": null,
+        "rule_id_onset": null,
+        "rule_id_propagation": null
+      }
+    },
+    {
+      "match_id": "656d2543-de1e-4676-ab18-96ba2b07bb35",
+      "round": 3,
+      "truth": {
+        "faultFamily": "sensor_drift",
+        "faultFamilyLabel": "传感器漂移",
+        "faultId": "speed_sensor_bias",
+        "component": "speed_sensor",
+        "componentLabel": "转速传感器",
+        "magnitude": {
+          "value": 0.15,
+          "unit": "Hz"
+        },
+        "t_fault": 5.8,
+        "healthy": false,
+        "none": false,
+        "feedbackMode": "closed_loop",
+        "active_s": 54.2,
+        "detectedAt": null,
+        "rule_id_onset": "n1",
+        "rule_id_propagation": "n3"
+      }
+    }
+  ],
+  "scenario_rules": "sr1",
+  "scoring_rules_spec": "v2",
+  "engine_version": "0.1.0",
+  "model_version": "1.2.0",
+  "generated_at": "2026-11-28T07:08:04.643Z"
+}

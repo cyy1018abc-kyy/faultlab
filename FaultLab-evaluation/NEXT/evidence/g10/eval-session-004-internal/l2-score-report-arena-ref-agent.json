@@ -1,0 +1,46 @@
+{
+  "schema": "faultlab.arena.l2.score.v1",
+  "bundle_kind": "arena_blind_l2",
+  "testset_id": "arena2-GT001-3-fe441057",
+  "match_id": "656d2543-de1e-4676-ab18-96ba2b07bb35",
+  "episodes": [
+    {
+      "index": 1,
+      "episode_id": "65337b61-915a-45b2-bcee-44491318b665",
+      "s_diag": 50,
+      "s_anchor": 30,
+      "s_eff": 12.74074074074074,
+      "score": 92.7407,
+      "v11a": true,
+      "v11b": true,
+      "budget_used_points": 94
+    },
+    {
+      "index": 2,
+      "episode_id": "d18acdfe-fae6-4c0e-aef8-405f4831183b",
+      "s_diag": 50,
+      "s_anchor": 30,
+      "s_eff": 12.74074074074074,
+      "score": 92.7407,
+      "v11a": false,
+      "v11b": false,
+      "budget_used_points": 94
+    },
+    {
+      "index": 3,
+      "episode_id": "646e8340-b60b-42c5-9a30-9cdccc3884cb",
+      "s_diag": 50,
+      "s_anchor": 30,
+      "s_eff": 12.74074074074074,
+      "score": 92.7407,
+      "v11a": true,
+      "v11b": true,
+      "budget_used_points": 94
+    }
+  ],
+  "avg_score": 92.7407,
+  "budget_used_points": 94,
+  "budget_max_points": 180,
+  "score_hash": "1533855842abd237e351a98ac50d889153a8934f2326494193b8afe13b67ee7e",
+  "notice": "合成故障评测游戏（L2 主动探查协议），非真实诊断性能"
+}

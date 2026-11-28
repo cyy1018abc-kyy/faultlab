@@ -1,0 +1,210 @@
+{
+  "protocol": "l2",
+  "agent": {
+    "name": "arena-ref-agent@5de8a72"
+  },
+  "testset_id": "arena2-GT001-3-fe441057",
+  "match_id": "656d2543-de1e-4676-ab18-96ba2b07bb35",
+  "episodes": [
+    {
+      "episode_id": "65337b61-915a-45b2-bcee-44491318b665",
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "sensor_drift",
+        "component": "speed_sensor",
+        "magnitude": {
+          "value": 0.85,
+          "unit": "Hz"
+        },
+        "detectTime_s": 6.4,
+        "confidence": 0.9,
+        "explanation": "盲观测在 t=6.4 s 出现跳变；判别依据：f_channel_diff 阶跃 0.8500 Hz（传感链偏置面）。"
+      },
+      "evidence_anchors": [
+        {
+          "kind": "onset",
+          "variable": "P_load_demand_kW",
+          "t_start": 6.2,
+          "t_end": 6.6000000000000005,
+          "rule_id": "n1",
+          "backed_by_query_seq": 2,
+          "note": "onset 判别窗"
+        },
+        {
+          "kind": "propagation",
+          "variable": "f_channel_diff_Hz",
+          "t_start": 7.4,
+          "t_end": 17.4,
+          "rule_id": "n3",
+          "backed_by_query_seq": 3,
+          "note": "传播窗"
+        }
+      ]
+    },
+    {
+      "episode_id": "d18acdfe-fae6-4c0e-aef8-405f4831183b",
+      "diagnosis": {
+        "faultDetected": false,
+        "faultType": "none",
+        "component": "none",
+        "magnitude": null,
+        "detectTime_s": null,
+        "confidence": 0.05,
+        "explanation": "全部盲观测通道粗信标无显著（无量纲）跳变，判健康局。"
+      },
+      "evidence_anchors": [
+        {
+          "kind": "steady_state",
+          "variable": "f_meas_Hz",
+          "t_start": 10,
+          "t_end": 20,
+          "rule_id": "n1",
+          "backed_by_query_seq": 4,
+          "note": "稳态平稳"
+        }
+      ]
+    },
+    {
+      "episode_id": "646e8340-b60b-42c5-9a30-9cdccc3884cb",
+      "diagnosis": {
+        "faultDetected": true,
+        "faultType": "sensor_drift",
+        "component": "speed_sensor",
+        "magnitude": {
+          "value": 0.15,
+          "unit": "Hz"
+        },
+        "detectTime_s": 5.8,
+        "confidence": 0.9,
+        "explanation": "盲观测在 t=5.8 s 出现跳变；判别依据：f_channel_diff 阶跃 0.1500 Hz（传感链偏置面）。"
+      },
+      "evidence_anchors": [
+        {
+          "kind": "onset",
+          "variable": "P_load_demand_kW",
+          "t_start": 5.6,
+          "t_end": 6,
+          "rule_id": "n1",
+          "backed_by_query_seq": 6,
+          "note": "onset 判别窗"
+        },
+        {
+          "kind": "propagation",
+          "variable": "f_channel_diff_Hz",
+          "t_start": 6.8,
+          "t_end": 16.8,
+          "rule_id": "n3",
+          "backed_by_query_seq": 7,
+          "note": "传播窗"
+        }
+      ]
+    }
+  ],
+  "query_ledger": [
+    {
+      "seq": 1,
+      "episode_id": "65337b61-915a-45b2-bcee-44491318b665",
+      "variables": [
+        "f_channel_diff_Hz"
+      ],
+      "t_start": 6,
+      "t_end": 8,
+      "stride": 4,
+      "returned_rows": 7,
+      "cost_points": 7,
+      "slice_sha256": "4f8f4ee035176f08358de85faf3204674dd88e74ce45fe1fb75d762f5bdaf6d3",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 2,
+      "episode_id": "65337b61-915a-45b2-bcee-44491318b665",
+      "variables": [
+        "P_load_demand_kW",
+        "f_channel_diff_Hz",
+        "valve_cmd_pct",
+        "valve_meas_pct"
+      ],
+      "t_start": 6.2,
+      "t_end": 6.6000000000000005,
+      "stride": 1,
+      "returned_rows": 6,
+      "cost_points": 24,
+      "slice_sha256": "c47ff992618644d17f1e0863a572ece3035751ad9d1c4c2f045355cfa07eaea5",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 3,
+      "episode_id": "65337b61-915a-45b2-bcee-44491318b665",
+      "variables": [
+        "f_channel_diff_Hz"
+      ],
+      "t_start": 7.4,
+      "t_end": 17.4,
+      "stride": 10,
+      "returned_rows": 10,
+      "cost_points": 10,
+      "slice_sha256": "95da038f72d00e1dfbd3d2e89a0d2ab67553f5299160d081634fff046db02537",
+      "includes_pre_post": false
+    },
+    {
+      "seq": 4,
+      "episode_id": "d18acdfe-fae6-4c0e-aef8-405f4831183b",
+      "variables": [
+        "f_meas_Hz"
+      ],
+      "t_start": 10,
+      "t_end": 20,
+      "stride": 10,
+      "returned_rows": 11,
+      "cost_points": 11,
+      "slice_sha256": "a788f17ff4359751ecae1c8eb090f01bc4aca39e35e75d8efbbb2aeecbcece1f",
+      "includes_pre_post": false
+    },
+    {
+      "seq": 5,
+      "episode_id": "646e8340-b60b-42c5-9a30-9cdccc3884cb",
+      "variables": [
+        "f_channel_diff_Hz"
+      ],
+      "t_start": 4,
+      "t_end": 6,
+      "stride": 4,
+      "returned_rows": 8,
+      "cost_points": 8,
+      "slice_sha256": "a8b4c67ec4a7f04f68ab395953fb6c7d7ffa54c655f951798b3bdcc571ece8b8",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 6,
+      "episode_id": "646e8340-b60b-42c5-9a30-9cdccc3884cb",
+      "variables": [
+        "P_load_demand_kW",
+        "f_channel_diff_Hz",
+        "valve_cmd_pct",
+        "valve_meas_pct"
+      ],
+      "t_start": 5.6,
+      "t_end": 6,
+      "stride": 1,
+      "returned_rows": 6,
+      "cost_points": 24,
+      "slice_sha256": "665a37c98d12098cc2b7e5d38e74471b40ab267581ded8fbee3bce357f924656",
+      "includes_pre_post": true
+    },
+    {
+      "seq": 7,
+      "episode_id": "646e8340-b60b-42c5-9a30-9cdccc3884cb",
+      "variables": [
+        "f_channel_diff_Hz"
+      ],
+      "t_start": 6.8,
+      "t_end": 16.8,
+      "stride": 10,
+      "returned_rows": 10,
+      "cost_points": 10,
+      "slice_sha256": "57254e29fe01321229b045ed703be43dce8640aa5898eebb63f7aaff0d7cc86f",
+      "includes_pre_post": false
+    }
+  ],
+  "submission_sha256": "1853c3e7c07a624f0a990aaafbdd71129c7d12b1e89a49f0c2f48e64c678a9db"
+}
