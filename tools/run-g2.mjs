@@ -3,8 +3,9 @@
  *
  *   node tools/run-g2.mjs            # 全部四件套（--tier 默认 all，40 步全量——第 40 步 TL 联合 FMU parity CHG-20261127-05）
  *   node tools/run-g2.mjs --skip-e2e # 跳过浏览器步（CI 无 Chrome 时）
- *   node tools/run-g2.mjs --tier core     # 只跑 core 层（30 步；部分运行，非全量门禁）
- *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（9 步；部分运行）
+ *   node tools/run-g2.mjs --tier core     # 只跑 core 层（部分运行，非全量门禁）
+ *   node tools/run-g2.mjs --tier extended # 只跑 extended 层（部分运行）
+ *   各层步数以报告 tiers.<tier>.steps 为准（V1190 G6，CHG-20261128-02）
  *
  * D-1 tier 分层（CHG-20261104-08 DEC-3，采纳 D1_LITE_ASSESSMENT 方案 C）：
  *   STEPS 每步带 tier: 'core' | 'extended' 标签；--tier 仅过滤运行步面，
@@ -182,62 +183,12 @@ const STEPS = [
  *   extended = 扩展面——backend（admission/bridge）、arena（protocol-negative/
  *              arena.test）、fmu-admission、report、leaderboard（C-4 本地排行榜，
  *              生态扩展面与 arena/backend 同层）。
- *   当前构成：35 步 = core 28 + extended 7（33→35：第 34/35 步 MG-001 接线，
- *              CHG-20261110-01 / V110_WAVE_DESIGN DEC-5——既有 33 步零改动）。
+ *   当前构成：以报告 tiers 统计为准（不在注释中维护计数——V1190 G6，CHG-20261128-02）。
  * 步数账纪律（V06_ROADMAP I-7：步数增长须有预算与分层）：
  *   1. 每步必须带合法 tier 标签（下方护栏强制），新增步须同时声明归属层与预算来源；
- *   2. 任何增删步必须在 CHG 登记步数账（删几步/增几步/理由/归属卡），预算线沿用
- *      DEC-E 口径（单波 ≤ +1；CHG-20261104-08 预算 ≤27 已兑现，CHG-20261104-10
- *      登记 26→28、预算 ≤29 已兑现；CHG-20261104-12（GT-L1 实现轮，GTL1-IMP-Q1）
- *      0 增步维持 28；当前波 CHG-20261107-01（V080_WAVE_DESIGN DEC-6）28→30、
- *      预算 ≤29→≤31 显式申报——FL 侧零新增步（verify_golden 步①同一 python 调用
- *      内双 golden 顺序验证，FLTH §7.3「优先并入现有步」口径），WT 侧 +2 步
- *      （A-4b 并入口径已用足、B-2 新系统 5 Run golden + 引擎轨无法并入既有步））；
- *      当前波 CHG-20261108-01（V090_WAVE_DESIGN DEC-5 残留①清算 + DEC-7）30→31、
- *      预算 ≤31→≤32 显式申报——file:// 冒烟固化 tools/file-smoke.mjs 挂第 31 步、
- *      core 层（v0.7.2/v0.8.0 两轮临时件正式化转门禁步，单波 +1））；
- *      当前波（v1.0.0 发布前置清算，V1_FACES §4 #11 残留②裁定=修复补挂）31→33、
- *      预算 ≤32→≤33 显式申报——tests/teaching.test.js 挂第 32 步、core 层
- *      （C-3 教学路径回归）+ tests/leaderboard.test.js 挂第 33 步、extended 层
- *      （C-4 本地排行榜回归，排行属生态扩展面与 arena/backend 同层）——两测试面
- *      从步账外纳入门禁（发布前全覆盖裁定），单波 +2；无步删除、既有 31 步顺序
- *      与判据零改动；
- *      当前波（MG-001 接线，MG001_G2B_SPEC_APPROVED v1.0 §8 MG-G2b-04 /
- *      V110_WAVE_DESIGN DEC-5，CHG-20261110-01 批准链）33→35、预算 ≤33→≤35
- *      显式申报——verify_golden mg001 挂第 34 步（第 7 个 golden）+ tests/engine-mg
- *      .test.js 挂第 35 步（R-5 分派守卫），均 core 层（WT-001 先例「新系统 =
- *      verify 步 + engine 步各一」，V080 DEC-6 口径：新系统 5 Run golden + 引擎轨
- *      无法并入既有步，单波 +2 用足）。**FIRST-33-STEPS-NORMALIZED-IDENTICAL
- *      机检注记**：既有 33 步顺序/判据/命令逐字零改动（仅 STEPS 尾部追加第 34/35
- *      步，无插入、无删除、无判据修改）；
- *   3. 步数账变迁：18→19（plants，CHG-20261030-07）→24（G2b/V3 系列与回归挂入）→
- *      25（property_harness，DEC-E 24→25）→25（D-1 分层：仅加 tier 标签与 --tier
- *      参数，0 增步，CHG-20261104-08 DEC-3）→26（S5 测试接线：scenario.test.js
- *      挂第 26 步、core 层，单波 +1，预算 ≤27 兑现，CHG-20261104-08）→
- *      28（PV-001 接线：verify_golden pv001 挂第 27 步、engine-pv.test.js 挂
- *      第 28 步，均 core 层，单波 +2（V070_WAVE_DESIGN 登记），预算 ≤29 兑现，
- *      CHG-20261104-10）→28（GT-L1 实现轮：verify_golden gt001 步 id 不变、
- *      oracle/golden 重指向 gt001_l1_oracle/gt001_v3（T-B），engine-gt thermo
- *      变体并入既有 engine-gt.test.js 步——0 增步，28 维持，预算 ≤29 沿用
- *      （GTL1-IMP-Q1，优先并入现有步），CHG-20261104-12）→
- *      30（WT-001 接线（V080_WAVE_DESIGN DEC-6，CHG-20261107-01）：verify_golden
- *      wt001 挂第 29 步、engine-wt.test.js 挂第 30 步，均 core 层，单波 +2，
- *      预算 ≤29→≤31 显式申报；同波 FL 侧零新增步——fl001_l1 双 golden 并入
- *      步①同一 python 调用，FLTH §7.3 口径）→
- *      31（file:// 冒烟固化（V090_WAVE_DESIGN DEC-5 残留①，CHG-20261108-01）：
- *      tools/file-smoke.mjs 挂第 31 步、core 层，单波 +1，预算 ≤31→≤32 显式申报
- *      ——v0.7.2（57 断言）/v0.8.0（61 断言）两轮临时件正式化为发布能力门禁步，
- *      每轮重建就此终止；--skip-e2e 与 ②/perf 同步跳过）→
- *      33（教学生态补挂（V1_FACES §4 #11 残留②，v1.0.0 发布前置清算）：
- *      tests/teaching.test.js 挂第 32 步、core 层（C-3 教学路径回归）；
- *      tests/leaderboard.test.js 挂第 33 步、extended 层（C-4 本地排行榜回归，
- *      排行属生态扩展面，与 arena/backend 同层）——两测试面从步账外纳入门禁
- *      （发布前全覆盖裁定），单波 +2，预算 ≤32→≤33 显式申报）→
- *      35（MG-001 接线（MG001_G2B_SPEC_APPROVED v1.0 §8 MG-G2b-04 / V110_WAVE_DESIGN
- *      DEC-5，CHG-20261110-01 批准链）：verify_golden mg001 挂第 34 步（第 7 个
- *      golden）、tests/engine-mg.test.js 挂第 35 步（R-5 分派守卫），均 core 层，
- *      单波 +2，预算 ≤33→≤35 显式申报；FIRST-33-STEPS-NORMALIZED-IDENTICAL 机检
- *      ——既有 33 步顺序/判据/命令逐字零改动）。
+ *   2. 任何增删步必须在 CHG 登记步数账（删几步/增几步/理由/归属层）；新步仅尾部追加，
+ *      既有步顺序/判据/命令零改动；
+ *   3. 步数账变迁历史见 DECISIONS（各 CHG 条目）——本注释不再逐波追加。
  * 部分运行 ≠ 全量门禁：--tier core/extended 与 --skip-e2e 同为部分运行，不产生
  *   「部分执行 = 门禁通过」的新路径；发布门（G7/G8）与 CHG 验收句必须引用
  *   --tier all 全量运行（报告 tier 字段 + execution.command 可机检）。

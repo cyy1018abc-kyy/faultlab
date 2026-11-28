@@ -83,4 +83,10 @@ S4 门禁 + 收口：copy-guard；version.test（README 改动后）；run-g2 ×
 
 **三不承诺**：零代码行为变更；17 golden 与全部哈希零触碰；run-g2 40 步判据零翻转。
 
+## 4. 执行记录（2026-11-28，CHG-20261128-02）
+
+S1–S4 已执行：V2 §7 + `NEXT/ROADMAP.md`；DECISIONS §0 第 5 条 + V1_FACES §24 + V08 冻结横幅 + V312 §14（G7）；
+README / run-g2 注释清理；门禁 copy-guard 43/0、version.test 通过、run-g2 40/40（109,741 ms）；
+`git diff` 仅 7 个文件（6 份 .md + run-g2.mjs），run-g2.mjs 非注释行零变化。
+
 **文件结束**。V1190_WAVE_DESIGN v1（2026-11-28，CHG-20261128-01 批准；两轮讨论逐轮裁定）。

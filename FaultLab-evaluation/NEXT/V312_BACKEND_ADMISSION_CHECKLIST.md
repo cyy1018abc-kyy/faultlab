@@ -85,7 +85,7 @@
   无 manifest 不得准入（Q-5），「已声明未复核」状态放 `manifest.backend.self_declared: true` +
   UI 标签，**不新增 provenance 档位**（**例外——FC-001 已批 FMU 轨（FCFMU-G2b-02 批准轮，
   CHG-20261115-10）：Q2(A) 裁定 additive 新档位 `fmu_l1_lumped_unvalidated`——V312 本行
-  按黑盒准入轨作用域限缩解释，FC-001 批准轨显式 CHG 例外（CHG-20261118-01 ④ 授权修订）——**B-2 扩域（CHG-20261119-01 ④）：适用面扩至已批 FMU 轨通用（GT-001 FMU 镜像轨随批准轮同轮增列——fmu_admission A-4 docstring 同步修订）**）。
+  按黑盒准入轨作用域限缩解释，FC-001 批准轨显式 CHG 例外（CHG-20261118-01 ④ 授权修订）——**B-2 扩域（CHG-20261119-01 ④）：适用面扩至已批 FMU 轨通用（GT-001 FMU 镜像轨随批准轮同轮增列——fmu_admission A-4 docstring 同步修订）**）。**（v1.19.x 起该档位已正式化——见 §14；本行原文保留为历史。）**
 - 复核分工照 RFC §4 v1.1：`verify_bundle.py` = 文件/结构层；metrics/checks/run_hash 重算 =
   应用内导入路径（`createFromParts` 原子入口）；离线重算脚本（后端 golden 比对）列入实现期
   交付物。
@@ -182,3 +182,17 @@ zip 成员 `create_system` 固定 0 消除宿主差异。darwin64 / `.dylib` 维
 | win64 | **暂缺**（V1170 DEC-4 / V1180 R1-3：用户 WinLibs 构建后随下一版本发布并重钉本表；此前 Windows parity 记 SKIP） |
 | 重钉纪律 | 编译器/平台矩阵变更 ⇒ 产物字节变更 ⇒ 本表重钉须 CHG（fmu_runner `GT_TL_FMU_SHA256_PINNED` 同步） |
 | 校验面 | fmu_runner.run_gt_tl_joint_shell 装载前 admit() + 钉值强制校验（不符即拒） |
+
+## 14. provenance 档位正式化（v1.19.x 治理波，CHG-20261128-02——V1190_WAVE_DESIGN G7）
+
+`fmu_l1_lumped_unvalidated` 自本节起为**正式档位**（不再挂 §7「例外行」）。正式档位全集：
+
+| 档位 | 含义 | 使用面（2026-11-28 实读） |
+|---|---|---|
+| `analytical_demo` | 浏览器引擎解析/集总行为级演示 | 前端 Run（src/core） |
+| `numerical_simulation` | 后端黑盒数值仿真（准入 A-4：须 self_declared=true） | 后端适配器 Run |
+| `fmu_l1_lumped_unvalidated` | 已批 FMU 轨 L1 集总参数模型（FMI 2.0 CS 内核 + manifest 自述；数值与实现自洽 only，未经实验/硬件验证） | FMU 包 4（fc001_l1 / gt001_l1 / gt001_comb_l1 / gt_tl_joint_l1）+ golden 5（fc001_fmu_v1 / gt001_fmu_v1 / gt001_fmu_comb_v1 / mg001_v2 / gt_tl_joint_v1） |
+
+**新增档位纪律**：新档位须经 CHG 写入本表（不再走「例外行」路径）。**机检面不变**：fmu_admission `admit()`
+现行不机检 provenance（docstring 注记照旧）；本节为文字正式化，零代码变更。
+

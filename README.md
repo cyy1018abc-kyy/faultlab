@@ -23,41 +23,11 @@
 >   （win64 由 Windows 工具链构建后随后续版本补齐）——Windows 上 run-g2 第 40 步记 SKIP（不计通过）。
 >   macOS（darwin64）未提供二进制——FMU parity 步在该平台记 SKIP。
 > - 版本演进与每次变更见 `FaultLab-evaluation/DECISIONS/DECISIONS.md`（`CHG-*` 台账）与
->   `FaultLab-evaluation/NEXT/evidence/g8/`（各版本发布证据）；路线图见 `NEXT/V08_ROADMAP.md`。
->   下文 v0.3.0–v0.5.0 段落为早期版本记录，保留原文供追溯。
+>   `FaultLab-evaluation/NEXT/evidence/g8/`（各版本发布证据）；路线图见 `NEXT/ROADMAP.md`（单一活文档）。
 
-> **早期版本记录：范围与状态（v0.4.0 minor：2026-10-31；v0.3.1 补丁：2026-10-30；v0.3.0 发布：G8 关闭 2026-10-30）**
-> - **发布版本 v0.4.0**（标签 `v0.4.0`，minor——新功能首次进入发布物）：FC-001 升正式验收
->   （scope=approved_fc，model_version 1.1.0）、GT-001 正式化（L0b 标签、f_channel_diff 通道差、
->   gt001_v1 golden 六 Run ±1e-9、GT PHY 检查）、FL-001 load_step 删除（O-13）、后端对照框架
->   （B-1/B-5 Python + HTTP 桥 + 对比页入口）、FMU 准入层（Q-5）+ ctypes runner 骨架、
->   评测轨首场次归档、上游勘误、性能门禁（E2E ≤15s）、评测协议 v2。
-> - **v0.3.1 补丁**（标签 `v0.3.1`，2026-10-30）：GT-001 实现主体 + FL-19 后端对照 + 上游勘误 +
->   性能门禁。发布证据 `evidence/g8/v031-release.md`。
-> - **v0.3.0 基线**（标签 `v0.3.0`）：**稳定性 / 可复现性 / 可追溯性发布**——不新增产品功能、
->   不改架构、不新增物理模型、不做 FC-001 升级、不重建单文件 `FaultLab.html`。发布门 G8 就绪检查单
->   R-01…R-10 关闭；证据见 `FaultLab-evaluation/NEXT/evidence/g8/README.md`（证据索引）与
->   `evidence/g8/g8-release-checklist.md`（就绪检查单）。
-> - **V0.3.0 验证摘要（仅内部一致性与可复现性证据，非模型验证/硬件验证）**：候选提交
->   `1a8c1aee4f95d9e1d867fd318bc5114ee4330443` 上 `node tools/run-g2.mjs` **19/19 PASS**
->   （ok=true / failed=0 / worktree_dirty=false；报告 `artifacts/run-g2-report.json`
->   `2026-10-30T10:49:10.226Z`，含 commit/branch/worktree/node/python 追溯字段）；I-11 Plant 接口
->   对基线 `7aed9f6` **12/12 配置 · 36/36 字段**（`run_hash` / `signals_sha256` / `metrics_sha256`
->   逐位一致；`engine_version` 维持 0.1.0）；双 golden（fl001/fc001）`verify_golden` exit 0、
->   `copy-guard` exit 0（29 模式）、EvidenceBundle v1 复核链不变；Chrome 155.0.8059.85 /
->   Edge 155.0.4283.62 各 E2E **40/40**（同一候选提交，worktree_dirty=false）。
-> - **P0 验收基线（唯一验收路径）**：`FL-001` × 3 组固定 Run（`baseline` / `closed_loop_fault` / `monitor_only`）
->   × 5 逻辑视图 × 单一时钟 × 事件 pre/post（20.0−/20.0+）× 因果证据跳转 × 对比白名单 × 证据包导出/重载 × golden 校验。
-> - **G2 四件套已按批准规格实施并全绿**（2026-10-28）：独立 oracle + golden v1、Schema/单位字典、
->   RunRegistry/规范哈希、浏览器 E2E；证据见 `FaultLab-evaluation/NEXT/evidence/g2/`。
->   这是**内部一致性与可复核性证据**；G2/G3 门禁关闭裁决仍以 Lead/用户对证据包的复核为准。
-> - **FC-001 / GT-001 / load_step / actuator_fault / Agent Arena 为扩展预览（P1/P2）**，携带
->   `scope='extension_preview'` 标注，不进入 P0 验收；**GT-001 已按 G2b 批准规格实现（f_channel_diff 通道差改造 + gt001_v1 golden 六 Run ±1e-9 +
-  engine-gt 90/90 + 清除恢复锚点 §9 定案）；仍为扩展预览，不进入 P0 验收**；**FC-001 已升正式验收
-  （V3-04，model_version=1.1.0，scope=approved_fc）**
->   （`FaultLab-evaluation/NEXT/SCOPE_SPLIT_MEMO.md`）。
-> - 旧原型自检的测试 PASS 数字已从本 README 移出（不得作为验收证据引用）；历史记录见
->   `artifacts/QA_REPORT.md` 与 git 历史。
+> **早期版本记录**（v0.3.0–v0.5.0：稳定性/可复现性基线、FC-001 升正式验收、GT-001 正式化等）已从本 README 移出——
+> 原文见 git 历史与 `FaultLab-evaluation/NEXT/evidence/g8/`（v031/v040/v050-release.md、`g8-release-checklist.md`）。
+> **P0 验收基线**（唯一验收路径，至今不变）：FL-001 × 3 组固定 Run（baseline / closed_loop_fault / monitor_only）。
 
 ---
 
@@ -170,7 +140,7 @@ tools/e2e.mjs                  CDP headless 浏览器 E2E（fl001-min 旅程，4
 tools/copy-guard.mjs           禁止词扫描（UI_COPY_GUARDRAILS §6.3）
 tools/arena2-gen.mjs           盲评测 v2 测试集/盲包/reveal 生成器（评测轨，G6 已批准）
 tools/arena2-verify.mjs        盲评测 v2 可信评测器（V-00…V-10 + score_hash 落章）
-tools/run-g2.mjs               G2 四件套聚合器（任一失败非零退出；19 步；报告含 commit/branch/
+tools/run-g2.mjs               G2 四件套聚合器（任一失败非零退出；步数与分层见报告 tiers；报告含 commit/branch/
                                worktree/node/python 追溯字段，V0.3.0 T1）
 tests/                         core / arena（既有）+ schema / event-phase / engine / registry /
                                bundle / scope-guard / compare / causal-rules / report / plants（I-11）/
@@ -184,9 +154,9 @@ artifacts/                     QA 截图与运行报告（run-g2-report.json / e
 
 ```powershell
 python tools/oracle/fl001_oracle.py --self-check   # oracle 自检（SC-1..SC-6）
-python scripts/verify_golden.py                    # 双 golden 一键校验（默认 fl001；exit 0/1/2）
+python scripts/verify_golden.py                    # 默认组 golden 一键校验（exit 0/1/2）
 python scripts/verify_golden.py fc001              # FC-001 golden（G2b-lite 口径）
-node tools/run-g2.mjs                              # 四件套聚合：数值/E2E/Registry/Schema + 回归（19 步；含追溯元数据）
+node tools/run-g2.mjs                              # 全量门禁（步数见 artifacts/run-g2-report.json 的 tiers；含追溯元数据）
 node tests/plants.test.js                          # I-11 Plant 适配器接口护栏（83 断言）
 node tools/verify-i11-bitidentity.mjs [out.json]   # I-11 逐位一致性快照（12 配置 run_hash/signals/metrics）
 node tools/verify-i11-bitidentity.mjs --baseline <baseline.json> --out <comparison.json>
@@ -230,7 +200,7 @@ node tools/qa.mjs shots                            # 原型期截图走查（历
   （`RFC_MODEL_INTERFACE_I11_APPROVED.md` + CHG-20261030-07；FL/FC 的 `none`/`sensor_drift` 家族走
   `src/core/plants/` 适配器，`run_hash` 逐位不变）；V0.3.0 复验 **12/12 配置 · 36/36 字段** 对基线
   `7aed9f6` 逐位一致（`evidence/g8/i11-bitidentity/`）；S3（GT-001）未排期，GT 内联分支保留。
-- **Arena / 评测轨**：协议 v2 已批准并实现（gen/session/verify CLI + 17 条负例 + 24 步聚合门禁）；
+- **Arena / 评测轨**：协议 v2 已批准并实现（gen/session/verify CLI + 负例集 + 聚合门禁）；
   首场次归档 `evidence/g8/eval-session-001/`（3 参赛、score_hash 落章）；页面演示轨不变；
   评分只标「合成故障评测游戏，非真实诊断性能」。
 - 浏览器端计算与哈希不构成第三方验证；分享/复核以证据包 v1 + `verify_bundle.py` 为准。

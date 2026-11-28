@@ -123,5 +123,29 @@ linux64 实测与 golden 逐位一致）。未做项均已显式裁定（adapter
 **本次重开状态**：仅更新清单，**R-V2-01..04 维持原裁定待用户再议**（不排程、不定优先级）。建议下一轮
 以本节 + §1 为输入做「v2.0.0 清单冻结」讨论（§4 阶段 2）。
 
-**文件结束**。V2_CONVERGENCE_PRE_RESEARCH v0.1（2026-11-20，V1150 C-8 / CHG-20261119-09）；§6 重开 2026-11-27
+## 7. 冻结结论与观察名单（v1.19.x 治理波，2026-11-28——CHG-20261128-01 批准 / CHG-20261128-02 落档）
+
+**过滤标准**：只保留「有具体驱动且无法以 additive 方式实现」的项（V1190 R1-2）。
+
+**结论：§1 + §6 共 21 项，零项通过——v2.0.0 暂无必要。** 逐项结论表见 `V1190_WAVE_DESIGN.md` §2.1；
+摘要：不做 11 项（systemId 重构 / 联合 Run 原生化 / config v3 / golden v3 / FMU golden 原生化 / 故障参数域统一 /
+cross_system 谓词 / run-g2 分组 / DEFAULT_MODELS 分域 / Q5 systems 数组 / 及 #7 并入 #2）；移出 v2.0 改走 additive 3 项
+（TL-001 升 approved → v1.x 候选；provenance 档位正式化 → v1.19.x G7 已执行；feedback_mode baseline → 观察）；
+已完成 1 项（TL 新故障族 line_fault，v1.17）；精简治理面 → v1.19.x 执行。
+
+**观察名单**（出现触发条件时重开本章；活文档承载 = `NEXT/ROADMAP.md` §3）：
+
+| # | 候选 | 触发条件 |
+|---|---|---|
+| W-1 | golden 格式压缩 | golden 目录 > 100 MB 或 clone 显著变慢（现 26 MB / .git 61 MB） |
+| W-2 | config 键面清理 | 列出具体遗留键清单 |
+| W-3 | feedback_mode 增 baseline（additive） | 出现消费方需求 |
+| W-4 | L2 评测面正式化（blind_pack v3） | 第三方 agent 接入 |
+| W-5 | copy-guard SCOPES 扩张（additive） | tools/docs 出现用户可见文案风险 |
+| W-6 | pow 路径 run_hash 环境相关性 | I-11 gt 基线成因判定为 (ii)（i11-bitidentity README §8.3）⇒ additive 声明 |
+
+**R-V2 终态（建议，随 CHG-20261128-01 批准）**：R-V2-01 不排程；R-V2-02 无 breaking 面须排序；R-V2-03 迁移义务
+不适用；R-V2-04 观察项触发时重开。
+
+**文件结束**。V2_CONVERGENCE_PRE_RESEARCH v0.1（2026-11-20，V1150 C-8 / CHG-20261119-09）；§7 冻结 2026-11-28（CHG-20261128-02）；§6 重开 2026-11-27
 （CHG-20261127-06）。本预研为零实现承诺文本；裁定留白章显式留用户。
