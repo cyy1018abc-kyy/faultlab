@@ -1966,3 +1966,8 @@ CHG-YYYYMMDD-NN | 决策 ID | 原决定 → 新决定 | 理由 | 影响文件 | 
 - `CHG-20261127-06`：**v1.18.0 发布（G8）——TL-001 联合内核 C99/FMU 链 + I-11 基线重归档（V1180 精简版收口）**。
   承接 CHG-20261127-03/04/05。**① 版本**：APP_VERSION 1.17.0→**1.18.0**（2026-11-27）+ README / index.html meta；FaultLab.html 重建 1819.2 KiB（js=38，×2 幂等）。**② 发布门（Linux 容器）**：run-g2 ×2 **40/40**（104,865 / 104,500 ms）；gt_tl_joint parity 0.0（139,432 值逐位）；verify_golden ×15 + 默认十 全 exit 0；copy-guard 43/0；I-11 对 v1.17.0 新基线 12/12·36/36 + 46/46·138/138；ui-walkthrough 74/74；e2e 95/0；file-smoke 99/0；既有 17 golden 零触碰——证据 `NEXT/evidence/g8/v1180-release.md`。**③ 治理收口（精简）**：V08_ROADMAP §9（v1.18.0 收盘——V08 主线全部兑现或显式处置，V08 收官；v1.19+ 候选六项）；V2_CONVERGENCE_PRE_RESEARCH §6（R-V2-04 重开——清单增补 Q5 / TL 正式化 / 精简治理面 / pow 环境相关性候选；R-V2-01..04 维持待议）；V1_FACES §23；V06_ROADMAP v1.18.0 行。**④ 未随本版**：TL 联合包 win64 dll（用户侧）、adapter（不做）、参考 agent（候选）。**⑤ 用户侧事项**：Windows 回归、I-11 gt 基线成因快照、win64 联合 dll 构建——步骤见发布证据 §4。
   **批准人：用户（CHG-20261127-03 指令链）；记录人：Lead Agent（云端会话 claude/gallant-fermat-1d24pe）。**
+- `CHG-20261128-01`：**V1190_WAVE_DESIGN v1 批准（v1.19.x 治理波：v2.0.0 清单冻结 + 精简治理面 G1–G7；不切版本）**。
+  指令：用户 2026-11-28「进入 1.19 的方案设计，和我进行多轮讨论，把方案做好」→ 两轮裁定（R1：主轴收敛波 / 过滤标准 / Q5 不做 / 平台运营搁置；R2：清单结论同意 / G1–G6 不增改 / G7 并入 / 不切版本）。
+  结果：v2.0.0 清单 21 项零项通过过滤——暂无必要，转观察名单 6 项；TL 升 approved 与 provenance 正式化移出 v2.0（additive）。
+  证据：`NEXT/V1190_WAVE_DESIGN.md` §1–§3。零代码。
+  **批准人：用户（2026-11-28 指令链）；记录人：Lead Agent（云端会话 claude/gallant-fermat-1d24pe）。**
